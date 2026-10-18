@@ -263,10 +263,14 @@ func InspectOperational(ctx context.Context, store OperationalStore, projectID s
 	if err != nil {
 		return OperationalObservation{}, operationalCategory(ctx, err)
 	}
-	if !ValidOperationalState(observation.State) || observation.Revision == "" || observation.Exists == (observation.Revision == OperationalRevisionAbsent) {
+	if !ValidOperationalObservation(observation) {
 		return OperationalObservation{}, OperationalStateInvalid
 	}
 	return observation, ""
+}
+
+func ValidOperationalObservation(observation OperationalObservation) bool {
+	return ValidOperationalState(observation.State) && observation.Revision != "" && observation.Exists != (observation.Revision == OperationalRevisionAbsent)
 }
 
 // PreviewOperational observes fresh state and returns the reviewed effect.

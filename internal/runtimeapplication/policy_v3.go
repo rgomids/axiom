@@ -248,3 +248,25 @@ func ReadinessCandidatesV3(state string, cfg *runtimeprofile.ConfigurationV3) ([
 	}
 	return candidates, ""
 }
+
+func EvaluateAvailabilityV3(p project.Project, consumer runtimeprofile.ConsumerV3) string {
+	if !p.Equivalent(p) {
+		return "invalid_project"
+	}
+	if !project.RuntimePolicyDeclared(p.State()) {
+		return "policy_unconfigured"
+	}
+	if consumer.Digest() == "" {
+		return "invalid_configuration"
+	}
+	permitted := permittedProfiles(p.State(), consumer)
+	if len(permitted) == 0 {
+		return "no_allowed_match"
+	}
+	for _, runtime := range consumer.Configuration().Runtimes {
+		if runtime.Enabled && len(permitted[runtime.ID]) != 0 {
+			return "inventory_unavailable"
+		}
+	}
+	return "runtime_unavailable"
+}
