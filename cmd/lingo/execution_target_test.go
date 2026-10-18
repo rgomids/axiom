@@ -177,7 +177,7 @@ func TestWorkflowStartEffectiveProjectSourcesAndDisclosure(t *testing.T) {
 			if code := cli.RunInteractive(ctx, call, service, currentProvenance(), nil, &out, nil); code != 0 {
 				t.Fatalf("code=%d output=%s", code, &out)
 			}
-			projectSource := "- **projectSource:** `" + source + "`"
+			projectSource := "projectSource: " + source
 			if jsonMode {
 				projectSource = `"projectSource":"` + source + `"`
 			}

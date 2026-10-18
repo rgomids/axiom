@@ -81,7 +81,8 @@ func routingTable(t *testing.T, name string) []routingRow {
 		for _, item := range strings.Split(cells[2], ",") {
 			invocation := strings.Trim(strings.TrimSpace(item), "`")
 			rest, ok := strings.CutPrefix(invocation, "axiom ")
-			if !ok || strings.HasPrefix(rest, "--json") {
+			rest, explicitJSON := strings.CutPrefix(rest, "--json ")
+			if !ok || !explicitJSON {
 				t.Fatalf("%s routes outside human-first axiom: %s", name, invocation)
 			}
 			command, selector, _ := strings.Cut(rest, " --")

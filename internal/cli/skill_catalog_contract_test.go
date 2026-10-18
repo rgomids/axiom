@@ -95,14 +95,14 @@ func TestCanonicalRoutingContract(t *testing.T) {
 				}
 				commands := []string{}
 				for _, action := range mode.actions {
-					command := skillCommandName(action)
-					commands = append(commands, command)
+					command := strings.Replace(skillCommandName(action), "axiom ", "axiom --json ", 1)
+					commands = append(commands, skillCommandName(action))
 					if !strings.Contains(row[2], "`"+command+"`") && !strings.Contains(row[2], "`"+command+" ") {
 						t.Fatalf("%s command drift: %s", name, command)
 					}
 				}
 				// No unrelated command may be smuggled into a prose route.
-				if strings.Count(row[2], "axiom ") != len(mode.actions) || strings.Contains(row[2], "--json") {
+				if strings.Count(row[2], "axiom ") != len(mode.actions) || strings.Count(row[2], "axiom --json ") != len(mode.actions) {
 					t.Fatalf("extra command in %s %s/%s", name, spec.name, mode.name)
 				}
 				expected = append(expected, "| "+name+" | "+spec.name+" | "+mode.name+" | "+strings.Join(commands, "; ")+" | "+mode.effect+" | "+strings.Join(mode.authorityInputs, " ")+" |")

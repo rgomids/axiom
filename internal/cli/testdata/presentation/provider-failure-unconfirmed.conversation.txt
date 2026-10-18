@@ -1,0 +1,1 @@
+Work Item 42: The operation failed (failure). Effect confirmation remains unknown; inspect canonical state before any dependent operation.

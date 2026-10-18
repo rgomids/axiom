@@ -10,8 +10,8 @@ import (
 )
 
 const (
-	SkillSetVersion     = "2"
-	BinaryCompatibility = "2"
+	SkillSetVersion     = "3"
+	BinaryCompatibility = "3"
 	receiptName         = ".axiom-skill-set.receipt"
 )
 
@@ -260,6 +260,12 @@ var sharedSkillHistory = []skillSetRevision{
 		"axiom-project":   "14bd0419ff6b050bd2f8bd46a2b5ee2c6a23147e73bd6838f775bc577ab34800",
 		"axiom-work-item": "c59e6193ae89a4a4f615728b4a78a79816f13db6d6de6f7716e81ff53df304f0",
 		"axiom-workflow":  "bfc1593560df9ad027df8bfc96483ec324c1e05bd74e969c9c4ebe33afff5cf2",
+		"axiom-runtime":   "7a3d90f74a9e5eb3f6580ca0bb9f55b8983db2fda9ea69feca2bae72499fef35",
+	}},
+	{skillSetVersion: "2", binaryCompatibility: "2", skills: map[string]string{
+		"axiom-project":   "d676740525a254105521e1bf426284cc0a457830183da6ed6f8057dc7a8dfc26",
+		"axiom-work-item": "965df8b3435c4afa3fd674ceae86ce98ecae405440a00854478610c74ef18c39",
+		"axiom-workflow":  "c7c5dec9abcf5dd133036ef97c69203b52ca7d6aee1aa50dbf9d3616680f4773",
 		"axiom-runtime":   "7a3d90f74a9e5eb3f6580ca0bb9f55b8983db2fda9ea69feca2bae72499fef35",
 	}},
 }

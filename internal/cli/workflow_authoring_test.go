@@ -52,7 +52,7 @@ func TestWorkflowAuthoringPresentsExactCanonicalEvent(t *testing.T) {
 			if !json.Valid(structured.Bytes()) {
 				t.Fatal("machine output is not canonical JSON")
 			}
-			expected, err := renderMarkdown(structured.Bytes())
+			expected, err := renderTerminal(structured.Bytes())
 			if err != nil || !bytes.Equal(expected, human.Bytes()) {
 				t.Fatalf("human workflow output diverges from canonical renderer: %v", err)
 			}

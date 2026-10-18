@@ -17,7 +17,6 @@ import (
 	"github.com/rgomids/axiom/internal/project"
 	"github.com/rgomids/axiom/internal/projectapp"
 	"github.com/rgomids/axiom/internal/provenance"
-	"github.com/rgomids/axiom/internal/workflowdefinition"
 	"github.com/rgomids/axiom/internal/workitem"
 )
 
@@ -89,7 +88,7 @@ func TestPresentationGoldenScenarios(t *testing.T) {
 			for _, golden := range []struct {
 				mode      outputMode
 				extension string
-			}{{jsonOutput, ".json"}, {humanOutput, ".md"}} {
+			}{{jsonOutput, ".json"}, {humanOutput, ".txt"}} {
 				got := renderScenario(t, scenario, golden.mode)
 				path := filepath.Join("testdata", "presentation", scenario.name+golden.extension)
 				if *updatePresentation {
@@ -125,7 +124,7 @@ func assertHumanPreservesEvent(t *testing.T, name, wire, human string) {
 		t.Fatal(err)
 	}
 	status := root.field("status").text
-	if !strings.Contains(human, "("+codeSpan(status)+")") {
+	if !strings.Contains(human, "("+terminalText(status)+")") {
 		t.Errorf("%s: canonical status %q absent", name, status)
 	}
 	var walk func(path string, node *jsonNode)
@@ -134,7 +133,7 @@ func assertHumanPreservesEvent(t *testing.T, name, wire, human string) {
 			childPath := path + "[" + strconv.Itoa(index) + "]"
 			if node.kind == jsonObject {
 				childPath = path + "." + node.keys[index]
-				if path != "" && !strings.Contains(human, markdownKey(node.keys[index])) {
+				if path != "" && !strings.Contains(human, terminalText(node.keys[index])) {
 					t.Errorf("%s: key %s absent", name, childPath)
 				}
 			}
@@ -143,12 +142,12 @@ func assertHumanPreservesEvent(t *testing.T, name, wire, human string) {
 		if node.kind == jsonObject || node.kind == jsonArray {
 			return
 		}
-		want := inlineValue(node)
+		want := terminalText(node.text)
 		switch {
 		case path == ".result" || path == ".next":
-			want = plainText(node.text)
+			want = terminalText(node.text)
 		case node.kind == jsonString && strings.ContainsAny(node.text, "\n\r"):
-			want = escapeControls(strings.Split(node.text, "\n")[0], true)
+			want = escapeControls(strings.Split(node.text, "\n")[0])
 		}
 		if !strings.Contains(human, want) {
 			t.Errorf("%s: value %s = %q absent from human view as %q", name, path, node.text, want)
@@ -187,11 +186,11 @@ func TestPresentationStatusLabelsAreExhaustiveAndDistinct(t *testing.T) {
 		t.Fatalf("labels %d for %d statuses", len(statusLabels), len(completion.Statuses()))
 	}
 	unknown := []byte(`{"status":"mystery","result":"x","provenance":{"product":"Axiom"}}`)
-	rendered, err := renderMarkdown(unknown)
-	if err != nil || !strings.HasPrefix(string(rendered), "### Unrecognized status (`mystery`)") {
+	rendered, err := renderTerminal(unknown)
+	if err != nil || !strings.HasPrefix(string(rendered), "Unrecognized status (mystery)") {
 		t.Fatalf("unknown status rendered as %q, %v", rendered, err)
 	}
-	if _, err := renderMarkdown([]byte(`{"result":"x","provenance":{}}`)); err == nil {
+	if _, err := renderTerminal([]byte(`{"result":"x","provenance":{}}`)); err == nil {
 		t.Fatal("event without canonical status rendered")
 	}
 }
@@ -204,11 +203,11 @@ func TestPresentationNeutralizesProviderAuthoredMarkup(t *testing.T) {
 			t.Fatalf("human view carries raw control %q", raw)
 		}
 	}
-	if !strings.Contains(human, "``https://example.test/`x`\\u001B[31m\\u202Eevil``") {
+	if !strings.Contains(human, "https://example.test/`x`\\u001B[31m\\u202Eevil") {
 		t.Fatalf("hostile value not rendered literally:\n%s", human)
 	}
-	block, err := renderMarkdown([]byte(`{"status":"success","result":"x","provenance":{},"body":"line\n# heading\n` + "```" + `"}`))
-	if err != nil || !strings.Contains(string(block), "  ````\n  line\n  # heading\n  ```\n  ````\n") {
+	block, err := renderTerminal([]byte(`{"status":"success","result":"x","provenance":{},"body":"line\n# heading\n` + "```" + `"}`))
+	if err != nil || !strings.Contains(string(block), "body: line\\u000A# heading\\u000A```") {
 		t.Fatalf("multi-line value escaped its fence:\n%s", block)
 	}
 }
@@ -234,7 +233,7 @@ func TestPresentationIsBoundedWithoutTruncation(t *testing.T) {
 	if human.Len() > humanOutputLimit(structured.Len()) {
 		t.Fatalf("human %d bytes exceeds bound for JSON %d bytes", human.Len(), structured.Len())
 	}
-	if strings.Count(human.String(), " · slug `p") != len(projects) {
+	if strings.Count(human.String(), "slug: p") != len(projects) {
 		t.Fatal("human view dropped list entries instead of failing")
 	}
 	var refused bytes.Buffer
@@ -258,9 +257,6 @@ func TestPresentationMakesNoModelOrRuntimeCall(t *testing.T) {
 	}
 }
 
-// Review of #291: a validated setup preview whose glossary definitions are
-// runs of backticks must keep its outcome, effects and digest in both modes.
-// The shortest absent fence keeps such values near their JSON size.
 func TestPresentationBacktickHeavyPreviewKeepsEveryField(t *testing.T) {
 	glossary := make([]project.GlossaryEntry, 0, 6)
 	for index := range 6 {
@@ -284,7 +280,7 @@ func TestPresentationBacktickHeavyPreviewKeepsEveryField(t *testing.T) {
 		if human.Len() > structured.Len()+structured.Len()/4 {
 			t.Fatalf("human %d bytes for JSON %d bytes", human.Len(), structured.Len())
 		}
-		for _, want := range []string{"`publish_portable_project`", "`publish_local_bindings`", "- **digest:** `" + proposal.Preview().Digest + "`"} {
+		for _, want := range []string{"publish_portable_project", "publish_local_bindings", "digest: " + proposal.Preview().Digest} {
 			if !strings.Contains(human.String(), want) {
 				t.Fatalf("human view lacks %q", want)
 			}
@@ -293,38 +289,25 @@ func TestPresentationBacktickHeavyPreviewKeepsEveryField(t *testing.T) {
 	}
 }
 
-// A readable view beyond its bound becomes the literal view: the same summary
-// and exit code, with every payload field as its exact canonical JSON.
-func TestPresentationLiteralViewKeepsEveryPayloadField(t *testing.T) {
-	items := make([]string, 4000)
-	for index := range items {
-		items[index] = `"a"`
-	}
-	nested := "[[[[[[[[[" + strings.Join(items, ",") + "]]]]]]]]]"
-	wire := []byte(`{"status":"partial","result":"Effect confirmed","references":["github:acme/app#42"],"next":"Reconcile","provenance":{"product":"Axiom","version":"development","revision":"abc","sourceState":"clean"},"category":"applied","deep":` + nested + `,"digest":"d1"}` + "\n")
-	readable, err := renderMarkdown(wire)
-	if err != nil || len(readable) <= humanOutputLimit(len(wire)) {
-		t.Fatalf("fixture does not exceed the readable bound: %d bytes, %v", len(readable), err)
-	}
+func TestPresentationDeepValuesFitWithoutFallbackOrTruncation(t *testing.T) {
+	items := strings.Repeat(`"a",`, 3999) + `"a"`
+	nested := strings.Repeat("[", 20) + items + strings.Repeat("]", 20)
+	wire := []byte(`{"status":"partial","result":"Effect confirmed","references":["github:acme/app#42"],"next":"Reconcile","provenance":{"sourceState":"dirty"},"deep":` + nested + `,"digest":"d1"}`)
 	var human bytes.Buffer
-	if code := presentEvent(&human, humanOutput, completion.Partial, wire, len(wire)); code != completionExitCode(completion.Partial) {
-		t.Fatalf("literal view exit %d", code)
+	if code := presentEvent(&human, humanOutput, completion.Partial, wire, len(wire)); code != ExitFailure {
+		t.Fatalf("exit %d", code)
 	}
-	for _, want := range []string{"### Partially completed — recovery required (`partial`)", "- **Next:** Reconcile", "`github:acme/app#42`", "**Provenance:** product `Axiom`"} {
+	if human.Len() == 0 || human.Len() > humanOutputLimit(len(wire)) || strings.Contains(human.String(), "```") || strings.Count(human.String(), "a,") != 3999 {
+		t.Fatalf("bounded native output lost values: %d bytes", human.Len())
+	}
+	for _, want := range []string{"(partial)", "github:acme/app#42", "digest: d1", "sourceState: dirty"} {
 		if !strings.Contains(human.String(), want) {
-			t.Fatalf("literal view lacks %q", want)
-		}
-	}
-	for key, raw := range map[string]string{"category": `"applied"`, "deep": nested, "digest": `"d1"`} {
-		if !strings.Contains(human.String(), "#### "+key+" (canonical JSON)\n\n```json\n"+raw+"\n```\n") {
-			t.Fatalf("literal view lacks canonical %s", key)
+			t.Fatal(want)
 		}
 	}
 }
 
-// The literal view fits humanOutputLimit for the smallest JSON bound: the
-// summary is bounded by internal/completion and the payload at most triples.
-func TestPresentationWorstCaseLiteralViewFits(t *testing.T) {
+func TestPresentationWorstCaseTerminalFits(t *testing.T) {
 	references := make([]string, 16)
 	for index := range references {
 		references[index] = "r" + strconv.Itoa(index) + strings.Repeat("`", 252) + "r"
@@ -341,65 +324,13 @@ func TestPresentationWorstCaseLiteralViewFits(t *testing.T) {
 	}
 	wire := append(append(bytes.TrimSuffix(summary, []byte("}\n")), `,"x":`...), payload...)
 	wire = append(wire, "}\n"...)
-	if len(wire) > MaxCompletionOutputBytes {
-		t.Fatalf("fixture %d bytes exceeds the JSON bound", len(wire))
-	}
-	literal, err := renderMarkdownView(wire, false)
-	if err != nil || len(literal) > humanOutputLimit(MaxCompletionOutputBytes) {
-		t.Fatalf("worst-case literal view %d bytes exceeds %d: %v", len(literal), humanOutputLimit(MaxCompletionOutputBytes), err)
+	var human bytes.Buffer
+	if code := presentEvent(&human, humanOutput, result.Status(), wire, MaxCompletionOutputBytes); code != ExitFailure || human.Len() == 0 || human.Len() > humanOutputLimit(MaxCompletionOutputBytes) {
+		t.Fatalf("output=%d bytes code=%d", human.Len(), code)
 	}
 	for _, reference := range references {
-		if !strings.Contains(string(literal), codeSpan(reference)) {
-			t.Fatal("worst-case literal view dropped a confirmed reference")
+		if !strings.Contains(human.String(), reference) {
+			t.Fatal("dropped confirmed reference")
 		}
-	}
-}
-
-// A programmed auxiliary fallback for a host without graphics. It is checked
-// against the already observed definition; no CLI operation is repeated and
-// this test makes no claim about a native Runtime rendering a diagram.
-func TestOperatorAuxiliaryFallbackMatchesCanonicalOrderAndGates(t *testing.T) {
-	doc := workflowdefinition.Builtin()
-	// This human-readable fixture is intentionally independent of the renderer.
-	fallback := []struct{ id, source, gate string }{
-		{"intake", "target", ""},
-		{"specification", "intake/result", ""},
-		{"clarification", "specification/result", ""},
-		{"plan", "clarification/result", "planning_authority:before"},
-		{"tasks", "plan/result", ""},
-		{"implementation", "tasks/result", "implementation_authority:before"},
-		{"review", "implementation/result", "review_started:before"},
-		{"evidence", "review/result", ""},
-		{"reconciliation", "evidence/result", ""},
-		{"completion", "reconciliation/result", "human_acceptance:after"},
-	}
-	if len(fallback) != len(doc.Definition.Stages) {
-		t.Fatal("fallback omitted stages")
-	}
-	for i, row := range fallback {
-		stage := doc.Definition.Stages[i]
-		if stage.ID != row.id || len(stage.Inputs) != 1 || stage.Inputs[0].Source != row.source {
-			t.Fatalf("fallback contradicts canonical stage %d", i)
-		}
-		gate := ""
-		if len(stage.HumanGates) > 0 {
-			gate = stage.HumanGates[0].Kind + ":" + stage.HumanGates[0].Timing
-		}
-		if gate != row.gate {
-			t.Fatalf("fallback omitted/changed gate for %s", row.id)
-		}
-	}
-	c := presentationResult(t, completion.Facts{ValidationFailed: true}, "Refused", nil, "Inspect canonical selection", "")
-	wire, _ := renderCompletionJSON(*c)
-	canonical, err := renderMarkdown(wire)
-	if err != nil {
-		t.Fatal(err)
-	}
-	auxiliary := append(append([]byte{}, canonical...), []byte("\nAuxiliary explanation: selection remains unavailable.\n")...)
-	for _, row := range fallback {
-		auxiliary = append(auxiliary, []byte(row.id+" <- "+row.source+" "+row.gate+"\n")...)
-	}
-	if !bytes.Equal(auxiliary[:len(canonical)], canonical) || !strings.Contains(string(auxiliary), "validation_failure") {
-		t.Fatal("auxiliary changed or hid refusal")
 	}
 }

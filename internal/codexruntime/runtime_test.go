@@ -102,7 +102,7 @@ func sameStrings(left, right []string) bool {
 }
 
 func TestSkillSetV2KeepsSelectorsAndCanonicalResultThin(t *testing.T) {
-	if SkillSetVersion != "2" || BinaryCompatibility != "2" {
+	if SkillSetVersion != "3" || BinaryCompatibility != "3" {
 		t.Fatalf("compatibility=%s/%s", SkillSetVersion, BinaryCompatibility)
 	}
 	for _, name := range skillNames {
@@ -116,7 +116,7 @@ func TestSkillSetV2KeepsSelectorsAndCanonicalResultThin(t *testing.T) {
 				t.Fatalf("%s missing thin adapter contract %q", name, required)
 			}
 		}
-		for _, required := range []string{"Present that Markdown exactly as returned", "never present an outcome as more\nsuccessful than its canonical status", "Run `axiom --json` only when the user\nexplicitly asks", "Never derive, synthesize, or reinterpret"} {
+		for _, required := range []string{"Use leading `axiom --json` internally", "The host writes the normal conversational response itself", "stop dependent actions", "copy them exactly", "Consent binds the exact target", "relay the original canonical JSON"} {
 			if !strings.Contains(text, required) {
 				t.Fatalf("%s missing exact canonical projection rule %q", name, required)
 			}
@@ -131,7 +131,7 @@ func TestSkillSetV2KeepsSelectorsAndCanonicalResultThin(t *testing.T) {
 		}
 	}
 	create, _ := fs.ReadFile(skillFiles, "skills/axiom-work-item/SKILL.md")
-	if !strings.Contains(strings.Join(strings.Fields(string(create)), " "), "do not extract, duplicate, rename, or relocate") {
+	if !strings.Contains(strings.Join(strings.Fields(string(create)), " "), "copy them exactly") {
 		t.Fatal("axiom-work-item may not preserve the original Lingo payload shape")
 	}
 }
@@ -770,7 +770,7 @@ func TestInspectReportsBinaryCompatibilityAndPartialResume(t *testing.T) {
 	if got := service.Install(context.Background()); got.Status != Applied {
 		t.Fatalf("resume = %#v", got)
 	}
-	incompatible, err := NewForBinary(root, "3")
+	incompatible, err := NewForBinary(root, "unsupported")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -831,9 +831,9 @@ func TestWorkItemRunSkillTeachesReviewedRuntimePreview(t *testing.T) {
 func assertReviewedRuntimePreview(t *testing.T, name, text string) {
 	t.Helper()
 	for _, required := range []string{
-		"axiom workflow start <selectors> --role <role> --complexity <complexity> --capabilities <capabilities> --runtime <runtime>\n",
+		"axiom --json workflow start <selectors> --role <role> --complexity <complexity> --capabilities <capabilities> --runtime <runtime>\n",
 		"--runtime <runtime> --runtime-preview <previewDigest>\n",
-		"axiom workflow status <selectors> --execution <executionId>\n",
+		"axiom --json workflow status <selectors> --execution <executionId>\n",
 		"`runtimeResolution`", "`previewDigest`", "`stale_preview`", "runtimeResolution.choice.runtimeId",
 		"Never default to Codex", "never supply, invent, or claim an observation",
 	} {

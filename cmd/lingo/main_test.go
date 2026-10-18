@@ -438,13 +438,13 @@ func TestFirstRunReportsMissingReadyAndIncompatibleSkillStates(t *testing.T) {
 	if ready.Completion == nil || ready.Completion.Status() != completion.Success || ready.Runtime == nil || ready.Runtime.Skills[0].State != "equivalent" {
 		t.Fatalf("ready first run = %#v", ready)
 	}
-	incompatibleRuntime, err := codexruntime.NewForBinary(skills, "3")
+	incompatibleRuntime, err := codexruntime.NewForBinary(skills, "unsupported")
 	if err != nil {
 		t.Fatal(err)
 	}
 	service.codex = incompatibleRuntime
 	incompatible := service.RuntimeCodexStatus(context.Background())
-	if incompatible.Completion == nil || incompatible.Completion.Status() != completion.ValidationFailure || incompatible.Runtime == nil || incompatible.Runtime.BinaryCompatibility != "3" {
+	if incompatible.Completion == nil || incompatible.Completion.Status() != completion.ValidationFailure || incompatible.Runtime == nil || incompatible.Runtime.BinaryCompatibility != "unsupported" {
 		t.Fatalf("incompatible first run = %#v", incompatible)
 	}
 }

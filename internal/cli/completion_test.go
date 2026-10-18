@@ -41,7 +41,7 @@ func TestCompletionGoldenMatrix(t *testing.T) {
 				t.Fatalf("JSON exit = %d, want %d", code, test.wantCode)
 			}
 
-			goldenPath := filepath.Join("testdata", "presentation", "completion-"+string(test.status)+".md")
+			goldenPath := filepath.Join("testdata", "presentation", "completion-"+string(test.status)+".txt")
 			if *updatePresentation {
 				if err := os.WriteFile(goldenPath, human.Bytes(), 0o644); err != nil {
 					t.Fatal(err)
@@ -117,7 +117,7 @@ func TestCompletionPreservesStableDetailReferenceAcrossRenderers(t *testing.T) {
 	for _, test := range []struct {
 		format CompletionFormat
 		want   string
-	}{{CompletionJSON, `"details":"artifact:123e4567-e89b-42d3-a456-426614174000"`}, {CompletionHuman, "- **Details:** `artifact:123e4567-e89b-42d3-a456-426614174000`"}} {
+	}{{CompletionJSON, `"details":"artifact:123e4567-e89b-42d3-a456-426614174000"`}, {CompletionHuman, "details: artifact:123e4567-e89b-42d3-a456-426614174000"}} {
 		var output bytes.Buffer
 		if code := WriteCompletion(&output, test.format, result); code != ExitSuccess || !strings.Contains(output.String(), test.want) {
 			t.Fatalf("%s code=%d output=%q", test.format, code, output.String())

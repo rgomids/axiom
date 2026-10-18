@@ -207,7 +207,7 @@ func TestOperatorStageDiagnosticUsesCanonicalEmitter(t *testing.T) {
 	if event["diagnostic"] == nil || event["stage"] == nil || bytes.Index(structured.Bytes(), []byte(`"diagnostic"`)) < bytes.Index(structured.Bytes(), []byte(`"stage"`)) {
 		t.Fatal("lost additive payload order")
 	}
-	expected, err := renderMarkdown(structured.Bytes())
+	expected, err := renderTerminal(structured.Bytes())
 	if err != nil {
 		t.Fatal(err)
 	}

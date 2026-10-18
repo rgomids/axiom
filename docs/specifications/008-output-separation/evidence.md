@@ -846,3 +846,181 @@ state root still has zero entries. `gitleaks` is unavailable: dedicated scanner
 NOT_RUN; repository/staged sensitive-file checks remain required for publication.
 Only this append changes tracked content. Exact-checkpoint CI must be queried on
 the published SHA and must not be inherited from `aba1c4d`.
+
+
+## Resume r4 — synthetic implementation authority — 2026-10-18
+
+Entry: clean local/remote/PR #328 HEAD `70f5ffc60b1a05b0ea62bac90ef3617a12743566`,
+same branch, sole OPEN Draft PR. Tasks approval `6253982994` and the later
+[r4 decision](https://github.com/rgomids/axiom/pull/328#issuecomment-6255274772)
+were read back. The latter supersedes the r3 real Execution/Profile entry
+prerequisite: implement all eight Tasks using synthetic tests/fixtures only.
+No real Execution, host invocation, OAuth/login or installation is authorized.
+Real conversational/C12 observations are NOT_RUN, delegated to Rafael for final
+acceptance, neither failure nor blocker. GitHub #330 remains the recorded
+exception binding; no operational status or authority is changed.
+
+### T01 frozen consumer and validation matrix
+
+The r3 named-consumer inventory and immutable baseline hashes above remain
+inputs. Clarify supplies the producer/DTO inventory; no universal schema is
+introduced. All MVP emitters route through `presentEvent`; help/version and
+legacy POC remain separately classified. `Run` stays programmatic JSON;
+`RunInteractive`/binary stay human by default even on pipes. Unknown external
+text parsers require migration to explicit leading `--json`; their execution
+is unobserved. Prepared-smoke 64KiB is independent of emitter bounds and G2.
+
+| Task | Files/front | Depends on | Validation and Evidence |
+|---|---|---|---|
+| T01 | Existing JSON goldens, Clarify, this matrix; new test-only semantic fixtures | Approved Tasks + r4 | Freeze all seven completion classes, no-op/recovery, typed readiness variants, exact tokens and consumer treatment before renderer edits |
+| T02 | CLI presentation/readiness tests; Project skill | T01 | success/0 vs structure/effective/per-operation blockers; seven variants; single fake service call |
+| T03 | presentation.go, native snapshots, channel/parser/writer tests | T02 | Every existing JSON golden unchanged, native facts, bounded depth/control escaping, short/broken writes, default/human/json |
+| T04 | Four shared embedded skills; content/routing/protocol tests | T02 | Leading JSON on natural/explicit paths; host synthesis; malformed/contradictory observations stop dependent actions |
+| T05 | Typed semantic claim fixtures; consent/security suites | T03 + T04 | Positive/negative candidate prose, all blockers/effects, exact digest/revision, zero replay/authority expansion, synthetic canaries |
+| T06 | Shared manifest/history and isolated upgrade/rollback fixtures | T05 | Both host roots, owned/modified/foreign handling, old/new pair recognition and restoration |
+| T07 | Commands reference, prepared artifact, Evidence | T06 | Full Go/repository checks, fake-only smoke, immutable pins/state corpus |
+| T08 | Bounded host fixtures and final handoff | T07 | Synthetic host matrix; native conversation/C12 NOT_RUN, delegated to Rafael; independent review and acceptance pending |
+
+Oracle obligations are test-only, sourced from typed DTO members plus the actual
+invocation: status/exit, structure/effective/operation status, each finding with
+scope, effects and certainty, authority, references/digests/revisions, provenance
+qualification. Prose fields are displayed but never parsed to infer policy or
+authority. Missing typed payload remains unknown. G1/G2 remain conditional and
+receive no preventive fix. No delegation: strict model inferiority cannot be
+proved from the available runtime metadata; no independent review is claimed.
+
+### Implementation results and bounded review
+
+The implementation uses the existing typed completion/operation DTOs and their
+single `presentEvent` boundary. The ordered projection decoder is reused, not a
+new authority/result model. Native fields, compact nested delimiters and visible
+control escapes replace Markdown headings/emphasis/fences and the literal JSON
+fallback. Indentation stops expanding at three levels; deeper values remain
+complete and compact. Existing limits, status/exit mapping and writer failures
+remain authoritative. Static plain text deliberately needs no terminal detection,
+ANSI library, width dependency or capability/configuration interface. Stdlib plus
+existing decoder suffices; no new dependency or protocol implementation is added.
+
+All four shared skill sources use leading JSON in executable examples and teach
+normal host synthesis with exact typed tokens, material exceptions, read-back,
+consent and bounded handoff. The old Auxiliary/relay presentation requirement is
+replaced prospectively; domain routing, lifecycle and execution budgets remain.
+Project instructions distinguish structure/effective/operation readiness and
+require scoped typed policy evidence. There is no product-side conversational
+formatter, extra model call or host parser pretending to enforce AI behavior.
+
+Presentation compatibility uses existing skill-set/binary version **3/3**.
+Version 2/2 bytes are retained in shared history and exact test-only fixtures;
+published pins/receipts remain untouched. A bump is justified by the intentionally
+incompatible presentation consumer protocol, independently of unchanged JSON
+DTOs/persisted schemas. Current digests are appended to the existing manifest
+pin list. The previous AXM-31 fixture reads its frozen source instead of deriving
+historical text from newly changed production instructions.
+
+| Task | Synthetic implementation result | Principal executable Evidence |
+|---|---|---|
+| T01 | PASS: consumers, immutable baselines and typed obligations frozen | r3 inventory + r4 matrix; unchanged 11 JSON goldens, 393 stable state files, 17 published skill files and 23 published receipt/provenance files |
+| T02 | PASS: seven readiness variants; actual invalid structure retains validation_failure/1; valid policy-blocked remains success/0 | `TestOutputSeparationReadinessChannelsAndTypedClaims`, `TestReadinessRenderingIsBoundedAndStable`; fake service call count exactly one |
+| T03 | PASS: native static CLI, all seven completion statuses and eleven operation scenarios; no fenced fallback or truncation | `TestPresentationGoldenScenarios`, `TestCompletionGoldenMatrix`, `TestPresentationPreservesEveryCanonicalValue`, `TestPresentationDeepValuesFitWithoutFallbackOrTruncation`, `TestPresentationBacktickHeavyPreviewKeepsEveryField`, writer/channel tests |
+| T04 | PASS: four JSON-consuming skills, shared Codex/Claude content, preserved routing/selector/authority contracts | `TestOutputSeparationInstalledSyntheticHosts`, `TestCanonicalRoutingContract`, `TestOperatorConversationalPresentationContracts`, installed start-protocol integration |
+| T05 | PASS within frozen fixtures: typed claim ledger plus candidate prose checks and mandatory negative mutations; no effect replay | `TestOutputSeparationSemanticCandidateFixtures`, readiness negatives, `TestOutputSeparationSyntheticHostStopsOnUnusableObservation`, `TestOutputSeparationWriterFailureNeverReplays`, `TestOutputSeparationSanitizesBeforeBothPresentations`; existing operator/digest/consent/adversarial/detail-artifact suites |
+| T06 | PASS: protected upgrade, partial install/resume, no-op and exact pair restoration in both temporary roots | `TestOutputSeparationCoordinatedUpgradeAndPairRestoration`, existing foreign/modified/unsafe-root tests, executable old/new matrix below |
+| T07 | Documentation reconciled; prepared-artifact/check results recorded below | `docs/commands.md`, Specifications index; full Go/repository checks and local prepared smoke |
+| T08 | Synthetic fixture/handoff work delivered; real observations NOT_RUN, delegated to Rafael | Eleven candidate fixtures and seven readiness cases, both host-root contracts; native success/blocked/denied/partial/interrupted conversation and C12 remain final human gates |
+
+These statuses describe implementation/fixtures, not human acceptance. No native
+AC or real incident is declared demonstrated. `sourceClaim` is a test-only ledger
+of typed fields; candidate prose is checked independently of that ledger. Negative
+fixtures reject a missing second blocker, invented policy cause, completion
+promotion, changed digest, concealed confirmed partial effect and unsupported
+summary authority/replay. Unusable-observation cases cover absent, malformed,
+truncated, trailing, unknown/missing status, wrong target and contradictory effect
+observations. This is a bounded oracle over named cases, not a general natural
+language verifier or runtime enforcement claim.
+
+The command reference now documents native CLI/explicit JSON, Project validation
+interpretation, coordinated pairs and rollback using the backed-up exact root at
+its original path with its previous binary. No old installer is forced to adopt
+new bytes and no operational state is deleted. Legacy POC/help remain classified;
+unknown external consumers and optional over-budget diagnostic enrichment are not
+proved universally lossless. G1/G2 stay conditional, unreproduced and unchanged.
+
+### T06 executable pair matrix
+
+A one-off stdlib fixture outside the tracked tree built the previous binary from
+`git archive 70f5ffc60b1a05b0ea62bac90ef3617a12743566` and the current candidate
+with `go build`. Commands used leading `--json runtime <host> install|status`
+only against private temporary fixture roots, with empty PATH, isolated HOME,
+Project/state roots, `AXIOM_CODEX_SKILLS_ROOT` and `CLAUDE_CONFIG_DIR`.
+No host Runtime executable, authentication, real user installation or Execution
+was involved. Both binaries operated through their actual supported interfaces.
+
+| Pair/check | Codex fixture root | Claude fixture root |
+|---|---|---|
+| old binary + old four skills/receipt | PASS / status success |
+| new binary + old skills | PASS / status refused readiness until protected upgrade |
+| new binary + new four skills/receipt | PASS / status success |
+| current reinstall | PASS / bytes unchanged |
+| old binary + new skills | PASS / status and install refuse; all new bytes preserved |
+| exact previous root restored at original path + old binary | PASS / status success; original four digests and receipt restored |
+
+Candidate skill SHA-256 values, identical in both fixture roots:
+
+| Skill | SHA-256 |
+|---|---|
+| axiom-project | `5c282cedb7ad38f0cc2997ca3a28fa1c996ba7f8e3fe3b0d2efc9d570042961f` |
+| axiom-runtime | `f9ede6421e27df73dd68d477d776c622c56b8a91eac8eeb78a9b11ddf9392930` |
+| axiom-work-item | `59f23649a793bb8a793be3753f0e1d25f057b9c94edc62c08f6018c7a03bed91` |
+| axiom-workflow | `ab9192a3c94b03c94431bc8d506569212ab17ba1ded03a4a5c64aa439f9028ab` |
+
+The isolated restoration test also retains an independent synthetic operational
+state file byte-for-byte. Existing tests cover preserved foreign/modified files
+and unsafe roots. This does not claim a transaction across live runtime processes.
+
+### Channel and security observations
+
+PASS: 27 argument/environment combinations, each on pipe, file redirection and
+stdlib pseudo-TTY: default/`--human`/`--json` × TERM absent/dumb/xterm-256color ×
+NO_COLOR absent/empty/1; COLUMNS=10. Human bytes match exactly after PTY newline
+translation, JSON parses as one document, stderr stays separate, no ANSI is
+emitted and tokens are not shortened. The one-off fixture invokes only the local
+candidate's `version`; no Runtime process or model is used. Versioned parser/help
+and writer regressions supplement this transport check.
+
+PASS: mapped synthetic private-error canaries are absent before serialization
+and from JSON/native output; typed diagnostic categories and authorized references
+survive. Existing operator-budget/injection/detail-artifact tests remain part of
+the full suite. Raw arbitrary text is not promoted to typed authority. Controls
+and bidi in terminal data are visible escapes; hostile Markdown remains data.
+JSON bytes retain their existing encoding contract, including escaped control
+characters and existing Unicode representation; no wire-wide redaction/encoding
+rewrite is introduced. No real credentials or private provider/chat logs were used.
+
+Self-review found no unresolved material defect in the integrated scope. Earlier
+test failures exposed old Markdown assertions, a repeated JSON prefix in the
+installed-protocol test adapter, and an incorrect native indentation expectation;
+these test consumers were reconciled without changing domain behavior. Narrative
+code comments, speculative wrappers, dependencies and durable helper automation
+were not added. Accepted Spec/ADR/Clarify/Plan/Tasks are byte-identical; Evidence
+is append-only. The real state root remains empty. Independent review is still
+required and is requested in the PR handoff; no independent review is claimed.
+
+### Deterministic checks before local artifact preparation
+
+PASS (exit 0): `go test ./...`, `go vet ./...`,
+`./scripts/validate-repository.sh .`, `git diff --check`, staged sensitive-file
+scan and immutable-byte comparisons listed above. The complete Go run includes
+CLI/JSON, installed-skill protocol, compatibility, no-op/recovery, digest/consent,
+operator-budget, stage adversarial and detail-artifact security suites. The
+repository validator explicitly skips native behavioral scenarios as UNVERIFIED.
+The additional receipt consumer in
+`internal/runtimebootstrap/bootstrap_test.go` now checks current exported
+skill-set/binary constants rather than assuming version 2; the full rerun passed.
+`gitleaks` is unavailable: dedicated scanner NOT_RUN; no global installation was
+attempted. No Go module/dependency or durable automation registry changed.
+
+The release archive's existing outer validation headers remain format/version 1,
+independent of installed Runtime receipts 3/3; no archive/installer schema is
+changed. Packaging must still retain exactly the candidate's four source digests.
+Local archive build/smoke and exact-SHA CI publication observations follow below;
+no earlier commit's CI is inherited as proof of the final HEAD.

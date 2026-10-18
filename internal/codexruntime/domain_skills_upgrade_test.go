@@ -274,9 +274,9 @@ func TestPublishedV015RefusesForeignWorkflowWithoutContentEffects(t *testing.T) 
 // fixture is needed; receipt generation uses the existing integration contract.
 func seedPreOperatorAutonomyRoot(t *testing.T, service Service, root string) {
 	t.Helper()
-	previous := sharedSkillHistory[len(sharedSkillHistory)-1]
+	previous := sharedSkillHistory[len(sharedSkillHistory)-2]
 	for _, name := range skillNames {
-		current, err := fs.ReadFile(skillFiles, "skills/"+name+"/SKILL.md")
+		current, err := os.ReadFile(filepath.Join("testdata", "output-separation-v2", name, "SKILL.md"))
 		if err != nil {
 			t.Fatal(err)
 		}

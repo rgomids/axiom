@@ -13,12 +13,16 @@ The [Plan](008-output-separation/plan.md) was **Accepted (2026-10-18)** at
 `962adfdcd22384c681613810b78022469ee813cb` by
 [explicit human decision](https://github.com/rgomids/axiom/pull/328#issuecomment-6253809891),
 authorizing only SDD Tasks preparation. Its historical Proposed bytes are preserved.
-[Tasks](008-output-separation/tasks.md) are **Proposed for review**; their exact
-revision needs separate human acceptance and bounded authority before `implement`.
-D1–D3 and accepted behavioral requirements remain unchanged.
-[Tasks Evidence](008-output-separation/evidence.md#tasks-preparation--2026-10-18)
-records the current documentary scope and checks; no implementation/native-host
-acceptance is claimed.
+[Tasks](008-output-separation/tasks.md) were **Approved (2026-10-18)** at
+`2efacfdb3957c458df84514b0e2a4ac532cae4c8` with
+[explicit implementation authority](https://github.com/rgomids/axiom/pull/328#issuecomment-6253982994).
+The [r4 decision](https://github.com/rgomids/axiom/pull/328#issuecomment-6255274772)
+limits implementation validation to synthetic fixtures. D1–D3 and accepted
+behavioral requirements remain unchanged. [Implementation Evidence](008-output-separation/evidence.md#resume-r4--synthetic-implementation-authority--2026-10-18)
+records T01–T08, deterministic checks and limits. Real Execution, native
+conversation/C12 and final human acceptance remain **NOT_RUN**, delegated to
+Rafael; independent review is pending. Historical Proposed artifact text is preserved.
+
 
 Issue [#306](https://github.com/rgomids/axiom/issues/306): [Plan](002-lingo-project-initialization/plan-306-local-runtime-profiles.md), [Spec 002 amendment](002-lingo-project-initialization/amendment-306-local-runtime-authoring.md), [mandatory design Security Review](002-lingo-project-initialization/security-review-306-local-runtime-profiles.md), [Spec 007 effort/onboarding amendment](007-configurable-workflows/amendment-306-profile-effort-onboarding.md) and ADR-0023/0024 are **Accepted, 2026-10-11**, by [exact six-artifact acceptance](https://github.com/rgomids/axiom/pull/310#issuecomment-6109183466) at `823bce3`.
 [Acceptance/Tasks Evidence](002-lingo-project-initialization/evidence-306-acceptance-tasks.md) preserves blobs and historical [Planning Evidence](002-lingo-project-initialization/evidence-306-planning-reconciliation.md).

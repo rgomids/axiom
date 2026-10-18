@@ -1,0 +1,1 @@
+Execution execution:exec-7 requires recovery (partial), revision 4. Confirmed effect: Provider labels published for github:acme/app#42; local projection is unrecorded. Inspect artifact:123e4567-e89b-42d3-a456-426614174000 and reconcile the exact revision without replaying publication.

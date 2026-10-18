@@ -1,0 +1,35 @@
+Validation failed (validation_failure)
+Project edit refused
+next: Inspect canonical Projects
+diagnostic:
+  schemaVersion: 1
+  operation: project configure edit
+  category: edit_project_not_found
+  target: {}
+  observedRevision: ""
+  observed:
+    [1]: Project selector was not resolved
+  notObserved:
+    [1]: Exact target and revision
+  hypotheses: []
+  missingPrerequisites:
+    [1]: Canonical Project identity
+  capability: unknown
+  authority: not established
+  confinement: unknown
+  confirmedEffects: []
+  uncertainEffects: []
+  options:
+    [1]:
+      id: inspect
+      availability: available
+      prerequisites: []
+      effects: [read-only]
+      requiredAuthority: []
+      operation: project list
+      arguments: {}
+      missingArguments: []
+      purpose: Resolve the missing Project
+      verification: {operation: project list, expectedFact: Exact Project identity observed}
+  verification: {operation: project list, expectedFact: Exact Project identity observed}
+provenance: {product: Axiom, version: development, revision: abc123def456, sourceState: clean}

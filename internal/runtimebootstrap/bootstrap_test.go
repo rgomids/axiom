@@ -191,7 +191,7 @@ func TestClaudeOnlyConfiguresClaudeGlobalSkillsAndReportsCodexAbsent(t *testing.
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, expected := range []string{"runtime=claude\n", "skillsRoot=" + skills + "\n", "skillSetVersion=2\n"} {
+	for _, expected := range []string{"runtime=claude\n", "skillsRoot=" + skills + "\n", "skillSetVersion=" + codexruntime.SkillSetVersion + "\n", "binaryCompatibility=" + codexruntime.BinaryCompatibility + "\n"} {
 		if !strings.Contains(string(receipt), expected) {
 			t.Fatalf("receipt lacks %q:\n%s", expected, receipt)
 		}

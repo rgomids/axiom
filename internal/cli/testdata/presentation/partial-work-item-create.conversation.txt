@@ -1,0 +1,1 @@
+Work Item 42 was created (partial). Confirmed effect: github:acme/app#42; local linkage still needs recovery. Inspect artifact:123e4567-e89b-42d3-a456-426614174000 before a separately authorized local link; do not create again.

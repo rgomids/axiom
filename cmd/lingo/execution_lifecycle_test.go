@@ -252,19 +252,19 @@ func TestWorkflowListHumanOutput(t *testing.T) {
 			if !strings.Contains(output, "Executions listed for the Project") {
 				t.Fatalf("completion absent: %s", output)
 			}
-			if count == 0 && !strings.Contains(output, "- **executions:** _none_\n") {
+			if count == 0 && !strings.Contains(output, "executions: []\n") {
 				t.Fatalf("empty marker absent: %s", output)
 			}
 			rows := []string{}
-			for _, block := range strings.Split(output, "\n- **[")[1:] {
+			for _, block := range strings.Split(output, "\n  [")[1:] {
 				field := func(name string) string {
-					_, value, _ := strings.Cut(block, "**"+name+":** `")
-					value, _, _ = strings.Cut(value, "`")
+					_, value, _ := strings.Cut(block, name+": ")
+					value, _, _ = strings.Cut(value, "\n")
 					return value
 				}
-				_, ref, _ := strings.Cut(block, "- **workItem:** ")
+				_, ref, _ := strings.Cut(block, "workItem: ")
 				ref, _, _ = strings.Cut(ref, "\n")
-				fields := strings.Fields(strings.NewReplacer("`", "", "provider ", "", "resource ", "", "externalId ", "", " · ", " ").Replace(ref))
+				fields := strings.Fields(strings.NewReplacer("{", "", "}", "", "provider: ", "", "resource: ", "", "externalId: ", "", ", ", " ").Replace(ref))
 				rows = append(rows, strings.Join(append([]string{field("executionId"), field("repositoryKey")}, append(fields, field("status"), field("currentGate"), field("revision"))...), " "))
 			}
 			if strings.Join(rows, "\n") != strings.Join(expected, "\n") {

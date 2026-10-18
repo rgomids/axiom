@@ -1,0 +1,1 @@
+Work Item 42: The dependency failed (retryable_failure). Retry eligibility is not consent or proof of no external effect. Inspect before an authorized retry.
