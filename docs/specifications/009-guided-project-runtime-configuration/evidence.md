@@ -731,3 +731,180 @@ Staged hygiene, metadata do PR, commit/push/head e CI do SHA novo são confirmad
 no comentário de publicação no PR/AXM; CI pendente não é PASS. O gate seguinte é
 review independente deste delta limitado e resolução dos bloqueios registrados,
 sem conclusão integral de Tasks ou transição automática.
+
+## Retomada r3 — 2026-10-18
+
+### Autoridade, entrada e delta
+
+Retomada do HEAD `1110dd5e19c634c2683fed5acb5e5d419d9d1948`, confirmado
+por fetch, branch remota e PR #329 OPEN/Draft. Árvore inicialmente limpa;
+inventário de PRs abertos confirma #329 como único AXM-33. Lidos este histórico,
+Spec/Plan/Tasks integrais, fontes pertinentes dos donos, políticas e o
+[handoff r2](https://linear.app/rgomids/issue/AXM-33#comment-1c5f75a2).
+Linear reobservado In Progress, sem blockedBy formal; Execution/revisão/gates
+canônicos continuam unknown. Nenhuma Execution foi criada ou consultada.
+
+A [decisão posterior do Rafael, 18:18 BRT](https://linear.app/rgomids/issue/AXM-33#comment-24041a37)
+e o prompt r3 restringem esta retomada a **testes sintéticos**. Sem Lingo
+Execution real, Codex/Claude nativos, OAuth/login, instalação no operador,
+proof/probe ou conversa/C12 real. Essas provas ficam **NOT_RUN, delegadas ao
+Rafael para validação final; não bloqueiam esta entrega sintética**. A decisão
+não converte observação ausente em PASS nem altera os bytes históricos aceitos.
+Não repetidas as invocações nativas/observações r2. Nenhuma dependência instalada.
+
+Delta: dois arquivos de teste nas suites existentes, este registro append-only
+e índice. Sem mudar código de produção, quatro skills, manifest/history,
+Spec/Plan/Tasks/ADR aceitos ou corpus histórico. Nenhum comentário Go novo,
+runner/engine de jornada, renderer, wire, catálogo, credencial ou dependência.
+A biblioteca padrão (`encoding/json`, `bytes`, `reflect`, `testing`) e os doubles
+existentes bastam; biblioteca externa e infraestrutura genérica não têm benefício
+neste limite. Sem delegação: inferioridade estrita verificável de modelo não foi
+estabelecida; Orchestrator executou integração, validação e revisão diretamente.
+
+### E05/E06 — contratos sintéticos e dependência AXM-32
+
+AXM-32/#328 revalidado OPEN/Draft em
+`e9ebe82aa215b4c5c8a7d86b2cc2cd6e9e3bb31f`, após implementação
+`69b03aab788aaddb355f50f9285a10bd4fbc65ab`. ADR-0030 e delta das quatro
+skills/CLI lidos somente como referência. O contrato entregue nessa branch usa
+`--json` explícito para consumo, preserva JSON tipado e separa completion,
+readiness, certeza dos efeitos e aceite. Pipe/TTY não escolhem JSON. Não houve
+merge/rebase/cherry-pick, execução do código dessa branch ou alteração de #328.
+
+Inspeção `git diff 69b03aa^ 69b03aa -- internal/cli/completion.go
+internal/cli/readiness.go internal/cli/runtime_authoring.go
+internal/cli/workflow_authoring.go`: sem delta nesses transportes. O snapshot
+AXM-32 ainda não contém `internal/projectapp/policy_apply.go` de G-1. Logo,
+nem a leitura de seu contrato nem os testes abaixo demonstram o **par combinado**
+AXM-32 + G-1 + orientação AXM-33. Sua composição/entrega compatível é dependência
+externa registrada, sem copiá-la ou absorver ownership. Ativação da apresentação
+continua pendente; relay literal atual preservado. Não há novo conflito de ADR:
+esta etapa testa a fronteira JSON preservada, sem antecipar a migração do dono.
+
+Novo [guided_configuration_test.go](../../../internal/cli/guided_configuration_test.go):
+
+- Cinco variantes de readiness (C01/04/12/13 e não observado): completion success
+  não transforma Execution blocked em ready; estrutura, operação, blockers,
+  warnings, admission e `grantsAuthority: false` sobrevivem ao JSON tipado.
+- Oito variantes de policy (preview, denial canônico, stale, read-back unverified,
+  drift, C12 sintético confirmado, C13 confirmado com execução bloqueada e no-op).
+  Comparação integral do report inclui identidade, policy/diff, revisões/digests,
+  Workflow, efeitos, publication/localCommitted, readiness e read-back. Draft
+  validado pelo decoder do dono; modelos/digests são dados artificiais, não catálogo
+  ou proof. Nos sete casos com replay sintético, primeiro chama preview sem
+  authority, lê Project ID/digest do **JSON dessa chamada**, depois fornece a tuple
+  exata ao apply simulado. Uma chamada por etapa; nenhuma operação extra.
+- Writer curto ou falho após resposta parcial mantém uma única chamada de policy,
+  sem validação adicional, replay ou dispatch de Execution.
+
+Os doubles retornam resultados fornecidos: **PASS de transporte/parser/contagem
+de chamadas**, não execução da IA, julgamento de viabilidade, persistência real,
+human denial conversacional ou prova do avaliador de readiness. C07 neste teste
+é recusa canônica da authority enviada, distinta da negativa humana parametrizada
+no fixture conversacional existente. Não se somam contadores de calls sintéticas
+como writes reais. Os spies de operações não relacionadas ficam intactos.
+
+### E07 — regressão e rollback sintéticos
+
+Novo [guided_configuration_upgrade_test.go](../../../internal/codexruntime/guided_configuration_upgrade_test.go)
+usa os dois adaptadores existentes em roots privados temporários de `testing`.
+Não invoca nem instala Codex/Claude/Axiom no ambiente do operador. Preserva bytes
+e receipt do pacote embedded conhecido, publica conteúdo candidato sintético via
+`UpgradeSession`, confirma que par incompatível/conteúdo misto não é ready, recusa
+rollback com digest stale sem mudar o arquivo, restaura bytes exatos com digest
+atual e receipt pelo mesmo mecanismo. Read-back retorna Ready/ReceiptCurrent e
+reinstall é Unchanged. Não simula rollback de configuração canônica, troca de
+binário publicado ou par nativo instalado. Essas observações seguem NOT_RUN.
+
+Regressão proporcional: pacotes codexruntime/cli completos cobrem routing,
+catálogo, natural/explicit/inspect-stop, instalação/reinstalação/upgrade sintéticos
+e contratos das quatro skills; local/projectapp/runtimeapplication/compatibility
+cobrem donos G-1/G-2/readiness/Workflow, snapshots e corpus preservado. Não foi
+necessário modificar testes dos donos ou migrar seus formatos para passar.
+
+### Matriz r3 por cenário e limite observado
+
+| Caso | Verificação determinística r3 / resultado | Observação conversacional nova |
+| --- | --- | --- |
+| C01 | PASS contratos + readiness JSON e regressão | NOT_RUN |
+| C02 | PASS contratos + regressão de identidade/selector/remote | NOT_RUN |
+| C03 | PASS contratos + configure/readiness dos donos | NOT_RUN |
+| C04 | PASS contratos + success separado de Execution blocked no JSON | NOT_RUN |
+| C05 | PASS contrato/catálogo; escolha semântica não demonstrada pelo Go | NOT_RUN |
+| C06 | PASS contratos + declaration distinta de capability proof nos donos | NOT_RUN |
+| C07 | PASS contratos/routing/authority dos donos + denial canônico no JSON | NOT_RUN |
+| C08 | PASS contratos + stale dependencies dos donos + report/digest exatos no JSON | NOT_RUN |
+| C09 | PASS contratos/read-back dos donos + unverified/drift e writer sem replay | NOT_RUN |
+| C10 | PASS contrato de budget cumulativo; não há novo relógio de decisão da IA | NOT_RUN |
+| C11 | PASS contrato/catálogo/explicit routing/inspect-stop | NOT_RUN |
+| C12 | PASS somente contratos/fixtures sintéticos dos donos e JSON; real NOT_RUN | NOT_RUN |
+| C13 | PASS contratos + policy confirmada separada de execução bloqueada | NOT_RUN |
+| C14 | PASS contratos + Workflow/selection dos donos | NOT_RUN |
+| C15 | PASS contratos + draft strict/canary redaction dos donos; nenhum novo canário conversacional | NOT_RUN |
+| C16 | PASS contrato + validate-candidate dos donos; escolha da IA não demonstrada | NOT_RUN |
+
+As 96 observações r2 e seus limites permanecem históricas, sem nova execução nem
+promoção a paridade. As novas provas de transporte para C01/04/07/09/12/13 são
+compatíveis com D3/ADR-0030, mas não PASS de ativação do par ainda não integrado.
+GC-01–06 conservam a matriz anterior; E05/E06 reforçam GC-04/05 e E07 a
+compatibilidade/rollback. Ordem/perguntas/budget semântico continuam limitados às
+observações r2; regressão verde não preenche essa lacuna.
+
+### E08/E09 — estado final autorizado e próximo gate
+
+| Task | Estado factual r3 | Evidence / pendência |
+| --- | --- | --- |
+| T01 | DONE inspeção de fonte; dependências revalidadas | E01 + referência AXM-32 acima; instalação não alegada |
+| T02 | IMPLEMENTED; contratos/regressões PASS | E02/E05; jornada real delegada ao Rafael |
+| T03 | IMPLEMENTED; contratos/regressões PASS | E03/E05; decisões reais delegadas ao Rafael |
+| T04 | IMPLEMENTED; contratos/regressões PASS | E04/E05; continuidade real delegada ao Rafael |
+| T05 | Contratos sintéticos PASS; observações r2 preservadas | E05 r3; conversa integral com ferramentas NOT_RUN, validação final Rafael |
+| T06 | Preparação/contratos JSON sintéticos PASS | E06; ativação/par combinado depende entrega compatível AXM-32, não incorporada |
+| T07 | Regressão/rollback de pacote sintéticos PASS | E07; paridade nativa/alvos cruzados/rollback instalado NOT_RUN, Rafael |
+| T08 | NOT_RUN por decisão humana expressa | E08; C12 real delegado ao Rafael, não bloqueia entrega sintética |
+| T09 | DONE consolidação/review/handoff do escopo autorizado | E09; review independente e aceite humano pendentes |
+
+Nenhuma task com obrigação observacional ausente é declarada integralmente
+validada. O escopo sintético r3 é entregável para review sem esperar ambiente,
+OAuth ou prova real; T06 mantém dependência de composição, e T05/T07/T08 mantêm
+as observações finais separadas. Rafael poderá validar sob seu próprio envelope:
+par efetivo compatível, entradas natural/explícita nos hosts/alvos cruzados,
+preflight integral, previews/denial/stale/read-back/budgets e C12 com G-1,
+Repository/Profile/Workflow/auth/proof exatos/frescos e authority por efeito.
+Nenhum desses gates concede agora permissão para executar ou instalar.
+
+Self-review engenharia/segurança proporcional: sem finding bloqueante novo no
+delta. Testes novos exercitam fronteiras ausentes, sem lógica de produto duplicada;
+fixtures e inputs são artificiais publicáveis. Sem exposição de secrets, paths do
+operador, auth output ou transcript de provider. Sem novos comentários Go,
+TODO/FIXME, dependências, alterações laterais ou permissões. Não é review
+independente nem aceite. Autoridade/provider status não deriva de fixture ou CI.
+
+Checkpoint: nenhuma jornada real/alvo/attempt/counter de runtime foi iniciada;
+efeitos reais de configuração confirmados/incertos: nenhum observado. Não resetar
+budgets de jornadas alheias ao retomar. Próximo gate é review independente do
+SHA publicado no PR #329; integração da entrega combinada e validação final real
+ficam explicitamente com donos/Rafael. Sem merge, force-push, release, acceptance,
+fechamento, status/labels/relações ou nova Execution. Head remoto/PR/CI exatos e
+handoff Linear são registrados após o push, sem SHA autorreferente neste commit.
+
+Checks executados nesta retomada (resultados locais, não CI):
+
+| Comando / check | Resultado / limite |
+| --- | --- |
+| `go test ./internal/codexruntime ./internal/cli ./internal/projectapp ./internal/runtimeapplication ./internal/local ./internal/compatibility -count=1` | PASS, seis pacotes sem cache; testes sintéticos, sem runtime real |
+| `go test ./internal/cli ./internal/codexruntime -run TestGuidedConfiguration -count=1` | PASS após último ajuste das fixtures; cinco readiness, oito policy, dois writers e dois adaptadores de rollback |
+| `go vet ./...` e `go vet ./internal/cli ./internal/codexruntime` após ajuste final | PASS |
+| `./scripts/validate-repository.sh .` | PASS, incluindo ADR/registry/maintainer/security; cenários nativos SKIP/UNVERIFIED |
+| Python efêmero via stdin | PASS bytes aceitos Spec/Plan/Tasks, prefixo histórico Evidence, fences, 63 links/âncoras locais nos cinco documentos 009 e nenhum comentário Go novo |
+| `git diff --check` | PASS |
+| `gitleaks` | NOT_RUN, indisponível; não instalado |
+| Full `go test ./...` nesta retomada | NOT_RUN; regressão proporcional dos seis pacotes, sem mudança de produção. PASS anterior continua vinculado a b8166be |
+| Conversas nativas, integração instalada, OAuth/login, C12/proof real | NOT_RUN por decisão do Rafael; validação final delegada, não bloqueia entrega sintética |
+
+A primeira execução do novo teste de writer falhou porque a fixture de completion
+partial não tinha referência confirmada. Fixture corrigida para o contrato de
+completion, sem relaxar assertion nem alterar produção. Durante self-review,
+o draft artificial foi alinhado ao objeto `{id}` exigido pelo decoder do dono e
+passou a ser validado nele; nenhum resultado anterior é usado como PASS final.
+Checks staged/metadata e CI do novo SHA ficam no registro de publicação PR/Linear.

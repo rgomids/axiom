@@ -31,12 +31,15 @@ stale/read-back and bounded handoff. Contract tests and bounded Codex synthetic
 decision observations pass; full behavioral validation is incomplete.
 [Resume r2 observations](009-guided-project-runtime-configuration/observations-r2.md)
 cover C01–C16 snapshots and a dialogue with replayed history, with explicit limits.
-AXM-32 presentation activation, installed native parity and real C12
-remain blocked/NOT_RUN; AXM-34 and AXM-12 retain their ownership and acceptance.
-[Evidence/handoff](009-guided-project-runtime-configuration/evidence.md#retomada-r2--2026-10-18)
-records each T01–T09 result, tests, attempted synthetic observations, limitations
-and next gates. This is a partial implementation delivery, not product acceptance,
-Execution advancement, merge or release.
+[Resume r3](009-guided-project-runtime-configuration/evidence.md#retomada-r3--2026-10-18)
+adds synthetic JSON fact/authority/read-back contracts and package rollback checks
+for both adapters. AXM-32 is read-only compatibility input; activation of the
+combined binary/skill pair remains dependent on its compatible delivery.
+Native parity, complete tool conversation and real C12 remain NOT_RUN, delegated
+to Rafael by his 2026-10-18 decision; they do not block this synthetic delivery.
+AXM-34 and AXM-12 retain ownership. Evidence records T01–T09, checks and limits;
+independent review and human acceptance remain pending. No Execution advancement,
+merge, release or product acceptance is inferred.
 
 ## 007 — Configurable Project workflows
 
