@@ -2,10 +2,12 @@
 
 ## Status
 
-Proposed — 2026-10-18, AXM-32 specify only. Explicit human acceptance of the
-exact revision remains required. Merge, checks and publication do not accept
-this proposal or authorize implementation. Human D1–D3 choices recorded on
-2026-10-18 refine this text; they are not formal acceptance of the revised ADR.
+Accepted — 2026-10-18. The maintainer explicitly accepted the exact
+decision text at source revision `18d29a6c5446357defb2563483cfac180dcc4043`
+(blob `295084e6b6afa054b2f07dcaf5e73563ed7e7644`);
+see the [GitHub acceptance](https://github.com/rgomids/axiom/pull/328#issuecomment-6250321308) and
+[Linear record](https://linear.app/rgomids/issue/AXM-32/separar-saida-do-lingo-da-apresentacao-conversacional-da-ia#comment-92b1d72a). This acceptance does not authorize
+implementation, merge, release or product/E2E acceptance.
 
 ## Context
 
@@ -31,7 +33,7 @@ The proposal incorporates human D1–D3 choices recorded in the
 and [Linear decision](https://linear.app/rgomids/issue/AXM-32/separar-saida-do-lingo-da-apresentacao-conversacional-da-ia#comment-43e5ffd1)
 on 2026-10-18, following the
 [technical review](https://github.com/rgomids/axiom/pull/328#pullrequestreview-5561505065).
-Formal acceptance of this exact revised ADR remains pending.
+This exact revised decision was accepted on 2026-10-18.
 
 Keep one application/domain-owned structured
 result and complete compatible JSON transport; let Lingo produce deterministic
@@ -72,7 +74,7 @@ make the D3 policy an open human decision.
 | Alternative | Complexity, coupling and portability | Operability/security, cost and migration |
 |---|---|---|
 | Retain literal Markdown relay and auxiliary explanation | Least change; hosts remain coupled to terminal Markdown | Deterministic but preserves duplicate/verbose presentation; no additional inference cost; smallest migration |
-| One canonical JSON, deterministic terminal, host synthesis (selected direction; ADR Proposed) | Clear transport/presentation ownership; shared host behavior needs integration checks | No extra model call; host omission/injection risk requires fact-preservation checks; coordinated skill/binary migration |
+| One canonical JSON, deterministic terminal, host synthesis (accepted direction) | Clear transport/presentation ownership; shared host behavior needs integration checks | No extra model call; host omission/injection risk requires fact-preservation checks; coordinated skill/binary migration |
 | Deterministic host-owned Markdown templates over JSON | Strong repeatability; duplicates presentation rules across hosts and constrains contextual synthesis | No extra inference call, but template maintenance and host-specific migration cost; less adaptable to the user's objective |
 
 The selected direction costs stronger host integration validation in exchange
@@ -120,3 +122,17 @@ Existing JSON cannot safely express required facts; a host cannot consume it
 without a separate formatting hop; native tests cannot preserve material truth;
 or verified consumers cannot migrate safely in the coordinated delivery. Such findings require
 explicit decision rather than silent schema, authority or default changes.
+
+## Subsequent operational decision — 2026-10-18
+
+The maintainer [recorded](https://github.com/rgomids/axiom/pull/328#issuecomment-6250321308) that the two
+conditional wire-path findings in [AXM-32 Clarify](../specifications/008-output-separation/clarify.md)
+(G1, ambiguous create category loss; G2, 64-item transfer-view reduction) remain
+observable risks, **not automatic pre-Plan blockers**. The source-level findings
+and unverified real-world reachability remain documented. Do not preemptively
+expand this delivery or change the JSON wire contract. If an affected real
+scenario occurs, open a separate, narrowly scoped corrective Work Item for each
+finding, with reproduction, impacts and safety validation. No blind replay of
+uncertain Provider mutations and no claim that truncated effects are complete.
+This operational prioritization does not waive canonical material-truth,
+authorization, digest/read-back or future acceptance requirements.
