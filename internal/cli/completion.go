@@ -302,3 +302,18 @@ func emitDiagnosticCompletion(writer io.Writer, mode outputMode, result completi
 	}
 	return presentDiagnosticEvent(writer, mode, result.Status(), wire, MaxCompletionOutputBytes, d)
 }
+
+func emitPolicyEditCompletion(writer io.Writer, mode outputMode, result completion.Result, report projectapp.PolicyEditReport) int {
+	if writer == nil || !result.Valid() {
+		return ExitFailure
+	}
+	base := completionEvent{Status: result.Status(), Result: result.Result().String(), References: result.References(), Next: result.Next().String(), Details: result.Details(), Provenance: provenanceEvent{Product: result.Provenance().Product(), Version: result.Provenance().Version(), Revision: result.Provenance().Revision(), SourceState: result.Provenance().SourceState()}}
+	wire, err := json.Marshal(struct {
+		completionEvent
+		Policy projectapp.PolicyEditReport `json:"policyEdit"`
+	}{base, report})
+	if err != nil {
+		return ExitFailure
+	}
+	return presentEvent(writer, mode, result.Status(), append(wire, '\n'), 2*projectapp.MaxPolicyDraftBytes+MaxCompletionOutputBytes)
+}

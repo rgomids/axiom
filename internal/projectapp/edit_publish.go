@@ -40,6 +40,7 @@ func ValidateEditAuthority(authority EditAuthority) EditFailure {
 // generations they replace. An empty PortableNext means the portable Project
 // is unchanged and is only re-verified against PortableExpected.
 type EditPublicationRequest struct {
+	PolicyDependencies  *PolicyEditDependencies
 	ProjectID           string
 	Slug                string
 	PortableDestination string
@@ -53,6 +54,7 @@ type EditPublicationRequest struct {
 type EditPublicationStatus string
 
 const (
+	EditPublicationUnchanged EditPublicationStatus = "unchanged"
 	// EditPublicationApplied: every requested object was published and
 	// confirmed; no recovery state remains.
 	EditPublicationApplied EditPublicationStatus = "applied"
@@ -110,6 +112,9 @@ type EditResult struct {
 
 // PublicationRequest returns the exact CAS request for this proposal.
 func (p EditProposal) PublicationRequest() EditPublicationRequest {
+	if p.policyOnly {
+		return EditPublicationRequest{}
+	}
 	request := EditPublicationRequest{
 		ProjectID: p.preview.ProjectID, Slug: p.preview.Slug,
 		PortableDestination: p.preview.PortableDestination, LocalDestination: p.preview.LocalDestination,
@@ -127,6 +132,9 @@ func (p EditProposal) PublicationRequest() EditPublicationRequest {
 // Every request rebuilds the proposal from fresh observations; a Project ID
 // or digest that differs from the fresh preview is denied with zero writes.
 func ApplyEdit(ctx context.Context, ports EditPorts, publisher EditPublisher, intent EditIntent, authority EditAuthority) EditResult {
+	if intent.Policy != nil {
+		return EditResult{Outcome: EditRejected, Failure: EditUnavailable}
+	}
 	if failure := ValidateEditAuthority(authority); failure != EditOK {
 		return EditResult{Outcome: EditRejected, Failure: failure}
 	}

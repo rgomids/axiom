@@ -88,6 +88,7 @@ type InstallInput struct {
 type ResolveInput struct{ Selector string }
 type RepositoryInput struct{ Key, Path string }
 type ConfigureInput struct {
+	PolicyDraft           *string
 	ProjectID, Slug, Name string
 	Repositories          []RepositoryInput
 	WorkItemProvider      string
@@ -165,6 +166,7 @@ const (
 // must not return raw paths, input values, parser output, or operating-system
 // error strings for this surface.
 type Result struct {
+	PolicyEdit        *projectapp.PolicyEditReport
 	Diagnostic        *Diagnostic
 	Status            Status
 	Category          string
@@ -570,6 +572,9 @@ func emitResponse(writer io.Writer, mode outputMode, operation action, response 
 		if response.Setup != nil {
 			return emitSetupCompletion(writer, mode, *response.Completion, *response.Setup)
 		}
+		if response.PolicyEdit != nil {
+			return emitPolicyEditCompletion(writer, mode, *response.Completion, *response.PolicyEdit)
+		}
 		if response.Edit != nil {
 			return emitEditCompletion(writer, mode, *response.Completion, *response.Edit, response.Diagnostic)
 		}
@@ -631,6 +636,8 @@ const (
 )
 
 type requestInput struct {
+	policyDraft                              string
+	policySupplied                           bool
 	actor                                    string
 	stageResultFile                          string
 	automatic                                bool
@@ -839,6 +846,7 @@ func projectFlagSet(operation action, values *requestInput) *flag.FlagSet {
 		set.StringVar(&values.selector, "selector", "", "Configured Project identity; `<uuid-or-slug>`.")
 	}
 	if operation == configureAction {
+		set.StringVar(&values.policyDraft, "policy-draft", "", "EDIT only: strict partial Runtime/Profile policy JSON; `<json>`. Omit all replay authority to read/validate/dry-run; use {} to read current policy. Policy-only changes; at most 256 KiB.")
 		set.StringVar(&values.projectID, "project-id", "", "Project UUID; `<uuid>`. Optional for creation; for an edit, the reviewed Project ID required with --preview-digest and --authorize-local.")
 		set.StringVar(&values.name, "name", "", "Project display name; `<text>`.")
 		set.Var(&values.repositories, "repository", "Add or update Repository; `<key>=<absolute-path>`. Conflicts with removing the same key.")
@@ -873,6 +881,8 @@ func flags(operation action, args []string) (requestInput, bool) {
 	}
 	set.Visit(func(current *flag.Flag) {
 		switch current.Name {
+		case "policy-draft":
+			values.policySupplied = true
 		case "project":
 			values.projectSupplied = true
 		case "slug":
@@ -894,6 +904,9 @@ func flags(operation action, args []string) (requestInput, bool) {
 // Value validation and every merge rule belong to the application layer.
 func configureRequestIssue(values requestInput) string {
 	if !values.projectSupplied {
+		if values.policySupplied {
+			return "invalid_input"
+		}
 		if values.removeWorkItemProvider || len(values.removeRepositories) != 0 {
 			return "invalid_input"
 		}
@@ -912,6 +925,9 @@ func configureRequestIssue(values requestInput) string {
 	}
 	// Bootstrap intent is CREATE-only; post-create lifecycle belongs to #230.
 	if values.bootstrapSupplied {
+		return "invalid_input"
+	}
+	if values.policySupplied && (values.nameSupplied || values.providerSupplied || values.removeWorkItemProvider || len(values.repositories)+len(values.removeRepositories) != 0) {
 		return "invalid_input"
 	}
 	// EDIT: rename is out of scope, the CREATE-only `none` alias is not a
@@ -1177,8 +1193,13 @@ func dispatch(ctx context.Context, operation action, input requestInput, service
 		if !ok {
 			return Result{Status: Failed, Category: "invalid_input"}
 		}
+		var policy *string
+		if input.policySupplied {
+			policy = &input.policyDraft
+		}
 		return service.Configure(ctx, ConfigureInput{
-			ProjectID: input.projectID, Project: input.project, Name: input.name, NameSupplied: input.nameSupplied,
+			PolicyDraft: policy,
+			ProjectID:   input.projectID, Project: input.project, Name: input.name, NameSupplied: input.nameSupplied,
 			WorkItemProvider: input.workItemProvider, WorkItemProviderSupplied: input.providerSupplied, RemoveWorkItemProvider: input.removeWorkItemProvider,
 			Repositories: repositories, RemoveRepositories: append([]string(nil), input.removeRepositories...),
 			PreviewDigest: input.previewDigest, AuthorizeLocal: input.authorizeLocal,

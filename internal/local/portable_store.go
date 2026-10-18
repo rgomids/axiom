@@ -26,6 +26,7 @@ var (
 // PortableStore supports one validated manifest per Project. Operations stay
 // anchored to private directory objects and coordinate across processes.
 type PortableStore struct {
+	policyBeforeCommit      func(*os.Root) error
 	workflowExpectedIndex   *[]byte
 	workflowBeforeCommit    func() error
 	workflowFault           func(FaultStage) error
@@ -237,7 +238,13 @@ func (s PortableStore) Update(ctx context.Context, slug string, expected, manife
 			if err := stillAtPath(root, s.root); err != nil {
 				return err
 			}
-			return stillAtPath(projectRoot, filepath.Join(s.root, slug))
+			if err := stillAtPath(projectRoot, filepath.Join(s.root, slug)); err != nil {
+				return err
+			}
+			if s.policyBeforeCommit != nil {
+				return s.policyBeforeCommit(projectRoot)
+			}
+			return nil
 		}
 		hooks.afterCommit = s.afterUpdatePublication
 		return publishFile(ctx, projectRoot, manifestName, expected, manifest, false, hooks)

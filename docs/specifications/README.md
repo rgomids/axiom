@@ -210,6 +210,25 @@ and [local implementation Evidence](002-lingo-project-initialization/evidence-is
 portable schema 3 context, local documentation bindings, guided bootstrap and
 operation-scoped readiness. V1/v2 remain supported without rewrite.
 
+G-1 / [#305](https://github.com/rgomids/axiom/issues/305),
+[AXM-34](https://linear.app/rgomids/issue/AXM-34):
+[existing Project Runtime/Profile policy amendment](002-lingo-project-initialization/amendment-305-existing-project-runtime-policy.md)
+is **Approved for planning** (SDD specify), fixed to SHA
+`6a5b00e43e7a575bfde4e25d2a3110602d9a414c` by
+[human approval](https://github.com/rgomids/axiom/pull/327#issuecomment-6245855021).
+[Technical Plan](002-lingo-project-initialization/plan-305-existing-project-runtime-policy.md)
+is **Approved for Tasks**, fixed to SHA
+`c2118649803a086cab67588a6d7547ac721e7a71` by
+[human approval](https://github.com/rgomids/axiom/pull/327#issuecomment-6246039562).
+[Tasks](002-lingo-project-initialization/tasks-305-existing-project-runtime-policy.md)
+are **Approved for implementation**, fixed to SHA
+`dea54ea39f87f3a8cbe9c43fbda3e302e55402ac` by
+[human approval](https://github.com/rgomids/axiom/pull/327#issuecomment-6246118505).
+[Implementation Evidence and progress](002-lingo-project-initialization/evidence-305-existing-project-runtime-policy.md)
+records T01 pure draft/candidate and T02 portable Workflow coverage, with
+T03–T09 pending and a continuation handoff. Historical approved
+bytes remain preserved; no Execution transition or product acceptance is recorded.
+
 Implementation Evidence:
 [T01](002-lingo-project-initialization/evidence-t01.md),
 [T02](002-lingo-project-initialization/evidence-t02.md),

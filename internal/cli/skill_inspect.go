@@ -84,7 +84,7 @@ var (
 		authorityInputs: []string{"--preview-digest", "--authorize-local"}, rejectedInputs: []string{},
 		example: "axiom project configure --slug <slug> --name <name> --repository <key>=<absolute-path> --work-item-provider <provider>"}
 	projectEditMode = skillModeSpec{name: "edit", selector: "--project", effect: effectLocalMutation, actions: []action{configureAction},
-		authority:       "preview first; publish only with the returned --project-id, the exact --preview-digest plus --authorize-local; Repository attach/update/detach and provider changes use this mode",
+		authority:       "preview first; publish only with the returned --project-id, the exact --preview-digest plus --authorize-local; Repository attach/update/detach, provider changes, and policy-only --policy-draft JSON use this mode; {} reads policy; absent replay is validate/dry-run; policy apply includes observed read-back and scoped readiness",
 		authorityInputs: []string{"--project-id", "--preview-digest", "--authorize-local"}, rejectedInputs: []string{},
 		example: "axiom project configure --project <uuid-or-slug> --name <name>"}
 	projectListMode = skillModeSpec{name: "default", effect: effectReadOnly, actions: []action{listAction}, authority: "none",
