@@ -210,6 +210,14 @@ and [local implementation Evidence](002-lingo-project-initialization/evidence-is
 portable schema 3 context, local documentation bindings, guided bootstrap and
 operation-scoped readiness. V1/v2 remain supported without rewrite.
 
+G-1 / [#305](https://github.com/rgomids/axiom/issues/305),
+[AXM-34](https://linear.app/rgomids/issue/AXM-34):
+[existing Project Runtime/Profile policy amendment](002-lingo-project-initialization/amendment-305-existing-project-runtime-policy.md)
+is **Proposed** (SDD specify): partial v2/v3 policy editing, exact preview/local
+authority, Workflow compatibility, drift refusal and read-back. Human approval
+and subsequent planning/implementation remain separate; historical contracts are
+preserved. This records no implementation, Execution gate or product acceptance.
+
 Implementation Evidence:
 [T01](002-lingo-project-initialization/evidence-t01.md),
 [T02](002-lingo-project-initialization/evidence-t02.md),
