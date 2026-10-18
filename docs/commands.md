@@ -759,7 +759,7 @@ rewritten. No missing configuration selects Codex.
 
 `project configure` CREATE can author the policy from local candidates
 (`--runtime`, `--model-profile`, `--runtime-preference`; see Guided bootstrap).
-For an existing v2/v3 Project, use the policy edit flow below.
+Existing installed v2/v3 Projects use the policy-only EDIT journey below.
 Alternatively, declare it in an authored `axiom.yaml` (`runtimes`,
 `modelProfiles`, optional `runtimePreferences`) and record that manifest with an
 exact binding for each declared Repository:
@@ -1462,54 +1462,55 @@ fail before any effect with the same blocker code as `category` plus a
 the same way and its Runtime requirement through the reviewed Runtime preview.
 Readiness never grants authority.
 
-For schemas 2/3, Runtime readiness uses inspected canonical configuration and
-portable policy only, matching policy preview/read-back. Executable,
-authentication and capability proofs remain uninspected (`inventory_unavailable`)
-until the explicit Runtime resolution journey. `runtime.next` gives the scoped
-next action. Work Item readiness excludes these Execution blockers.
+## Edit an existing Project Runtime/Profile policy
 
-## Edit portable Project Runtime policy
+Use an explicit installed UUID/slug. `--policy-draft` accepts strict inline JSON,
+not a file path or raw YAML. `{}` reads the current policy. Omitting the replay
+tuple performs validation, dry-run and canonical preview only, with zero writes.
 
 ```bash
 axiom --json project configure --project my-project --policy-draft '{}'
-axiom --json project configure --project my-project --policy-draft '{"runtimes":{"mode":"members","add":[{"id":"codex"}]},"modelProfiles":{"mode":"members","add":[{"key":"worker","runtimeRef":"codex","model":"approved-model"}]}}'
-# After review, repeat exactly the same draft and add:
-# --project-id <returned-uuid> --preview-digest <returned-digest> --authorize-local
+axiom --json project configure --project my-project --policy-draft '{"runtimes":{"mode":"members","add":[{"id":"codex"}]},"modelProfiles":{"mode":"members","add":[{"key":"worker","runtimeRef":"codex","model":"approved-model"}]},"runtimePreferences":{"mode":"members","add":[{"role":"implementation","complexity":"high","modelProfileRef":"worker"}]}}'
 ```
 
-`--policy-draft` accepts inline strict JSON, at most 256 KiB. It requires an
-explicit installed UUID/slug and cannot accompany unrelated EDIT or CREATE
-inputs. The default is a read-only validate/dry-run preview; `{}` reads current
-policy. Guided and structured modes use this same operation and authority tuple.
-The conversation host may construct the JSON from explicit member intent; users
-need not author it. The JSON is data and cannot carry approval.
+The `policyEdit.preview` contains only portable policy, exact Workflow impact,
+scoped readiness, observed revisions, digest and allowed effects. It excludes
+full manifests, host paths, credential references and local bindings. Review it,
+then repeat the identical intent with all three returned authority inputs:
+`--project-id <uuid> --preview-digest <digest> --authorize-local`. A stale or partial
+tuple refuses. A policy no-op verifies exact authority and dependencies without
+publishing or changing revisions. Guided and structured modes use the same input
+and authorization; EDIT never infers consent from prompt text.
 
-Each omitted group preserves its declaration. `runtimes`, `modelProfiles` and
-`runtimePreferences` each accept exactly one mode: `absent`, `unconfigured`,
-`replace` with `values`, or `members` with `add`, `replace` and/or `remove` arrays.
-Runtime members use `id`; Profiles use `key`, `runtimeRef` and `model` (or explicit
-`state: "unconfigured"`); preference members use `role`, `complexity` and
-`modelProfileRef`. Runtime/Profile removal uses exact ID/key strings; preference
-removal uses exact `{role, complexity}` objects. Add requires absence;
-replace/remove requires existence. Rename requires explicit remove+add and
-explicit dependent repairs. Limits are 8 Runtimes, 32 Profiles, 32 preferences.
+Omitted groups preserve their declaration and members. Each supplied group uses
+one of `{"mode":"absent"}`, `{"mode":"unconfigured"}`,
+`{"mode":"replace","values":[]}`, or `{"mode":"members","add":[],"replace":[],"remove":[]}`.
+Runtime removal targets an ID string, Profile removal a key string, and preference
+removal an exact `{"role":"implementation","complexity":"high"}` pair. Adds
+require absence; replacements/removals require existence. Dependent removals or
+replacements must be explicit. Empty configured lists differ from absent and
+unconfigured. Bounds remain 8 Runtimes, 32 Profiles and 32 preferences; draft input
+is at most 256 KiB, depth 32 and 16,384 nodes, with 16/64/64 member operations.
+Do not combine policy intent with other EDIT or CREATE flags.
 
-`policyEdit.preview` exposes policy, diff, expected revisions, exact Workflow
-references/impact, operation readiness, allowed effects and digest. Local Runtime
-absence or mismatch blocks Execution without preventing an otherwise valid,
-compatible and exactly authorized portable save. No Workflow, Execution, Work
-Item, other Project or local Runtime configuration is edited. The current local
-portable store accepts its established manifest/Workflow layout; other source
-layouts or sources outside its projects root remain refused.
+Policy storage requires portable validity and exact active Workflow compatibility;
+missing/disabled/mismatched local Profiles do not delete portable declarations or
+prevent an otherwise authorized save. `project validate` and policy read-back use
+the same read-only metadata and policy rules for v2/v3. Executable, authentication
+and capability proofs remain uninspected (`inventory_unavailable`); the explicit
+Runtime resolution operation still acquires its own current observations.
+Readiness grants no authority. Follow `runtime.next` guidance to `axiom-runtime`
+for local setup, under separate authority.
 
-Apply reconstructs the preview and guards dependencies through publication.
-Partial/wrong authority and drift refuse. An authorized no-op verifies the same
-bindings and writes nothing. `policyEdit.readBack` reports actual policy and
-readiness with `confirmed`, `drift`, `unverified` or `recovery_required`, alongside
-expected/observed revisions and readiness snapshot changes. A confirmed commit
-with failed read-back is partial completion; do not retry it blindly. Use
-`axiom recovery inspect` for recovery-required/partial publication and obtain
-separate recovery authority. Reversal requires a fresh inverse edit.
+`policyEdit.outcome` preserves publication truth. `readBack.status` distinguishes
+`confirmed`, `drift`, `unverified` and `recovery_required`, with expected/observed
+revisions and any changed readiness snapshot. A confirmed portable commit followed
+by local bookkeeping or read-back failure is partial, never claimed rollback.
+Inspect recovery separately; do not reapply blindly. No policy edit rewrites
+Workflow/Execution/Stage Plan snapshots, Work Items, another Project or local
+Runtime/Profile configuration. Schemas 1/4/newer and unsupported source/layouts
+are refused without migration. Source publication remains confined to the recorded
+Project under the existing Lingo projects root.
 
 ## Maintain resource lifecycle (Issue #230)
 

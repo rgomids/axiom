@@ -495,30 +495,37 @@ revision, B's portable/local bytes and read-back, shared registry bytes, and all
 unrelated A installation bindings. Synthetic UUIDs are the existing `123e4567...4000`
 and `123e4567...4001` fixtures, never real provider data.
 
-### r3 — T07 canonical CLI transport and integrated parity
+### r3 — T07 canonical CLI and guided transport
 
-The actual option is `project configure --project <uuid-or-slug> --policy-draft
-<inline-json>`. `{}` reads policy; absent replay authority is the canonical
-validate/dry-run/preview. Existing `--project-id`, `--preview-digest` and
-`--authorize-local` authorize replay. No second command family, draft file reader,
-raw-YAML patch or local Profile authoring is introduced. Inline JSON uses the
-existing bounded strict decoder and normal flag duplication rules; shell callers
-must quote it. Help, skill inspection metadata and commands reference are updated.
+Actual interface: `project configure --project <uuid-or-slug> --policy-draft
+'<strict-json>'`. `{}` reads policy; absent replay is validate/dry-run/preview.
+Inline JSON reuses the bounded strict parser and avoids another input-file reader
+or secret/path-reading surface. Policy intent cannot mix with unrelated EDIT or
+CREATE. The existing exact three-part replay tuple alone enables publication.
+`policyEdit` is a bounded safe report, with independent publication/read-back;
+legacy `edit` output is not used. Help and inspection derive the real flag, while
+mode authority explicitly describes policy-only intent and observed read-back.
 
-Integrated testing found retained Repository observation flags differed from live
-metadata in project validate. Preview now uses the existing non-following
-Repository/Documentation metadata probes. Their safe logical outcomes enter an
-additional sealed `Readiness` dependency and are checked at commit. No document
-content, credential, executable or network probe is added. Read-back discloses
-changed readiness snapshots independently of policy bytes.
+Integration found and fixed retained-vs-observed Repository availability: preview
+now reuses the canonical Repository/Documentation metadata probes, binds their
+safe status maps in a `Readiness` dependency digest, and rechecks them before
+portable commit. No document body, credential value or executable is read. This
+completes operation-report parity rather than weakening the assertion to Runtime
+codes only. Existing no-follow metadata checks and bounded commit checks suffice;
+no new watcher, lock registry or dependency is introduced.
 
-Executed, exit 0: `go test ./internal/local ./internal/projectapp ./cmd/lingo
--run 'Policy|Readiness'`; `go test ./internal/cli ./cmd/lingo -run
-'Policy|Readiness|SkillInspect|Strict'`. `TestPolicyCLIJourneyGuidedParityReadbackAndValidate`
-exercises real stores, structured and guided input parity, preview zero-effects,
-exact apply, full operation-readiness parity, stale replay and no-op byte equality.
-`TestPolicyCLIV2InstalledJourney` covers an actually installed schema-2 source;
-tampered schema tests separately demonstrate stale-state refusal. Invalid,
-oversized, mixed, unsafe and incomplete input tests verify safe output and
-unchanged complete source/state trees. Output has a dedicated bounded safe
-`policyEdit` payload rather than the legacy full-manifest EDIT projection.
+Executed, exit 0: `go test ./internal/local ./internal/projectapp ./cmd/lingo -run
+'Policy|Readiness'`; `go test ./internal/cli ./cmd/lingo -run
+'Policy|Readiness|SkillInspect|Strict'`. CLI tests prove schemas 2/3 installed
+journeys; structured/guided identical previews and no implicit consent; exact apply
+and observed read-back/validate operation parity; no-op bytes; stale replay;
+unknown/unsafe/malformed/oversized/duplicate/mixed/partial-authority refusals;
+tampered-schema/stale-installation refusal without adoption; safe output scans.
+Strict flag regression now includes policy-draft. This is real CLI adapter testing,
+not native host conversation or full native storage qualification.
+
+Concurrent branch reconciliation: remote `ff54137` and local `0245d3a` share
+identical implementation/test bytes; only commands/Evidence wording differed.
+Both histories are retained by a local branch merge; remote documentary wording
+is retained. No force push, PR merge or approval. Subsequent checks apply to the
+combined head, not an inherited CI result.
