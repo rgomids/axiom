@@ -218,3 +218,34 @@ smoke, malformed JSON journeys, external consumers and actual installed host set
 are **NOT_RUN / unverified** in this documentary stage. No independent review is
 claimed. No spawn: strict model inferiority was not verifiable; source searches,
 integration and decisions stayed with the Orchestrator.
+
+## Subsequent maintainer decision — 2026-10-18 (after Clarify)
+
+**Supersedes only the preceding pre-Plan decision hold, not the inventory.**
+The [GitHub decision](https://github.com/rgomids/axiom/pull/328#issuecomment-6250321308) and
+[Linear record](https://linear.app/rgomids/issue/AXM-32/separar-saida-do-lingo-da-apresentacao-conversacional-da-ia#comment-92b1d72a) confirm:
+
+- **ADR-0030 accepted** at source revision `18d29a6`, blob `295084e6`;
+  the document's `Status` and ADR index were reconciled separately.
+  D1–D3 and prior Spec 008 acceptance remain unchanged.
+- **G1/G2 are watch items, not preconditions to Plan.** The conditional
+  information loss shown by code inspection remains evidenced above; the
+  actual user-level ambiguous-create and >64 partial-transfer outcomes were
+  not reproduced. No new schema, planned fix, synthetic blocker, separate
+  corrective issue or expanded scope is authorized now.
+- **Trigger:** if either problem actually impacts a concrete operation,
+  record the minimal reproducible scenario, observed effects, affected
+  consumer and risk; open a separate focused Work Item for that gap.
+  Until then, do not assume the problem occurred or claim full coverage.
+- **Safety is not deferred:** ambiguous external mutation cannot be replayed
+  blindly; bounded/truncated maintenance output cannot be treated as a
+  complete effects ledger. A material contradiction discovered in the
+  AXM-32 implementation/acceptance scope remains subject to the existing
+  safety and acceptance requirements.
+
+Consequently, the earlier `NEEDS_HUMAN_DECISION` statement in this
+historical clarification no longer describes the maintainer decision for
+ADR-0030 or the G1/G2 pre-Plan hold. It remains a record of what was
+unknown **before** this explicit decision. This does not assert
+`READY_FOR_plan` or advance a canonical Execution automatically:
+re-evaluate the current gate and other outstanding requirements independently.
