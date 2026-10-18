@@ -142,7 +142,7 @@ func TestSkillOutputContractsIsolateCanonicalCompletionAndPreserveOperationPaylo
 		name     string
 		payloads []string
 	}{
-		{"axiom-project", []string{"setup", "edit", "projects", "project", "readiness", "operational", "integrations", "admission", "workflowAuthoring", "diagnostic"}},
+		{"axiom-project", []string{"setup", "edit", "projects", "project", "readiness", "operational", "integrations", "admission", "workflowAuthoring", "policyEdit", "diagnostic"}},
 		{"axiom-workflow", []string{"workflowAuthoring", "runtimeResolution", "previewDigest", "runtime", "runtimeAuth", "diagnostic"}},
 		{"axiom-work-item", []string{"draft", "selection", "workItem", "workflow", "projection", "executionTarget", "runtimeResolution", "previewDigest", "executions", "workItems", "change", "admission", "stage", "diagnostic"}},
 	}
@@ -165,6 +165,7 @@ func TestSkillOutputContractsIsolateCanonicalCompletionAndPreserveOperationPaylo
 		"runtimeResolution":{"projectId":"123e4567-e89b-42d3-a456-426614174000","choice":{"runtimeId":"claude","modelProfileId":"careful"},"blocker":{"code":"resolution-details"}},
 		"workflowAuthoring":{"operation":"create","details":"authoring-details","previewDigest":"authoring-digest","effects":["publish immutable revision"]},
 		"previewDigest":"runtime-preview-digest",
+ "policyEdit":{"outcome":"published","preview":{"digest":"policy-digest"},"readBack":{"status":"confirmed"}},
  "diagnostic":{"schemaVersion":1,"category":"capability_unknown","capability":"unknown","options":[]}
 	}`)
 	var event map[string]json.RawMessage

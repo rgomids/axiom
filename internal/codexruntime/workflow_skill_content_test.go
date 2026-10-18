@@ -153,3 +153,30 @@ func TestOperatorAuxiliaryPresentationContracts(t *testing.T) {
 		}
 	}
 }
+
+func TestPolicySkillRoutePreservesAuthorityAndReadBackAcrossHosts(t *testing.T) {
+	source, err := fs.ReadFile(skillFiles, "skills/axiom-project/SKILL.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, required := range []string{"--policy-draft", "policyEdit.preview", "policyEdit.readBack", "Stage/Agent/Profile/Runtime", "Cancellation or incomplete consent", "drift", "unverified", "recovery_required", "G-2", "draft instructions", "never select a model", "do not invoke either automatically"} {
+		if !strings.Contains(string(source), required) {
+			t.Fatal("missing policy boundary", required)
+		}
+	}
+	for _, constructor := range runtimeServices(t) {
+		root := privateSkillRoot(t)
+		service, err := constructor(root)
+		if err != nil {
+			t.Fatal(err)
+		}
+		installOrFail(t, service, Applied)
+		actual, err := os.ReadFile(filepath.Join(root, "axiom-project", "SKILL.md"))
+		if err != nil || string(actual) != string(source) {
+			t.Fatal("installed policy route differs", service.Runtime(), err)
+		}
+		if service.Inspect(context.Background()).Status != Ready {
+			t.Fatal("installed policy route is not recognized")
+		}
+	}
+}

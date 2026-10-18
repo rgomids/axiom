@@ -229,3 +229,30 @@ func TestHelpDocumentsEditAndLifecycleFlags(t *testing.T) {
 		}
 	}
 }
+
+func TestPolicyDraftRouteUsesCanonicalEditAuthority(t *testing.T) {
+	inspection := discoverForTest(t, "axiom-project")
+	edit := modeByName(t, inspection, "configure", "edit")
+	if !strings.Contains(edit.Authority, "--policy-draft") {
+		t.Fatal("policy route missing", edit)
+	}
+	draft := `{"runtimes":{"mode":"members","remove":["codex"]}}`
+	for _, authorized := range []bool{false, true} {
+		service := newEditRecordingService(t)
+		args := []string{"project", "configure", "--project", "sample", "--policy-draft", draft}
+		if authorized {
+			args = append(args, "--project-id", authorityValues["--project-id"], "--preview-digest", authorityValues["--preview-digest"], "--authorize-local")
+		}
+		var output bytes.Buffer
+		if code := Run(context.Background(), args, service, completionProvenance(t), &output); code != ExitSuccess {
+			t.Fatal(output.String())
+		}
+		if len(service.inputs) != 1 {
+			t.Fatal(service.inputs)
+		}
+		input := service.inputs[0]
+		if input.PolicyDraft == nil || *input.PolicyDraft != draft || input.Project != "sample" || input.AuthorizeLocal != authorized {
+			t.Fatal("host route changed payload or authority", input)
+		}
+	}
+}

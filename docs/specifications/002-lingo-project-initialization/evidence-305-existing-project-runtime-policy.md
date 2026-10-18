@@ -529,3 +529,29 @@ identical implementation/test bytes; only commands/Evidence wording differed.
 Both histories are retained by a local branch merge; remote documentary wording
 is retained. No force push, PR merge or approval. Subsequent checks apply to the
 combined head, not an inherited CI result.
+
+### r3 — T08 thin axiom-project route
+
+Embedded `axiom-project` now routes existing policy read/change to the actual
+configure EDIT operation, builds only explicit partial member intent, relays
+`policyEdit` intact, and requires the exact human-confirmed replay tuple. It
+preserves incompatible references, missing local Profiles, cancellation, drift
+and uncertain read-back as canonical outcomes. It routes local setup and Workflow
+needs to their separate owners without performing them. It does not select a
+Runtime/model/Profile, author raw YAML, synthesize consent or retry uncertainty.
+
+The replaced shared skill revision is appended to the existing history; both
+Codex and Claude installers consume that same source and preserve historical
+ownership/receipts. A historical upgrade test now locates its intended recorded
+revision explicitly instead of assuming it is the last revision; reconstructed
+historical bytes still must match the recorded SHA. Output-contract tests preserve
+the new `policyEdit` payload separately from canonical completion.
+
+Executed, exit 0: `go test ./internal/codexruntime ./internal/cli
+./internal/runtimebootstrap`. New tests verify identical installed skill bytes and
+recognized receipts across both hosts, the actual inspection route, unchanged
+inline JSON transport and no implicit authority. Existing canonical CLI negative
+and recovery tests provide application refusal evidence. These are deterministic
+routing/installation tests, **not native LLM conversation**. No live Runtime or
+paid/authenticated Provider session was launched; native conversation remains
+NOT RUN and is not inferred from instruction assertions.
