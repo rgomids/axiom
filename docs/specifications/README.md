@@ -213,10 +213,12 @@ operation-scoped readiness. V1/v2 remain supported without rewrite.
 G-1 / [#305](https://github.com/rgomids/axiom/issues/305),
 [AXM-34](https://linear.app/rgomids/issue/AXM-34):
 [existing Project Runtime/Profile policy amendment](002-lingo-project-initialization/amendment-305-existing-project-runtime-policy.md)
-is **Proposed** (SDD specify): partial v2/v3 policy editing, exact preview/local
-authority, Workflow compatibility, drift refusal and read-back. Human approval
-and subsequent planning/implementation remain separate; historical contracts are
-preserved. This records no implementation, Execution gate or product acceptance.
+is **Approved for planning** (SDD specify), fixed to SHA
+`6a5b00e43e7a575bfde4e25d2a3110602d9a414c` by
+[human approval](https://github.com/rgomids/axiom/pull/327#issuecomment-6245855021).
+[Technical Plan](002-lingo-project-initialization/plan-305-existing-project-runtime-policy.md)
+is **Proposed — Awaiting Human Approval — Plan**. Historical contracts remain
+preserved; no Tasks/implementation, Execution gate or product acceptance is recorded.
 
 Implementation Evidence:
 [T01](002-lingo-project-initialization/evidence-t01.md),

@@ -1,11 +1,16 @@
 # Specification 002 amendment — G-1: existing Project Runtime/Profile policy
 
-Status: **Proposed**, revision 1, 2026-10-18. SDD stage: **specify**.
+Status: **Approved for planning**, contract revision 1, 2026-10-18. SDD stage: **specify**.
 Technical owner: [#305](https://github.com/rgomids/axiom/issues/305), parent
 [#303](https://github.com/rgomids/axiom/issues/303).
 Operational Work Item: [AXM-34](https://linear.app/rgomids/issue/AXM-34).
-These proposed bytes require explicit human review/approval before planning or
-implementation authority is inferred. This document records no acceptance.
+[Human specify approval](https://github.com/rgomids/axiom/pull/327#issuecomment-6245855021)
+is fixed to SHA `6a5b00e43e7a575bfde4e25d2a3110602d9a414c`, following
+[technical review](https://github.com/rgomids/axiom/pull/327#pullrequestreview-5561476866).
+This versioned reconciliation changes status/provenance only, including the
+historical gate annotation below; behavioral requirements retain the approved
+contract. Approval permits planning, not Plan/Tasks approval,
+implementation, merge or product acceptance. [Proposed Plan](plan-305-existing-project-runtime-policy.md).
 
 ## 1. Contract lineage and bounded amendment
 
@@ -356,10 +361,12 @@ migration/fallback or authority would require clarify and, for an architectural
 contradiction, a new Proposed ADR with explicit supersession under ADR-0018 and
 human acceptance; never silently amend the historical decision.
 
-Human decision pending: approval of this exact proposed amendment, particularly
+Historical specify gate (at the approved SHA): human approval was pending for
 the explicit apply refusal for active Workflow incompatibility and the ability
 to save valid declarations despite local readiness blockers. No approval is
 inferred from publication, validation, CI or merge. No new Plan/Tasks are created
 at this stage. If review exposes a material ambiguity/contradiction, next artifact
 is clarify/Proposed ADR as appropriate; otherwise an explicitly approved amendment
 is input to **plan**, with separate authority for subsequent implementation.
+The approval linked above subsequently satisfied only this specify gate; this
+paragraph preserves its historical scope and is not a pending approval claim.
