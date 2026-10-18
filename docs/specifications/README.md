@@ -11,16 +11,22 @@ bounded delivery unit. Technical merge does not imply human acceptance or next-T
 
 ## 009 — Guided Project/Runtime configuration with feasibility preflight
 
-[Specification](009-guided-project-runtime-configuration/spec.md): **Proposed —
-specify only, 2026-10-18**, for [AXM-33](https://linear.app/rgomids/issue/AXM-33).
-Defines the bounded existing-Project journey: canonical inventory, objective
-feasibility before technical choices, observed options, exact per-operation
-authority, read-back and scoped readiness. Reuses Spec 002 G-1/G-2, Spec 007 and
-accepted AXM-31; preserves AXM-32 presentation ownership. The full G-1 positive
-scenario requires the operation in the effective installation and later real
-Evidence; merge of PR #327 is insufficient. [Evidence/handoff](009-guided-project-runtime-configuration/evidence.md)
-records documentary checks and unverified behavior. No Plan, Tasks, implementation,
-ADR acceptance, canonical workflow advance or human acceptance is delivered.
+[Specification](009-guided-project-runtime-configuration/spec.md) rev.1: **Accepted
+for planning, 2026-10-18**, fixed to `a99ba8d3afe49f47ab508422ed7ca70e2e553569` by
+[explicit human decision](https://github.com/rgomids/axiom/pull/329#issuecomment-6254246774)
+and [Linear record](https://linear.app/rgomids/issue/AXM-33/guiar-configuracao-de-project-e-runtime-com-preflight-de-viabilidade#comment-e55b95ac).
+The Spec's historical Proposed header/bytes remain unchanged; this annotation
+records later provenance, not retroactive editing or canonical gate advancement.
+[Plan](009-guided-project-runtime-configuration/plan.md): **Proposed, rev.1,
+2026-10-18**, for [AXM-33](https://linear.app/rgomids/issue/AXM-33), under the
+[observed plan gate](https://linear.app/rgomids/issue/AXM-33/guiar-configuracao-de-project-e-runtime-com-preflight-de-viabilidade#comment-6cc861da).
+Composes existing owners for canonical inventory, early feasibility, informed
+partial opt-in, exact per-apply authority, read-back and scoped readiness.
+Preserves AXM-32 presentation ownership and G-1/G-2 contracts. C01–C16, native
+Codex/Claude and real C12 remain **NOT_RUN**; G-1 merged is not installed/proven.
+[Evidence/handoff](009-guided-project-runtime-configuration/evidence.md) separates
+historical specify checks from plan inspection/validation. Plan acceptance, Tasks,
+implementation, Execution/gate mutations, merge and release remain separately gated.
 
 ## 007 — Configurable Project workflows
 

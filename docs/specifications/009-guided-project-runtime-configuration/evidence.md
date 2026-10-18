@@ -133,3 +133,105 @@ Publication references and exact commit SHA are to be recorded in the single
 Draft PR and bounded Linear comment after push; a commit cannot contain its own
 SHA. Resume by reading that PR head and canonical sources, preserving this stage
 boundary and checking for an existing AXM-33 PR before any publication.
+
+## Plan — checkpoint e validação documental — 2026-10-18
+
+Incremental record; the specify sections above retain their dated history.
+Specification 009 rev.1 at `a99ba8d3afe49f47ab508422ed7ca70e2e553569` was subsequently
+**accepted for planning** by the [human decision](https://github.com/rgomids/axiom/pull/329#issuecomment-6254246774)
+and [Linear receipt](https://linear.app/rgomids/issue/AXM-33/guiar-configuracao-de-project-e-runtime-com-preflight-de-viabilidade#comment-e55b95ac).
+Its historical Proposed header and full bytes are preserved. The index records
+this later provenance. [Plan rev.1](plan.md) remains **Proposed**, under the
+[observed READY_FOR_plan gate](https://linear.app/rgomids/issue/AXM-33/guiar-configuracao-de-project-e-runtime-com-preflight-de-viabilidade#comment-6cc861da),
+without Tasks or implementation authority/acceptance.
+
+### Entry observations and bounded source inspection
+
+- `git status --short`, branch and `git rev-parse HEAD`: clean checkpoint on
+  `docs/axm-33-guided-configuration-specification` at accepted SHA above.
+- `gh pr view 329` and `gh pr diff 329 --name-only`: OPEN/Draft, same head,
+  initial diff only Spec/Evidence/index. `gh pr list --state all --search
+  'AXM-33'`: only #329 is an open AXM-33 PR; #325 is merged historical context.
+- Read the exact GitHub acceptance comment and Linear AXM-33/comments:
+  `In Review`, no formal blockedBy, explicit acceptance and READY_FOR_plan
+  confirmed. Canonical Execution/gates/revision remain **unknown**; no product
+  operation was used to reconstruct or inspect them.
+- `git fetch origin main docs/axm-32-output-separation-specification
+  docs/axm-33-guided-configuration-specification` and remote PR/Issue read-back:
+  main `000936e5de71169ff563b236bcf17c3cfabc146c`; #327 merged, #305 OPEN;
+  Linear AXM-34 Awaiting Release. These do not establish installed capability.
+- AXM-32 `In Progress`; #328 OPEN/Draft at
+  `aba1c4d843e4b44a891531831aec2c79e95aae18`. Read current PR body and ADR-0030
+  from that fetched revision: Spec/ADR/Plan/Tasks accepted, implementation
+  incomplete; execution-binding/delivery-mode decision remains pending there.
+  No AXM-32 host paths, auth output or private checkpoint data imported.
+- Read only relevant sections of AGENTS/CONTRIBUTING, tracking/security/docs
+  governance, Constitution, Specs 002/007/009 and accepted ADRs. Spot inspections:
+  four installed-skill sources, skill metadata/parser, readiness, G-1 preview/apply,
+  local authoring, passive observation, auth preflight and capability ingress.
+  Plan links exact paths and distinguishes passive reads from consented observers.
+- Textual drift confirmed: Project's old G-1 unavailable sentence conflicts with
+  its policy section; Workflow's G-1/G-2/G-5 unavailable text is stale against
+  versioned operations. Future guidance reconciliation is bounded to the journey;
+  no skills or product contracts changed now.
+
+Public-content scope: original technical synthesis plus explicitly authorized
+bounded decision/PR references. Provider content treated as untrusted data;
+no private transcript, real configuration, credentials or auth output copied.
+No original v0.19.0 conversation located/replayed; installed G-1 and real proof
+not observed. No delegation: strict model inferiority could not be verified;
+the Orchestrator performed and integrated the bounded inspections directly.
+
+### Review, validation and limits
+
+Plan covers GC-01–06 through P1–P6, owners/operations, observable outputs and
+C01–C16. Includes immediate infeasibility stop, informed partial opt-in, exact
+per-apply authority, stale/read-back, operation-scoped readiness, bounded recovery,
+portable/local isolation, owner boundaries, compatibility/release and rollback.
+No new ADR/supersession or domain/wire/state contract is proposed. Missing material
+facts require Clarification/owner handoff, never a new parallel authority.
+
+Semantic/architecture/security self-review using axiom-review: no blocking finding
+identified in this documentary scope. Not an independent review, behavioral
+validation or human acceptance. Remaining integration risks are AXM-32's compatible
+presentation delivery, actual installed operations, auth/proof freshness and real
+C12 authority; all remain explicit rather than claimed solved.
+
+Validation results and publication checkpoint are recorded below after execution.
+C01–C16 synthetic, native Codex/Claude parity, real C12, product Go suites,
+Runtime/auth/probes/inference and E2E AXM-12: **NOT_RUN** in this plan-only stage.
+Documentary CI cannot mark any behavioral scenario PASS. `gitleaks` is unavailable;
+not installed, so consolidated secret scanning remains unverified.
+
+### Plan handoff
+
+Only plan.md, this append-only Evidence and the index are changed by plan.
+Accepted spec.md is byte-identical to the accepted SHA. No Tasks, skill/code,
+policy, manifest, Runtime state, ADR or execution/Provider status changes.
+Publication uses the existing branch and Draft PR #329, no force push/rebase/merge.
+The exact new SHA, remote read-back, CI observation and bounded Linear comment
+belong to the PR/Linear publication record because a commit cannot contain itself.
+
+Next: review/Clarify and explicit human acceptance of **Plan rev.1 at its published
+SHA**. Do not begin Tasks before that decision and its own authority. Resume by
+reading PR #329 head/diff, this checkpoint and the Plan; revalidate AXM-32 and the
+owning contracts instead of restarting, duplicating a PR or inferring canonical
+Execution state. No merge/release/card closure or acceptance is recorded here.
+
+### Executed plan checks
+
+- `./scripts/validate-repository.sh .`: PASS (exit 0); maintainer harness,
+  automation registry, label policy, ADR governance and sensitive-file checks.
+  Its native Runtime behavioral scenarios are explicitly SKIP/UNVERIFIED.
+- `python3 scripts/check-adr-governance.py .`: PASS, 30 ADRs; structural only.
+- `python3 /tmp/axm33-check-plan.py` (ephemeral, not repository automation):
+  PASS, 157 local links/anchors across Spec/Plan/Evidence/index, Markdown fences
+  and table boundaries, all GC/C identifiers, sixteen NOT_RUN case rows,
+  absent Tasks, byte-identical accepted Spec and preserved historical Evidence
+  prefix. An initial accented-anchor mismatch was corrected before this PASS.
+- `git diff --check` and `git diff --cached --check`: PASS. Staged content/scope
+  reviewed: exactly three authorized documents, no accepted Spec delta.
+- `./scripts/check-sensitive-files.sh --staged .`: PASS.
+- `./scripts/delivery-issues.sh check-pr --title /tmp/axm33-plan-title.txt
+  --body /tmp/axm33-plan-pr-body.md`: PASS, metadata declared, related/completes
+  none. Consolidated scanner unavailable as stated above.
