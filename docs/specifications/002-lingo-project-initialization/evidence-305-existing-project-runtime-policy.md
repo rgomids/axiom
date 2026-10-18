@@ -146,3 +146,149 @@ descendant. Final exact committed-head validation is recorded below at consolida
 A safety review also closed a pre-exposure seam: policy proposals cannot yield a
 usable legacy `PublicationRequest` and `ApplyEdit` refuses them until guarded
 publication integration. No CLI option exposes policy editing in these units.
+
+## Consolidated AC progress
+
+No full G1-AC passage or integrated G-1 completion is asserted by this increment.
+The approved Tasks matrix remains the complete acceptance checklist.
+
+| Criterion | Existing unit Evidence | Remaining oracle / Task |
+| --- | --- | --- |
+| G1-AC01 | v2/v3 pure draft/candidate round trip | V03/V05–V08, T03/T05–T08 full journey |
+| G1-AC02 | V01 forms/partial edits/no-op bytes/companions | V06, T06 observed persisted state |
+| G1-AC03 | V01 strict shape/references/bounds | V07, T07 transport and safe diagnostics |
+| G1-AC04 | V01 dependent edits, V02 portable exact refs | T03 integrated compatibility gate |
+| G1-AC05 | No Project/registry writer exposed | V05/V06/V09, T05/T06/T09 actual A/B isolation |
+| G1-AC06 | Portable helper has no local-presence gate | V03/V05/V07, T03/T05/T07 readiness/save |
+| G1-AC07 | V02 exact resolution/requirements/before-after | V03/V04, T03/T04 snapshot integration and guards |
+| G1-AC08 | V02 four fixed scopes, unknown inventory | V06/V09, T06/T09 immutable record byte comparisons |
+| G1-AC09 | Policy ApplyEdit/request fail closed pending guards | V03/V05/V07/V08 full sealed authority journey |
+| G1-AC10 | No guarded policy publication yet | V03–V05, T03–T05 dependency/writer coverage and races |
+| G1-AC11 | Existing recovery protocol left unchanged | V05/V06/V09, T05/T06/T09 policy fault/read-back proof |
+| G1-AC12 | V01 same-schema round trip, v1/v4 policy refusal | V07/V09, T07/T09 full compatibility/CLI regression |
+| G1-AC13 | No proposed-snapshot readiness yet | V03/V06/V07, T03/T06/T07 canonical equivalence |
+| G1-AC14 | V01 strict parsing/scalars, V02 bounded logical output | V03–V09 all integrated output/storage/security boundaries |
+| G1-AC15 | No CLI/skill option exposed | V07–V09, T07–T09 inspection/transport/conversation |
+
+## Review and continuation
+
+Orchestrator review found and corrected three issues before publication:
+no-op local reconstruction, unguarded legacy publication-request exposure, and
+legacy schema-1 authoring permission expansion during helper reuse. Regression
+tests cover all three. Workflow impact serialization now checks the cumulative
+byte budget per complete row before retaining more rows, avoiding an oversized
+aggregate JSON allocation. No blocking finding was identified for the bounded
+pure units; this is self-review, not independent/human approval of G-1.
+
+The session budget requires consolidation before starting T03's sensitive
+observation/publication chain. This is **in progress**, not a discovered product
+blocker and not completion of nine Tasks. No further implementation authority is
+needed for the already authorized scope; carry it into continuation. No subagents
+were spawned. Full V01/V02 integrated passages remain open where the tables say
+pending; T03–T09 are unimplemented. Do not remove policy publication refusals merely
+to expose a CLI option. The legacy `EditPreview` still contains manifest/paths and
+must never be serialized unchanged for G-1.
+
+Next action is T03, following the approved dependency order. Inspection notes:
+
+- `ProjectReadiness.evaluate` currently calls `Runtime.Availability` by UUID,
+  which reloads persisted policy. Compose proposed Project/retained installation
+  snapshots with the same evaluator instead of accidentally assessing old policy.
+- `runtimeapplication.EvaluatePolicyV3` is the existing pure candidate evaluator;
+  `Service.CurrentAvailability` supplies canonical request-independent blockers.
+  Do not introduce another resolver or locally configured save prerequisite.
+- Production `runtimePolicySource.Load` and
+  `runtimeObservationSources.observer` live in `cmd/lingo/runtime_policy.go`.
+  `ExecutableObserver.Observe` reads executable identity and integration facts;
+  it launches/authenticates nothing, but observations have fresh `ObservedAt`.
+  Do not bind fresh clock values into deterministic preview identity. Audit all
+  actual consulted sources before choosing the read-only composition. Required
+  unreadable snapshots must refuse; observed absence and unknown proof are explicit.
+- T04 must resolve every dependency/reader/writer/lock/boundary/test row in Tasks.
+  `ProjectEditPublisher.PublishEdit` already locks state root → projects → target;
+  `OperationalStore.CommitOperational`, `RuntimeProfileStore.Publish` and Workflow
+  publication share root coordination. Runtime store exposes `inspectLocked` for
+  lock-held reads; public `Inspect` under a held exclusive root would self-lock.
+  Portable source/companions need complete-generation checks through commit.
+  External executable/integration/proof sources need an actual guard or explicit
+  fail-closed refusal; a final uncoordinated read is not proof of exclusion.
+- T05/T06 must extend existing portable-then-local publication/recovery and add
+  observed canonical read-back; preserve no-op bytes and classify post-commit
+  uncertainty honestly. `PublicationRequest` and `ApplyEdit` policy refusals are
+  deliberate temporary safety gates, to replace only after T04–T06 proof.
+- T07 extends the existing configure/edit adapter, its actual help/inspection and
+  guided/noninteractive tests. Draft wire semantics are above; option spelling is
+  still undecided, not an invented existing CLI option. T08 canonical skill source
+  is `internal/codexruntime/skills/axiom-project/SKILL.md`; preserve frozen published
+  skills/corpus. T09 consolidates all approved V01–V09 cases and native Evidence.
+
+```yaml
+objective: Complete G1-T01–G1-T09 in PR 327 under the approved amendment/Plan/Tasks
+state: in_progress
+completed_units:
+  - T01 pure draft/candidate and semantic policy projection; commit 3b0ed19
+  - T02 pure exact Workflow compatibility and authoring reuse; commit 4816372
+remaining_units:
+  - T03 implementation/validation; depends T01/T02; safe sealed preview and canonical proposed readiness, V03
+  - T04 implementation/security/concurrency; depends T03; complete guarded dependency/writer table, V04
+  - T05 implementation/fault validation; depends T04; exact replay and truthful publication/recovery, V05
+  - T06 implementation/validation; depends T05; observed read-back and classification, V06
+  - T07 CLI implementation/integration; depends T01–T06; real transport/help/inspection/guided parity, V07
+  - T08 skill integration; depends T07; thin canonical conversational routing, V08
+  - T09 integrated security/regression/native Evidence; depends T01–T08; all AC/oracles with explicit native limits, V09
+decisions_and_assumptions:
+  - Approved amendment/Plan/Tasks and accepted ADRs preserved byte-for-byte
+  - G1 only schemas 2/3; active recorded Workflow is none there; schema-4 policy editing remains refused
+  - Canonical Execution state unknown; no new Execution or workflow transition
+  - No verifiable strictly lower model hierarchy; execute in main session
+authority_granted_and_pending:
+  - Granted: scoped implementation/tests/docs, commits/push and updates to same branch/PR 327
+  - Not granted: merge/self-approval/release/issue closure/product acceptance/infra/secrets/scope expansion
+validation_status:
+  - Unit and regression commands/results recorded in this Evidence and PR
+  - V03–V09 and native G1 journey NOT_RUN
+  - Staticcheck unavailable locally; full Go quality gate not locally passed
+next_action: Revalidate remote HEAD/comments/concurrent changes, then implement T03; do not create another PR or infer canonical Execution state
+```
+
+## Consolidated verification receipt
+
+Code head: `4816372e33d194c73f551a1ea4310fd5b6e12770`, following
+`3b0ed19`. GitHub PR head read-back confirmed this exact code head, Draft/Open,
+with only #327 open on the canonical branch. Initial push (exit 128) found a stale
+`/usr/bin/gh` credential-helper executable path. Command-scoped use of the already
+installed `/usr/local/bin/gh` helper succeeded (exit 0); no persistent Git config,
+credential, permission or protection changed.
+
+Environment: `go version go1.27.2 linux/amd64`; `uname -srm` reported Linux
+6.12.94+ x86_64; `stat -f -c %T .` reported `ext2/ext3`. This is local unit/regression
+Evidence, not qualification of every supported native storage matrix row or the
+repository's Go 1.26 CI toolchain.
+
+| Command / check | Result |
+| --- | --- |
+| `go test ./internal/projectapp ./internal/project ./internal/manifest ./internal/workflowcompiler ./internal/workflowdefinition` at code head above | PASS, exit 0 |
+| `go test -race ./internal/projectapp` at code head above | PASS, exit 0 |
+| `go test -race ./internal/projectapp ./internal/workflowcompiler ./internal/manifest` before final report-budget hardening | PASS, exit 0; Project application race suite repeated afterward |
+| `go test ./...` on the T02 worktree before final report-budget hardening | PASS, exit 0; includes CLI, compatibility, local storage and Workflow regression suites |
+| `go vet ./...` before final report-budget hardening; `go vet ./internal/projectapp` afterward at code head above | PASS, exit 0 |
+| `./scripts/validate-repository.sh .` | PASS, exit 0; optional runtime behavioral scenarios explicitly SKIPPED/UNVERIFIED |
+| `./scripts/check-go-quality.sh all` | FAIL/UNVERIFIED, exit 1: Staticcheck executable absent; formatting and `go mod tidy -diff` stages passed; no tools installed |
+| `git diff --check`, staged content/path review and `./scripts/check-sensitive-files.sh --staged .` before each code commit | PASS, exit 0 |
+| New Go comment scan | No added comments (search exits 1 for no matches) |
+| Diff of approved amendment/Plan/Tasks against `dea54ea39f87f3a8cbe9c43fbda3e302e55402ac` | Empty; approved bytes preserved |
+| V03–V09, G1 native Linux/macOS publication/fault qualification and native Codex/Claude conversation | NOT_RUN: these implementation chains remain pending |
+
+SHA-256 source fingerprints (code head above):
+
+| Path under `internal/projectapp/` | SHA-256 |
+| --- | --- |
+| `policy_draft.go` | `507a6e0b62025c16cb00f2c703c45e28fc7ce2a376ef92cc7793cab212192221` |
+| `policy_view.go` | `e8fa6fa843cff94424f6e2cc8eb9ab76f8ff64b55732f6010b271d4ee316a1c4` |
+| `policy_workflow.go` | `6bb12d70c3848ea862d3e653e09f2ce182c20f3fba7f6b5964b622b0cf720ea9` |
+
+CI for the final handoff commit is reported separately in PR #327, never inherited
+from the previously green documentary SHA. Technical/human review requested for
+the bounded increment; continuation of T03–T09 is required before G-1 review for
+full delivery. No local Runtime readiness, product acceptance or Work Item
+completion is inferred from any test or CI outcome.

@@ -225,7 +225,8 @@ are **Approved for implementation**, fixed to SHA
 `dea54ea39f87f3a8cbe9c43fbda3e302e55402ac` by
 [human approval](https://github.com/rgomids/axiom/pull/327#issuecomment-6246118505).
 [Implementation Evidence and progress](002-lingo-project-initialization/evidence-305-existing-project-runtime-policy.md)
-records T01 pure draft/candidate coverage and remaining units. Historical approved
+records T01 pure draft/candidate and T02 portable Workflow coverage, with
+T03–T09 pending and a continuation handoff. Historical approved
 bytes remain preserved; no Execution transition or product acceptance is recorded.
 
 Implementation Evidence:
