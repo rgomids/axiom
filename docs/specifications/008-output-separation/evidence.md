@@ -597,3 +597,129 @@ the same branch/PR and all eight dependencies above. The request is for missing
 workflow facts, not another implementation approval. Then finish T01 and proceed
 through T08; request independent engineering/security review and human acceptance
 of the resulting exact artifacts. No merge, release, closure or automatic advance.
+
+## Resume r2 — new box state root and Execution binding — 2026-10-18
+
+### Authority and root creation
+
+Rafael's resume-r2 instruction (2026-10-18, 16:31 BRT) explicitly authorizes
+creating a **new**, box-local canonical Lingo state root for AXM-32. This
+supersedes the previous checkpoint's request for an existing root on this box;
+it says nothing about Executions on other hosts. The implementation authority
+for all eight Tasks remains the [existing approval](https://github.com/rgomids/axiom/pull/328#issuecomment-6253982994)
+at `2efacfdb3957c458df84514b0e2a4ac532cae4c8`; no renewal is requested.
+
+Pre-edit checks: clean worktree, expected branch, local HEAD, remote
+`refs/heads/docs/axm-32-output-separation-specification`, and OPEN/Draft PR #328
+all agree on `d555dc8fe0e027b8eb9803ba1c3650865f4c840c`. Read the PR body,
+comments and reviews, including the exact Tasks authorization. The open-PR search
+for AXM-32 returns #328. GitHub reports the repository PUBLIC. Read Spec,
+Clarify, Plan, Tasks, ADR-0030, contribution/security/quality/automation policies
+and current CLI/Runtime implementation. Historical accepted artifacts remain
+unchanged; `d555dc8` remains the prior checkpoint reference.
+
+`LINGO_STATE_ROOT` and `XDG_STATE_HOME` are unset. The actual resolver is
+`cmd/lingo/main.go::stateRoot` → `internal/local/state_root.go::NativeStateRoot`:
+on Linux its canonical default is `/home/box/.local/state/lingo` (the basename
+is **lingo**, not axiom). After verifying that this path neither existed nor
+was a symlink, a Python standard-library one-off outside tracked automation
+created that directory with `mkdir(mode=0o700)`. Read-back: mode `0700`, zero
+entries. The default Project root `/home/box/.axiom/projects` is absent. The new
+root is local operational state, not a tracked artifact. No existing state was
+overwritten, imported, reconstructed or removed.
+
+### Concrete remaining Execution prerequisite
+
+Built the exact clean checkpoint with
+`go build -o /tmp/axiom-axm32-baseline ./cmd/lingo` (PASS, exit 0).
+The build reports revision `d555dc8fe0e0`, sourceState `clean`.
+The following bounded observations were decoded as JSON, with actual process
+exit codes captured independently; all had empty stderr:
+
+| Invocation after `/tmp/axiom-axm32-baseline` | Exit / status | Observed fact |
+|---|---|---|
+| `--json project list` | 0 / success | `projects: []`, No configured Projects. |
+| `--json workflow list --project axiom` | 1 / validation_failure | No configured Project by that selector; this is not an empty Execution-list proof. `axiom` was an inspection candidate, never an inferred canonical identity. |
+| `--json workflow start --project axiom --repository main --work-item linear:rgomids#AXM-32 --role implementation --complexity high --capabilities axiom-skills` | 1 / validation_failure | Explicit selector input is invalid; rejected before application dispatch. No Execution created. |
+
+The last invocation is a bounded capability/refusal check, **not** an attempt to
+substitute a guessed Project/Repository for canonical identity. Source confirms
+the independent limitation: `internal/cli/cli.go::parseWorkItemSelector` accepts
+only `github:<owner>/<repository>#<positive integer>`;
+`internal/projectapp/capability.go::SupportedProviders` contains only GitHub.
+`workflow start --help` and `project configure --help` were inspected. Current
+`cmd/lingo/execution_target.go::WorkflowStart` also requires configured Project,
+validated Work Item linkage and an exact reviewed Runtime preview. A fresh root
+alone cannot supply those facts or consent.
+
+`gh issue list --state all --search 'AXM-32 in:title'` returned no matches.
+That bounded search does not prove no differently titled mapping exists. AXM-32's
+provided identity is Linear, and no authorized GitHub Work Item binding was
+provided or discovered. PR #328 is not silently treated as a Work Item. No
+mirror Issue, Project, linkage, Profile, Runtime policy or Execution was created;
+no local workflow gate or Provider metadata was changed. Root read-back after
+the checks still has zero entries, establishing no active Execution **inside
+this newly created root**, without any assertion about other hosts/roots.
+
+A material clarification was requested: supply an existing authorized GitHub
+Work Item binding for this Execution, or explicitly decide that this delivery
+uses the approved SDD artifacts without a Lingo-managed Execution for Linear.
+This is distinct from the already-resolved root authorization and already-granted
+implementation approval. It does not propose implementing a Linear adapter,
+expanding schema/domain scope, or using a mirrored backlog by convenience.
+The [Tasks entry](tasks.md#entrada-e-autoridade) says to hand off on missing or
+contradictory local workflow facts; [contribution governance](../../../CONTRIBUTING.md#work-item-lifecycle-governance)
+requires human decision on insufficient truth. No registered Execution/revision/
+gate is claimed from Repository or Provider history.
+
+### Task → files → dependencies → validation → Evidence
+
+No product implementation or presentation test fixture was changed in r2.
+This is a precise entry-prerequisite report for **all eight Tasks**, not a claim
+that a subset implements AXM-32. The [previous matrix](#task--files--dependencies--validation--evidence)
+continues to describe the required tests; its missing-root condition is resolved
+by the creation above. Remaining gates are:
+
+| Task / requirements | Intended files / front | Dependency and current result | Validation / Evidence still required |
+|---|---|---|---|
+| T01 / R1–R4, AC1–AC9 inputs | Clarify/Evidence; CLI typed obligation fixtures | INCOMPLETE: new root reconciled; Execution identity/binding decision outstanding. Read-only inventory remains preparation. | Freeze all concrete variants and typed obligations, preserve baseline hashes, classify unknown consumers. |
+| T02 / R1–R4, AC1–AC6 | CLI presentation/readiness; Project skill; command tests | NOT_RUN: T01 exit unavailable. | Seven readiness variants, success/0 with policy-blocked Execution, one-call counters and channel/host assertions. |
+| T03 / R1/R2/R4, AC1/2/5/6 | CLI emitters/parser/help; native snapshots | NOT_RUN: T02 exit unavailable. | Entire semantic matrix, unchanged JSON, TTY/pipe/NO_COLOR/width, write failures and zero replay. |
+| T04 / R1/R3/R4, AC3/4/7 | Four shared skills and routing/protocol tests | NOT_RUN: T02 exit unavailable. | Internal JSON, faithful synthesis, invalid observations stop dependent effects; both isolated host roots. |
+| T05 / R1–R4, AC1–AC8 | Typed oracles; consent/security/integration suites | NOT_RUN: T03/T04 exits unavailable. | Positive/negative semantic claims, exact tokens, drift/read-back/effect counters, ANSI/bidi/injection/redaction. |
+| T06 / AC9; AC1/3/6 compatibility | Runtime manifest/history/receipts/upgrades | NOT_RUN: T05 exit unavailable. | Old/new pair matrix in both hosts, protected upgrade, no-op/interruption and actual pair restoration. |
+| T07 / AC1–AC9 consolidation | Commands/consumers; prepared smoke; Evidence | NOT_RUN: T06 exit unavailable. | Verified compatible binary/four-skill set, checks, immutable pins/state corpus and truthful references. |
+| T08 / AC3/4/5/7/8 | Native isolated observations; sanitized Evidence | NOT_RUN: T07 set unavailable; its separate native-authority gate still applies. | Success, blocked validation, denied consent and partial/interrupted recovery in each host; independent review/human decision. |
+
+### Validation and delivery limits
+
+- PASS: `go test ./internal/cli -run
+  'Test.*(ExecutionTarget|WorkflowStart|WorkItemSelector|Strict)' -count=1`,
+  exit 0. This is the existing selector/parser regression boundary, not new
+  AXM-32 implementation evidence.
+- PASS: baseline binary build, JSON parsing/independent exits, root mode/empty
+  read-back and bounded remote identity/public-classification inspection above.
+- AC1–AC9/R1–R4 implementation, new JSON/terminal equivalence/snapshots,
+  semantic/consent/security tests, pair upgrades/rollback, prepared smoke and
+  native Codex/Claude observations: NOT_RUN against a new implementation because
+  no implementation exists here. Baseline CI is not reused as behavioral proof.
+- PASS: `./scripts/validate-repository.sh .`, exit 0; native behavioral
+  scenarios explicitly SKIP/UNVERIFIED. PASS: `git diff --check` and a Python
+  byte comparison proving append-only Evidence and unchanged Spec/Clarify/Plan/
+  Tasks/ADR. These are documentary checks, not behavioral acceptance.
+- `gitleaks` remains unavailable: dedicated scan NOT_RUN. Staged sensitive-file
+  checks and exact-checkpoint CI are recorded with publication. No raw Provider/
+  chat content or secret is included.
+- Review/documentation skills were applied to this bounded Evidence append.
+  No delegation: strict model inferiority remains unproved. No independent
+  review, human acceptance, merge/release/closure or completion claim.
+- G1/G2 remain conditional, unreproduced and unchanged. This prerequisite is
+  neither G1 nor G2, and no preventive correction, dependency, schema, domain,
+  code comment, automation surface or installed skill change was introduced.
+
+Resume on the same branch/PR using the existing new root; **do not create it
+again or start a second Execution**. Inspect it for intervening state first.
+Resolve only the Execution-binding/delivery-mode decision above, then satisfy
+T01 → T02 → (T03/T04) → T05 → T06 → T07 → authorized T08. Independent review
+and human acceptance remain subsequent gates. Do not ask for the former absent
+root or renew the existing eight-Task implementation approval.
