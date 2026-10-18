@@ -16,9 +16,10 @@ import (
 // received and returns a canonical completion with an operation payload.
 type stageRecorder struct {
 	recordingService
-	inputs []WorkflowStageInput
-	status completion.Facts
-	source provenance.Value
+	inputs     []WorkflowStageInput
+	status     completion.Facts
+	source     provenance.Value
+	diagnostic *Diagnostic
 }
 
 func (s *stageRecorder) WorkflowStage(_ context.Context, in WorkflowStageInput) WorkflowStageResponse {
@@ -29,7 +30,7 @@ func (s *stageRecorder) WorkflowStage(_ context.Context, in WorkflowStageInput) 
 	if err != nil {
 		panic(err)
 	}
-	return WorkflowStageResponse{Result: Result{Completion: &result, Category: "stage_preview_ready"}, Payload: map[string]any{"operation": in.Operation, "previewDigest": strings.Repeat("a", 64)}}
+	return WorkflowStageResponse{Result: Result{Completion: &result, Category: "stage_preview_ready", Diagnostic: s.diagnostic}, Payload: map[string]any{"operation": in.Operation, "previewDigest": strings.Repeat("a", 64)}}
 }
 
 const stageSelectors = "--project alpha --repository main --work-item github:owner/repo#7 --execution e-1"
@@ -186,5 +187,33 @@ func TestDeliveryPacketJSONAndHumanExposeSameReadiness(t *testing.T) {
 		if !strings.Contains(jsonOut.String(), value) || !strings.Contains(humanOut.String(), value) {
 			t.Fatalf("readiness differs for %s: %s %s", value, &jsonOut, &humanOut)
 		}
+	}
+}
+
+// Synthetic service spy: rendering both views must call the service once per
+// request and preserve single/Graph payload paths, completion and category.
+func TestOperatorStageDiagnosticUsesCanonicalEmitter(t *testing.T) {
+	d := &Diagnostic{SchemaVersion: 1, Operation: "workflow stage run", Category: "capability_unknown", Capability: "unknown", Options: []DiagnosticOption{{ID: "handoff", Availability: "available"}}}
+	service := &stageRecorder{status: completion.Facts{ValidationFailed: true}, source: completionProvenance(t), diagnostic: d}
+	var structured bytes.Buffer
+	args := strings.Fields("workflow stage status " + stageSelectors)
+	if code := Run(context.Background(), args, service, completionProvenance(t), &structured); code != ExitFailure || len(service.inputs) != 1 {
+		t.Fatalf("code=%d calls=%d", code, len(service.inputs))
+	}
+	var event map[string]json.RawMessage
+	if err := json.Unmarshal(structured.Bytes(), &event); err != nil {
+		t.Fatal(err)
+	}
+	if event["diagnostic"] == nil || event["stage"] == nil || bytes.Index(structured.Bytes(), []byte(`"diagnostic"`)) < bytes.Index(structured.Bytes(), []byte(`"stage"`)) {
+		t.Fatal("lost additive payload order")
+	}
+	expected, err := renderMarkdown(structured.Bytes())
+	if err != nil {
+		t.Fatal(err)
+	}
+	service.inputs = nil
+	var human bytes.Buffer
+	if code := RunInteractive(context.Background(), args, service, completionProvenance(t), nil, &human, io.Discard); code != ExitFailure || len(service.inputs) != 1 || human.String() != string(expected) {
+		t.Fatal("canonical views or call count diverged")
 	}
 }

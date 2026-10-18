@@ -217,7 +217,7 @@ type editCompletionEvent struct {
 
 // An EDIT preview carries the complete portable manifest, so it uses the
 // larger bounded preview budget rather than the summary-only limit.
-func emitEditCompletion(writer io.Writer, mode outputMode, result completion.Result, edit projectapp.EditPreview) int {
+func emitEditCompletion(writer io.Writer, mode outputMode, result completion.Result, edit projectapp.EditPreview, diagnostic ...*Diagnostic) int {
 	if writer == nil || !result.Valid() {
 		return ExitFailure
 	}
@@ -226,7 +226,11 @@ func emitEditCompletion(writer io.Writer, mode outputMode, result completion.Res
 	if err != nil {
 		return ExitFailure
 	}
-	return presentEvent(writer, mode, result.Status(), encoded, maxWorkItemPreviewOutputBytes)
+	var d *Diagnostic
+	if len(diagnostic) > 0 {
+		d = diagnostic[0]
+	}
+	return presentDiagnosticEvent(writer, mode, result.Status(), encoded, maxWorkItemPreviewOutputBytes, d)
 }
 
 func emitProjectCompletion(writer io.Writer, mode outputMode, result completion.Result, project ProjectView) int {
@@ -286,4 +290,15 @@ func completionExitCode(status completion.Status) int {
 		return ExitCancelled
 	}
 	return ExitFailure
+}
+
+func emitDiagnosticCompletion(writer io.Writer, mode outputMode, result completion.Result, d *Diagnostic) int {
+	if writer == nil || !result.Valid() {
+		return ExitFailure
+	}
+	wire, err := renderCompletionJSON(result)
+	if err != nil {
+		return ExitFailure
+	}
+	return presentDiagnosticEvent(writer, mode, result.Status(), wire, MaxCompletionOutputBytes, d)
 }

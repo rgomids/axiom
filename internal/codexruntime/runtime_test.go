@@ -142,9 +142,9 @@ func TestSkillOutputContractsIsolateCanonicalCompletionAndPreserveOperationPaylo
 		name     string
 		payloads []string
 	}{
-		{"axiom-project", []string{"setup", "edit", "projects", "project", "readiness", "operational", "integrations", "admission", "workflowAuthoring"}},
-		{"axiom-workflow", []string{"workflowAuthoring", "runtimeResolution", "previewDigest", "runtime", "runtimeAuth"}},
-		{"axiom-work-item", []string{"draft", "selection", "workItem", "workflow", "projection", "executionTarget", "runtimeResolution", "previewDigest", "executions", "workItems", "change", "admission", "stage"}},
+		{"axiom-project", []string{"setup", "edit", "projects", "project", "readiness", "operational", "integrations", "admission", "workflowAuthoring", "diagnostic"}},
+		{"axiom-workflow", []string{"workflowAuthoring", "runtimeResolution", "previewDigest", "runtime", "runtimeAuth", "diagnostic"}},
+		{"axiom-work-item", []string{"draft", "selection", "workItem", "workflow", "projection", "executionTarget", "runtimeResolution", "previewDigest", "executions", "workItems", "change", "admission", "stage", "diagnostic"}},
 	}
 	fixture := []byte(`{
 		"status":"top-status",
@@ -164,7 +164,8 @@ func TestSkillOutputContractsIsolateCanonicalCompletionAndPreserveOperationPaylo
 		"projection":{"provenance":{"revision":"projection-revision"},"digest":"projection-digest"},
 		"runtimeResolution":{"projectId":"123e4567-e89b-42d3-a456-426614174000","choice":{"runtimeId":"claude","modelProfileId":"careful"},"blocker":{"code":"resolution-details"}},
 		"workflowAuthoring":{"operation":"create","details":"authoring-details","previewDigest":"authoring-digest","effects":["publish immutable revision"]},
-		"previewDigest":"runtime-preview-digest"
+		"previewDigest":"runtime-preview-digest",
+ "diagnostic":{"schemaVersion":1,"category":"capability_unknown","capability":"unknown","options":[]}
 	}`)
 	var event map[string]json.RawMessage
 	if err := json.Unmarshal(fixture, &event); err != nil {

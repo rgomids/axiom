@@ -93,7 +93,7 @@ func runProjectWorkflow(ctx context.Context, mode outputMode, args []string, ser
 	if e != nil {
 		return true, ExitFailure
 	}
-	return true, presentEvent(out, mode, c.Status(), append(wire, '\n'), 2<<20)
+	return true, presentDiagnosticEvent(out, mode, c.Status(), append(wire, '\n'), 2<<20, response.Diagnostic)
 }
 func duplicateFlag(args []string) bool {
 	seen := map[string]bool{}

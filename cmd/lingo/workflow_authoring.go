@@ -38,7 +38,11 @@ func (s lifecycleService) ProjectWorkflow(ctx context.Context, input cli.Project
 		request.Definition = b
 	}
 	outcome := projectapp.ApplyWorkflow(ctx, workflowAuthoringAdapter{s}, request)
-	return workflowAuthoringCompletion(outcome, s.provenance)
+	result := workflowAuthoringCompletion(outcome, s.provenance)
+	if result.Diagnostic != nil {
+		result.Diagnostic.Operation = "project workflow " + request.Operation
+	}
+	return result
 }
 
 func workflowAuthoringCompletion(outcome projectapp.WorkflowAuthoringResult, source provenance.Value) cli.Result {
@@ -66,6 +70,9 @@ func workflowAuthoringCompletion(outcome projectapp.WorkflowAuthoringResult, sou
 	result := canonicalCompletion(facts, "Project workflow "+outcome.Category, references, next, source)
 	result.Category = outcome.Category
 	result.WorkflowAuthoring = &outcome.Report
+	if !facts.Completed {
+		result.Diagnostic = workflowDiagnostic(outcome)
+	}
 	return result
 }
 
