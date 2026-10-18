@@ -4,6 +4,8 @@ Este diretório registra decisões técnicas duráveis e difíceis de reverter.
 
 ## Index
 
+- [ADR-0030 — Canonical results, terminal output and host presentation](0030-canonical-results-terminal-and-host-presentation.md) — **Proposed** 2026-10-18, AXM-32 specify only; separates canonical JSON, native terminal rendering and host-owned Markdown. Historical #232/AXM-31 presentation replacement and channel/migration decisions require explicit human acceptance; no accepted ADR is superseded here.
+
 - [ADR-0029 — Minimal PR gate with native qualification before release](0029-minimal-pr-gate-native-qualification.md) — **Accepted** 2026-10-16 (AXM-8 comment `fee15434`); two required PR checks (`PR Checks`, `delivery-metadata`); Linux/macOS race suites, release contracts and upgrade journeys move to a nightly/manual native suite that also gates `release-artifacts.yml`. The remote ruleset already requires exactly those two contexts.
 - [ADR-0028 — MVP POSIX process-group supervision boundary](0028-mvp-posix-process-group-supervision-boundary.md) — **Accepted** 2026-10-16 (AXM-8 comment `fee15434`); I276-T43: supervise the leader and its own process group with identity fencing, bounded group stop and known-escape veto; descendants that leave the group and lose ancestry are outside the MVP guarantee.
 - [ADR-0027 — Persist single-stage attempts without rewriting Execution3](0027-single-stage-attempt-persistence.md) — **Accepted** 2026-10-16 (AXM-8 comment `fee15434`), option A: a separate versioned `single-stage-runs/v1` operational ledger and single-stage authority codec v2; preserves Execution3 and Graph1/2/3.

@@ -1,5 +1,14 @@
 # Specifications
 
+[AXM-32 output separation Specification](008-output-separation/spec.md) and
+[ADR-0030](../decisions/0030-canonical-results-terminal-and-host-presentation.md)
+are **Proposed, 2026-10-18**, specify only: one canonical structured result,
+native terminal output and host-owned conversational Markdown. They preserve
+accepted #232 history and expose the prospective #232/AXM-31 presentation
+replacement and open selection/migration decisions. No implementation or
+acceptance is implied. [Specify Evidence](008-output-separation/evidence.md)
+records inspection, documentary validation and future tests marked NOT_RUN.
+
 Issue [#306](https://github.com/rgomids/axiom/issues/306): [Plan](002-lingo-project-initialization/plan-306-local-runtime-profiles.md), [Spec 002 amendment](002-lingo-project-initialization/amendment-306-local-runtime-authoring.md), [mandatory design Security Review](002-lingo-project-initialization/security-review-306-local-runtime-profiles.md), [Spec 007 effort/onboarding amendment](007-configurable-workflows/amendment-306-profile-effort-onboarding.md) and ADR-0023/0024 are **Accepted, 2026-10-11**, by [exact six-artifact acceptance](https://github.com/rgomids/axiom/pull/310#issuecomment-6109183466) at `823bce3`.
 [Acceptance/Tasks Evidence](002-lingo-project-initialization/evidence-306-acceptance-tasks.md) preserves blobs and historical [Planning Evidence](002-lingo-project-initialization/evidence-306-planning-reconciliation.md).
 [Tasks](002-lingo-project-initialization/tasks-306-local-runtime-profiles.md) received [explicit implementation authorization](https://github.com/rgomids/axiom/pull/310#issuecomment-6109821395); [unified PD-OWN](https://github.com/rgomids/axiom/pull/310#issuecomment-6109651213) assigns all 23 T/X Tasks to #306, with independent local T16 and transversal X07 checkpoints. The approved Tasks bytes remain historical. [Implementation Evidence](002-lingo-project-initialization/evidence-306-implementation.md) records local/synthetic/native results, exact implementation-head CI and separate external acceptance gates.
