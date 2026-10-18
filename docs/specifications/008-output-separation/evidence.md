@@ -221,3 +221,75 @@ No production skills, schemas, code, tests, Provider/Runtime execution, release,
 merge or lifecycle metadata changed. Unknown concrete payload variants and external
 consumers remain explicit in clarify. ADR acceptance and separate gap decisions,
 with sufficient deterministic coverage, precede any subsequent Plan gate.
+
+## Plan preparation — 2026-10-18
+
+[Plan](plan.md) is **Proposed for review**, not accepted. This dated section
+supersedes only older pending-ADR/pre-Plan-hold statements as current authority
+context. Specification 008 acceptance at `18d29a6` and the subsequent
+[ADR acceptance / G1–G2 watch decision](https://github.com/rgomids/axiom/pull/328#issuecomment-6250321308)
+were read directly through GitHub. Read-only Linear issue/comment queries confirmed
+[READY_FOR_plan](https://linear.app/rgomids/issue/AXM-32/separar-saida-do-lingo-da-apresentacao-conversacional-da-ia#comment-9e16edb9),
+the later decision, In Progress and no Blocked by. These observations neither
+identify a canonical Execution nor prove its absence; none is created or advanced.
+Only already public/user-authorized decisions and links are incorporated here.
+
+### Baseline and scope
+
+Initial clean checkout was `1d26b0777b787c796945331e9a55d7946896e451` on
+`docs/axm-32-output-separation-specification`. `gh pr view 328` and `git fetch`
+observed remote `d4db1c3fdf625c6263751593add5ba8719fdd9b3`; `git merge --ff-only
+FETCH_HEAD` incorporated the later acceptance/operational annotations without
+rewriting them. The checkout has no remote-tracking ref for this branch, so
+subsequent comparisons use fetched HEAD / `git ls-remote`, not an assumed
+`origin/<branch>` ref. `gh pr list --head ... --state all` and a bounded open-PR
+AXM-32 search showed only #328, OPEN/Draft. `gh repo view --json visibility`
+confirmed PUBLIC. Before writing, `git ls-remote` still matched `d4db1c3`.
+
+Read SDD/orchestration/review skills, security/documentation policies,
+Documentation Governance, constitution, Linear/GitHub governance, existing Plan
+format, Spec/ADR and clarify inventory. Spot-checked `emitResponse`,
+`parseOutputMode`, `Run` vs `RunInteractive`, canonical completion/readiness DTOs,
+`presentEvent` / Markdown fallback, all four skill consumption obligations and
+shared Codex/Claude embedding, manifest/history/receipts/upgrade boundaries.
+No new product capability or host invocation interface was inferred.
+
+No delegation: strict model inferiority was not provable and this bounded
+investigation could be integrated locally. Explore/plan/review/validate stayed
+with the Orchestrator; no independent review is claimed. Documentary self-review
+found no blocking contradiction with Spec 008 or Accepted ADR-0030; the draft
+corrected a source-function reference to `parseOutputMode`. G1/G2 are observable
+risks only, without speculative correction or waiver of essential safety checks.
+
+### Documentary validation and limits
+
+| Executed check | Result / scope |
+|---|---|
+| `./scripts/validate-repository.sh .` | PASS: repository/harness/adapters/automation/label/ADR/sensitive-file checks and validator regressions. Native Runtime behavioral scenarios explicitly SKIP/UNVERIFIED. No product behavioral suite was invoked. |
+| `python3 scripts/check-adr-governance.py .` | PASS, 31 ADRs; structural validation, not semantic or human acceptance. |
+| Scoped one-off Python local link/anchor and source-path checks | Checks the Plan and appended plan Evidence targets plus named concrete source/test paths; no durable automation added. Results recorded with publication checks below. |
+| `git diff --check` | PASS on the documentary worktree; staged whitespace/content/classification and sensitive-file review required again before commit. |
+| `command -v gitleaks` | Unavailable; dedicated scanner NOT_RUN; no dependency installed. Repository sensitive-file checks and manual public-content review remain applicable. |
+| `gh pr view 328 --json statusCheckRollup` at baseline `d4db1c3` | PR Checks and both delivery-metadata observations SUCCESS. These results apply only to that pre-Plan SHA, not to the future Plan commit. |
+
+**NOT_RUN:** implementation, Go product suites, AC1–AC9 behavioral/equivalence/
+security-canary tests, installed-skill upgrade/rollback smoke, prepared-artifact
+smoke, native Codex/Claude conversations, actual G1/G2 incident reproduction,
+Provider/Runtime effects and AXM-12 E2E. Future test surfaces and bounded semantic
+oracle are a strategy, not delivered tests or complete natural-language coverage.
+No code, production skills/tests, accepted Spec/ADR, persisted state, Linear/status
+labels, Execution lifecycle, merge or release is changed. Only Plan and this
+appended Evidence are versioned in this stage. `tasks` is a candidate next stage
+only after separate review/acceptance of the exact Plan and its own authority/gate.
+
+Publication preparation: one-off checks passed for **6** scoped local links/anchors
+and **21** explicit source paths. Byte comparison passed for Spec against accepted
+`18d29a6`, and Spec/ADR/clarify against `d4db1c3`. A fresh `gh pr view` and
+`git ls-remote` still reported OPEN/Draft #328 at `d4db1c3`; no concurrent delta
+was observed. `./scripts/delivery-issues.sh check-pr --body <temporary-body>
+--title <temporary-title>` passed (`metadata=declared`, related/completes `none`).
+Staged review confirmed only the two authorized documentary paths, with no
+private/raw provider data or secrets. `git diff --cached --check`
+and `./scripts/check-sensitive-files.sh --staged .` passed. Remote Plan-commit CI
+and published HEAD are recorded on the same PR after push; they are not inferred
+from baseline results.
