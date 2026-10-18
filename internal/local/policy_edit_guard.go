@@ -50,6 +50,10 @@ func validPolicyPublication(request projectapp.EditPublicationRequest) bool {
 func (p ProjectEditPublisher) policyGuard(request projectapp.EditPublicationRequest, target *os.Root) func(*os.Root) error {
 	expected := *request.PolicyDependencies
 	return func(portableProject *os.Root) error {
+		locations, err := policyLocationToken(request.PortableDestination, request.LocalDestination)
+		if err != nil || locations != expected.Locations {
+			return ErrConflict
+		}
 		current, err := readPrivateFile(target, installationRecord)
 		if err != nil || !bytes.Equal(current, request.LocalExpected) {
 			return ErrConflict

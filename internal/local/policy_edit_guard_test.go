@@ -58,7 +58,7 @@ func TestPolicyPublicationGuardsAndPreservesLocalAbsence(t *testing.T) {
 }
 
 func TestPolicyPublicationRejectsEachStaleDependency(t *testing.T) {
-	for _, name := range []string{"installation", "source", "workflow", "operational", "runtime", "readiness"} {
+	for _, name := range []string{"installation", "source", "workflow", "operational", "runtime", "readiness", "locations"} {
 		t.Run(name, func(t *testing.T) {
 			f := newPolicyEditFixture(t)
 			r := f.policyRequest(t)
@@ -77,6 +77,8 @@ func TestPolicyPublicationRejectsEachStaleDependency(t *testing.T) {
 				d.Runtime = stale
 			case "readiness":
 				d.Readiness = stale
+			case "locations":
+				d.Locations = stale
 			}
 			result := f.publisher(nil).PublishEdit(context.Background(), r)
 			if result.Status != projectapp.EditPublicationConflict || !bytes.Equal(fileBytes(t, f.manifestPath()), r.PortableExpected) || !bytes.Equal(fileBytes(t, f.recordPath()), r.LocalExpected) || len(f.editStates(t)) != 0 {
@@ -279,5 +281,36 @@ func TestPolicyPublicationDetectsEqualRevisionContentAndIdentityDrift(t *testing
 				t.Fatal("drift committed", result)
 			}
 		})
+	}
+}
+
+func TestPolicyPublicationGuardsObservedRepositoryReadiness(t *testing.T) {
+	f := newPolicyEditFixture(t)
+	repo := privateTestRoot(t)
+	ctx := context.Background()
+	intent := projectapp.EditIntent{Selector: "sample", RepositoryUpserts: []projectapp.RepositoryUpsert{{Key: "api", Path: repo}}}
+	ports := f.policyPorts(t)
+	proposal, failure := projectapp.PreviewEdit(ctx, ports.Edit, intent)
+	if failure != projectapp.EditOK {
+		t.Fatal(failure)
+	}
+	preview := proposal.Preview()
+	applied := projectapp.ApplyEdit(ctx, ports.Edit, f.publisher(nil), intent, projectapp.EditAuthority{ProjectID: preview.ProjectID, PreviewDigest: preview.Digest, AuthorizeLocal: true})
+	if applied.Outcome != projectapp.EditPublished {
+		t.Fatal(applied.Outcome, applied.Failure)
+	}
+	request := f.policyRequest(t)
+	publisher := f.publisher(nil)
+	publisher.Portable.beforeUpdatePublication = func() {
+		if err := os.Rename(repo, repo+"-moved"); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Mkdir(repo, 0700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	result := publisher.PublishEdit(ctx, request)
+	if result.Status != projectapp.EditPublicationConflict || !bytes.Equal(fileBytes(t, f.manifestPath()), request.PortableExpected) {
+		t.Fatal("observed Repository drift committed", result)
 	}
 }

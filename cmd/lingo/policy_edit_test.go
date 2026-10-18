@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -14,6 +15,7 @@ import (
 	"github.com/rgomids/axiom/internal/cli"
 	"github.com/rgomids/axiom/internal/local"
 	"github.com/rgomids/axiom/internal/projectapp"
+	"github.com/rgomids/axiom/internal/runtimeapplication"
 )
 
 type policyEvent struct {
@@ -157,4 +159,87 @@ func TestPolicyCLIV2InstalledJourney(t *testing.T) {
 	if applied.Policy.Outcome != projectapp.EditPublished || applied.Policy.ReadBack.Status != "confirmed" || applied.Policy.ReadBack.Observed.SchemaVersion != 2 {
 		t.Fatal(applied)
 	}
+}
+
+func TestExecutablePolicyPreviewApplyAndReadBack(t *testing.T) {
+	binary := filepath.Join(t.TempDir(), "axiom")
+	if output, err := exec.Command("go", "build", "-o", binary, ".").CombinedOutput(); err != nil {
+		t.Fatal(err, string(output))
+	}
+	env := newEditEnvironment(t)
+	run := func(want int, args ...string) policyEvent {
+		t.Helper()
+		command := exec.Command(binary, append([]string{"--json"}, args...)...)
+		command.Dir = t.TempDir()
+		command.Env = append(os.Environ(), "LINGO_PROJECTS_ROOT="+env.root, "LINGO_STATE_ROOT="+env.state)
+		var output, stderr bytes.Buffer
+		command.Stdout, command.Stderr = &output, &stderr
+		err := command.Run()
+		code := 0
+		if exit, ok := err.(*exec.ExitError); ok {
+			code = exit.ExitCode()
+		} else if err != nil {
+			t.Fatal(err)
+		}
+		if code != want || stderr.Len() != 0 {
+			t.Fatal(code, output.String(), stderr.String())
+		}
+		for _, sentinel := range []string{env.root, env.state, env.api, env.web, "SENTINEL-POLICY-SECRET"} {
+			if bytes.Contains(output.Bytes(), []byte(sentinel)) {
+				t.Fatal("executable output leaked data")
+			}
+		}
+		var event policyEvent
+		if err := json.Unmarshal(output.Bytes(), &event); err != nil {
+			t.Fatal(err, output.String())
+		}
+		return event
+	}
+	before := snapshotTrees(t, env.root, env.state)
+	args := []string{"project", "configure", "--project", env.projectID, "--policy-draft", policyCLIDraft}
+	preview := run(cli.ExitSuccess, args...)
+	if !bytes.Equal(before, snapshotTrees(t, env.root, env.state)) {
+		t.Fatal("executable preview wrote state")
+	}
+	run(cli.ExitFailure, append(append([]string{}, args...), "--authorize-local")...)
+	if !bytes.Equal(before, snapshotTrees(t, env.root, env.state)) {
+		t.Fatal("partial authority wrote state")
+	}
+	authorized := append(append([]string{}, args...), "--project-id", env.projectID, "--preview-digest", preview.Policy.Preview.Digest, "--authorize-local")
+	applied := run(cli.ExitSuccess, authorized...)
+	if applied.Policy.Outcome != projectapp.EditPublished || applied.Policy.ReadBack.Status != "confirmed" {
+		t.Fatal(applied)
+	}
+	validated := run(cli.ExitSuccess, "project", "validate", "--project", env.projectID)
+	if !reflect.DeepEqual(validated.Readiness.Operations, applied.Policy.ReadBack.Observed.Readiness) {
+		t.Fatal("executable read-back differs from validate")
+	}
+	after := snapshotTrees(t, env.root, env.state)
+	run(cli.ExitFailure, authorized...)
+	if !bytes.Equal(after, snapshotTrees(t, env.root, env.state)) {
+		t.Fatal("stale executable replay wrote state")
+	}
+	t.Logf("synthetic project=%s schema=3 before_portable=%s before_local=%s preview=%s observed_portable=%s observed_local=%s publication=%s read_back=%s writes=manifest,installation", env.projectID, preview.Policy.Preview.PortableRevision, preview.Policy.Preview.LocalRevision, preview.Policy.Preview.Digest, applied.Policy.ReadBack.Observed.PortableRevision, applied.Policy.ReadBack.Observed.LocalRevision, applied.Policy.Publication, applied.Policy.ReadBack.Status)
+}
+
+func TestPolicyCLIReadinessDoesNotAcquireRuntimeProof(t *testing.T) {
+	env := newEditEnvironment(t)
+	service := env.service.(lifecycleService)
+	service.runtimes.lookPath = func(string) (string, error) {
+		t.Fatal("policy readiness attempted executable discovery")
+		return "", os.ErrPermission
+	}
+	service.RuntimePolicySource = forbiddenPolicySource{test: t}
+	env.service = service
+	args := []string{"project", "configure", "--project", env.projectID, "--policy-draft", policyCLIDraft}
+	preview, _ := runPolicyCLI(t, env, cli.ExitSuccess, args...)
+	runPolicyCLI(t, env, cli.ExitSuccess, append(args, "--project-id", env.projectID, "--preview-digest", preview.Policy.Preview.Digest, "--authorize-local")...)
+	runPolicyCLI(t, env, cli.ExitSuccess, "project", "validate", "--project", env.projectID)
+}
+
+type forbiddenPolicySource struct{ test *testing.T }
+
+func (s forbiddenPolicySource) Load(context.Context, string) (runtimeapplication.Snapshot, error) {
+	s.test.Fatal("policy readiness attempted live Runtime policy observation")
+	return runtimeapplication.Snapshot{}, os.ErrPermission
 }

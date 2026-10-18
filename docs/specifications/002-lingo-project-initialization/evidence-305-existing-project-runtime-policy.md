@@ -555,3 +555,31 @@ and recovery tests provide application refusal evidence. These are deterministic
 routing/installation tests, **not native LLM conversation**. No live Runtime or
 paid/authenticated Provider session was launched; native conversation remains
 NOT RUN and is not inferred from instruction assertions.
+
+### r3 — T09 storage and executable regression closure
+
+Added policy-specific storage fault coverage at recovery-record permission,
+simulated ENOSPC, truncated write, portable staging permission/ENOSPC/truncation,
+post-commit acknowledgement/sync, local CAS and recovery cleanup. Tests compare
+actual prior/new manifest bytes, verify confirmed portable commits stay partial
+rather than failed/rolled-back, retain local-commit truth and require canonical
+recovery inspection/readers to classify uncertainty. These are deterministic
+injected errors, not physical disk exhaustion or power-loss experiments.
+
+The native executable test builds the current binary and invokes separate
+processes from unrelated working directories. It verifies zero-write preview and
+partial-authority refusal, exact authorized apply, canonical read-back/validate
+parity, safe output and stale replay refusal. Runtime-proof acquisition denial
+spies cover the preview/apply/read-back/validate journey. A real Repository
+metadata replacement at beforeCommit refuses publication. Read-back additionally
+binds source/installation directory locations independently of replaced manifest
+and record leaves, detecting a later source object replacement with identical
+policy bytes. The readiness basis now names read-only metadata/no new Runtime
+proof rather than historical retained flags.
+
+Executed, exit 0: `go test ./internal/local -run '^TestPolicy'`;
+`go test ./cmd/lingo -run '^TestPolicy'`; `go test ./cmd/lingo -run
+'TestExecutablePolicy' -v`; final location-hardening check
+`go test ./internal/local ./internal/projectapp ./cmd/lingo -run
+'Policy|Readiness'`. Broader final checks and native workflow evidence are recorded
+below after completion, not inferred from these scoped results.

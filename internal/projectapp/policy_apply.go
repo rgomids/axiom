@@ -100,7 +100,7 @@ func readBackPolicyEdit(ctx context.Context, ports PolicyEditPorts, expected Pol
 	}
 	preview := observed.Preview()
 	out.Observed = &preview
-	if observed.preview.ProjectID != expected.preview.ProjectID || observed.edit.preview.PortableDestination != expected.edit.preview.PortableDestination || observed.edit.preview.LocalDestination != expected.edit.preview.LocalDestination || !bytes.Equal(observed.edit.observedManifest, expected.edit.manifest) || !bytes.Equal(observed.edit.observedLocalWire, expected.edit.localWire) {
+	if observed.dependencies.Locations != expected.dependencies.Locations || observed.preview.ProjectID != expected.preview.ProjectID || observed.edit.preview.PortableDestination != expected.edit.preview.PortableDestination || observed.edit.preview.LocalDestination != expected.edit.preview.LocalDestination || !bytes.Equal(observed.edit.observedManifest, expected.edit.manifest) || !bytes.Equal(observed.edit.observedLocalWire, expected.edit.localWire) {
 		out.Status = "drift"
 		return out
 	}

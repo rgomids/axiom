@@ -17,6 +17,7 @@ type PolicyEditDependencies struct {
 	Operational  string
 	Runtime      string
 	Readiness    string
+	Locations    string
 }
 
 type PolicyEditFacts struct {
@@ -133,7 +134,7 @@ func PreviewPolicyEdit(ctx context.Context, ports PolicyEditPorts, intent EditIn
 		Operation: string(AdmitProjectEdit), Scope: "runtime_policy", ProjectID: state.ID, SchemaVersion: state.SchemaVersion,
 		PortableRevision: selection.PortableRevision, LocalRevision: selection.LocalRevision,
 		Policy: ProjectPolicy(proposal.project), Diff: PolicyDiff(selection.Portable.Project(), proposal.project),
-		Workflow: workflow, Admission: admission, Runtime: facts.Runtime, Readiness: readiness.Operations, ReadinessBasis: "retained_installation_metadata_no_new_proof",
+		Workflow: workflow, Admission: admission, Runtime: facts.Runtime, Readiness: readiness.Operations, ReadinessBasis: "read_only_metadata_no_new_runtime_proof",
 		Effects: append([]EditEffect{}, proposal.preview.Effects...),
 	}
 	sealed, err := json.Marshal(struct {
@@ -173,7 +174,7 @@ func policyRuntimeCode(code string) bool {
 }
 
 func validPolicyDependencies(d PolicyEditDependencies) bool {
-	for _, token := range []string{d.Installation, d.Source, d.Workflow, d.Operational, d.Runtime, d.Readiness} {
+	for _, token := range []string{d.Installation, d.Source, d.Workflow, d.Operational, d.Runtime, d.Readiness, d.Locations} {
 		wire, err := hex.DecodeString(token)
 		if err != nil || len(wire) != sha256.Size || hex.EncodeToString(wire) != token {
 			return false

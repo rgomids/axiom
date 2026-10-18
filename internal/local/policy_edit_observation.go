@@ -51,6 +51,10 @@ func (o PolicyEditObserver) ObservePolicyEdit(ctx context.Context, selection pro
 	if err != nil {
 		return facts, projectapp.EditStateUnsafe
 	}
+	facts.Dependencies.Locations, err = policyLocationToken(selection.PortableDestination, selection.LocalDestination)
+	if err != nil {
+		return facts, projectapp.EditStateUnsafe
+	}
 	facts.Dependencies.Installation, err = policyFileToken(filepath.Join(selection.LocalDestination, installationRecord))
 	if err != nil {
 		return facts, projectapp.EditStateUnsafe
@@ -136,7 +140,9 @@ func policySourceToken(source string) (string, error) {
 	return hexDigest([]byte(facts.String())), nil
 }
 
-func policyFileToken(target string) (string, error) {
+func policyFileToken(target string) (string, error) { return policyObjectToken(target, false) }
+
+func policyObjectToken(target string, directory bool) (string, error) {
 	var facts strings.Builder
 	current := volumeRoot(target)
 	parts := pathComponents(target)
@@ -144,7 +150,7 @@ func policyFileToken(target string) (string, error) {
 		current = filepath.Join(current, part)
 		var identity string
 		var err error
-		if index == len(parts)-1 {
+		if index == len(parts)-1 && !directory {
 			identity, err = FileIdentity(current)
 		} else {
 			identity, err = DirectoryIdentity(current)
@@ -206,4 +212,16 @@ func observePolicyBindings(ctx context.Context, p project.Project, record projec
 		return facts, "", ctx.Err()
 	}
 	return facts, hexDigest(wire), err
+}
+
+func policyLocationToken(source, installation string) (string, error) {
+	a, err := policyObjectToken(source, true)
+	if err != nil {
+		return "", err
+	}
+	b, err := policyObjectToken(installation, true)
+	if err != nil {
+		return "", err
+	}
+	return hexDigest([]byte(a + "\x00" + b)), nil
 }

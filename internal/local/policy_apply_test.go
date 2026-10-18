@@ -6,8 +6,11 @@ import (
 	"errors"
 	"github.com/rgomids/axiom/internal/manifest"
 	"github.com/rgomids/axiom/internal/project"
+	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
+	"syscall"
 	"testing"
 
 	"github.com/rgomids/axiom/internal/projectapp"
@@ -137,7 +140,7 @@ func (s *policyReadFailure) SelectForEdit(ctx context.Context, selector string) 
 }
 
 func TestPolicyReadBackTruthAndDrift(t *testing.T) {
-	for _, name := range []string{"v2", "v3", "noop", "reader_failure", "later_writer", "runtime_changed"} {
+	for _, name := range []string{"v2", "v3", "noop", "reader_failure", "later_writer", "source_replaced", "runtime_changed"} {
 		t.Run(name, func(t *testing.T) {
 			version := 3
 			if name == "v2" {
@@ -160,6 +163,17 @@ func TestPolicyReadBackTruthAndDrift(t *testing.T) {
 					applied := projectapp.ApplyPolicyEdit(ctx, f.policyPorts(t), f.publisher(nil), later, reviewedPolicy(t, f, later))
 					if applied.Outcome != projectapp.EditPublished {
 						t.Fatal(applied.Outcome)
+					}
+				}
+				if name == "source_replaced" {
+					if err := os.Rename(f.source, f.source+"-moved"); err != nil {
+						t.Fatal(err)
+					}
+					if err := os.Mkdir(f.source, 0700); err != nil {
+						t.Fatal(err)
+					}
+					if err := os.WriteFile(f.manifestPath(), r.PortableNext, 0600); err != nil {
+						t.Fatal(err)
 					}
 				}
 				if name == "runtime_changed" {
@@ -193,7 +207,7 @@ func TestPolicyReadBackTruthAndDrift(t *testing.T) {
 			if name == "reader_failure" {
 				status = "unverified"
 			}
-			if name == "later_writer" {
+			if name == "later_writer" || name == "source_replaced" {
 				status = "drift"
 			}
 			if result.ReadBack.Status != status || result.ReadBack.ReadinessChanged != (name == "runtime_changed") {
@@ -280,5 +294,95 @@ func TestPolicyRemovalPreservesOtherProjectRegistryAndBindings(t *testing.T) {
 	other, err := f.portable.Inspect(ctx, "other")
 	if err != nil || !other.Snapshot.Project().Equivalent(p) {
 		t.Fatal("other Project read-back changed", err)
+	}
+}
+
+func TestPolicyPublicationStorageFaultClassification(t *testing.T) {
+	for _, phase := range []string{"recovery_permission", "recovery_quota", "recovery_short_write", "portable_permission", "portable_quota", "portable_short_write", "portable_ack_sync", "local_cas", "cleanup"} {
+		t.Run(phase, func(t *testing.T) {
+			f := newPolicyEditFixture(t)
+			request := f.policyRequest(t)
+			publisher := f.publisher(nil)
+			triggered := false
+			if strings.HasPrefix(phase, "recovery_") || phase == "local_cas" {
+				publisher.Installation.writeFile = func(root *os.Root, name string, wire []byte) error {
+					match := strings.HasPrefix(name, editRecoveryPrefix)
+					if phase == "local_cas" {
+						match = strings.HasPrefix(name, ".axiom-stage-file-")
+					}
+					if match {
+						triggered = true
+						if phase == "recovery_short_write" {
+							return writePrivateFile(root, name, wire[:len(wire)/2])
+						}
+						if phase == "recovery_quota" {
+							return syscall.ENOSPC
+						}
+						return os.ErrPermission
+					}
+					return writePrivateFile(root, name, wire)
+				}
+			}
+			if strings.HasPrefix(phase, "portable_") && phase != "portable_ack_sync" {
+				publisher.Portable.writeFile = func(root *os.Root, name string, wire []byte) error {
+					if strings.HasPrefix(name, ".lingo-manifest-") {
+						triggered = true
+						if phase == "portable_short_write" {
+							return writePrivateFile(root, name, wire[:len(wire)/2])
+						}
+						if phase == "portable_quota" {
+							return syscall.ENOSPC
+						}
+						return os.ErrPermission
+					}
+					return writePrivateFile(root, name, wire)
+				}
+			}
+			if phase == "portable_ack_sync" {
+				publisher.Portable.syncDirectory = func(root *os.Root) error {
+					wire, err := readPrivateFile(root, manifestName)
+					if err == nil && bytes.Equal(wire, request.PortableNext) {
+						triggered = true
+						return syscall.EIO
+					}
+					return syncRoot(root)
+				}
+			}
+			if phase == "cleanup" {
+				publisher.Installation.removeAttempt = func(root *os.Root, name string) error {
+					if strings.HasPrefix(name, editRecoveryPrefix) {
+						triggered = true
+						return os.ErrPermission
+					}
+					return root.Remove(name)
+				}
+			}
+			result := publisher.PublishEdit(context.Background(), request)
+			if !triggered || result.Status == projectapp.EditPublicationApplied {
+				t.Fatal("fault not exercised", result)
+			}
+			committed := phase == "portable_ack_sync" || phase == "local_cas" || phase == "cleanup"
+			if bytes.Equal(fileBytes(t, f.manifestPath()), request.PortableNext) != committed {
+				t.Fatal("portable commit misclassified", result)
+			}
+			if committed && result.Status != projectapp.EditPublicationPartial {
+				t.Fatal("confirmed commit lost", result)
+			}
+			if phase == "cleanup" && !result.LocalCommitted {
+				t.Fatal("local commit lost", result)
+			}
+			report, err := InspectRecovery(context.Background(), f.roots())
+			if err != nil {
+				t.Fatal("recovery inspection failed", err)
+			}
+			if committed && len(report.Plans) == 0 {
+				t.Fatal("missing recovery classification")
+			}
+			if len(report.Plans) > 0 {
+				if _, code := f.installation.Inspect(context.Background(), editTestProjectID); code != "recovery_required" {
+					t.Fatal("reader accepted recovery state", code)
+				}
+			}
+		})
 	}
 }
