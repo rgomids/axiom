@@ -9,6 +9,19 @@ plans. Approval gates remain separate: an approved Specification permits plannin
 implementation requires an approved Plan/Tasks and explicit authorization for the
 bounded delivery unit. Technical merge does not imply human acceptance or next-Task authority.
 
+## 009 — Guided Project/Runtime configuration with feasibility preflight
+
+[Specification](009-guided-project-runtime-configuration/spec.md): **Proposed —
+specify only, 2026-10-18**, for [AXM-33](https://linear.app/rgomids/issue/AXM-33).
+Defines the bounded existing-Project journey: canonical inventory, objective
+feasibility before technical choices, observed options, exact per-operation
+authority, read-back and scoped readiness. Reuses Spec 002 G-1/G-2, Spec 007 and
+accepted AXM-31; preserves AXM-32 presentation ownership. The full G-1 positive
+scenario requires the operation in the effective installation and later real
+Evidence; merge of PR #327 is insufficient. [Evidence/handoff](009-guided-project-runtime-configuration/evidence.md)
+records documentary checks and unverified behavior. No Plan, Tasks, implementation,
+ADR acceptance, canonical workflow advance or human acceptance is delivered.
+
 ## 007 — Configurable Project workflows
 
 [AXM-31 operator autonomy amendment](007-configurable-workflows/amendment-axm31-operator-autonomy.md):
