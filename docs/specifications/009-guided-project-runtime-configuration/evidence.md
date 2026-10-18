@@ -582,3 +582,152 @@ read-back de publicação/CI do SHA exato seguem no comentário bounded do mesmo
 CI ainda não observado para o commit futuro; não é PASS. Próximo gate é review
 independente deste delta parcial e resolução dos blockers E05–E08 antes de
 concluir Tasks ou aceitar produto. Sem merge/release/transição/aceite automático.
+
+
+## Retomada r2 — 2026-10-18
+
+### Authority, read-back e escopo incremental
+
+Retomada explicitamente autorizada por Rafael em 18/10/2026 17:57 BRT,
+com edição/testes/commit/push normal na mesma branch/PR #329; sem login/OAuth,
+instalação, merge, force-push, aceite ou mudança de status/labels. Antes de editar,
+foram lidos o Evidence integral e o
+[handoff indicado](https://linear.app/rgomids/issue/AXM-33#comment-2b5f8e4a).
+Somente referências e observações técnicas autorizadas para publicação são
+registradas; nenhuma transcrição privada ou payload de Provider importado.
+
+`git fetch origin`, `git log -5 --oneline`, ref remota e `gh pr view 329`
+confirmaram HEAD local/remoto/PR `b8166be074520390ac5b9a27cec9201c0a56dfcb`,
+árvore limpa e PR canônico OPEN/Draft, mesma branch e base main, sem commit novo.
+CI desse SHA foi reobservado: PR Checks e delivery-metadata SUCCESS; isso não
+herda PASS para o futuro commit r2. Linear AXM-33 permanece In Progress. Execution,
+revisão/gates/estágio canônicos continuam unknown; nenhum segundo Execution criado.
+
+T02–T04 já estavam implementadas. Não houve nova mudança de skill, Go, teste,
+manifest/history, dependência ou automação. O delta r2 consiste em observações
+comportamentais possíveis, Evidence append-only e reconciliação do índice.
+Orchestrator executou validate/review/document; sem delegação de trabalho porque
+inferioridade estrita de modelo não é comprovável. Subjects de avaliação são o
+objeto do teste, não recebem trabalho de implementação/review ou authority. As
+chamadas independentes de avaliação foram paralelizadas; diálogo causal foi
+sequencial, branches após o prefixo comum. Biblioteca padrão e fixtures existentes
+bastaram, sem infraestrutura genérica/runner durável ou nova biblioteca.
+
+### E02–E05 r2 — observações agora avaliáveis
+
+[Observations r2](observations-r2.md) contém método, variantes, esperado/observado,
+recortes mínimos sanitizados, hashes dos inputs/replies e limites. Codex CLI
+0.162.1 respondeu ao C04 isolado, aos seis batches C01–C16 (48 variantes × dois
+contextos de entrada = 96 respostas) e a seis chamadas de diálogo sintético com
+histórico reapresentado: escolha → preview → branches confirmed/denied/stale/
+unverified. Todos exit 0, com trace completo e sem eventos de ferramentas/comandos.
+
+Resultado: **PASS restrito às decisões observadas**. C07 cobre negativa por tipo
+de apply; C08 cobre dez dimensões de drift; C09 cobre ack/readBack/drift; C10
+preserva relógio/deadline e budgets fornecidos; C15 cobre draft/erro/Provider,
+com ausência do canário nas respostas verificada deterministicamente. Perguntas,
+opt-in, preservação de intenção, consentimento e síntese foram avaliados contra
+GC-01–06; o diálogo distingue confirmação de conteúdo, commit e readiness.
+Não se pede que o leitor confie em contadores autorrelatados: cada trace contém
+somente início de thread/turno, mensagem do subject e fim do turno.
+
+Não se declara execução real de apply, store, dispatch, auth ou proof. Read-only
+sandbox não equivale a tools-off; zero chamadas é observação desses traces.
+Snapshots/D0 são símbolos sintéticos e nunca foram submetidos a uma CLI Axiom.
+As propostas de inspeção continuam condicionadas à metadata e pré-requisitos do
+dono; não são comandos aprovados pela avaliação. Modelo efetivo não exposto pelo
+trace, sem override/alegação de identidade. Entradas batch são snapshots de fases,
+e o diálogo reapresenta histórico, não uma sessão nativa persistida.
+
+Assim E02/E03/E04 deixam de ser inteiramente NOT_RUN **na camada sintética de
+próxima decisão**; a matriz histórica acima continua válida para sua data. T05
+avança, mas continua **PARTIAL** para a jornada integral com ferramentas/resultados
+canônicos completos: não se comprovou coleta→draft tipado→preview literal→apply→
+read-back em conversa instalada para cada variante. Essa limitação não se resolve
+com mais assertions textuais. T07 conserva a validação instalada e a paridade.
+
+Claude CLI 2.1.302: chamada C04 isolada, tools desabilitadas por flag, exit 1/OAuth
+expirado novamente. Invocação **FAIL ambiente**; caso **NOT_RUN/BLOCKED** por
+autenticação. Sem login, refresh, inspeção de credenciais ou retry automático.
+
+### E06–E08 r2 — gates reobservados e tentativa da C12 real
+
+`gh pr view 328` confirmou OPEN/Draft, mergedAt null, head ainda
+`aba1c4d843e4b44a891531831aec2c79e95aae18`; AXM-32 consultada In Progress.
+Entrega/par de apresentação compatível não demonstrados: **T06 BLOCKED G2**, sem
+ativar migração/relay ou absorver renderer. **T07 BLOCKED T06/G3**; não instalar
+no operador nem inferir paridade/rollback de testes de instalação em roots de teste.
+
+C12 real foi tentada até o primeiro gate de observação passiva disponível:
+`command -v`/`shutil.which('axiom')` não localizou Axiom no PATH. Nenhum caminho de
+instalação alternativo foi fornecido. Não enumerar diretórios privados, instalar,
+construir checkout e chamá-lo de instalação do usuário ou autenticar para superar
+esse gate. A entrega de G-1 em fonte não demonstra operação efetivamente instalada.
+
+| Pré-requisito C12 real | Observado r2 / menor próxima ação |
+| --- | --- |
+| T07 e par instalado compatível AXM-32 | Não demonstrados; dono deve entregar G2, depois instalação de teste sob autorização própria |
+| Operação G-1 na instalação efetiva | Não observada; nenhum axiom no PATH; operador indicar instalação já existente ou autorizar instalação por processo próprio |
+| Alvo real autorizado e Repository/Profile/Workflow correspondentes | Não fornecidos; indicar alvo e permitir inspeções canônicas read-only disponíveis |
+| Auth/proof exatos, frescos e produtor quando necessário | Não observados para alvo real; autenticação do host Codex não é proof/auth do alvo; Claude expirado não foi remediado |
+| Preview real e authority específica por efeito | Não existem nesta observação; solicitar authority somente após preview real verificável |
+
+**T08 BLOCKED G4; C12 real NOT_RUN.** C12 synthetic PASS limitado não substitui
+nenhum desses fatos. Nenhuma tentativa real de apply/dispatch ou efeito de
+configuração incerto iniciado pelo executor. O prompt implement/retomada autoriza
+o trabalho de repositório, não a publicação de um futuro preview de configuração.
+
+### E09 r2 — matriz factual e próximo gate
+
+| Task | Estado factual r2 | Evidence / lacuna restante |
+| --- | --- | --- |
+| T01 | DONE inspeção de fonte/contratos, read-back remoto renovado | E01 anterior; instalação real não alegada |
+| T02 | IMPLEMENTED; decisões sintéticas pertinentes PASS limitado | E02 r2/C01–04/06/11/14; jornada instalada incompleta |
+| T03 | IMPLEMENTED; decisões sintéticas pertinentes PASS limitado | E03 r2/C05–08/12/13/16 e diálogo escolha/preview; efeitos canônicos em conversa incompletos |
+| T04 | IMPLEMENTED; decisões sintéticas pertinentes PASS limitado | E04 r2/C07–10/13–15 e branches; integração/continuidade nativa incompletas |
+| T05 | PARTIAL, avanço de NOT_RUN para observações avaliáveis Codex | E05 r2/96 respostas e diálogo; interação integral canônica e ambiente Claude não demonstrados |
+| T06 | BLOCKED G2 | E06 r2, AXM-32/#328 não entregue como par compatível |
+| T07 | BLOCKED T06/G3 | E07 r2, paridade instalada/alvos cruzados/rollback NOT_RUN; instalação e auth não autorizadas |
+| T08 | BLOCKED G4 | E08 r2, C12 real NOT_RUN pelos pré-requisitos acima |
+| T09 | PARTIAL, handoff e revisão incremental entregues | E09 r2, conclusão formal ainda depende T07; review independente/aceite pendentes |
+
+GC-01/02/03/04/05/06 receberam observações sintéticas de decisões conforme a
+matriz de Observations r2. Nenhum GC é declarado integralmente aceito. Sem novo
+finding bloqueante de instrução identificado pelo self-review proporcional; sem
+alteração de código para acomodar teste. Limites de observação permanecem riscos
+bloqueantes para conclusão integral. ADRs/Spec/Plan/Tasks e fronteiras dos donos
+preservados; review independente não substituído por este relato.
+
+Checkpoint: continuar o mesmo objetivo T01–T09/PR #329, sem recriar execução ou
+refazer implementação existente. Próxima unidade depende do dono AXM-32 entregar
+contrato/par compatível; depois, ambiente de teste instalado e funcional autorizado
+para observar ferramentas canônicas e paridade. Para Claude, autenticação válida
+precisa ser providenciada pelo operador sob processo próprio. Para C12 real, seguir
+o gate E08 acima, sem pedir confirmação genérica antecipada ou simular proof.
+Nenhum attempt/budget de jornada real iniciado; contadores do roteiro sintético
+não são estado do operador, e a retomada não concede replay de efeito incerto.
+
+
+Validação r2 do delta documental e da orientação inalterada:
+
+| Check realmente executado | Resultado / alcance |
+| --- | --- |
+| `go test ./internal/codexruntime ./internal/cli` | PASS (cache válido); contrato embedded, catálogo/routing e instalação/reinstalação de teste |
+| `go test ./internal/projectapp ./internal/runtimeapplication ./internal/local ./internal/compatibility` | PASS (cache válido); regressões de policy, autoria local, persistência/compatibilidade, sem mudar testes dos donos |
+| `./scripts/validate-repository.sh .` | PASS; 91 superfícies de automação, 30 ADRs e hygiene; cenários nativos do maintainer validator SKIP/UNVERIFIED |
+| Check efêmero Python de bytes/links | PASS; Spec/Plan/Tasks idênticos ao SHA aceito, prefixo Evidence de b8166be intacto, fences e 119 links/âncoras locais nos três documentos r2 |
+| Trace/IDs/canário dos batches e diálogo | PASS no alcance de Observations r2; 96 IDs únicos/completos, zero tool events e canário ausente nas respostas |
+| `git diff --check` | PASS |
+| Scanner consolidado gitleaks | NOT_RUN: não disponível, nenhuma instalação realizada |
+| `go test ./...` / `go vet ./...` nesta retomada | NOT_RUN novamente: nenhum Go/skill/dependência alterado; resultado local anterior e CI SUCCESS de b8166be preservados com seu SHA, não transferidos ao commit novo |
+| Claude synthetic / T06 / T07 / C12 real | NOT_RUN/BLOCKED conforme E05–E08 r2, sem atribuir PASS por CI |
+
+Revisão de engenharia/segurança do delta: apenas três documentos, sem mudança de
+contrato/ADR, effect authority, permissões, scripts ou código/comentários Go.
+Observações são produzidas com fontes públicas do checkout e fixtures sintéticas;
+sem canário, logs de auth, paths privados ou payload de Provider publicados. Nenhum
+finding bloqueante novo identificado; não é review independente nem aceite.
+Staged hygiene, metadata do PR, commit/push/head e CI do SHA novo são confirmados
+no comentário de publicação no PR/AXM; CI pendente não é PASS. O gate seguinte é
+review independente deste delta limitado e resolução dos bloqueios registrados,
+sem conclusão integral de Tasks ou transição automática.

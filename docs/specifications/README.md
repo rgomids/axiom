@@ -27,10 +27,13 @@ Its historical Proposed header/bytes remain unchanged.
 [human decision](https://github.com/rgomids/axiom/pull/329#issuecomment-6254729819).
 Historical accepted bytes remain unchanged. Implementation guidance composes the
 four existing owners for inventory/preflight, progressive choices, exact authority,
-stale/read-back and bounded handoff. Contract tests pass; behavioral validation is
-incomplete. AXM-32 presentation activation, installed native parity and real C12
+stale/read-back and bounded handoff. Contract tests and bounded Codex synthetic
+decision observations pass; full behavioral validation is incomplete.
+[Resume r2 observations](009-guided-project-runtime-configuration/observations-r2.md)
+cover C01–C16 snapshots and a dialogue with replayed history, with explicit limits.
+AXM-32 presentation activation, installed native parity and real C12
 remain blocked/NOT_RUN; AXM-34 and AXM-12 retain their ownership and acceptance.
-[Evidence/handoff](009-guided-project-runtime-configuration/evidence.md#implement--orientação-e-gates-de-validação--2026-10-18)
+[Evidence/handoff](009-guided-project-runtime-configuration/evidence.md#retomada-r2--2026-10-18)
 records each T01–T09 result, tests, attempted synthetic observations, limitations
 and next gates. This is a partial implementation delivery, not product acceptance,
 Execution advancement, merge or release.
