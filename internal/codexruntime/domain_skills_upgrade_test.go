@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -265,5 +266,88 @@ func TestPublishedV015RefusesForeignWorkflowWithoutContentEffects(t *testing.T) 
 				t.Fatal("conflict changed content")
 			}
 		})
+	}
+}
+
+// Reconstruct only the replaced prefix, then verify every byte by the immutable
+// history digests before using it. No Git executable or new historical receipt
+// fixture is needed; receipt generation uses the existing integration contract.
+func seedPreOperatorAutonomyRoot(t *testing.T, service Service, root string) {
+	t.Helper()
+	previous := sharedSkillHistory[len(sharedSkillHistory)-1]
+	for _, name := range skillNames {
+		current, err := fs.ReadFile(skillFiles, "skills/"+name+"/SKILL.md")
+		if err != nil {
+			t.Fatal(err)
+		}
+		prefix, _, _ := strings.Cut(string(current), "\n\n## Conversational continuity")
+		prefix = strings.ReplaceAll(prefix, ", `diagnostic`", "")
+		if digestOf([]byte(prefix)) != previous.skills[name] {
+			t.Fatalf("%s replaced bytes do not match retained history", name)
+		}
+		if err := os.Mkdir(filepath.Join(root, name), 0700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(root, name, "SKILL.md"), []byte(prefix), 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	receipt, err := service.integration.receiptFor(root, previous)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, receiptName), receipt, 0600); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestOperatorAutonomyUpgradeBothRuntimeRoots(t *testing.T) {
+	for _, constructor := range runtimeServices(t) {
+		for _, modified := range []bool{false, true} {
+			root := privateSkillRoot(t)
+			service, err := constructor(root)
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Run(service.Runtime()+map[bool]string{false: "/upgrade", true: "/modified-refused"}[modified], func(t *testing.T) {
+				seedPreOperatorAutonomyRoot(t, service, root)
+				if modified {
+					if err := os.WriteFile(filepath.Join(root, "axiom-work-item", "SKILL.md"), []byte("synthetic user edit\n"), 0600); err != nil {
+						t.Fatal(err)
+					}
+					before := skillTree(t, root)
+					result := service.Install(context.Background())
+					if result.Status != Failed || len(result.Conflicts) == 0 {
+						t.Fatal("adopted modified skill")
+					}
+					if err := os.Remove(filepath.Join(root, installLockName)); err != nil {
+						t.Fatal(err)
+					}
+					if before != skillTree(t, root) {
+						t.Fatal("refused upgrade changed content")
+					}
+					return
+				}
+				installOrFail(t, service, Applied)
+				for _, name := range skillNames {
+					installed, err := os.ReadFile(filepath.Join(root, name, "SKILL.md"))
+					if err != nil {
+						t.Fatal(err)
+					}
+					current, _ := fs.ReadFile(skillFiles, "skills/"+name+"/SKILL.md")
+					if !bytes.Equal(installed, current) {
+						t.Fatalf("%s did not converge", name)
+					}
+				}
+				if result := service.Inspect(context.Background()); result.Receipt != ReceiptCurrent || len(result.Skills) != 4 {
+					t.Fatal("receipt/inventory did not converge")
+				}
+				tree := skillTree(t, root)
+				installOrFail(t, service, Unchanged)
+				if skillTree(t, root) != tree {
+					t.Fatal("reinstall changed converged root")
+				}
+			})
+		}
 	}
 }

@@ -22,9 +22,14 @@ Preserves proof, preview/apply authority, human acceptance and feature ownership
 AXM-9 delivery and AXM-12 real Runtime/MVP validation remain independent.
 The Specification alone unblocks neither.
 [AXM-31 Plan](007-configurable-workflows/plan-axm31-operator-autonomy.md):
-**Proposed — plan, 2026-10-17**; maps AO-01–13 and P1–P8/N1–N10 to the minimum
-diagnostic/skill changes, existing operations and future verification. No Tasks,
-implementation, canonical Execution transition or product acceptance authorized.
+**Accepted, 2026-10-17**, with factual acceptance annotation preserving D1–D4.
+[Tasks T01–T08](007-configurable-workflows/tasks-axm31-operator-autonomy.md) were
+accepted at `10cb320df7ebbf727590acee9f091c51b54a2853` by the
+[human decision](https://github.com/rgomids/axiom/pull/325#issuecomment-6243413855).
+[Implementation Evidence](007-configurable-workflows/evidence-axm31-operator-autonomy.md)
+records output diagnostics, operator instructions and synthetic verification;
+canonical Execution, native conversations, independent proof and product
+acceptance remain separate gates.
 
 [Specification](007-configurable-workflows/spec.md): **Accepted, 2026-10-09**,
 for [#271](https://github.com/rgomids/axiom/issues/271) under

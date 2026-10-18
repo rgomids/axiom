@@ -282,7 +282,7 @@ func runWorkflowStage(ctx context.Context, mode outputMode, args []string, servi
 	if err != nil {
 		return true, ExitFailure
 	}
-	return true, presentEvent(out, mode, c.Status(), append(wire, '\n'), 1<<20)
+	return true, presentDiagnosticEvent(out, mode, c.Status(), append(wire, '\n'), 1<<20, response.Result.Diagnostic)
 }
 
 func filterRepeatable(args []string, names ...string) []string {

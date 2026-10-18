@@ -165,6 +165,7 @@ const (
 // must not return raw paths, input values, parser output, or operating-system
 // error strings for this surface.
 type Result struct {
+	Diagnostic        *Diagnostic
 	Status            Status
 	Category          string
 	Project           *ProjectView
@@ -570,7 +571,7 @@ func emitResponse(writer io.Writer, mode outputMode, operation action, response 
 			return emitSetupCompletion(writer, mode, *response.Completion, *response.Setup)
 		}
 		if response.Edit != nil {
-			return emitEditCompletion(writer, mode, *response.Completion, *response.Edit)
+			return emitEditCompletion(writer, mode, *response.Completion, *response.Edit, response.Diagnostic)
 		}
 		if response.Runtime != nil {
 			return emitRuntimeCompletion(writer, mode, *response.Completion, *response.Runtime)
@@ -587,7 +588,7 @@ func emitResponse(writer io.Writer, mode outputMode, operation action, response 
 		if response.Workflow != nil || response.Projection != nil {
 			return emitWorkflowCompletion(writer, mode, *response.Completion, response)
 		}
-		return emitCompletion(writer, mode, *response.Completion)
+		return emitDiagnosticCompletion(writer, mode, *response.Completion, response.Diagnostic)
 	}
 	return emit(writer, mode, eventFrom(operation, response))
 }

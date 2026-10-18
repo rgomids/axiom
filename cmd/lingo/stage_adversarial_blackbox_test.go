@@ -112,7 +112,7 @@ func TestInstalledSyntheticSingleLifecycleAdversarial(t *testing.T) {
 	if refused := j.run(t, 1, append(cancel, "--preview-digest", cancelDigest)...); refused.Status != "denied_authority" {
 		t.Fatalf("cancel without local authority: %+v", refused)
 	}
-	if refused := j.run(t, 1, append(cancel, "--preview-digest", strings.Repeat("0", 64), "--authorize-local")...); refused.Category != "stale_preview" {
+	if refused := j.run(t, 1, append(cancel, "--preview-digest", strings.Repeat("0", 64), "--authorize-local")...); refused.Category != "stale_preview" || refused.Diagnostic == nil {
 		t.Fatalf("cancel with stale preview authority: %+v", refused)
 	}
 	if event := j.run(t, 0, append(cancel, "--preview-digest", cancelDigest, "--authorize-local")...); event.Category != "cancellation_requested" {
@@ -303,7 +303,7 @@ func TestInstalledSyntheticSingleSupervisorCrashAndReconcile(t *testing.T) {
 	reconcile := append([]string{"workflow", "stage", "reconcile"}, stageSelector(view)...)
 	reconcile = append(reconcile, "--child", view.ExecutionID, "--attempt", attempt.AttemptID)
 	livePreview := j.run(t, 0, reconcile...).reference(t, "stage-preview:")
-	if refused := j.run(t, 1, append(reconcile, "--preview-digest", livePreview, "--authorize-local")...); refused.Category != "stop_orphan_then_reconcile" {
+	if refused := j.run(t, 1, append(reconcile, "--preview-digest", livePreview, "--authorize-local")...); refused.Category != "stop_orphan_then_reconcile" || refused.Diagnostic == nil || refused.Diagnostic.Capability != "unknown" {
 		t.Fatalf("reconcile accepted a live FAKE orphan: %+v", refused)
 	}
 	current, err := executiongraph.ObserveRecordedProcess(recorded)

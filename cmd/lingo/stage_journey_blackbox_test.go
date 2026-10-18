@@ -46,6 +46,7 @@ type stageJourney struct {
 }
 
 type stageJourneyEvent struct {
+	Diagnostic    *cli.Diagnostic `json:"diagnostic"`
 	Status        string          `json:"status"`
 	Category      string          `json:"category"`
 	PreviewDigest string          `json:"previewDigest"`
@@ -367,6 +368,16 @@ func (j *stageJourney) invoke(t *testing.T, binary string, args ...string) (int,
 	if err := json.Unmarshal(bytes.TrimSpace(output), &event); err != nil {
 		t.Fatalf("%v: invalid JSON %q", args, output)
 	}
+	if d := event.Diagnostic; d != nil {
+		if code == 0 || d.SchemaVersion != 1 || len(d.Options) > 3 || d.Category != event.Category {
+			t.Fatalf("invalid installed diagnostic for %v", args[:2])
+		}
+		for _, option := range d.Options {
+			if option.Availability == "unavailable" && option.Operation != "" {
+				t.Fatal("unavailable action became command")
+			}
+		}
+	}
 	return code, event, output
 }
 
@@ -535,7 +546,7 @@ func TestInstalledSyntheticSingleStageJourney(t *testing.T) {
 	plan := writeStagePlanDocument(t, []executiongraph.WorkUnit{writeUnit("owner", []string{"docs"}, "docs/intake.md")}, []executiongraph.Effect{write})
 	args := stageRunArgs(view, "intake", plan, j.policy, j.workspace)
 
-	if refused := j.run(t, 1, append(args, "--authorize-local")...); refused.Category != "runtime_unresolvable" {
+	if refused := j.run(t, 1, append(args, "--authorize-local")...); refused.Category != "runtime_unresolvable" || refused.Diagnostic == nil || refused.Diagnostic.Capability != "unknown" {
 		t.Fatalf("dispatch preview without Evidence: %+v", refused)
 	}
 	j.seedEvidence(t, "codex", "profile-codex", capabilityproof.RepositoryWriteVariant, stageJourneyCaps...)

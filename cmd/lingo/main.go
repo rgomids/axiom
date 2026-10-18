@@ -717,6 +717,9 @@ func (s lifecycleService) projectEdit(ctx context.Context, intent projectapp.Edi
 		result = canonicalCompletion(completion.Facts{Failed: true}, "Project edit publication failed", nil, "Review current state and prepare a fresh preview", s.provenance)
 	}
 	result.Edit = &preview
+	if result.Completion != nil && result.Completion.Status() != completion.Success {
+		result.Diagnostic = editOutcomeDiagnostic(outcome, preview)
+	}
 	return result
 }
 
@@ -748,6 +751,7 @@ func editFailure(failure projectapp.EditFailure, source provenance.Value) cli.Re
 		message, next = "Project edit authority is incomplete", "Supply --project-id, --preview-digest, and --authorize-local together from the reviewed preview, or omit all three to preview"
 	}
 	result := canonicalCompletion(facts, message, nil, next, source)
+	result.Diagnostic = editFailureDiagnostic(failure)
 	if failure == projectapp.EditUnknownIntegration {
 		result.Category = projectapp.IntegrationNotFound
 	}

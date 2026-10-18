@@ -4,6 +4,16 @@
 por este artifact. Sem código de produto/teste nesta etapa. Implementação exige
 aceite humano destas Tasks e autorização delimitada própria.
 
+**Accepted — anotação factual, 2026-10-17.** O operador aceitou T01–T08
+na revisão `10cb320df7ebbf727590acee9f091c51b54a2853`, conforme
+[decisão humana no Linear](https://linear.app/rgomids/issue/AXM-31/revisar-autonomia-escopo-e-responsabilidade-da-ia-operadora-no-axiom#comment-56d8406a)
+e [registro no PR #325](https://github.com/rgomids/axiom/pull/325#issuecomment-6243413855).
+É aceite das Tasks, não review nativo do GitHub ou aceite da implementação.
+O pedido humano IMPLEMENT T01–T08 autoriza código/testes, Evidence, commits e
+atualização da mesma branch/PR, respeitando S1→S2→S3 e os limites aprovados.
+Texto histórico Proposed e requisitos abaixo preservados; sem autorização de
+inferência/Provider de produto, merge, release ou fechamento de Work Item.
+
 ## Entrada, autoridade e preflight
 
 - [AXM-31](https://linear.app/rgomids/issue/AXM-31): o pedido humano desta etapa
