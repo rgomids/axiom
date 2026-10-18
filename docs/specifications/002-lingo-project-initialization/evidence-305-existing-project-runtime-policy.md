@@ -815,3 +815,116 @@ Corrected observation source SHA-256:
 This supersedes only that production fingerprint in the r3 table. Full local,
 race, repository and exact remote native conclusions will be recorded below
 when observed; these scoped passes do not establish a macOS pass by inference.
+
+### r4 integrated validation receipt
+
+Tested correction commit: `b2c3023d6c6b5c6cfb56a1fc76e3858dcb11fa51`.
+Local environment: Linux 6.12.94+ x86_64, Go 1.27.2, filesystem reported
+`ext2/ext3`. The following commands completed with **exit 0**:
+
+| Check | Observed result |
+| --- | --- |
+| `go test ./... && go vet ./... && go build ./... && go mod verify` | PASS; CLI 199.963s, local 25.347s; unchanged packages may use Go's cache; all modules verified |
+| `go test -race ./internal/local ./internal/projectapp ./cmd/lingo -run 'TestPolicy\|TestExecutablePolicy' -count=1` | PASS; local 4.239s, projectapp 2.584s, CLI 1.970s; complete native race suites are separately recorded below |
+| `go test ./internal/local -run '^TestPolicy(TrustedSystemAliasJourney\|ObjectTokenRejectsUntrustedAliases)$' -count=1 -v` | Both tests executed and PASS, no skip |
+| `go test ./cmd/lingo -run '^TestExecutablePolicyPreviewApplyAndReadBack$' -count=1 -v` | PASS, 0.587s; separate executable processes and actual publication/read-back |
+| `./scripts/validate-repository.sh .` | PASS; optional runtime behavioral scenarios SKIPPED/UNVERIFIED |
+| `./scripts/check-go-quality.sh format` and `tidy` | PASS |
+| `git diff --check`, staged sensitive-file check, staged path/content review | PASS before correction commit |
+| Approved amendment/Plan/Tasks vs `dea54ea`; workflow/dependency/frozen corpus changes in r4 | Empty diff |
+| Added Go-comment scan in r4 | Zero new comments |
+| Local gitleaks | Unavailable, not installed; no claim of a local consolidated secret scan |
+
+Fresh executable receipt at the correction commit (synthetic temporary data):
+
+```text
+project: 0ebcca3b-36fa-4831-b9de-dad8c3cccabb; schema: 3
+before portable: c558ca6eeca83488ea4f2704b96ec88e0f25b5e70b105ceaf07b1c3c43d30c85
+before local: 6128b9256994c3d1f132e732e248b96e03aaaeac3b115ffea8cd159759710504
+preview digest: 64cbb9d34c8cfb6bc1c0c1f9c5720a5e996a105647adb8d792c255e690f7024b
+observed portable: 8bb6ca2ac398794b02006a4a0ab81e0b2dfc7433a52d1837493460491c6c7e03
+observed local: 1e1ddc1fc58cc29221456c4e99ba7a3b7ceb177dbdc6a22190809094bec566c4
+publication: applied; read-back: confirmed
+writes: selected manifest and installation bookkeeping
+```
+
+These digests are observations of one fixture, not transferable authorization.
+
+### Task closure mapping
+
+The r3 AC01–15 matrix above remains the detailed test index. This table provides
+the reverse Task → AC → V mapping; r4 corrects and revalidates T03/T04 identity
+observation and consolidates T09 without reconstructing T01–T08.
+
+| Task | AC coverage | Validation / integrated receipt |
+| --- | --- | --- |
+| G1-T01 | 01–04/12/14 | V01: reused strict draft/presence/bounds/partial-merge/codec suites; full regression |
+| G1-T02 | 04/07/08 | V02: reused exact Workflow/default/reference/impact suites; full regression |
+| G1-T03 | 01/06/07/09/10/13/14 | V03: reused deterministic safe preview/readiness; trusted-system-alias regression |
+| G1-T04 | 07/10/14 | V04: all seven sealed groups, stale content/identity/absence and controlled replacements; canonical alias tokens, untrusted-link refusal |
+| G1-T05 | 01/05/06/09–11/14 | V05: exact replay/no-op, storage faults, recovery and competing processes, including alias journey |
+| G1-T06 | 01/02/05/08/11/13/14 | V06: observed read-back/drift/failure and immutable A/B isolation; alias confirmed read-back |
+| G1-T07 | 01/03/06/09/12–15 | V07: installed v2/v3 CLI and separate executable journeys, refusal/authority/readiness parity |
+| G1-T08 | 01/09/14/15 | V08: thin shared Codex/Claude routing, inspection, ownership/receipts; native LLM conversation NOT RUN |
+| G1-T09 | 05/08/11/12/14/15 | V09: integrated regression/race/security/compatibility, this receipt and exact native run below; remaining qualification limits explicit |
+
+### Exact native result and T09 closure
+
+[Redispatched Nightly native suite 39142122673](https://github.com/rgomids/axiom/actions/runs/39142122673)
+completed **SUCCESS** on exact correction code/test SHA
+`b2c3023d6c6b5c6cfb56a1fc76e3858dcb11fa51`, 2026-10-18
+15:48:15–16:09:05 UTC. Dispatched with `gh workflow run nightly.yml --ref
+ docs/axm-34-project-runtime-policy-specification` (exit 0); read back the exact
+run SHA, all job conclusions and completed macOS/Linux job logs through GitHub.
+This is a new run of the existing non-publishing workflow; no workflow, runner,
+permission or secret change, and no rerun of stale code.
+
+| Native job | Observed result |
+| --- | --- |
+| suite (Linux), job 117718514007 | SUCCESS; Ubuntu 24.04.5, Go 1.26.0 linux/amd64; full `go test -race -covermode=atomic -coverprofile=coverage/coverage.out ./... -timeout=20m`, static/build/module/repository checks and bounded smoke |
+| suite (macOS), job 117718514228 | SUCCESS; macOS 15.7.9 build 24G830, Go 1.26.0 darwin/arm64; full `go test -race ./... -p=1 -timeout=20m`, static/build/module/repository checks and bounded smoke; CLI 601.083s, local 112.915s in the full race run |
+| contracts | SUCCESS |
+| upgrade-journeys (Linux) | SUCCESS |
+| upgrade-journeys (macOS) | SUCCESS |
+
+The workflow does not independently report the suite stores' filesystem type;
+these runner results are native suite evidence, not qualification of every exact
+filesystem/support row. The failed macOS policy tests now belong to a completely
+passing full native race run on the corrected code. Earlier failure, reproduction
+and r3 observations remain historical evidence rather than inherited green.
+
+[PR Checks 39142104512](https://github.com/rgomids/axiom/actions/runs/39142104512)
+on `b2c3023` also completed SUCCESS (5m27s); delivery-metadata
+[39142104522](https://github.com/rgomids/axiom/actions/runs/39142104522) SUCCESS.
+The subsequent Evidence-only commit does not change the tested production or
+Go-test bytes. Its own PR checks are observed separately in the final PR receipt.
+
+**G1-T09 integrated regression/security/Evidence collection is complete**, with
+the reverse Task table and detailed AC01–15/V01–09 matrix above. This supersedes
+the r3 `remaining_units` entry to observe the failed native run and its earlier
+pending status. T01–T08 stay integrated; the r4 finding returned to T03/T04 and
+was corrected and revalidated without a new implementation front.
+
+Final main-session engineering/security review found no blocking finding in the
+supported scope. Existing trusted canonicalization is preferable to a new path
+resolver or dependency: it matches store confinement and the already accepted
+filesystem threat boundary. No changed persisted encoding, portable policy,
+Runtime proof ownership, immutable Execution/Workflow semantics or ADR decision.
+Review checked the complete r4 diff, untrusted symlinks, object/ancestor drift,
+exact authority, write set, zero-comment requirement and absence of scope creep.
+This is not independent-agent or human approval.
+
+Unresolved external validation remains explicit: native LLM/host conversation
+NOT RUN (requires its separately scoped live-test authority and named host/version);
+all exact target/filesystem qualification rows NOT RUN where not independently
+observed; physical power loss and arbitrary hostile same-UID interleavings are
+not claimed. No runtime readiness, R-2/R-3 or MVP acceptance is inferred. Human
+technical review must assess the integrated implementation and these limits.
+No merge, forced push, second PR, self-approval, release, AXM-34/#305 closure,
+canonical Execution creation or lifecycle transition was performed.
+
+Final Evidence-only publication checks: repository validation repeated after the
+native result/matrix reconciliation PASS, exit 0; diff/whitespace and staged
+sensitive-file checks PASS. The correction commit's Go sources/tests, workflows,
+module files, approved contracts and frozen corpus have an empty diff in this
+publication unit. Final head/checks and human review request are linked from #327.
