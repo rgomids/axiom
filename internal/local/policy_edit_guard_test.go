@@ -314,3 +314,69 @@ func TestPolicyPublicationGuardsObservedRepositoryReadiness(t *testing.T) {
 		t.Fatal("observed Repository drift committed", result)
 	}
 }
+
+func TestPolicyTrustedSystemAliasJourney(t *testing.T) {
+	parent := ""
+	for _, candidate := range []string{os.TempDir(), "/var/lock"} {
+		canonical, err := trustedCanonical(candidate)
+		if err == nil && canonical != filepath.Clean(candidate) {
+			parent = candidate
+			break
+		}
+	}
+	if parent == "" {
+		t.Skip("no trusted system temporary-directory alias available")
+	}
+	directory, err := os.MkdirTemp(parent, "axiom-policy-alias-")
+	if err != nil {
+		t.Skipf("trusted system alias is not writable: %v", err)
+	}
+	defer os.RemoveAll(directory)
+	t.Setenv("TMPDIR", directory)
+	t.Run("preview_apply_readback_noop", func(t *testing.T) {
+		f := newPolicyEditFixture(t)
+		if f.projects == f.portable.root || f.state == f.installation.root {
+			t.Fatal("fixture did not retain the trusted alias")
+		}
+		aliasToken, err := policyLocationToken(f.source, filepath.Dir(f.recordPath()))
+		if err != nil {
+			t.Fatal(err)
+		}
+		canonicalToken, err := policyLocationToken(filepath.Join(f.portable.root, "sample"), filepath.Join(f.installation.root, "projects", editTestProjectID))
+		if err != nil || aliasToken != canonicalToken {
+			t.Fatal("alias changed object identity", err)
+		}
+		intent := policyIntent(t, `{"runtimes":{"mode":"members","add":[{"id":"another"}]}}`)
+		authority := reviewedPolicy(t, f, intent)
+		result := projectapp.ApplyPolicyEdit(context.Background(), f.policyPorts(t), f.publisher(nil), intent, authority)
+		if result.Outcome != projectapp.EditPublished || result.ReadBack == nil || result.ReadBack.Status != "confirmed" {
+			t.Fatalf("alias publication/read-back: %+v", result)
+		}
+		intent = policyIntent(t, `{}`)
+		authority = reviewedPolicy(t, f, intent)
+		beforeManifest, beforeLocal := fileBytes(t, f.manifestPath()), fileBytes(t, f.recordPath())
+		result = projectapp.ApplyPolicyEdit(context.Background(), f.policyPorts(t), f.publisher(nil), intent, authority)
+		if result.Outcome != projectapp.EditUnchanged || result.ReadBack == nil || result.ReadBack.Status != "confirmed" || !bytes.Equal(beforeManifest, fileBytes(t, f.manifestPath())) || !bytes.Equal(beforeLocal, fileBytes(t, f.recordPath())) {
+			t.Fatalf("alias no-op/read-back: %+v", result)
+		}
+	})
+}
+
+func TestPolicyObjectTokenRejectsUntrustedAliases(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("requires a non-root owner to distinguish untrusted aliases")
+	}
+	f := newPolicyEditFixture(t)
+	for _, target := range []string{f.source, f.manifestPath()} {
+		alias := filepath.Join(privateTestRoot(t), "alias")
+		if err := os.Symlink(target, alias); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := policyObjectToken(alias, target == f.source); err == nil {
+			t.Fatal("accepted user-owned symlink")
+		}
+	}
+	if _, err := policyFileToken("relative/manifest.yaml"); err == nil {
+		t.Fatal("accepted relative path")
+	}
+}

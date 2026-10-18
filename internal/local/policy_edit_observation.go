@@ -24,7 +24,9 @@ func (o PolicyEditObserver) ObservePolicyEdit(ctx context.Context, selection pro
 		return facts, projectapp.EditCancelled
 	}
 	state := selection.Portable.Project().State()
-	if candidate.State().ID != state.ID || selection.PortableDestination != filepath.Join(o.Portable.root, state.Slug) || selection.LocalDestination != filepath.Join(o.Installation.root, "projects", state.ID) {
+	source, sourceErr := trustedCanonical(selection.PortableDestination)
+	installation, installationErr := trustedCanonical(selection.LocalDestination)
+	if sourceErr != nil || installationErr != nil || candidate.State().ID != state.ID || source != filepath.Join(o.Portable.root, state.Slug) || installation != filepath.Join(o.Installation.root, "projects", state.ID) {
 		return facts, projectapp.EditStateUnsafe
 	}
 	root, projects, target, err := openInstallationChain(o.Installation.root, state.ID)
@@ -143,9 +145,16 @@ func policySourceToken(source string) (string, error) {
 func policyFileToken(target string) (string, error) { return policyObjectToken(target, false) }
 
 func policyObjectToken(target string, directory bool) (string, error) {
+	if !filepath.IsAbs(target) {
+		return "", ErrUnsafe
+	}
+	canonical, err := trustedCanonical(target)
+	if err != nil {
+		return "", err
+	}
 	var facts strings.Builder
-	current := volumeRoot(target)
-	parts := pathComponents(target)
+	current := volumeRoot(canonical)
+	parts := pathComponents(canonical)
 	for index, part := range parts {
 		current = filepath.Join(current, part)
 		var identity string

@@ -744,3 +744,74 @@ remaining_units:
   - Human technical review and assessment of documented limits; no inferred acceptance
 next_action: Read exact PR HEAD/checks and final receipt; review the implementation, do not create another PR or retry an uncertain product edit
 ```
+
+## r4 macOS native failure diagnosis and correction
+
+Continuation starts from exact local/remote/PR `583f98c39491aefff091b7b89a50b5a27226ed44`
+and [r3 handoff](https://github.com/rgomids/axiom/pull/327#issuecomment-6251612311).
+Only #327 is open for AXM-34; #305 is open, Linear is In Progress without
+blocking relations. Refetched branch/comments/reviews and Linear approvals;
+no material amendment/Plan/Tasks drift from approved `dea54ea` and no competing
+branch update observed. Canonical Execution state remains unknown; no new
+Execution, lifecycle transition or subagent is created. T01–T08 are reused.
+
+### Confirmed failure mechanism
+
+[Native run 39137530556](https://github.com/rgomids/axiom/actions/runs/39137530556)
+at `ec1ff8c` finished **FAILURE**: macOS suite failed during policy preview;
+Linux suite, contracts and both upgrade journeys succeeded. Retrieved actual
+failed logs with `gh run view 39137530556 --log-failed` (exit 0). This supersedes
+the earlier IN_PROGRESS observation, without changing its historical receipt.
+
+Reproduced on Linux using an existing root-owned system alias
+`/var/lock -> /run/lock`, equivalent to macOS `/var -> /private/var`:
+
+```bash
+axm34_tmp=$(mktemp -d /var/lock/axm34-policy.XXXXXX)
+TMPDIR="$axm34_tmp" go test ./internal/local -run '^TestPolicyPreviewDeterministicSafeAndReadOnly$' -count=1
+rmdir "$axm34_tmp"
+```
+
+On unchanged production code this returned **exit 1**, `EditStateUnsafe` (4).
+An ephemeral diagnostic test then independently observed that both selected raw
+paths differ from the store paths, both `trustedCanonical` paths equal their
+respective store paths, and `policyLocationToken` fails with `directory is
+unavailable`. Two faulty checks therefore explain the same refusal: direct raw
+pathname equality against already canonical store roots, then ancestor identity
+walking over a trusted system symlink. This is a reproducible policy regression,
+not an assumed flake. The diagnostic test was removed after collecting these
+bounded facts; no filesystem or runner configuration was changed.
+
+Correction in `internal/local/policy_edit_observation.go`: use existing
+`trustedCanonical` for confinement equality and before the object-token walk.
+Keep original selected path spelling in preview/publication/installation data;
+normalize only the filesystem identity observation. Reuse the repository's
+existing root-owned-symlink trust rule, no-follow identity checks, locking and
+commit rechecks. User-owned symlinks and relative object paths still refuse.
+No dependency, persisted encoding, new abstraction or accepted ADR change.
+
+Regression tests:
+
+- `TestPolicyTrustedSystemAliasJourney`: actual trusted alias, matching canonical
+  identity tokens, exact preview/authorization, apply, confirmed read-back and
+  byte-preserving no-op. It explicitly skips if no writable trusted system
+  temporary alias exists; the alias invocation below ran rather than skipped.
+- `TestPolicyObjectTokenRejectsUntrustedAliases`: user-owned directory/file
+  aliases and relative paths refuse; requires a non-root test principal.
+- Existing stale-dependency, ancestor/source replacement, hardlink, competing
+  publisher, recovery, A/B and immutable-record suites remain applicable.
+
+Executed after correction, exit 0:
+
+- `go test ./internal/local -run '^TestPolicy' -count=1`.
+- With the same aliased TMPDIR: `go test ./internal/local ./cmd/lingo -run
+  'TestPolicy|TestExecutablePolicy' -count=1` — both packages PASS, including the
+  installed v2/v3 CLI and real executable journey that failed on macOS.
+- `./scripts/check-go-quality.sh format`, `./scripts/check-go-quality.sh tidy`,
+  `git diff --check` — PASS.
+
+Corrected observation source SHA-256:
+`c954791992ea47d6dc9dfcd4bee8b2174c5475b2c794a2614acebb8fc6c73209`.
+This supersedes only that production fingerprint in the r3 table. Full local,
+race, repository and exact remote native conclusions will be recorded below
+when observed; these scoped passes do not establish a macOS pass by inference.
