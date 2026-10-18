@@ -217,8 +217,13 @@ is **Approved for planning** (SDD specify), fixed to SHA
 `6a5b00e43e7a575bfde4e25d2a3110602d9a414c` by
 [human approval](https://github.com/rgomids/axiom/pull/327#issuecomment-6245855021).
 [Technical Plan](002-lingo-project-initialization/plan-305-existing-project-runtime-policy.md)
-is **Proposed — Awaiting Human Approval — Plan**. Historical contracts remain
-preserved; no Tasks/implementation, Execution gate or product acceptance is recorded.
+is **Approved for Tasks**, fixed to SHA
+`c2118649803a086cab67588a6d7547ac721e7a71` by
+[human approval](https://github.com/rgomids/axiom/pull/327#issuecomment-6246039562).
+[Tasks](002-lingo-project-initialization/tasks-305-existing-project-runtime-policy.md)
+are **Proposed — Awaiting Human Approval — Tasks**; all nine are Not started.
+Historical contracts remain preserved; no implementation, Execution transition
+or product acceptance is recorded.
 
 Implementation Evidence:
 [T01](002-lingo-project-initialization/evidence-t01.md),
