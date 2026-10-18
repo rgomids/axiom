@@ -26,6 +26,13 @@
   Projects created by `project configure` carry no policy and block until an
   authored policy is installed.
 
+## [0.19.0](https://github.com/rgomids/axiom/compare/v0.18.0...v0.19.0) (2026-10-18)
+
+
+### Features
+
+* **cli:** add operator diagnostics and bounded autonomy ([#325](https://github.com/rgomids/axiom/issues/325)) ([5b6bd0b](https://github.com/rgomids/axiom/commit/5b6bd0b354ec38794be33fd8847333bf5132049f))
+
 ## [0.18.0](https://github.com/rgomids/axiom/compare/v0.17.0...v0.18.0) (2026-10-17)
 
 
