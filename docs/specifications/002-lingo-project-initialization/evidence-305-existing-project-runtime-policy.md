@@ -38,7 +38,7 @@ passage. PASS below applies only to the described unit and checks.
 | Task | G1-AC | Oracle | State / Evidence |
 | --- | --- | --- | --- |
 | T01 | 01–04, 12, 14 | V01 | Implemented pure draft/candidate, tests below; integration still depends on T02–T07 |
-| T02 | 04, 07, 08 | V02 | NOT RUN / pending |
+| T02 | 04, 07, 08 | V02 | Pure compatibility implemented/tested below; integrated snapshot/immutable-consumer proof pending T03/T09 |
 | T03 | 01, 06, 07, 09, 10, 13, 14 | V03 | NOT RUN / pending |
 | T04 | 07, 10, 14 | V04 | NOT RUN / pending |
 | T05 | 01, 05, 06, 09–11, 14 | V05 | NOT RUN / pending |
@@ -110,3 +110,39 @@ Do not admit v4 policy edits or silently upgrade v2/v3 to manufacture a selectio
 The portable compatibility helper must preserve the existing Workflow semantics
 and can be tested separately on exact definitions; those tests do not imply v4
 G-1 support. No accepted contract or ADR is changed.
+
+## T02 — exact portable Workflow compatibility
+
+`policy_workflow.go` resolves the exact active definition through
+`ResolveActiveWorkflow`, recomputing the full validated definition digest and
+respecting published index entries, immutable built-in revisions and explicit
+none. The report projects logical references, schema, all Stage/Agent requirements,
+complete before/after Profile/Runtime associations and introduced/unresolved/resolved
+incompatibility. Both introduced and unresolved incompatibility block compatibility.
+Absent local configuration/proof does not enter this portable check. Report overflow
+refuses with `workflow_impact_limit`; no truncated compatibility success.
+
+Explicit Profile refs ignore preferences. Historical schema-1 `policy-default`
+follows the exact role/complexity preference, then exposes the full admissible
+portable set without selecting one. Schema 2 treats that spelling as an explicit
+Profile key. The small portable association/Runtime-constraint helpers are reused
+by `ValidateWorkflowProfilesV3`; its existing local owner/model/effort gates and
+error ordering remain intact. No compiler/dispatch behavior or local format changes.
+
+`policy_workflow_test.go` covers built-in/project definitions, schemas 1/2,
+explicit/default precedence, multiple admissible keys, Runtime constraints,
+preference changes, missing/unconfigured candidates, retained/new incompatibilities,
+explicit repair, none, missing/tampered/retired/index-drift/unindexed definitions,
+compatible reselection refusal, safe raw-error suppression, output overflow and
+unchanged input Project. Existing compiler/Profile-chain tests were rerun.
+Four fixed impact scopes disclose immutable bindings and fresh future admission;
+Execution/Work Item inventory remains unknown/uninspected. Native publication,
+existing immutable-record byte comparison and live conversation are still pending.
+
+PASS (exit 0): `go test ./internal/projectapp ./internal/workflowcompiler
+./internal/workflowdefinition`. T01 commit: `3b0ed19`; T02 tested as its working-tree
+descendant. Final exact committed-head validation is recorded below at consolidation.
+
+A safety review also closed a pre-exposure seam: policy proposals cannot yield a
+usable legacy `PublicationRequest` and `ApplyEdit` refuses them until guarded
+publication integration. No CLI option exposes policy editing in these units.

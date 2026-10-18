@@ -110,6 +110,9 @@ type EditResult struct {
 
 // PublicationRequest returns the exact CAS request for this proposal.
 func (p EditProposal) PublicationRequest() EditPublicationRequest {
+	if p.policyOnly {
+		return EditPublicationRequest{}
+	}
 	request := EditPublicationRequest{
 		ProjectID: p.preview.ProjectID, Slug: p.preview.Slug,
 		PortableDestination: p.preview.PortableDestination, LocalDestination: p.preview.LocalDestination,

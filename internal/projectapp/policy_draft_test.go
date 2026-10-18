@@ -264,6 +264,9 @@ func TestPolicyDraftEditSnapshotNoopAndIsolation(t *testing.T) {
 	}
 	d = policyDraft(t, `{"runtimes":{"mode":"members","remove":["claude"]}}`)
 	proposal = mustPreview(t, f, projectapp.EditIntent{Policy: &d})
+	if !reflect.DeepEqual(proposal.PublicationRequest(), projectapp.EditPublicationRequest{}) {
+		t.Fatal("unguarded policy publication request exposed")
+	}
 	snapshot, issues := projectapp.ReadSnapshot(manifest.Codec{}, proposal.Manifest(), docs)
 	if len(issues) != 0 || !reflect.DeepEqual(snapshot.Documents(), before.Portable.Documents()) {
 		t.Fatal("companion snapshots lost")

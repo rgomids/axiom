@@ -179,6 +179,7 @@ type EditProposal struct {
 	observedManifest  []byte
 	observedLocalWire []byte
 	portableChanged   bool
+	policyOnly        bool
 }
 
 func (p EditProposal) Project() project.Project { return p.project }
@@ -324,7 +325,7 @@ func PreviewEdit(ctx context.Context, ports EditPorts, intent EditIntent) (EditP
 	}
 	preview.Digest = editEnvelopeDigest(preview, manifest, localWire)
 	return EditProposal{project: candidate, manifest: manifest, local: localCandidate, localWire: localWire, preview: preview,
-		observedManifest: selection.Portable.Manifest(), observedLocalWire: append([]byte(nil), selection.LocalWire...), portableChanged: portableChanged}, EditOK
+		observedManifest: selection.Portable.Manifest(), observedLocalWire: append([]byte(nil), selection.LocalWire...), portableChanged: portableChanged, policyOnly: intent.Policy != nil}, EditOK
 }
 
 // PreserveRepositoryHistory discloses that detaching a Repository key keeps
