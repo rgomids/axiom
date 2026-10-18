@@ -105,6 +105,14 @@ func readBackPolicyEdit(ctx context.Context, ports PolicyEditPorts, expected Pol
 		return out
 	}
 	out.Status = "confirmed"
-	out.ReadinessChanged = observed.dependencies.Runtime != expected.dependencies.Runtime || observed.dependencies.Workflow != expected.dependencies.Workflow || observed.dependencies.Operational != expected.dependencies.Operational
+	out.ReadinessChanged = observed.dependencies.Runtime != expected.dependencies.Runtime || observed.dependencies.Workflow != expected.dependencies.Workflow || observed.dependencies.Operational != expected.dependencies.Operational || observed.dependencies.Readiness != expected.dependencies.Readiness
 	return out
+}
+
+type PolicyEditReport struct {
+	Outcome        EditOutcome           `json:"outcome"`
+	Preview        PolicyEditPreview     `json:"preview"`
+	Publication    EditPublicationStatus `json:"publication,omitempty"`
+	LocalCommitted bool                  `json:"localCommitted"`
+	ReadBack       *PolicyEditReadBack   `json:"readBack,omitempty"`
 }

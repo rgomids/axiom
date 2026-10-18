@@ -18,7 +18,7 @@ func TestStrictSelectorLongFormsBeforeDispatch(t *testing.T) {
 	}{
 		{"project show", "selector"},
 		{"project resolve", "selector"},
-		{"project configure", "project-id slug name work-item-provider preview-digest authorize-local"},
+		{"project configure", "project-id slug name work-item-provider preview-digest authorize-local policy-draft"},
 		{"work-item create", "project repository work-item provider-repository"},
 		{"work-item select", "project repository work-item provider-repository number"},
 		{"work-item show", "project repository work-item provider-repository number"},

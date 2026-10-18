@@ -16,13 +16,16 @@ type PolicyEditDependencies struct {
 	Workflow     string
 	Operational  string
 	Runtime      string
+	Readiness    string
 }
 
 type PolicyEditFacts struct {
-	Dependencies PolicyEditDependencies
-	Catalog      workflowdefinition.Catalog
-	Operational  OperationalObservation
-	Runtime      []PolicyRuntimeReadiness
+	Dependencies  PolicyEditDependencies
+	Catalog       workflowdefinition.Catalog
+	Operational   OperationalObservation
+	Runtime       []PolicyRuntimeReadiness
+	Repositories  map[string]bool
+	Documentation map[string]DocumentationStatus
 }
 
 type PolicyEditObserver interface {
@@ -116,9 +119,8 @@ func PreviewPolicyEdit(ctx context.Context, ports PolicyEditPorts, intent EditIn
 	}
 	admission := AdmissionDecision{Operation: AdmitProjectEdit, Class: AdmissionAdministrative, Allowed: true, ProjectID: state.ID}
 	input := ReadinessInput{Project: proposal.project, Local: proposal.local, Repositories: map[string]bool{}, RuntimeCode: PolicyRuntimeCode(facts.Runtime), Catalog: SupportedProviders}
-	for _, binding := range proposal.local.Repositories {
-		input.Repositories[binding.RepositoryKey] = binding.Observation.Availability == Available
-	}
+	input.Repositories = facts.Repositories
+	input.Documentation = facts.Documentation
 	for i := range facts.Runtime {
 		facts.Runtime[i].Next = PolicyRuntimeGuidance(facts.Runtime[i].Code)
 		facts.Runtime[i].Blocker = BlockerRuntimeResolution
@@ -171,7 +173,7 @@ func policyRuntimeCode(code string) bool {
 }
 
 func validPolicyDependencies(d PolicyEditDependencies) bool {
-	for _, token := range []string{d.Installation, d.Source, d.Workflow, d.Operational, d.Runtime} {
+	for _, token := range []string{d.Installation, d.Source, d.Workflow, d.Operational, d.Runtime, d.Readiness} {
 		wire, err := hex.DecodeString(token)
 		if err != nil || len(wire) != sha256.Size || hex.EncodeToString(wire) != token {
 			return false

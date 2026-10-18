@@ -58,7 +58,7 @@ func TestPolicyPublicationGuardsAndPreservesLocalAbsence(t *testing.T) {
 }
 
 func TestPolicyPublicationRejectsEachStaleDependency(t *testing.T) {
-	for _, name := range []string{"installation", "source", "workflow", "operational", "runtime"} {
+	for _, name := range []string{"installation", "source", "workflow", "operational", "runtime", "readiness"} {
 		t.Run(name, func(t *testing.T) {
 			f := newPolicyEditFixture(t)
 			r := f.policyRequest(t)
@@ -75,6 +75,8 @@ func TestPolicyPublicationRejectsEachStaleDependency(t *testing.T) {
 				d.Operational = stale
 			case "runtime":
 				d.Runtime = stale
+			case "readiness":
+				d.Readiness = stale
 			}
 			result := f.publisher(nil).PublishEdit(context.Background(), r)
 			if result.Status != projectapp.EditPublicationConflict || !bytes.Equal(fileBytes(t, f.manifestPath()), r.PortableExpected) || !bytes.Equal(fileBytes(t, f.recordPath()), r.LocalExpected) || len(f.editStates(t)) != 0 {

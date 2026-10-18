@@ -494,3 +494,31 @@ removes A's complete Runtime/Profile/preference set and verifies A's observed
 revision, B's portable/local bytes and read-back, shared registry bytes, and all
 unrelated A installation bindings. Synthetic UUIDs are the existing `123e4567...4000`
 and `123e4567...4001` fixtures, never real provider data.
+
+### r3 — T07 canonical CLI transport and integrated parity
+
+The actual option is `project configure --project <uuid-or-slug> --policy-draft
+<inline-json>`. `{}` reads policy; absent replay authority is the canonical
+validate/dry-run/preview. Existing `--project-id`, `--preview-digest` and
+`--authorize-local` authorize replay. No second command family, draft file reader,
+raw-YAML patch or local Profile authoring is introduced. Inline JSON uses the
+existing bounded strict decoder and normal flag duplication rules; shell callers
+must quote it. Help, skill inspection metadata and commands reference are updated.
+
+Integrated testing found retained Repository observation flags differed from live
+metadata in project validate. Preview now uses the existing non-following
+Repository/Documentation metadata probes. Their safe logical outcomes enter an
+additional sealed `Readiness` dependency and are checked at commit. No document
+content, credential, executable or network probe is added. Read-back discloses
+changed readiness snapshots independently of policy bytes.
+
+Executed, exit 0: `go test ./internal/local ./internal/projectapp ./cmd/lingo
+-run 'Policy|Readiness'`; `go test ./internal/cli ./cmd/lingo -run
+'Policy|Readiness|SkillInspect|Strict'`. `TestPolicyCLIJourneyGuidedParityReadbackAndValidate`
+exercises real stores, structured and guided input parity, preview zero-effects,
+exact apply, full operation-readiness parity, stale replay and no-op byte equality.
+`TestPolicyCLIV2InstalledJourney` covers an actually installed schema-2 source;
+tampered schema tests separately demonstrate stale-state refusal. Invalid,
+oversized, mixed, unsafe and incomplete input tests verify safe output and
+unchanged complete source/state trees. Output has a dedicated bounded safe
+`policyEdit` payload rather than the legacy full-manifest EDIT projection.
