@@ -22,16 +22,18 @@ Tasks, 2026-10-18**, fixed to `2a9bdd0e62d6af127a3cce0f3d18141088a2aaa9` by
 [human decision](https://github.com/rgomids/axiom/pull/329#issuecomment-6254539185)
 and [Linear record](https://linear.app/rgomids/issue/AXM-33/guiar-configuracao-de-project-e-runtime-com-preflight-de-viabilidade#comment-3c387a40).
 Its historical Proposed header/bytes remain unchanged.
-[Tasks](009-guided-project-runtime-configuration/tasks.md): **Proposed, rev.1,
-2026-10-18**, under the [observed tasks gate](https://linear.app/rgomids/issue/AXM-33/guiar-configuracao-de-project-e-runtime-com-preflight-de-viabilidade#comment-6f9f1aea).
-Nine ordered units compose existing owners for inventory, early feasibility,
-progressive choices, exact authority, stale/read-back and bounded handoff;
-trace GC-01–06 to C01–C16 and gated validation/integration. AXM-32 owns presentation,
-AXM-34 owns G-1 policy editing, AXM-31 owns autonomy and AXM-12 owns broad E2E
-acceptance. C01–C16, native Codex/Claude parity and real C12 remain **NOT_RUN**.
-[Evidence/handoff](009-guided-project-runtime-configuration/evidence.md) separates
-historical stages from Tasks checks. Exact-revision Tasks acceptance,
-implementation, Execution/gate mutations, merge and release remain separately gated.
+[Tasks](009-guided-project-runtime-configuration/tasks.md) rev.1: **Accepted,
+2026-10-18**, fixed to `6d5046440a2638630bfb729dfd8cff7184d74e23` by
+[human decision](https://github.com/rgomids/axiom/pull/329#issuecomment-6254729819).
+Historical accepted bytes remain unchanged. Implementation guidance composes the
+four existing owners for inventory/preflight, progressive choices, exact authority,
+stale/read-back and bounded handoff. Contract tests pass; behavioral validation is
+incomplete. AXM-32 presentation activation, installed native parity and real C12
+remain blocked/NOT_RUN; AXM-34 and AXM-12 retain their ownership and acceptance.
+[Evidence/handoff](009-guided-project-runtime-configuration/evidence.md#implement--orientação-e-gates-de-validação--2026-10-18)
+records each T01–T09 result, tests, attempted synthetic observations, limitations
+and next gates. This is a partial implementation delivery, not product acceptance,
+Execution advancement, merge or release.
 
 ## 007 — Configurable Project workflows
 

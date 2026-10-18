@@ -16,7 +16,8 @@ Any other operation is unsupported: report that it is unavailable and run no
 Lingo command for it. Project selects, Workflow configures, Work Item runs,
 Execution performs. Selection belongs to `axiom-project`; execution and stage
 planning belong to `axiom-work-item`. Ownership guidance is never an alias.
-Dispatch (#276) and delivery/rework (#277) are unavailable in this slice.
+Dispatch (#276) and delivery/rework (#277) belong to `axiom-work-item`;
+verify their effective installed metadata before any separate execution request.
 
 ## Operation routing
 
@@ -98,15 +99,45 @@ Report three distinct point-in-time facts, without merging them into one verdict
 Configuration Valid from `runtime profile validate/preview`; Runtime Ready from
 `runtime codex/claude status`; Authentication Ready from `runtime codex/claude auth`.
 Authentication is read-only: no login or credential write and it never blocks
-authoring. Report canonical observations only; do not infer authentication from
+authoring. Auth preflight can execute vendor processes; read-only does not grant
+its consent. Use existing valid observations or obtain its separate authority. Report canonical observations only; do not infer authentication from
 configuration validity or readiness from installed executables.
 
-Project Runtime policy editing (G-1) is unavailable: #305.
-Local Model Profile authoring (G-2) is unavailable: #306.
-Global Doctor/readiness (G-5) is unavailable: #231.
-Do not write these configurations or introduce new registries, fixed tiers or
-approval mechanisms. Diagnostics do not run inference, native sessions or
+Project Runtime policy editing (G-1, #305) belongs to `axiom-project`; local
+Runtime/Profile authoring (G-2, #306) belongs to `axiom-runtime`. Verify effective
+installed operations before handing off; checkout presence is not availability.
+Use existing Project readiness (#231) per operation; no global Doctor (G-5),
+parallel evaluator, registry, fixed tiers or approval mechanism is introduced. Diagnostics do not run inference, native sessions or
 Provider effects and never grant authority.
+
+## Guided Project readiness handoff
+
+Consume the Project inventory and preflight before collecting configuration
+choices. Reuse valid decisions, ask at most one material decision per question,
+and require explicit partial opt-in before technical collection for a reduced
+objective. Missing required operation/proof/producer, incompatible snapshots,
+recovery or denial stops its dependent path. No Profile/policy workaround.
+
+Inspect exact definition source/ID/revision/digest and Stage/Agent requirements
+through definition.list/show/validate and configuration.readiness. Feed observed
+compatible references to Project workflow.select; it has its own preview and
+exact authority. If policy conflicts with active Workflow, a compatible selection
+or separately authorized repair must precede policy, or stop. Built-in definitions
+remain immutable; invalid refs or authoring/migration outside the chosen objective
+require bounded owner handoff, with no default selection or Execution rebind.
+
+Before every apply reobserve owner snapshots and material Project/source/selector,
+policy, local configuration, executable/auth/proof and Workflow facts. Material
+drift invalidates preview and authority; redo preflight and obtain a fresh preview
+and exact confirmation. Denial cancels without insistence or substitution. After
+each write compare read-back identity, revision/digest and content, then re-evaluate
+affected readiness through the existing evaluator. Lost acknowledgement or missing/
+divergent read-back stops the chain; never replay an uncertain mutation. Preserve
+confirmed/uncertain effects, cumulative budgets, references and used/pending
+authority. Installed, authenticated, supported and proven stay independent;
+ready/partial/blocked are scoped conversational summaries, separate from canonical
+status/result, readiness, effect certainty and acceptance. Handoff never starts,
+resumes, runs, dispatches or rebinds Execution or creates/links a Work Item.
 
 ## Result contract
 

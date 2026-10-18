@@ -344,3 +344,241 @@ registrados no PR/Linear após commit, sem tentativa de autorreferência no comm
 
 Esses resultados são documentais, não E01–E09 de execução futura nem aceite.
 CI do SHA novo será observado após publicação; nenhum resultado anterior é herdado.
+
+## Implement — orientação e gates de validação — 2026-10-18
+
+### Authority, baseline e E01 — contratos observados
+
+Tasks rev.1 T01–T09 aceitas no SHA
+`6d5046440a2638630bfb729dfd8cff7184d74e23` pela
+[decisão humana](https://github.com/rgomids/axiom/pull/329#issuecomment-6254729819)
+e [recibo Linear](https://linear.app/rgomids/issue/AXM-33#comment-48abcf6e).
+O prompt implement autoriza edição no escopo, testes, commit/push no PR único e
+handoff bounded em AXM-33, sem merge/release/aceite ou transição canônica. Spec,
+Plan, Tasks e todo o prefixo histórico deste Evidence permanecem intactos.
+
+Read-back inicial: árvore limpa, branch
+`docs/axm-33-guided-configuration-specification`, HEAD e head remoto/PR exatamente
+`6d5046440a2638630bfb729dfd8cff7184d74e23`; PR #329 OPEN, base main.
+`git log -6 --oneline`, `git ls-remote origin` e `gh pr view 329` não mostraram
+commits de implementação nesta branch. Linear foi reobservado **In Progress**,
+diferente do snapshot In Review do prompt; nenhum status foi alterado pelo
+executor. Comentários de aprovação/prompt não fornecem uma Execution canônica.
+Não há `axiom` no PATH; não se consultou nem enumerou estado privado para
+reconstruir Execution. Execution/revisão/gates/estágio permanecem **unknown**;
+nenhuma segunda Execution foi criada ou inferida.
+
+Orquestração: cadeia causal T01→T02→T03→T04→T05; ativação T06 depende de G2,
+T07 de T06/G3, T08 de T07/G4. Consolidação de bloqueios não satisfaz dependências
+não observadas. Sem delegação: inferioridade estrita de modelo não comprovável.
+Orchestrator executou explore/implement/validate/review/document; comandos de
+validação independentes foram paralelizados. Nenhuma infraestrutura genérica,
+engine, nova interface, dependência ou automation durável foi necessária:
+Markdown embedded, testes e biblioteca padrão existentes bastam; biblioteca
+externa adicionaria superfície sem requisito validado.
+
+| Lacuna / dono | Fonte inspecionada e forma real | Pré-requisito / authority / confirmação |
+| --- | --- | --- |
+| Identidade, Repository, Provider / Project | `internal/cli/skill_inspect.go`, Project skill; list/show/validate, configure edit explícito | UUID/source/selector, binding por chave, preview completo; `project-id`, `preview-digest`, `authorize-local` somente do preview exato; show/validate após write |
+| Policy / G-1 AXM-34 | `internal/projectapp/policy_{preview,apply}.go`, `internal/local/policy_edit_observation.go`; configure edit com policy-draft exclusivo; `{}` observa policy | Schema suportado, snapshots installation/source/Workflow/operational/runtime/readiness/locations, diff/impact/admission; tupla própria; policyEdit.readBack separa confirmed/drift/unverified/recovery_required do commit |
+| Binding/Profile / G-2 | `internal/runtimeapplication/authoring.go`, Runtime skill; list/show/validate-candidate e autoria local | Snapshot local e candidate/preview digests; expected-revision/preview-digest/authorize-local; shared local scope; list/show read-back; suporte/auth não inferidos |
+| Workflow / definição e seleção | Workflow skill, `internal/cli/skill_inspect.go`, `internal/projectapp/policy_workflow.go` | Definition list/show/validate/configuration.readiness; Project workflow.select separado com source/revision/digest e authority própria; seleção/revisão conferidas após write |
+| Readiness / evaluator #231 | `internal/projectapp/readiness.go`, `internal/cli/readiness.go`, `internal/projectapp/policy_preview.go` | work-item/execution por operação; leitura não concede authority. G-1 usa `read_only_metadata_no_new_runtime_proof`; ausência de auth/proof material restringe conclusão |
+| Auth / proof / produtores | `internal/runtimeadapter/authpreflight.go`, `internal/cli/runtime_capability.go`, `internal/runtimeadapter/runtime-versions.json` | Registry entries vazio não prova combinação. Auth status executa processos. Capability show pode exigir esforço/authority. Não executar prepare/probe/invalidate/login/inferência como descoberta; instalação/suporte/auth/proof separados |
+| Work Item / Execution | Work Item skill, catálogo | Handoff só com refs/unknown, sem create/link/start/resume/run/stage dispatch/rebind. Backlog Linear não demonstra adapter instalado |
+| Apresentação / AXM-32 | PR #328 OPEN/Draft, head `aba1c4d843e4b44a891531831aec2c79e95aae18`, mergedAt null; ADR-0030 lida nesse SHA | Entrega/par compatível não demonstrados. T06 BLOCKED; relay Markdown/Auxiliary atual preservado, sem cherry-pick, renderer ou mudança wire |
+
+Fontes/ADRs relevantes confrontados: ADR-0004 (portátil/local), ADR-0020
+(binding imutável), ADR-0022/0023 (donos), ADR-0024 e nota pre-stable
+(effort/Profile), ADR-0025 (proof), ADR-0030 no dono da apresentação, Spec 009 e
+Plan/Tasks aceitos. Nenhuma mudança de contrato/ADR proposta. Frases stale de
+indisponibilidade G-1/G-2 e dispatch/delivery nas skills foram reconciliadas com
+o catálogo de fonte, sempre condicionadas à instalação efetiva. Presença na
+fonte não é evidência instalada.
+
+### E02–E04 — orientação implementada
+
+- Project agora compõe inventário, caminho completo conhecido e parada antes de
+  modelo/effort/ID/template; registra inaccessible como não observado, distingue
+  estados da policy e mantém Repository/remote/binding separados de Project.
+- Project/Runtime orientam opções com fonte, campo aberto versus catálogo,
+  candidato ID validado sem seleção unilateral, uma decisão material por pergunta,
+  reuso de decisões válidas e opt-in parcial antes da coleta técnica.
+- Cada dono mantém preview/authority por apply, write set/alcance e dependências;
+  todos reobservam fatos materiais, invalidam preview/authority em drift e param
+  cadeia incerta após read-back. Workflow compatível precede policy se necessário;
+  nenhuma ordem fixa impossível, seleção/default implícito ou rebind.
+- Runtime recebeu limites cumulativos AO-06/07/09 e checkpoint compatíveis com os
+  três donos que já os tinham. Tetos não concedem efeito; deadline/correlação/
+  attempt/contadores sobrevivem sessão, com parada antes sem progresso.
+- Handoff Work Item mantém resultado/readiness/certeza/aceite e refs/unknown;
+  nenhuma Execution ou mutação de Provider deriva de ready/partial/blocked.
+
+Isto é implementação de **instruções distribuídas**. Assertions textuais comprovam
+presença do contrato, não observação das decisões da IA. E02/E03/E04 comportamentais
+(perguntas/eventos, previews reais, authorities por efeito e contadores em conversa)
+continuam NOT_RUN. Não há snapshots/authority de Project real a publicar.
+
+### E05 — testes e cenários por camada
+
+Novo `TestGuidedConfigurationInstructionContracts` em
+`internal/codexruntime/workflow_skill_content_test.go` cobre C01–C16 e invariantes
+entre os quatro donos. Suites existentes de CLI verificam routing/catálogo/parser,
+exclusividade de ownership e ausência de authority implícita; não implementam
+resolver semântico. Novas entradas conversacionais e variantes estão em
+[scenarios.md](../../../internal/codexruntime/testdata/guided-configuration/scenarios.md).
+Formas e limites vêm dos produtores de E01; labels de snapshot são dados
+sintéticos, nunca digests de wire nem novo schema de produto.
+
+A primeira execução focada detectou duas obrigações reais de compatibilidade:
+registro da revisão embedded substituída e fixture pré-AO derivado do texto atual.
+Correção: append-only sharedSkillHistory e pin do novo manifest; fixture pré-AO
+congelado com os **mesmos hashes históricos** verificados pelo teste, sem relaxar
+nenhuma assertion. [Proveniência do fixture](../../../internal/codexruntime/testdata/pre-operator-autonomy/PROVENANCE.md).
+Históricos/receipts/corpus existentes intactos. Manifest do novo conjunto:
+`73e9fa8d6750660c7abaa1da0dee9b38b1f4d7c7e790ce7819d3cd48e60e02dd`;
+skill-set/binary compatibility continuam 2/2 pelo contrato existente.
+
+| Cenário | Contrato textual | Regressão determinística pertinente do dono | Conversa synthetic / nativa instalada / real |
+| --- | --- | --- | --- |
+| C01 | PASS | Readiness + instalação/reinstalação das quatro skills | NOT_RUN / NOT_RUN / não aplicável |
+| C02 | PASS | Catálogo/routing/selector e policy identity drift | NOT_RUN / NOT_RUN / não aplicável |
+| C03 | PASS | Configure/parser/Project readiness | NOT_RUN / NOT_RUN / não aplicável |
+| C04 | PASS | Policy ausente/unconfigured e blockers canônicos | NOT_RUN / NOT_RUN / não aplicável |
+| C05 | PASS | Catálogo/parser; não demonstra escolha semântica | NOT_RUN / NOT_RUN / não aplicável |
+| C06 | PASS | Local authoring e PolicyV3DeclarationIsNotCapabilityProof | NOT_RUN / NOT_RUN / não aplicável |
+| C07 | PASS | RoutingAloneNeverGrantsAuthority, authoring preview e policy exact apply | NOT_RUN por cada tipo de apply / NOT_RUN / não aplicável |
+| C08 | PASS | PolicyPublicationRejectsEachStaleDependency, identity/content drift, AuthoringStaleCandidateAndNoOpZeroWrites | NOT_RUN por dimensão conversacional / NOT_RUN / não aplicável |
+| C09 | PASS | PolicyReadBackTruthAndDrift, PolicyApplyTruthfulRecovery, AuthoringPublicationUncertaintyNotClaimedApplied | NOT_RUN / NOT_RUN / não aplicável |
+| C10 | PASS | Contrato AO cumulativo; relógio/contadores de decisão da IA não observados | NOT_RUN / NOT_RUN / não aplicável |
+| C11 | PASS | ExplicitOperationRoutingIsDeterministic, inspeção/catálogo | NOT_RUN / NOT_RUN / não aplicável |
+| C12 | PASS | PolicyApplyExactReplayAndNoop e readiness; não prova caminho ready real | NOT_RUN synthetic / NOT_RUN / NOT_RUN real |
+| C13 | PASS | PolicyPublicationGuardsAndPreservesLocalAbsence, readiness snapshots | NOT_RUN / NOT_RUN / não aplicável |
+| C14 | PASS | PolicyWorkflowMissingTamperedAndReselected e Workflow binding | NOT_RUN / NOT_RUN / não aplicável |
+| C15 | PASS | PolicyDraftStrictRejections, AuthoringLegacyDTOCanariesRedacted | NOT_RUN por draft/erro/Provider / NOT_RUN / não aplicável |
+| C16 | PASS | AuthoringValidateCandidateValidatesSuppliedIntent; conversa/candidato não observados | NOT_RUN / NOT_RUN / não aplicável |
+
+A coluna de regressão identifica controles existentes, **não** cobertura integral
+conversacional do caso. Nem testes de strings nem green unit tests demonstram
+ordem de perguntas, budgets da IA, zero comando injetado ou paridade semântica.
+Filtros: pacote codexruntime/cli inteiro porque texto embedded altera instalação,
+manifest/history, catálogo e routing; regressões dos donos executadas pelas suites
+Go, sem mudar sua semântica para acomodar a jornada.
+
+Tentativas sintéticas isoladas, sem instalação no operador, com orientações
+embedded e fixture em stdin (não teste de par binário/skills instalado):
+
+- `codex --version`: `codex-cli 0.162.1`; ajuda de exec inspecionada.
+  `codex exec --ignore-user-config --ignore-rules --ephemeral --sandbox read-only
+  --skip-git-repo-check --cd <scratch> --output-last-message <scratch-reply> -`:
+  timeout local 55 s, nenhuma resposta final nem output stdout avaliável. Não há
+  trace completo que comprove comportamento/eventos. Nenhum retry realizado.
+- `claude --version`: `2.1.302`; ajuda inspecionada.
+  `claude --bare --print --tools '' --no-session-persistence --strict-mcp-config
+  --mcp-config '{"mcpServers":{}}'`, cwd scratch e stdin fixture: exit 1, sessão
+  OAuth expirada sem refresh possível. Nenhum caso alcançou decisão avaliável;
+  nenhum login/remediação/configuração de credenciais executado.
+
+Invocações de avaliação **FAIL por ambiente/timeout**, casos **NOT_RUN**. Não são
+findings comportamentais PASS ou FAIL. O pedido ao subject proibiu tools/efeitos,
+mas não se atribui prova de confinamento ou zero ações a um trace ausente. Apenas
+Claude teve tools desabilitadas por flag; sandbox Codex não equivale a tools off.
+C15 canário foi inserido apenas no input efêmero; nenhum resultado de caso foi
+obtido e não se declara PASS de não divulgação. Logs brutos não publicados.
+SHA-256 do input efêmero conjunto (guidance + fixtures + canário sintético):
+`24512c2742ab647ae69f928cfe86361bbe9e9d55017a9ff6f09fca9f9a3072b7`.
+Novas observações exigem host funcional e trace de eventos verificável, sem
+repetição automática de tentativa incerta.
+
+### E06–E08 — gates externos e observações ausentes
+
+T06/G2: #328 segue OPEN/Draft no SHA E01; contrato de apresentação ainda não
+entregue como par compatível. Consumo/migração ativados **NOT_RUN/BLOCKED**;
+nenhuma omissão material ou authority nova foi aceita por antecipação. Revalidar
+entrega do dono e repetir C01/04/07/09/12/13 antes de alegar integração.
+
+T07/G3: regressão de instalação em roots temporários é teste determinístico,
+não sessão nativa com orientação instalada. T06 pendente e nenhuma sessão nativa
+avaliável impedem concluir T07. Natural/explícita, hosts/alvos cruzados, rollback
+para par anterior conhecido e comparação semântica C01–C16 permanecem NOT_RUN.
+Não instalar/atualizar no operador para contornar isso. Rollback da orientação
+não desfaz configuração; inversão suportada exige nova authority/read-back.
+
+T08/G4: C12 real **BLOCKED/NOT_RUN**. Não há binário Axiom efetivamente instalado
+observado, par entregue AXM-32, alvo real com Repository/Profile/Workflow
+verificados, auth/proof exatos/frescos nem autorização humana específica do
+preview/efeito. O prompt implement não concede essa última authority. Não
+produzir proof/probe ou iniciar Execution para fabricar pré-requisitos. Menor
+próxima ação: dono disponibilizar par compatível; depois operador indicar ambiente
+adequado e observações válidas para preflight read-only. Somente após preview
+real pedir authority exata. AXM-34 e AXM-12 retêm seus gates/aceites próprios.
+
+### E09 — matriz de entrega e checkpoint
+
+| Task | Resultado factual / critérios | Testes / Evidence / estado |
+| --- | --- | --- |
+| T01 | Contratos/fontes/limites e gates mapeados; lacunas localizadas | E01; DONE para inspeção de fonte, instalação real não alegada |
+| T02 | Inventário/preflight e parada cedo implementados em Project | E02, C01–04/06/11/14 textuais PASS; comportamento NOT_RUN; IMPLEMENTED, validação incompleta |
+| T03 | Decisões/opções/partial opt-in e preview/authority exatos em Project/Runtime | E03, C05–08/12/13/16 textuais PASS; comportamento NOT_RUN; IMPLEMENTED, validação incompleta |
+| T04 | Workflow/stale/read-back/budgets/handoff nos quatro donos | E04, C07–10/13–15 textuais PASS; comportamento NOT_RUN; IMPLEMENTED, validação incompleta |
+| T05 | Contratos C01–C16 e fixtures/variantes, regressão; tentativas de conversa sem resultado | E05; PARTIAL, não concluída sem observações sintéticas |
+| T06 | Relay atual preservado; gate AXM-32 revalidado | E06; BLOCKED G2, integração NOT_RUN |
+| T07 | Regressão determinística separada da paridade instalada | E07; BLOCKED T06/G3, paridade/rollback nativos NOT_RUN |
+| T08 | Pré-requisitos/authority real não observados | E08; BLOCKED G4, C12 real NOT_RUN |
+| T09 | Evidence incremental, revisão e handoff de bloqueio | E09; PARTIAL/handoff, conclusão formal depende T07; review independente/aceite pendentes |
+
+GC-01: T01/T02 + inventário e C01/02/03/08/11/14/16;
+GC-02: T02 + preflight antes de P3 e C03–06/10–14;
+GC-03: T03 + fontes/decisão única e C01/04–06/16;
+GC-04: T03/T04 + tupla por efeito/denial/stale e C02/03/07–09/11–16;
+GC-05: T04 + read-back/readiness/síntese e C01/03/04/06/07/09/12/13;
+GC-06: T02/T04 + limites/checkpoint/injeção e C02/09/10/15.
+Todos têm contrato textual verificado; observação da jornada inteira continua
+pendente. Nenhum GC é declarado aceito por essas assertions.
+
+Checkpoint de retomada: objetivo é completar T01–T09 aceitas no PR #329;
+autoridade permanece limitada ao prompt implement, sem merge/release/aceite.
+Não existe alvo/attempt/budget de jornada real iniciado por este trabalho;
+Execution/gate unknown, efeitos de configuração confirmados/incertos nenhum
+observado pelo executor. Tentativas sintéticas encerradas sem resultado, sem
+replay automático; nenhuma authority real persistida. Revalidar head/PR e G2
+antes da próxima unidade. T05 precisa validate/conversa synthetic com trace;
+T06 exige entrega AXM-32; T07 exige T06 e ambientes/instalação de teste autorizados;
+T08 exige T07, observações exatas e nova authority por efeito. Não resetar budgets
+de uma futura jornada a partir deste checkpoint de desenvolvimento.
+
+Validação do conteúdo entregue:
+
+| Check / comando | Resultado e alcance |
+| --- | --- |
+| `go test ./internal/codexruntime ./internal/cli` | PASS após correções de histórico/fixture; contratos C01–C16 e install/reinstall/upgrade nos dois destinos, sem provar conversa |
+| `go test ./...` | PASS, incluindo cmd/lingo (172.194 s), local, projectapp, runtimeapplication, Workflow, install, compatibility e todos os demais pacotes; nenhuma suíte omitida |
+| `go vet ./...` | PASS |
+| `./scripts/validate-repository.sh .` | PASS: adapters/harness, automation (91 surfaces), ADRs (30), sensitive files e whitespace; cenários nativos do maintainer validator explicitamente SKIP/UNVERIFIED |
+| `git diff --check` | PASS |
+| Scanner consolidado `gitleaks` | NOT_RUN: comando não disponível; nenhuma instalação global realizada |
+| Conversa synthetic Codex/Claude | NOT_RUN por caso; tentativas FAIL por timeout/auth, como E05 |
+| T06 integração, T07 paridade instalada, T08 real C12 e AXM-12 E2E amplo | NOT_RUN; gates E06–E08, sem aceite derivado |
+
+Review proporcional do Orchestrator com axiom-review: escopo confrontado com
+GC/P/Tasks e ADRs, denial/stale/read-back, limites/auth/proof, superfícies de
+paths/links/permissões, comentários novos, dependências e diff histórico.
+Nenhum finding bloqueante de código/instrução identificado; lacunas de validação
+comportamental e gates externos permanecem bloqueantes para **conclusão integral**,
+não foram dispensadas. Nenhum comentário novo em Go de produção/teste, TODO/FIXME,
+código comentado, dependência, comando/catálogo ou schema novo introduzido.
+Remoção do comentário do fixture integra a alteração de sua fonte; não remove
+comentários fora do diff. Self-review não é review independente nem aceite humano.
+Checks finais de links/bytes/hygiene e publicação são registrados no checkpoint
+abaixo e no comentário do head exato no PR/AXM, sem autoatribuir CI PASS.
+
+Checkpoint final pré-publicação: verificação efêmera Python executada contra
+`git show 6d504644:<artifact>` confirmou identidade byte a byte de Spec/Plan/Tasks
+e prefixo append-only de Evidence; verificou fences Markdown, 114 links locais
+nos paths alterados e ausência de linhas novas de comentário Go. PASS.
+`git diff --check` PASS; árvore contém somente quatro skills, testes/histórico de
+instalação e fixtures correspondentes, índice e este Evidence. Staged hygiene e
+read-back de publicação/CI do SHA exato seguem no comentário bounded do mesmo PR.
+CI ainda não observado para o commit futuro; não é PASS. Próximo gate é review
+independente deste delta parcial e resolução dos blockers E05–E08 antes de
+concluir Tasks ou aceitar produto. Sem merge/release/transição/aceite automático.
