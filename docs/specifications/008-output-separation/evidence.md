@@ -723,3 +723,126 @@ Resolve only the Execution-binding/delivery-mode decision above, then satisfy
 T01 → T02 → (T03/T04) → T05 → T06 → T07 → authorized T08. Independent review
 and human acceptance remain subsequent gates. Do not ask for the former absent
 root or renew the existing eight-Task implementation approval.
+
+
+## Resume r3 — authorized GitHub binding and local preflight — 2026-10-18
+
+Rafael authorized this resume on 2026-10-18 at 18:08 BRT from
+`aba1c4d843e4b44a891531831aec2c79e95aae18`, on the same branch and Draft
+PR #328. The eight-Task implementation authority at `2efacfdb3957c458df84514b0e2a4ac532cae4c8`
+was read back from [the approval](https://github.com/rgomids/axiom/pull/328#issuecomment-6253982994).
+Local HEAD, remote branch and OPEN/Draft PR HEAD agreed before editing; the
+worktree was clean. The PR conversation/reviews and current accepted inputs were
+inspected. Historical Proposed language is not a request to renew their approval.
+
+**Authorized exception:** use existing public GitHub
+[issue #330](https://github.com/rgomids/axiom/issues/330) as the Lingo Work Item
+only for this implementation-validation context. Its body confirms the exception.
+Operational authority remains **Linear AXM-32**. This neither adopts GitHub as a
+second operational backlog nor authorizes changing Provider status/labels,
+closing the issue or accepting work. The former missing GitHub binding is resolved.
+
+The existing `/home/box/.local/state/lingo` was reused for inspection: mode 0700,
+zero entries before commands. No active Execution exists inside that inspected
+root. No assertion concerns another machine/root. No second Execution or manual
+store reconstruction was attempted.
+
+Built the clean baseline with `go build -o /tmp/axiom-axm32-r3 ./cmd/lingo`:
+PASS, exit 0, provenance revision `aba1c4d843e4`, sourceState clean.
+Read-only commands against that baseline establish:
+
+| Command after the baseline executable | Result / exit | Meaning |
+|---|---|---|
+| `--json project configure --slug axiom-axm32-validation --name "Axiom AXM-32 validation" --repository main=/workspace/wt/axm-32 --work-item-provider github` | success / 0 | Preview only; single discovered remote `https://github.com/rgomids/axiom`; portable/local revisions absent; proposed local effects are publication of Project and bindings. Runtime policy absent, candidates empty. |
+| `--json runtime profile validate` | validation_failure / 1 | No valid machine-local Runtime Profile configuration. |
+| `--json runtime binding list` and `--json runtime profile list` | success / 0 each | Configuration state fresh, revision 0; Codex and Claude executables detected, integration unobserved; authentication unknown, model/effort support unproven. Detection does not select a Runtime/model. |
+| `--json runtime codex status` and `--json runtime claude status` | validation_failure / 1 each | All four skills missing, receipt absent, skillSetVersion 2 / binaryCompatibility 2 in each host. |
+
+An exploratory `runtime <host> inspect` is not a supported command: both returned
+legacy invalid_command / 1. Subsequent actual help discovery identified `status`
+as the supported read-only inspection; those canonical results appear above.
+No mutation was replayed. Project CREATE, runtime binding/profile authoring,
+installation and workflow-start help and the implementation's exact preview/check
+requirements were inspected. No preview has been applied at this checkpoint.
+Runtime/model/effort selection was requested because no existing local Profile
+provides those facts; not a renewal of implementation, root or #330 authority.
+
+### T01 baseline preparation and consumer treatment
+
+This is preparation, not T01 completion or permission to skip its Execution entry
+prerequisite. No presentation code or production skill was changed.
+The existing producer/DTO/fact inventory in [Clarify](clarify.md#producer-and-emission-inventory)
+was checked against current emitters. The following named consumers must migrate
+with the coordinated set:
+
+| Consumer / current boundary | Treatment / required proof |
+|---|---|
+| `internal/cli/presentation_test.go`, `testdata/presentation/*.md` | Replace Markdown human snapshots with native text; preserve JSON bytes and material-field assertions. Existing seven completion statuses and eleven operation scenarios cover no-op, partial, denied, interrupted, recovery, retryable and hostile values; readiness variants remain to add. |
+| `internal/cli/domain_skill_routing_test.go` | Currently rejects leading JSON in routing rows as outside human-first; migrate machine routing assertions to explicit JSON while preserving domain ownership/selectors. |
+| `cmd/lingo/skill_protocol_test.go` | Parse actual skill invocation examples; preserve exact start preview/selector protocol while switching internal consumption to JSON. |
+| `internal/codexruntime/runtime_test.go`, `workflow_skill_content_test.go` | Current exact Markdown/explicit-user-JSON/Auxiliary assertions must be replaced by canonical internal JSON plus faithful host synthesis checks. |
+| `internal/codexruntime/{manifest.go,shared_history_test.go,published_receipts_test.go,domain_skills_upgrade_test.go}` | Preserve published digests/receipts and add replaced revision recognition; prove both host roots, compatible pairs and protected rollback. Current manifest versions both 2 are baseline facts, not evidence of mixed-pair safety. |
+| `scripts/smoke-prepared-artifact.py::run` | Already prepends explicit JSON and parses JSON. Its independent 64KiB capture budget must remain distinct from emitter budgets and G2. |
+| `scripts/test-codex-skills.sh` | Validator/Go-suite caller; migrate affected contract assertions, not a human-output JSON parser. |
+| Help/version/skill-inspect/legacy POC | Classify independently; help stays human; legacy status/error transport is not silently converted to MVP DTOs. Skill inspect canonical completion uses presentEvent. |
+| Unknown downstream callers | External human-text parsers/installed revisions are unobserved; no universal consumer compatibility claim. |
+
+The canonical `presentEvent` boundary receives an already-built wire and performs
+one write; presentation cannot call a use case again. `presentDiagnosticEvent`
+appends only bounded optional diagnostic enrichment before that boundary.
+Actual emitter limits observed include common/readiness 16KiB, Work Item 128KiB,
+Project/Execution lists 2MiB, stage-plan 4MiB, Runtime authoring/capability 256KiB;
+these are not a new universal result schema or a change to limits.
+
+Before any product edit a one-off Python standard-library inventory captured
+SHA-256 for each baseline file outside tracked automation. Group hashes below use
+UTF-8 JSON of the sorted path-to-SHA256 mapping with compact separators:
+
+| Immutable baseline group | Files | Mapping SHA-256 |
+|---|---:|---|
+| `internal/cli/testdata/presentation/*.json` | 11 | `cfcd029243d0a19d1d7b05648d6abfee77d25cc2da9cf66eab575bae8562f316` |
+| `internal/compatibility/testdata/stable-v1/snapshots/` recursive regular files | 393 | `0905dde3166ef505ce10b5ce1d2666f5ac5a97887cb706202d6fd0731dbd2ca3` |
+| Four embedded `internal/codexruntime/skills/*/SKILL.md` sources | 4 | `e93613cd40b1038bd78d28a55e4369dd18a87db15226f3a273d396c87c050e02` |
+
+PASS: `go test ./internal/cli ./internal/codexruntime ./cmd/lingo`, exit 0.
+These existing baseline tests do not prove AXM-32 behavior. Native observations,
+new typed obligations/readiness matrix and compatibility/rollback of the new set
+remain NOT_RUN. G1/G2 remain conditional and unchanged; no occurrence reproduced.
+No delegation: the runtime exposes overrides, but strict model inferiority to the
+Orchestrator is unproved. No independent review is claimed.
+
+
+### r3 Task and acceptance gate checkpoint
+
+| Task | Files/front | Dependency / precise outstanding gate | Required validation / acceptance state |
+|---|---|---|---|
+| T01 | Clarify/Evidence; presentation typed obligations | INCOMPLETE: baseline captured; no configured Runtime/Profile from which to produce a valid start preview and create the authorized local Execution. Project setup is preview-only. | Freeze full semantic/readiness/channel obligations after entry; AC1–AC9 inputs incomplete. |
+| T02 | CLI readiness/presentation and Project skill/tests | NOT_RUN: T01 exit not met. | Seven readiness variants, status success/0 vs scoped Execution blocker, one-call/channel checks; AC1–AC6. |
+| T03 | All canonical CLI emitters/native snapshots | NOT_RUN: T02 exit not met. | Native semantic matrix, JSON unchanged, writer failure, TTY/pipe/NO_COLOR; AC1/2/5/6. |
+| T04 | Four shared skills and routing/protocol integration | NOT_RUN: T02 exit not met. | Internal JSON, bounded faithful synthesis and fail-closed dependent actions in both hosts; AC3/4/7. |
+| T05 | Typed semantic oracle, consent/security tests | NOT_RUN: T03/T04 exits not met. | Positive/negative facts/tokens, drift/read-back, effect counters and security canaries; AC1–AC8. |
+| T06 | Manifest/history/receipts and upgrade tests | NOT_RUN: T05 exit not met. | Old/new pairs, protected interrupted upgrade and actual pair rollback in both hosts; AC9. |
+| T07 | Command/reference consumers and prepared smoke | NOT_RUN: T06 exit not met. | Exact binary/four-skill set, prepared smoke, complete checks and AC mapping. |
+| T08 | Isolated native observations and sanitized Evidence | NOT_RUN: T07 and separate native-observation authority gates not met. | Success, blocked validation, denied consent, partial/interrupted recovery in each host; independent review/human decision pending. |
+
+No Task or R1–R4/AC1–AC9 behavior is declared complete. The smallest missing
+input is the explicit Runtime/model/effort selection for the local configuration;
+then use the actual authoring previews and exact digests, read back configuration,
+configure the Project with that policy, link #330 through supported commands,
+inspect Executions again, and start only if none is active. Preserve local gates;
+accepted repository artifacts do not constitute a fabricated transition history.
+The entry remains a Runtime configuration prerequisite, not G1/G2 or a request to
+renew the already authorized implementation. No new adapter, schema/domain rule,
+remote infrastructure, secret, dependency, code comment or durable automation was
+introduced. Review/documentation skills were applied to this bounded append;
+self-review is not independent review. No merge/release/closure or automatic acceptance.
+
+
+Final r3 local verification: PASS `go test ./...` (exit 0); PASS
+`./scripts/validate-repository.sh .` (exit 0; native behavioral scenarios explicitly
+SKIP/UNVERIFIED); PASS `git diff --check`; PASS byte comparison for all captured
+JSON/state/skill/accepted-artifact files; PASS read-back that the reused canonical
+state root still has zero entries. `gitleaks` is unavailable: dedicated scanner
+NOT_RUN; repository/staged sensitive-file checks remain required for publication.
+Only this append changes tracked content. Exact-checkpoint CI must be queried on
+the published SHA and must not be inherited from `aba1c4d`.
