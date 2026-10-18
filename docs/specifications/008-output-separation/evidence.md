@@ -447,3 +447,153 @@ installed revisions. G1/G2 cannot be called resolved or harmless without evidenc
 **Next:** human review and explicit approval of Tasks at the published SHA, then
 separate bounded authority before implement. No Tasks acceptance, canonical
 Execution transition, merge, release or product completion is recorded here.
+
+## Implement preflight and recovery handoff — 2026-10-18
+
+### Authority and observed state
+
+The maintainer [approved all eight Tasks and authorized implementation](https://github.com/rgomids/axiom/pull/328#issuecomment-6253982994)
+at `2efacfdb3957c458df84514b0e2a4ac532cae4c8`. This supersedes the preceding
+pending-Tasks statements as current authority; their historical evidence remains.
+No renewed Spec, ADR, Plan or Tasks approval is requested. Implementation authority
+does not establish the location, identity, revision or concurrency of an Execution.
+
+Clean checkout, `git rev-parse HEAD`, `git ls-remote origin
+refs/heads/docs/axm-32-output-separation-specification` and `gh pr view 328`
+agreed on that exact SHA, the expected branch and OPEN/Draft #328. Repeated the
+remote/PR checks immediately before this append; no delta was observed. Read the
+current PR comments/reviews, exact authorization, Linear issue/relations and
+discussion. #328 is the only open AXM-32 work PR identified; search also returned
+unrelated #329, which was excluded by identity. Linear is In Progress with no
+blockedBy; those facts are not canonical workflow truth. GitHub reports PUBLIC.
+Only bounded authorized references and locally observed results are recorded here.
+
+**Unresolved preflight: canonical workflow truth unavailable (`recovery_required`).**
+`LINGO_STATE_ROOT`, `LINGO_PROJECTS_ROOT` and `XDG_STATE_HOME` are unset.
+`cmd/lingo/main.go::stateRoot` and `internal/local/state_root.go::NativeStateRoot`
+therefore resolve this Linux session's state to `/home/box/.local/state/lingo`;
+that directory does not exist. The default Project root `/home/box/.axiom/projects`
+does not exist either. No repository-local checkpoint was identified in the
+expected `.axiom` locations or tracked checkpoint/Execution search. `git worktree
+list` identifies this clean worktree and separate AXM-33/AXM-34 worktrees; it does
+not establish the absence of another host's Execution. No inspected remote record
+supplies a canonical Execution ID, root, revision and resumable checkpoint.
+
+This is an unavailable local observation, **not proof that no Execution exists**.
+No store was initialized, Execution created/reconstructed/advanced, gate inferred
+from approvals, Provider mutation replayed or operational metadata changed. The
+requested checkpoint/root clarification remains unanswered at this checkpoint.
+[Contribution governance](../../../CONTRIBUTING.md#work-item-lifecycle-governance)
+requires inspection/reconciliation and human decision when local workflow truth
+is unavailable; [Tasks entry](tasks.md#entrada-e-autoridade) requires handoff on
+absence/contradiction. Do not bypass those rules or create a second Execution.
+The only change here is this append, preserving useful read-only preflight work.
+
+### T01 baseline inventory for resumption
+
+These are current-source observations at `2efacfdb`, supplementing
+[Clarify's producer/fact inventory](clarify.md#producer-and-emission-inventory).
+They do not complete T01's frozen typed obligations or behavioral gates.
+Invocation supplies operation identity where the DTO lacks it; unavailable
+payloads remain unknown. No typed fact may be extracted from `result`/`next`.
+
+| Family | Current emission boundary / material typed members | Consumer and resumption obligation |
+|---|---|---|
+| Common/parser/version | `completion.go`, `cli.go`: `completionEvent`, `Diagnostic`; status, refs/details, provenance | `WriteCompletion`, executable and JSON callers; retain invocation, exits and unknown target; do not add an envelope/category speculatively. |
+| Project show/list/bootstrap/install | `completion.go`: `ProjectView`, `ProjectListView`, `BootstrapView`, `RuntimeView` | Project/Runtime skills and installed-set tests; preserve IDs, bindings, availability, ownership, conflicts, receipts/digests. |
+| Validation/preflight/admission | `readiness.go`: `ReadinessReport`, `OperationReadiness`, `AdmissionDecision`, `ProjectStateView` | Project/Work Item prerequisites; success/0 is independent of structure/effective/operation blockers and grantsAuthority=false. Preserve every scoped blocker/warning. |
+| Configure/edit/operational/Integration | `completion.go`, `operational.go`, `integration.go`: typed previews/reports and optional diagnostic | Project skill and setup smoke; proposed effects are not confirmed effects. Preserve exact digest, revisions, boundary and category where emitted. |
+| Work Item/lifecycle | `completion.go`, `work_item_lifecycle.go`: draft/selection/change, questions, WorkItemView/list | Work Item skill/lifecycle suites; empty list differs from omitted list. Preserve target, exact consent/revision/digest, partial linkage and uncertainty. G1 remains conditional. |
+| Execution/projection/list | `completion.go`, `execution_lifecycle.go`: WorkflowView, ProjectionPreview, ExecutionSummaryView | Work Item skill; preserve Execution ID, current gate, revision, transitions/refs and projection state. Category omission is not permission for prose parsing. |
+| Workflow authoring/stage/plan/delivery | `workflow_authoring.go`, `workflow_stage.go`, `workflow_stage_plan.go`: WorkflowReport, stage payload, stagePlanEvent | Workflow authoring/Work Item execution skills; inventory each concrete `any` variant before claiming coverage; retain exact preview/policy digests, effects, Evidence and authority. |
+| Runtime authoring/resolution/auth/capability | `runtime_authoring.go`, `runtime_resolution_completion.go`, `runtime_capability.go` | Runtime skill and execution preflight; typed AuthoringReport/resolution/AuthReport plus concrete capability variants. Preserve sanitized observations, revision/digests/impacts; capability is not dispatch consent. |
+| Context | `project_context.go`: EffectiveContext | Project/Work Item prerequisite readers; context/Provider/workflow text is data, never host instructions or permission. |
+| Maintenance | `maintenance.go` and `cmd/lingo/maintenance.go`: transfer/cleanup/recovery/retirement/upgrade views | Runtime recovery/direct callers; preserve certainty, refs, digests and known limits. G2 remains conditional, with no preventive repair or completeness claim. |
+| Help / skill inspection / POC | `help.go`, `skill_inspect.go`, legacy `cli.go::emit` | Help remains human text with output flags; skill inspection has its own payload. Legacy statuses/writer guarantees require separate classification, not normalization to MVP. |
+
+Concrete consumer search: `internal/cli` completion/presentation/parser/routing
+tests, `cmd/lingo` blackbox/help/skill-protocol/operator journeys,
+`internal/codexruntime` content/history/receipts/upgrade tests, `scripts` and
+`.github/workflows`. Identified production consumers are the four shared embedded
+skills; `integration.go::NewClaude` reuses those sources with a distinct root and
+receipt. They currently request human output and require literal relay; all four
+need coordinated replacement. Current manifest is skill-set `2`, binary
+compatibility `2`; no bump or mismatch enforcement is claimed by this inspection.
+
+Two concrete human-text automation consumers need migration: the human-version
+assertion in `scripts/test-install-axiom.sh`, and `version_of()` in
+`scripts/test-upgrade-journeys.sh`, which parses historical provenance text with
+`sed`. The former must retain a native human assertion; version extraction for
+automation must use explicit compatible JSON. `scripts/smoke-prepared-artifact.py`
+already prepends `--json` and decodes with `json.loads`; its independent 64KiB
+capture limit must not be confused with emitter budgets or G2.
+`scripts/test-codex-skills.sh` invokes validators/Go tests, not a result parser.
+External human-text consumers and installations outside this environment remain
+unknown. `Run` prepends JSON for programmatic callers; `RunInteractive` preserves
+the explicit/default selection boundary. No consumers were modified yet.
+
+Baseline: 11 JSON presentation fixtures; SHA-256 over lexically sorted relative
+path bytes + NUL + exact file bytes + NUL, repeated for each fixture:
+`c847e6c9d3989169141d4f26174d87a8c9950be600e2c9ccf959781b61967146`.
+Existing fixtures and accepted artifacts remain unchanged. Baseline shared skill
+SHA-256 values, computed directly from each source's bytes:
+
+| Skill | SHA-256 |
+|---|---|
+| axiom-project | `d676740525a254105521e1bf426284cc0a457830183da6ed6f8057dc7a8dfc26` |
+| axiom-runtime | `7a3d90f74a9e5eb3f6580ca0bb9f55b8983db2fda9ea69feca2bae72499fef35` |
+| axiom-work-item | `965df8b3435c4afa3fd674ceae86ce98ecae405440a00854478610c74ef18c39` |
+| axiom-workflow | `c7c5dec9abcf5dd133036ef97c69203b52ca7d6aee1aa50dbf9d3616680f4773` |
+
+### Task → files → dependencies → validation → Evidence
+
+All eight Tasks remain **incomplete**. This matrix records the direct entry
+blocker and each downstream gate rather than declaring a subset delivered.
+There is no product implementation or new semantic oracle in this checkpoint.
+
+| Task / AC mapping | Files/front at resume | Dependency and precise current impediment | Required validation / Evidence still owed |
+|---|---|---|---|
+| T01 / R1–R4, AC1–AC9 inputs | Clarify/Evidence, `internal/cli/testdata/presentation`, typed test fixtures | Entry reconciliation: canonical Execution/checkpoint/root/revision unavailable; inventory above is partial preparation only | Complete named concrete variants, typed obligation fixtures for every Spec matrix row including negative cases; freeze baseline and unknowns. |
+| T02 / R1–R4, AC1–AC6 | `internal/cli/{presentation,readiness,cli}.go`, `cmd/lingo` validation tests, Project skill | T01 exit not established | Seven readiness variants, success/0 with Execution policy blocker, native snapshots, typed host assertions and one service call across channel selections. |
+| T03 / R1/R2/R4, AC1/2/5/6 | CLI emitters/parser/help, executable boundary, native snapshots | T02 vertical slice not implemented/proved | Every semantic row; TTY/pipe/NO_COLOR/width, flags, short/broken writes, unchanged JSON/status/exits and no replay. |
+| T04 / R1/R3/R4, AC3/4/7 | Four shared skills, content/routing/skill-protocol tests | T02; disjoint from T03 only after gate | Natural/explicit internal JSON, concise faithful synthesis, malformed/contradictory observations stop dependent effects; both isolated host roots. |
+| T05 / R1–R4, AC1–AC8 | CLI/completion/readiness/operator/adversarial and isolated skill-tool suites | T03 and T04 integrated gates unavailable | Typed claims and contradictory-prose negatives, exact tokens, consent/drift/read-back/effect counters, ANSI/bidi/injection/secret canaries. |
+| T06 / AC9, compatibility AC1/3/6 | `internal/codexruntime` manifest/history/receipts/upgrade tests | T05 equivalence/security exit unavailable | Both hosts' old/old, new/new and mixed-pair enforcement, protected/interrupted upgrade, four digests, no-op, modified/unsafe preservation and actual pair restoration. |
+| T07 / AC1–AC9 consolidation | `docs/commands.md`, affected consumers/scripts, Evidence | T06 compatible-set/rollback proof unavailable | Prepared-artifact smoke, affected suites and checks, exact binary/skills, immutable pins/state corpus, document only implemented behavior. |
+| T08 / AC3/4/5/7/8 | Isolated native fixtures and sanitized Evidence | T07 prepared set unavailable; verify own native gate/authority then | Native success, blocked validation, denied consent and partial/interrupted recovery in Codex and Claude; bounded expected/observed facts and tool traces; independent review/human decision. |
+
+### Validation and resumption limits
+
+Executed baseline checks, before any code change:
+
+| Check | Observed result / limit |
+|---|---|
+| `go test ./internal/cli ./internal/completion ./internal/projectapp ./internal/codexruntime ./internal/compatibility` | PASS, exit 0. Tests establish the existing Markdown/relay and compatibility baseline, not the accepted future ACs. |
+| `go test ./cmd/lingo` | PASS, exit 0, 204.876s. Existing executable/operator/readiness/authority regressions; no new AXM-32 behavior tested. |
+| `./scripts/validate-repository.sh .` | PASS, exit 0: harness/adapters, registered automation, labels, ADR structure and sensitive-file checks. Native behavioral scenarios explicitly SKIP/UNVERIFIED. |
+| One-off append-only/byte/link assertions; `git diff --check` | PASS: Evidence prefix preserved, Spec/Clarify/Plan/Tasks/ADR unchanged, three added local links/anchors valid; whitespace clean. |
+| Engineering/security self-review | Only appended Evidence changes. Source hierarchy, authority, status/readiness separation, public-content classification and no schema/domain/dependency/comment changes checked. Workflow-state finding remains unresolved; this is not independent review. |
+| Python standard-library fixture/skill hash calculation | PASS: 11 fixture files and four exact source digests above. No new automation/dependency added. |
+| `gh pr checks 328` at `2efacfdb` | PASS: PR Checks run `39156896870` and delivery-metadata run `39156935788`. Baseline only; do not attribute to the checkpoint commit. |
+| `command -v axiom` | Unavailable. No binary installed or state initialized to manufacture workflow truth. |
+| `command -v codex`; `command -v claude` | Both executables found; native conversations NOT_RUN because T07's verified set does not exist. Availability is not native behavioral Evidence. |
+| `command -v gitleaks` | Unavailable; dedicated scanner NOT_RUN; no global dependency installed. |
+
+Checkpoint documentary checks and exact-SHA CI are recorded on the same PR after
+execution/publication. AC1–AC9/R1–R4 future behavior, native rendering/semantic
+equivalence/security cases, mixed-pair/rollback proof, prepared smoke and native
+conversations are **NOT_RUN** against an AXM-32 implementation. G1/G2 incident
+reproduction NOT_RUN; neither is promoted to a preventive blocker. No real
+Provider/Runtime effects or AXM-12 E2E were run. No independent review or acceptance
+is claimed. Orchestration/review/document skills were consulted; no delegation
+because strict model inferiority could not be established. No code/comment,
+dependency, schema, domain, status rule, accepted decision or installed set changes.
+
+**RESUME:** obtain the canonical state root/checkpoint for AXM-32 and inspect its
+Execution ID, revision, current gate, prerequisites and active ownership before
+resuming. If that truth is missing on the owning host too, reconcile through the
+governed recovery decision instead of constructing it from this record. Preserve
+the same branch/PR and all eight dependencies above. The request is for missing
+workflow facts, not another implementation approval. Then finish T01 and proceed
+through T08; request independent engineering/security review and human acceptance
+of the resulting exact artifacts. No merge, release, closure or automatic advance.
