@@ -54,6 +54,7 @@ type EditPublicationRequest struct {
 type EditPublicationStatus string
 
 const (
+	EditPublicationUnchanged EditPublicationStatus = "unchanged"
 	// EditPublicationApplied: every requested object was published and
 	// confirmed; no recovery state remains.
 	EditPublicationApplied EditPublicationStatus = "applied"

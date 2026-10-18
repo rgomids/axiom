@@ -213,18 +213,21 @@ func TestBootstrapAuthorsRuntimePolicyFromLocalCandidatesOnly(t *testing.T) {
 	if err != nil || !strings.Contains(string(manifest), "runtimes:\n  - id: claude") || !strings.Contains(string(manifest), "model: approved-model") || strings.Contains(string(manifest), "private-test-reference") {
 		t.Fatalf("authored policy = %s %v", manifest, err)
 	}
-	// Canonical v3 intent is valid, but an observed executable with no
-	// injected Profile proof stays unproven (Specification 007 PM-7).
 	service, _ := testRuntime(t, env.service.(lifecycleService), "claude")
 	report := service.readiness().Evaluate(context.Background(), "policy")
-	if report.Effective != "partial" || report.Runtime.Detail != "authentication_unproven" || !report.Operation(projectapp.OperationWorkItem).Ready() {
+	if code := (runtimeReadiness{service}).Availability(context.Background(), preview.Setup.ProjectID); code != "authentication_unproven" {
+		t.Fatal(code)
+	}
+	if report.Effective != "partial" || report.Runtime.Detail != "inventory_unavailable" || !report.Operation(projectapp.OperationWorkItem).Ready() {
 		t.Fatalf("readiness = %+v", report)
 	}
-	// A missing executable is unavailable, never proven.
 	missing := service
 	missing.runtimes.lookPath = func(string) (string, error) { return "", os.ErrNotExist }
 	blocked := missing.readiness().Evaluate(context.Background(), "policy")
-	if blocked.Effective != "partial" || blocked.Runtime.Detail != "runtime_unavailable" || !blocked.Operation(projectapp.OperationWorkItem).Ready() {
+	if code := (runtimeReadiness{missing}).Availability(context.Background(), preview.Setup.ProjectID); code != "runtime_unavailable" {
+		t.Fatal(code)
+	}
+	if blocked.Effective != "partial" || blocked.Runtime.Detail != "inventory_unavailable" || !blocked.Operation(projectapp.OperationWorkItem).Ready() {
 		t.Fatalf("blocked = %+v", blocked)
 	}
 }

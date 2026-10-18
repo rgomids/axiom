@@ -215,7 +215,7 @@ func (p ProjectEditPublisher) PublishEdit(ctx context.Context, request projectap
 		return editResult(projectapp.EditPublicationFailed, "invalid_policy_publication_request")
 	}
 	if len(project.ValidateIdentity(request.ProjectID, "edit")) != 0 || !project.ValidSlug(request.Slug) || len(request.PortableExpected) == 0 ||
-		len(request.LocalExpected) == 0 || len(request.LocalNext) == 0 || len(request.LocalNext) > MaxRecordBytes || bytes.Equal(request.LocalExpected, request.LocalNext) {
+		len(request.LocalExpected) == 0 || len(request.LocalNext) == 0 || len(request.LocalNext) > MaxRecordBytes || bytes.Equal(request.LocalExpected, request.LocalNext) && request.PolicyDependencies == nil {
 		return editResult(projectapp.EditPublicationFailed, "invalid_publication_request")
 	}
 	// Source confinement: publication writes only the Lingo-owned portable
@@ -290,6 +290,9 @@ func (p ProjectEditPublisher) PublishEdit(ctx context.Context, request projectap
 		return editResult(projectapp.EditPublicationFailed, "portable_state_unavailable")
 	case !bytes.Equal(portable, request.PortableExpected):
 		return editResult(projectapp.EditPublicationConflict, "portable_state_changed")
+	}
+	if request.PolicyDependencies != nil && bytes.Equal(request.PortableExpected, request.PortableNext) && bytes.Equal(request.LocalExpected, request.LocalNext) {
+		return editResult(projectapp.EditPublicationUnchanged, "unchanged")
 	}
 	hooks := p.Installation.chainHooks(root, projects, target, request.ProjectID)
 	if len(request.PortableNext) == 0 {

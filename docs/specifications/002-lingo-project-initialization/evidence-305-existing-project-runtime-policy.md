@@ -454,3 +454,23 @@ G1-AC passage. The local portable store accepts manifest plus the existing Workf
 catalog; unsupported companion layouts remain refused by the existing reader.
 Application tests retain full companion snapshots; no source-layout expansion is
 inferred. Native macOS and runtime conversations remain NOT RUN.
+
+### r3 — T05 exact application replay
+
+`ApplyPolicyEdit` re-observes and seals the candidate, denies mismatched or partial
+UUID/digest/local authority, and preserves portable validity independently of local
+execution readiness. Publication reuses the existing guarded portable-then-local
+protocol. No-op enters the same protected dependency verification and returns
+`unchanged` without staging, recovery or revision writes. Legacy unsealed policy
+publication remains closed. Tests cover preview, partial/missing/wrong authority,
+cancellation, stale replay, no-op bytes, precommit failure, interrupted recovery
+and post-portable partial outcome, followed by existing owned recovery readers.
+
+Executed, exit 0: `go test ./internal/local ./internal/projectapp -run
+'Policy|Readiness'`; `go vet ./internal/local ./internal/projectapp ./cmd/lingo`;
+`go test ./cmd/lingo -run 'Readiness|RuntimePolicy'`. The bootstrap regression now
+asserts uninspected facts in canonical validate and separately retains the actual
+explicit Runtime resolver's authentication/executable blocker assertions. T05's
+application path is implemented; detailed publication faults reuse the existing
+protocol and remain subject to final integrated V05/V09 evidence. T06 read-back
+and CLI exposure remain next, not implied by these application tests.
