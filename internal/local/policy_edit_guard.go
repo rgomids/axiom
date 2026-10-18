@@ -2,6 +2,7 @@ package local
 
 import (
 	"bytes"
+	"context"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -90,6 +91,18 @@ func (p ProjectEditPublisher) policyGuard(request projectapp.EditPublicationRequ
 			return ErrUnsafe
 		}
 		after, issues := manifest.Decode(request.PortableNext)
+		if len(issues) != 0 {
+			return ErrUnsafe
+		}
+		record, _, localIssues := DecodeObservedRecord(request.LocalExpected, true)
+		if len(localIssues) != 0 {
+			return ErrUnsafe
+		}
+		_, readinessToken, err := observePolicyBindings(context.Background(), after, ApplicationRecord(record))
+		if err != nil || readinessToken != expected.Readiness {
+			return ErrConflict
+		}
+
 		if len(issues) != 0 || !projectapp.CheckPolicyWorkflow(before, after, catalog, "").Compatible {
 			return ErrUnsafe
 		}

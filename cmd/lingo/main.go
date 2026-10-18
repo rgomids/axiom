@@ -644,6 +644,13 @@ func (s lifecycleService) configureEdit(ctx context.Context, input cli.Configure
 	for _, repository := range input.Repositories {
 		intent.RepositoryUpserts = append(intent.RepositoryUpserts, projectapp.RepositoryUpsert{Key: repository.Key, Path: repository.Path})
 	}
+	if input.PolicyDraft != nil {
+		draft, failure := projectapp.DecodePolicyDraft([]byte(*input.PolicyDraft))
+		if failure != projectapp.EditOK {
+			return editFailure(failure, s.provenance)
+		}
+		intent.Policy = &draft
+	}
 	return s.projectEdit(ctx, intent, editReplay{ProjectID: input.ProjectID, PreviewDigest: input.PreviewDigest, AuthorizeLocal: input.AuthorizeLocal})
 }
 
@@ -675,6 +682,10 @@ func (s lifecycleService) projectEdit(ctx context.Context, intent projectapp.Edi
 		Checkouts: local.DirectoryObserver{}, Manifest: manifest.Codec{}, Local: local.RecordCodec{},
 	}
 	publisher := local.ProjectEditPublisher{Installation: s.installation, Portable: s.portable, Fault: s.editFault}
+	if intent.Policy != nil {
+		policyPorts := projectapp.PolicyEditPorts{Edit: ports, Facts: local.PolicyEditObserver{Installation: s.installation, Portable: s.portable}}
+		return s.policyEditResult(projectapp.ApplyPolicyEdit(ctx, policyPorts, publisher, intent, authority))
+	}
 	outcome := projectapp.ApplyEdit(ctx, ports, publisher, intent, authority)
 	if outcome.Outcome == projectapp.EditRejected {
 		return editFailure(outcome.Failure, s.provenance)

@@ -494,3 +494,32 @@ removes A's complete Runtime/Profile/preference set and verifies A's observed
 revision, B's portable/local bytes and read-back, shared registry bytes, and all
 unrelated A installation bindings. Synthetic UUIDs are the existing `123e4567...4000`
 and `123e4567...4001` fixtures, never real provider data.
+
+### r3 — T07 canonical CLI and guided transport
+
+Actual interface: `project configure --project <uuid-or-slug> --policy-draft
+'<strict-json>'`. `{}` reads policy; absent replay is validate/dry-run/preview.
+Inline JSON reuses the bounded strict parser and avoids another input-file reader
+or secret/path-reading surface. Policy intent cannot mix with unrelated EDIT or
+CREATE. The existing exact three-part replay tuple alone enables publication.
+`policyEdit` is a bounded safe report, with independent publication/read-back;
+legacy `edit` output is not used. Help and inspection derive the real flag, while
+mode authority explicitly describes policy-only intent and observed read-back.
+
+Integration found and fixed retained-vs-observed Repository availability: preview
+now reuses the canonical Repository/Documentation metadata probes, binds their
+safe status maps in a `Readiness` dependency digest, and rechecks them before
+portable commit. No document body, credential value or executable is read. This
+completes operation-report parity rather than weakening the assertion to Runtime
+codes only. Existing no-follow metadata checks and bounded commit checks suffice;
+no new watcher, lock registry or dependency is introduced.
+
+Executed, exit 0: `go test ./internal/local ./internal/projectapp ./cmd/lingo -run
+'Policy|Readiness'`; `go test ./internal/cli ./cmd/lingo -run
+'Policy|Readiness|SkillInspect|Strict'`. CLI tests prove schemas 2/3 installed
+journeys; structured/guided identical previews and no implicit consent; exact apply
+and observed read-back/validate operation parity; no-op bytes; stale replay;
+unknown/unsafe/malformed/oversized/duplicate/mixed/partial-authority refusals;
+tampered-schema/stale-installation refusal without adoption; safe output scans.
+Strict flag regression now includes policy-draft. This is real CLI adapter testing,
+not native host conversation or full native storage qualification.

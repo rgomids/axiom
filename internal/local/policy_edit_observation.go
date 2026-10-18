@@ -89,6 +89,12 @@ func (o PolicyEditObserver) ObservePolicyEdit(ctx context.Context, selection pro
 		return projectapp.PolicyEditFacts{}, projectapp.EditStateUnsafe
 	}
 	workflow := projectapp.CheckPolicyWorkflow(selection.Portable.Project(), candidate, facts.Catalog, "")
+	metadata, token, err := observePolicyBindings(ctx, candidate, selection.Local)
+	if err != nil {
+		return projectapp.PolicyEditFacts{}, projectapp.EditStateUnsafe
+	}
+	facts.Repositories, facts.Documentation = metadata.Repositories, metadata.Documentation
+	facts.Dependencies.Readiness = token
 	facts.Runtime = policyRuntimeReadiness(candidate, workflow, runtime)
 	return facts, projectapp.EditOK
 }
@@ -166,4 +172,38 @@ func policyOperationalToken(directory, revision string) (string, error) {
 		return "", err
 	}
 	return hexDigest([]byte("operational:" + revision + "\x00" + identity)), nil
+}
+
+type policyBindingFacts struct {
+	Repositories  map[string]bool
+	Documentation map[string]projectapp.DocumentationStatus
+}
+
+func observePolicyBindings(ctx context.Context, p project.Project, record projectapp.LocalRecordState) (policyBindingFacts, string, error) {
+	facts := policyBindingFacts{Repositories: map[string]bool{}, Documentation: map[string]projectapp.DocumentationStatus{}}
+	paths := map[string]string{}
+	for _, binding := range record.Repositories {
+		available := (RepositoryProbe{}).RepositoryAvailable(ctx, binding)
+		facts.Repositories[binding.RepositoryKey] = available
+		if available {
+			paths[binding.RepositoryKey] = binding.ExplicitPath
+		}
+	}
+	bindings := map[string]*projectapp.DocumentationBinding{}
+	for i := range record.Documentation {
+		bindings[record.Documentation[i].SourceKey] = &record.Documentation[i]
+	}
+	sources, _ := p.State().DocumentationSources.Value()
+	for _, source := range sources {
+		request := projectapp.DocumentationRequest{Source: source, Binding: bindings[source.Key]}
+		if ref, ok := source.RepositoryRef.Value(); ok {
+			request.RepositoryPath = paths[ref]
+		}
+		facts.Documentation[source.Key] = (DocumentationResolver{}).ResolveDocumentation(ctx, request)
+	}
+	wire, err := json.Marshal(facts)
+	if ctx.Err() != nil {
+		return facts, "", ctx.Err()
+	}
+	return facts, hexDigest(wire), err
 }
