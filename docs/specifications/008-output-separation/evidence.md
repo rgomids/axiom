@@ -160,3 +160,64 @@ acceptance and scope remain coherent. These checks do not claim JSON R1 coverage
 AC1–AC9 execution, native smoke, implementation completion or independent review.
 Explicit human re-review/acceptance of the resulting Specification/ADR revision
 is still required; the same PR remains Draft.
+
+## Clarify investigation — 2026-10-18
+
+This section supersedes earlier pending-Spec-acceptance observations only as a
+current authority record; original dated specify Evidence remains historical.
+[Specification 008 was explicitly accepted](https://github.com/rgomids/axiom/pull/328#issuecomment-6246060142)
+at `18d29a6c5446357defb2563483cfac180dcc4043`. Its bytes and ADR-0030's bytes
+are unchanged by this clarification. The ADR remains Proposed, Git blob
+`295084e6b6afa054b2f07dcaf5e73563ed7e7644`. D1–D3 are not reopened.
+[Clarify inventory](clarify.md) owns the producer/emitter/consumer table, required
+R1 fact matrix, G1/G2 and bounded separate proposals, and the exact pending ADR
+question. Outcome: **NEEDS_HUMAN_DECISION**, not READY_FOR_plan.
+
+Before editing, `git status --short` was empty; branch was
+`docs/axm-32-output-separation-specification`, HEAD was the accepted SHA above.
+`gh pr view 328 --repo rgomids/axiom --json state,isDraft,headRefName,headRefOid,body,comments,reviews,statusCheckRollup,url`
+confirmed OPEN/Draft and matching head. Comments verified explicit Spec-only
+acceptance, separate ADR authority, D1–D3 and round-two review. `gh pr list
+--repo rgomids/axiom --state open --limit 100 --json number,title,headRefName,body`
+showed #328 as the only AXM-32 PR; #317 and #327 are unrelated. `git ls-remote
+origin refs/heads/docs/axm-32-output-separation-specification` matched before
+editing and before publication preparation. No concurrent remote edit was seen;
+this does not prove absence of an external canonical Execution.
+
+Read-only Linear issue/comment queries directly confirmed the supplied
+[Spec-only acceptance](https://linear.app/rgomids/issue/AXM-32/separar-saida-do-lingo-da-apresentacao-conversacional-da-ia#comment-efd06110)
+and [READY_FOR_clarify gate](https://linear.app/rgomids/issue/AXM-32/separar-saida-do-lingo-da-apresentacao-conversacional-da-ia#comment-6eaf4304).
+Operational In Progress and no Blocked by do not reveal canonical Execution
+identity/revision/gate. No provider state or canonical transition is written.
+Only bounded user-authorized decisions/links are incorporated; no unrelated
+private Linear text or personal incident data is imported. `gh repo view
+rgomids/axiom --json visibility` reconfirmed PUBLIC.
+
+### Inspection and documentary validation
+
+| Executed check / observation | Actual result and limit |
+|---|---|
+| Source/DTO trace at accepted SHA | G1: `reconcileAttempt` returns `provider_create_ambiguous`; `workItemResult` retains Category but the no-payload common completion drops it. Comment ambiguity was separately traced through `applyChange`: ChangePreview keeps category; it is not a G1 example. G2: `boundedTransfer` slices three full lists before serialization at 64. Tests named in clarify were read, not executed. |
+| One-off Python static assertions, outside tracked tree | PASS: exact G1 return/category-carrier/common-DTO/fallback snippets and G2 cap/slice snippets checked against source. This checks source premises, not an end-to-end mutation or a >64-object transfer. |
+| `./scripts/validate-repository.sh .` | PASS: bootstrap/harness/Claude adapter/automation/label/ADR/sensitive-file validation and checker regressions; native Runtime behavioral scenarios explicitly SKIP/UNVERIFIED. |
+| `python3 scripts/check-adr-governance.py .` | PASS, 31 ADRs; structural only, no semantic/human acceptance implied. |
+| One-off local documentary link/anchor check | PASS, 41 scoped local links/anchors; clarify links, new Evidence cross-links and updated AXM-32 index links checked for targets/anchors. No durable script or automation added. |
+| `git diff --check`, staged diff and sensitive-file check | PASS for working/staged whitespace and staged sensitive-file scan; staged paths/content reviewed. Only clarify, this appended Evidence and the Specification index changed. |
+| `command -v gitleaks` | Unavailable; dedicated scanner NOT_RUN, no installation attempted. Repository scanner and content classification review remain applicable. |
+| Byte identity check against `git show 18d29a6:<path>` | PASS: approved Spec and Proposed ADR unchanged byte-for-byte. |
+| `gh pr checks 328 --repo rgomids/axiom` before edits | PR Checks and delivery-metadata PASS on `18d29a6`; these are not results for the future clarify commit. Publication SHA/checks are reported in the same PR metadata. |
+
+Self-review reconciled the constitution, documentation/security/contribution
+policies, #232 acceptance, AXM-31 diagnostic/relay contract and ADR-0018 with
+ADR-0030. No accepted ADR fragment requiring supersession was identified. The
+Spec is untouched; the index now records its already granted acceptance separately
+from the Proposed ADR. No independent review, schema acceptance or implementation
+readiness is claimed. No subagents: no strict model inferiority proof was available.
+
+**NOT_RUN:** Go suites, AC1–AC9 implementation, changed renderers/handlers/DTOs,
+JSON consumer regressions, security canaries, installed-skill upgrade/integration,
+real >64-object transfer, native Codex/Claude conversations and AXM-12 E2E.
+No production skills, schemas, code, tests, Provider/Runtime execution, release,
+merge or lifecycle metadata changed. Unknown concrete payload variants and external
+consumers remain explicit in clarify. ADR acceptance and separate gap decisions,
+with sufficient deterministic coverage, precede any subsequent Plan gate.
