@@ -583,3 +583,21 @@ Executed, exit 0: `go test ./internal/local -run '^TestPolicy'`;
 `go test ./internal/local ./internal/projectapp ./cmd/lingo -run
 'Policy|Readiness'`. Broader final checks and native workflow evidence are recorded
 below after completion, not inferred from these scoped results.
+
+### Final review corrections before full rerun
+
+A full local `go test ./...` run failed in the existing lifecycle journey because
+it expected `project validate` to acquire injected Runtime proof and say ready.
+The regression assertion now expects the safe schema-3 metadata report, while
+operational `EvaluateOperation` retains the existing proof-aware Runtime source.
+Both still use `EvaluateReadiness`; their observed proof snapshots differ. This
+preserves actual execution admission/resume semantics instead of letting the
+G-1 read-only report permanently block an otherwise proven operation.
+
+Final review also made unsupported policy schemas return explicit separate-
+migration guidance, refused policy intent in direct CREATE service calls, and
+kept failed no-op read-back separate from a confirmed mutation (there was no
+commit). Installed v1/v4 tests verify that specific refusal without adoption or
+rewriting. Scoped policy/readiness/lifecycle tests pass; full suites are rerun
+below on the corrected code. Earlier broad race checks passed, and repository,
+format and tidy checks passed; these are not misreported as full final validation.

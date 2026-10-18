@@ -486,6 +486,9 @@ func projectView(project local.ResolvedProject) *cli.ProjectView {
 	return view
 }
 func (s lifecycleService) Configure(ctx context.Context, input cli.ConfigureInput) cli.Result {
+	if input.PolicyDraft != nil && input.Project == "" {
+		return editFailure(projectapp.EditInvalidIntent, s.provenance)
+	}
 	if input.Project != "" {
 		return s.configureEdit(ctx, input)
 	}
@@ -748,6 +751,8 @@ func editFailure(failure projectapp.EditFailure, source provenance.Value) cli.Re
 		message, next = "Integration to remove is not declared", "Remove only declared Integration keys; run integration list"
 	case projectapp.EditRepositoryUnavailable:
 		message, next = "Repository path is unavailable", "Provide an existing absolute non-link Repository path"
+	case projectapp.EditPolicySchemaUnsupported:
+		message, next = "Project Runtime policy editing requires schema 2 or 3", "Legacy Project reads remain available; migration requires a separate approved operation"
 	case projectapp.EditCandidateInvalid:
 		message, next = "Resulting Project configuration is invalid", "Adjust the edit so the complete Project remains valid"
 	case projectapp.EditStateUnsafe:

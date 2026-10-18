@@ -97,6 +97,10 @@ func PreviewPolicyEdit(ctx context.Context, ports PolicyEditPorts, intent EditIn
 	if failure != EditOK {
 		return PolicyEditProposal{}, failure
 	}
+	version := selection.Portable.Project().State().SchemaVersion
+	if version != 2 && version != 3 {
+		return PolicyEditProposal{}, EditPolicySchemaUnsupported
+	}
 	editPorts := ports.Edit
 	editPorts.Source = selectedPolicyEdit{selection}
 	proposal, failure := PreviewEdit(ctx, editPorts, intent)

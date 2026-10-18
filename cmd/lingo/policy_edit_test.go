@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
 	"os/exec"
@@ -242,4 +243,32 @@ type forbiddenPolicySource struct{ test *testing.T }
 func (s forbiddenPolicySource) Load(context.Context, string) (runtimeapplication.Snapshot, error) {
 	s.test.Fatal("policy readiness attempted live Runtime policy observation")
 	return runtimeapplication.Snapshot{}, os.ErrPermission
+}
+
+func TestPolicyCLIInstalledSchemaGateHasMigrationGuidance(t *testing.T) {
+	env := newEditEnvironment(t)
+	portable, err := local.NewPortableStore(env.root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	installation, err := local.NewInstallationStore(env.state)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for index, version := range []int{1, 4} {
+		slug := fmt.Sprintf("schema-%d", version)
+		id := fmt.Sprintf("123e4567-e89b-42d3-a456-42661417400%d", index)
+		wire := []byte(fmt.Sprintf("schemaVersion: %d\nproject:\n  id: %s\n  slug: %s\n  name: Schema gate\n", version, id, slug))
+		if err := portable.Create(context.Background(), slug, wire); err != nil {
+			t.Fatal(err)
+		}
+		if result := installation.Install(context.Background(), filepath.Join(env.root, slug)); result.Status != local.InstallationApplied {
+			t.Fatal(result)
+		}
+		before := snapshotTrees(t, env.root, env.state)
+		_, output := runPolicyCLI(t, env, cli.ExitFailure, "project", "configure", "--project", id, "--policy-draft", "{}")
+		if !strings.Contains(output, "migration requires a separate approved operation") || !bytes.Equal(before, snapshotTrees(t, env.root, env.state)) {
+			t.Fatal("missing schema gate or effects", output)
+		}
+	}
 }

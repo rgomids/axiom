@@ -25,6 +25,11 @@ func (s lifecycleService) policyEditResult(out projectapp.PolicyEditResult) cli.
 		if out.ReadBack == nil || out.ReadBack.Status != "confirmed" {
 			facts = completion.Facts{RequestedEffectConfirmed: true, SecondaryFailure: true}
 			message, next = "Project Runtime policy commit confirmed; read-back is unverified or changed", "Inspect current Project state and recovery; preserve the confirmed outcome and do not retry the mutation blindly"
+			if out.Outcome == projectapp.EditUnchanged {
+				facts = completion.Facts{Failed: true}
+				message = "Project Runtime policy unchanged; read-back is unverified or changed"
+			}
+
 		} else if out.ReadBack.ReadinessChanged {
 			next = "Policy bytes are confirmed; local readiness snapshots changed after preview, so review the observed blockers"
 		}

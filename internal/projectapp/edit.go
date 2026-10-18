@@ -100,6 +100,7 @@ const (
 	// EditIncompleteAuthority is a partial replay tuple: any of Project ID,
 	// preview digest or local authority without the others.
 	EditIncompleteAuthority
+	EditPolicySchemaUnsupported
 )
 
 // EditSource resolves an exact UUID/slug selector and loads its coherent
