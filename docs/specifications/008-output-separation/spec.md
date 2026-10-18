@@ -8,10 +8,13 @@ This proposal does not replace accepted contracts until an explicit human decisi
 identifies the exact reviewed revision and scope. It authorizes no Plan, Tasks,
 implementation, Runtime invocation, Provider mutation, acceptance or release.
 [ADR-0030](../../decisions/0030-canonical-results-terminal-and-host-presentation.md)
-proposes the durable boundary; it also remains Proposed.
+proposes the durable boundary; it also remains Proposed. Human D1–D3 choices
+were recorded on 2026-10-18 (see [decision record](#human-decisions-and-next-gate));
+they do not constitute acceptance of this exact revised Specification or ADR.
 
-The supplied gate report says READY_FOR_specify, Linear Todo, no Blocked by;
-these are intake facts, not independently observed local Execution truth.
+The original intake reported READY_FOR_specify, Linear Todo, no Blocked by.
+The refinement read Linear as In Progress on 2026-10-18; provider operational
+status is not canonical Execution truth or evidence of a gate transition.
 Canonical Execution, revision, current gate and concurrent execution remain
 unobservable in this session. No Execution is reconstructed or advanced, no
 derived stage or acceptance is inferred, and no Linear metadata is changed.
@@ -41,13 +44,14 @@ contracts own facts and authority; neither terminal nor AI presentation owns the
 Investigation baseline is `14cb721ac7b8ce09a7f20f2bc2175adf61b7934b`
 (v0.19.0); remote main matched it at inspection. Relative source links below refer
 to this baseline unless changed by a later reviewed delivery. Public GitHub state
-was read on 2026-10-18. No private provider text is imported.
+was read on 2026-10-18. Only the D1–D3 decisions explicitly authorized for
+publication are incorporated from Linear; no unrelated private provider text is imported.
 
 | Source/interface | Confirmed fact | Proposed change / preserved boundary |
 |---|---|---|
 | [#232](https://github.com/rgomids/axiom/issues/232), [PR #291](https://github.com/rgomids/axiom/pull/291), [historical Evidence](../004-mvp-v1-baseline/evidence-232.md) | Delivered, explicitly human-accepted 2026-10-09, stable v0.13.0. Default deterministic Markdown and literal skill relay were intentional | Replace those presentation requirements prospectively; preserve acceptance, Evidence, provenance, authority and no extra formatting LLM call |
 | [presentation.go](../../../internal/cli/presentation.go), [completion.go](../../../internal/cli/completion.go) | JSON event is rendered into Markdown by default; every field is printed; oversized human output falls back to fenced canonical JSON; status label for `success` is Succeeded | Native terminal renderer; no mandatory dump or Markdown fallback. JSON stays complete |
-| [CLI parser/emission](../../../internal/cli/cli.go), [commands](../../commands.md#cli-output-and-help) | Leading `--json` selects JSON, leading `--human` explicitly selects default human output; default is human, including pipes. Some legacy POC events differ from MVP completion | Preserve existing flags and error behavior pending D1/D2; audit legacy shapes rather than claim an already uniform schema |
+| [CLI parser/emission](../../../internal/cli/cli.go), [commands](../../commands.md#cli-output-and-help) | Leading `--json` selects JSON, leading `--human` explicitly selects default human output; default is human, including pipes. Some legacy POC events differ from MVP completion | Preserve existing flags/error behavior; D1 keeps no-flag human selection in TTY and pipes, with native CLI syntax; audit legacy shapes rather than claim an already uniform schema |
 | [Spec 007 WF-013 and public DTOs](../007-configurable-workflows/spec.md#public-operations-and-boundary-dtos-wf-009011013) | Complete JSON; status success for read/preview is operation success, not Workflow success; `blocked`/`unknown` must not become completion statuses | Preserve status taxonomy, payload truth, ownership, revisions, lifecycle and authority; replace reliance on #232 presentation only |
 | [AXM-31 amendment](../007-configurable-workflows/amendment-axm31-operator-autonomy.md), [accepted Plan](../007-configurable-workflows/plan-axm31-operator-autonomy.md), [Evidence](../007-configurable-workflows/evidence-axm31-operator-autonomy.md), [PR #325](https://github.com/rgomids/axiom/pull/325) | PR merged 2026-10-18 at `5b6bd0b354ec38794be33fd8847333bf5132049f`; diagnostic schemaVersion 1 and literal ordered relay with separately labelled auxiliary prose were integrated | Change only presentation/consumption obligations. Preserve bounded diagnostics, observed/not-observed distinctions, budgets, no automatic authority or retry |
 | Four [embedded skills](../../../internal/codexruntime/skills/axiom-project/SKILL.md), [Workflow](../../../internal/codexruntime/skills/axiom-workflow/SKILL.md), [Work Item](../../../internal/codexruntime/skills/axiom-work-item/SKILL.md), [Runtime](../../../internal/codexruntime/skills/axiom-runtime/SKILL.md) | Skills request default human view, relay it exactly and permit JSON only on explicit user request; three carry Auxiliary presentation sections | All four must consume canonical JSON internally and use host Markdown; explicit raw JSON request remains supported |
@@ -76,11 +80,16 @@ contract gaps to review explicitly, never facts for the host to invent.
 Scope covers result consumption and presentation for existing canonical CLI
 operations and the four installed domain skills in Codex and Claude; future hosts
 inherit the same behavior only after supported integration and validation.
+D2 places prospective replacement of #232 default Markdown and AXM-31 literal
+relay/Auxiliary presentation within AXM-32 itself, coordinated across the binary
+and all four installed skills in both hosts; it cannot be deferred to another
+cleanup Work Item or retain mandatory literal relay as the final contract.
 Help/version and legacy events must be classified separately during migration;
 this proposal does not silently promise a new schema for every text entrypoint.
 
 Preserve Axiom != Lingo, Project != Repository, Role != Model, Runtime != Model,
-Execution != Agent, Skill != workflow source of truth, Evidence != raw chat.
+Execution != Agent, Provider != Transport, Integration != MCP,
+Skill != workflow source of truth, Evidence != raw chat.
 Preserve all operation semantics, status classification, consent, preview/apply,
 expected revisions, immutable bindings, dispatch proof, retry/recovery budgets,
 Provider boundaries and accepted history. Readiness never grants authority.
@@ -129,7 +138,13 @@ be interpreted as evidence of no effects, authority, readiness or success.
 Unsupported/missing facts remain explicitly unknown to the consumer.
 Operation identity currently follows invocation and typed payloads in some MVP
 events; no new `operation` field or envelope version is approved by this proposal.
-An additive field or schema migration needs explicit compatibility review (D3).
+D3 preserves the current typed wire contract and invocation identity; no new
+envelope, field or version is authorized speculatively. Before Plan, inventory
+each mandatory R1 fact against concrete producers, typed payloads/invocation
+context and consumers, with source/fixture evidence and missing/unknown handling.
+Coverage is not yet verified. A proven material gap must return for explicit
+review and acceptance of a compatible/additive or versioned proposal naming
+affected consumers and tests before any code change.
 
 Existing field names, types, enum meanings, omission rules, limits and diagnostic
 schemaVersion 1 MUST remain compatible unless a separately reviewed change names
@@ -157,9 +172,10 @@ prose but MUST NOT alter/crop identifiers or digests. Machine consumers select
 JSON explicitly; human text is not a new machine parsing contract.
 
 `--json` MUST keep its leading global selection and complete machine semantics;
-`--human` MUST remain an explicit human selector, proposed to mean native terminal
-text. No new `--terminal`, `--output`, auto-JSON rule or flag precedence is assumed.
-D1/D2 below require human decision before this migration is authoritative.
+`--human` MUST select native human CLI text, not Markdown. Under D1, no flag
+MUST select that same human mode in both TTY and pipes/redirection; lack of TTY
+MUST NOT automatically select JSON. `--json` is the explicit automation and
+internal skill mode. No new `--terminal`, `--output` or flag precedence is introduced.
 Invalid/conflicting/repeated or misplaced flags retain current refusal behavior
 unless the approved migration explicitly changes it. Help remains deterministic
 human text even with output flags; it is not an operation result to parse as JSON.
@@ -176,6 +192,9 @@ effect. Selection MUST NOT cause another application call to obtain a second vie
 
 All four skills MUST request the existing explicit JSON mode for internal result
 consumption, whether entry was natural intent or explicit skill invocation.
+Under D2 this replaces the current literal Markdown relay/Auxiliary obligations
+in the coordinated AXM-32 binary/four-skill delivery, subject to exact revised
+artifact acceptance and future implementation validation.
 The operating AI MUST use the resulting canonical data to compose its normal host
 Markdown response in the order: objective → effective result → material
 blocker/decision/risk → next action. Empty categories need no boilerplate heading.
@@ -277,7 +296,10 @@ Acceptance criteria:
 - **AC6:** Channel/flag fixtures cover default/explicit human/explicit JSON,
   conflicting/repeated/misplaced flags, help, TTY/non-TTY, pipe, redirected stdout,
   separate stderr, NO_COLOR, no-ANSI capability, narrow width and broken writes.
-  Expected default and compatibility assertions must follow human D1/D2 decisions.
+  Assert native human CLI text without flags in TTY AND pipe/redirection, explicit
+  `--human` equivalence, explicit `--json` for automation/skills, no automatic JSON
+  on non-TTY, no ANSI/color in pipes and color suppression with `NO_COLOR`.
+  Compatibility assertions cover the coordinated AXM-32 binary/four-skill set.
 - **AC7:** Preview/apply/read-back fixtures cover missing authority, digest/revision
   drift, partial effects, uncertain Provider acknowledgement and interrupted
   recovery. No summary or presentation selection can authorize/repeat a mutation.
@@ -308,8 +330,13 @@ and retention, and publish only bounded sanitized observations and references.
 
 ## Compatibility and migration strategy (requirements only)
 
-Before implementation, the accepted contract MUST state D1–D3 decisions and the
-exact replaced #232/AXM-31 presentation clauses. Preserve the historical documents
+D1–D3 are resolved choices recorded below; acceptance of this exact revised
+Specification/ADR remains required before implementation. The proposed replacement
+covers #232 default deterministic Markdown/exhaustive literal relay and AXM-31
+intact relay plus separately labelled Auxiliary presentation. D2 includes their
+replacement in AXM-32, coordinated across binary and all four Codex/Claude skills;
+no mandatory legacy relay or later cleanup item is the final contract.
+Preserve the historical documents
 and approvals; add prospective reconciliation links only under explicit authority.
 No currently accepted reference or embedded skill is rewritten in this stage.
 
@@ -325,14 +352,17 @@ Coordinate binary and all four skill versions in both hosts; keep exact-byte
 upgrade recognition, refuse unsafe mismatches and preserve modified/foreign
 installations. Do not overwrite published skill history or persisted state to
 make new tests green. No domain/state migration is implied. Any necessary JSON
-addition must be additive and reviewed or use an explicitly approved versioning
-strategy; no unannounced rename/removal/type change is permitted.
+change requires a proven material R1 coverage gap and explicit review/acceptance
+of a compatible/additive or versioned proposal with consumers/tests identified
+before code changes. No speculative envelope/field/version or unannounced
+rename/removal/type/enum/status/invocation-identity change is permitted.
 
 Rollout must retain a known-compatible explicit JSON automation path and show
 compatibility failures clearly. Rollback uses an approved compatible binary/skill
 pair without deleting operational state; changed human output must not break
-automation silently. Exact release/deprecation window is a human D2 decision,
-not implementation authorization from this document.
+automation silently. Release mechanics and mismatch validation remain future
+planning work within the coordinated AXM-32 delivery, not an open D2 scope choice,
+a deferral of replacement, a calendar commitment or implementation authority.
 
 ## Evidence and validation boundaries
 
@@ -357,19 +387,32 @@ All AC1–AC9 future behavior/integration tests and native observations are
 **NOT_RUN: implementation is outside this specify stage**. Current documentation
 checks prove document integrity only, not delivered behavior or human acceptance.
 
-## Open human decisions and next gate
+## Human decisions and next gate
 
-| Decision | Objective question | Recommendation and consequence |
+D1–D3 were resolved on **2026-10-18** in both the
+[GitHub decision](https://github.com/rgomids/axiom/pull/328#issuecomment-6245936652)
+and the [Linear decision](https://linear.app/rgomids/issue/AXM-32/separar-saida-do-lingo-da-apresentacao-conversacional-da-ia#comment-43e5ffd1),
+following the [technical review](https://github.com/rgomids/axiom/pull/328#pullrequestreview-5561505065).
+These choices refine this proposal; they do not accept its exact revised text.
+
+| Decision | Resolved choice | Consequence for this proposal |
 |---|---|---|
-| D1 — default/channel selection | Should no-flag output remain human in TTY AND pipes/redirection, with `--human` selecting terminal text and `--json` selecting JSON? | Yes; preserve current selection, change only human syntax. Auto-JSON in pipes is a viable alternative but changes existing no-flag pipe behavior. No such default change is inferred here |
-| D2 — historical presentation replacement | Approve prospective replacement of #232 default Markdown/exhaustive relay and AXM-31 intact-relay/Auxiliary presentation, immediately in one compatible binary/skill release or through an explicit compatibility window? | One coordinated release, retaining both existing flags and stable JSON. A window reduces consumer disruption but prolongs dual instructions. Human must choose timing and whether any legacy human mode is required; none is invented |
-| D3 — canonical contract coverage | Can existing typed payloads plus invocation identity carry all R1 facts, or must specific gaps be added under separately reviewed JSON evolution? | Preserve current wire shape and application semantics; inventory gaps before Plan. The missing incident JSON prevents its exact diagnosis but does not prevent specifying conditional behavior |
+| D1 — mode/channel | Native human CLI text, not Markdown, without flags in TTY AND pipes/redirection; `--human` selects it; `--json` explicitly selects automation/internal skill output | No auto-JSON on non-TTY; pipes have no ANSI/color; respect `NO_COLOR` and degrade unsupported terminals to plain text. Preserve status, exit codes, invocation and authority |
+| D2 — delivery scope | Replace #232 default deterministic Markdown and AXM-31 literal relay/Auxiliary obligations within AXM-32, coordinated across binary and all four installed skills for Codex/Claude | No deferred cleanup or mandatory final literal relay; inventory consumers and validate migration, compatibility and rollback of the set. Preserve explicit JSON, flags and historical acceptance |
+| D3 — JSON stability policy | Preserve current typed wire contract, names/types/enums/status and invocation identity; no speculative envelope/field/version | Inventory R1 coverage with concrete producer/consumer evidence before Plan; proven material gaps require separate explicit review/acceptance of compatible/additive or versioned evolution, identifying consumers/tests before code changes |
 
-D1/D2 block an authoritative selection/migration contract and implementation;
-D3 requires explicit resolution of any material gap before designing a schema
-change. These questions do not prevent review of the completed specify proposal.
-Next gate is explicit human review/clarification and acceptance or revision of
-this exact Specification/ADR proposal. No progression to Plan/Tasks is performed.
+### Remaining technical coverage and human acceptance
+
+R1 JSON coverage is **not yet verified**: the source observations above are a
+starting point, not a completed fact-by-fact producer/consumer inventory. This
+technical prerequisite remains before Plan; it does not reopen D3 or imply that
+any schema gap exists or has been resolved. Proven gaps must return to explicit
+proposal review under D3.
+
+Next human gate is review and explicit acceptance or revision of the exact
+updated Specification 008/ADR-0030 revision. Both remain Proposed, PR #328 remains
+Draft, and AC1–AC9 remain future/NOT_RUN. No Plan/Tasks, implementation, canonical
+Execution transition, merge or release follows automatically.
 
 Constitution check: intent precedes implementation (I–II), source/decision/Evidence
 links are durable and distinguish proposal from accepted history (III–IV), typed

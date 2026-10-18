@@ -5,7 +5,9 @@
 are **Proposed, 2026-10-18**, specify only: one canonical structured result,
 native terminal output and host-owned conversational Markdown. They preserve
 accepted #232 history and expose the prospective #232/AXM-31 presentation
-replacement and open selection/migration decisions. No implementation or
+replacement within AXM-32 under resolved D1–D3 choices
+([decision record](008-output-separation/spec.md#human-decisions-and-next-gate));
+R1 JSON coverage remains unverified before Plan. No implementation or
 acceptance is implied. [Specify Evidence](008-output-separation/evidence.md)
 records inspection, documentary validation and future tests marked NOT_RUN.
 

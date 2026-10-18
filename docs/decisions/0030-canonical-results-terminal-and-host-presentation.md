@@ -4,7 +4,8 @@
 
 Proposed — 2026-10-18, AXM-32 specify only. Explicit human acceptance of the
 exact revision remains required. Merge, checks and publication do not accept
-this proposal or authorize implementation.
+this proposal or authorize implementation. Human D1–D3 choices recorded on
+2026-10-18 refine this text; they are not formal acceptance of the revised ADR.
 
 ## Context
 
@@ -18,13 +19,21 @@ Execution blocker. Presentation cannot redefine either fact.
 
 The [AXM-32 Specification](../specifications/008-output-separation/spec.md)
 records the baseline, exact conflicting contracts, proposed behavior, migration
-requirements and unresolved human decisions. This is a durable public
+requirements and resolved D1–D3 choices, with technical JSON coverage still
+unverified before Plan. This is a durable public
 CLI/host boundary change, so an ADR is justified even without changing domain
 status or persistence.
 
 ## Decision
 
-Subject to explicit human decision, keep one application/domain-owned structured
+The proposal incorporates human D1–D3 choices recorded in the
+[GitHub decision](https://github.com/rgomids/axiom/pull/328#issuecomment-6245936652)
+and [Linear decision](https://linear.app/rgomids/issue/AXM-32/separar-saida-do-lingo-da-apresentacao-conversacional-da-ia#comment-43e5ffd1)
+on 2026-10-18, following the
+[technical review](https://github.com/rgomids/axiom/pull/328#pullrequestreview-5561505065).
+Formal acceptance of this exact revised ADR remains pending.
+
+Keep one application/domain-owned structured
 result and complete compatible JSON transport; let Lingo produce deterministic
 native terminal text and let the existing operating AI synthesize Markdown in
 its own host from canonical JSON. No dedicated formatting LLM call is added.
@@ -36,22 +45,37 @@ separate. Success of `project validate` must not conceal blocked Execution,
 nor be recoded as a new domain failure by a renderer. Preserve domain/skill
 ownership, local control-plane authority and explicit consent.
 
-D1/D2 in the Specification remain open: default selection in pipes and timing
-of the prospective replacement. Recommendation is unchanged no-flag human
-selection, `--human` for native terminal and `--json` for automation/internal
-skill consumption, in one coordinated compatible binary/skill release. This
-recommendation is not an accepted default or migration date. D3 prevents silent
-wire-schema expansion if existing typed payloads have gaps.
+D1 keeps no-flag human output in TTY AND pipes/redirection, as native CLI text,
+not Markdown. `--human` selects that mode; `--json` explicitly selects automation
+and internal consumption by all four skills. Non-TTY never selects JSON
+implicitly; pipes have no ANSI/color, `NO_COLOR` suppresses color and unsupported
+terminal capabilities degrade to plain text. Status, exit codes, invocation
+identity and authority remain unchanged.
+
+D2 includes prospective replacement of #232 default Markdown/exhaustive relay
+and AXM-31 literal relay/Auxiliary obligations in AXM-32 itself, coordinated
+across the binary and all four installed skills for Codex/Claude. It cannot be
+deferred to a cleanup Work Item or retain mandatory literal relay as the final
+contract. Migration must inventory consumers and verify compatible binary/skill
+sets, upgrade protection, explicit JSON/flags and rollback while preserving history.
+
+D3 preserves the current typed JSON wire contract, names/types/enums/status and
+invocation identity. No speculative envelope, field or version is introduced.
+R1 fact coverage must be inventoried with concrete producer/consumer evidence
+before Plan; it remains unverified. A proven material gap requires explicit
+review and acceptance of a compatible/additive or versioned proposal identifying
+consumers and tests before code changes. This technical prerequisite does not
+make the D3 policy an open human decision.
 
 ## Alternatives considered
 
 | Alternative | Complexity, coupling and portability | Operability/security, cost and migration |
 |---|---|---|
 | Retain literal Markdown relay and auxiliary explanation | Least change; hosts remain coupled to terminal Markdown | Deterministic but preserves duplicate/verbose presentation; no additional inference cost; smallest migration |
-| One canonical JSON, deterministic terminal, host synthesis (recommended) | Clear transport/presentation ownership; shared host behavior needs integration checks | No extra model call; host omission/injection risk requires fact-preservation checks; coordinated skill/binary migration |
+| One canonical JSON, deterministic terminal, host synthesis (selected direction; ADR Proposed) | Clear transport/presentation ownership; shared host behavior needs integration checks | No extra model call; host omission/injection risk requires fact-preservation checks; coordinated skill/binary migration |
 | Deterministic host-owned Markdown templates over JSON | Strong repeatability; duplicates presentation rules across hosts and constrains contextual synthesis | No extra inference call, but template maintenance and host-specific migration cost; less adaptable to the user's objective |
 
-The chosen recommendation costs stronger host integration validation in exchange
+The selected direction costs stronger host integration validation in exchange
 for concise native conversation. Deterministic byte equivalence remains suitable
 for JSON/terminal snapshots; conversation requires semantic assertions and native
 observations. Automation must not depend on human prose.
@@ -69,7 +93,8 @@ observations. Automation must not depend on human prose.
 - Host synthesis can omit or overstate facts; typed equivalence checks and native
   Codex/Claude evidence are required, not just instruction string tests.
 - Existing Markdown goldens, literal-relay instructions and consumers of human
-  output require an explicitly accepted migration; old accepted Evidence stays.
+  output require migration within the coordinated AXM-32 delivery. Exact revised
+  artifacts still need acceptance; old accepted Evidence stays.
 - After consumers rely on the new boundary, reverting output/skill contracts is
   harder: rollback needs a compatible binary/skill pair and preserved state.
 
@@ -93,5 +118,5 @@ acceptance. No old ADR status, text or supersession annotation changes here.
 
 Existing JSON cannot safely express required facts; a host cannot consume it
 without a separate formatting hop; native tests cannot preserve material truth;
-or verified consumers require a different migration window. Such findings require
+or verified consumers cannot migrate safely in the coordinated delivery. Such findings require
 explicit decision rather than silent schema, authority or default changes.
