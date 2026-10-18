@@ -1024,3 +1024,70 @@ independent of installed Runtime receipts 3/3; no archive/installer schema is
 changed. Packaging must still retain exactly the candidate's four source digests.
 Local archive build/smoke and exact-SHA CI publication observations follow below;
 no earlier commit's CI is inherited as proof of the final HEAD.
+
+### Prepared artifact and final Task/AC handoff
+
+Implementation commit: `69b03aab788aaddb355f50f9285a10bd4fbc65ab`.
+PASS (exit 0), from that clean commit:
+
+```text
+./scripts/build-release-archives.sh --version 0.0.0-axm32-fixture --output <empty-private-temporary-directory>
+python3 scripts/smoke-prepared-artifact.py --dir <same-directory> --version 0.0.0-axm32-fixture --revision 69b03aab788aaddb355f50f9285a10bd4fbc65ab --row linux-amd64
+./scripts/test-codex-skills.sh
+./scripts/validate-repository.sh .
+```
+
+This is local artifact preparation, not a release or publication. The standard
+builder produced linux-amd64, linux-arm64 and macos-27-arm64 archives. Offline
+Linux amd64 smoke passed version/revision, Project configure-preview/exact-digest
+apply/show/list and unchanged input hashes; its closed PATH/environment invokes
+no Provider, host Runtime or OAuth. Smoke retains its existing 64KiB budget.
+ARM/macOS native execution is NOT_RUN on this Linux amd64 box; cross-build and
+exact four-skill archive digest comparison passed for all three archives.
+
+| Prepared Linux artifact | SHA-256 |
+|---|---|
+| Archive | `f9b747fa2bd1ec6f40b6a36411d113c4665b3969497fccfda296214133197a42` |
+| Binary | `56d7538a377b0a7c0db6a2930ff93ff48d66cd1721f90b9f4b1a497638692bab` |
+
+The extracted exact packaged binary was then used to repeat the 27-channel
+combination fixture and the full old/new pair matrix in **both** temporary host
+roots: PASS, including actual old-binary rejection and restoration. Its hash is
+the binary hash above; all four installed digests equal the earlier candidate
+skill table. No packaging input changed. Only sanitized summaries are retained;
+one-off orchestration helpers/output remain outside the tracked repository.
+
+| Requirement / AC | Observable result in this delivery | Remaining real gate |
+|---|---|---|
+| R1 / AC1 | PASS: typed DTOs unchanged, exact JSON goldens, one service call, output failure without replay, current invocation/targets | External consumers and universal dynamic payload coverage unobserved; G1/G2 conditional |
+| R2 / AC2 | PASS: seven status and eleven operation snapshots, every emitted key/value, compact deep/control-heavy values, no generated Markdown/fenced fallback | No native platform inference from cross-build |
+| R3 / AC3 | PASS synthetic: four installed shared sources in both isolated roots request JSON internally on natural/explicit routes | Real host tool selection/conversation NOT_RUN, Rafael |
+| AC4 | PASS bounded: eleven candidate conversations, typed source ledger and contradictory prose negatives; no formatter/model/runtime hop in renderer | Native synthesis fidelity NOT_RUN, Rafael |
+| R4 / AC5 | PASS: seven typed readiness variants, success/0 vs policy-blocked Execution, invalid/1, second-blocker and unsupported-cause negatives | Real incident/conversation reproduction NOT_RUN, Rafael |
+| AC6 | PASS: defaults/flags/help, 27 channel/environment combinations × three transports, narrow width, broken/short writes, compatible package pairs | Other-OS native transport smoke NOT_RUN |
+| AC7 | PASS synthetic: existing exact preview/digest/revision/read-back, no-op/denied/partial/uncertain/recovery suites; presentation grants nothing or replays no effect | Real consent/recovery conversation NOT_RUN, Rafael |
+| AC8 | PASS synthetic: mapped private-error canaries, terminal ANSI/bidi, untrusted-data/operator-budget/adversarial/detail-artifact regressions | Native conversational/C12 proof NOT_RUN, Rafael; dedicated gitleaks scan unavailable |
+| AC9 | PASS: retained exact historical bytes/receipts, both roots, actual old/old and new/new binaries, mixed-pair refusal, no-op, partial upgrade/resume and exact root restoration; modified/foreign protections | Live user-host upgrade/rollback not attempted or claimed |
+
+All T01–T08 implementation/fixture/handoff work authorized by **r4** is delivered;
+T08's real observation work is deliberately **NOT_RUN and delegated to Rafael**,
+not failure or blocker. R1–R4 / AC1–AC9 are not declared human-accepted or universally
+proved by these bounded synthetic results. No real Execution, Runtime login,
+installation, dispatch or Provider mutation was performed. The canonical state
+root remains empty; GitHub #330 retains its exception role. No merge/release,
+acceptance or closure is authorized or claimed.
+
+Final publication gates: inspect staged documentary evidence, normal-push the
+same branch/PR, read back exact final HEAD and its own CI checks. The follow-up
+Evidence-only commit leaves all product, fixture, skill and archive inputs from
+`69b03aa` unchanged; archive provenance continues to name that actual build SHA.
+Final-head CI must be recorded in the **PR #328 final handoff/check snapshot**
+with its exact SHA and URLs; never attribute parent CI to that head. Independent
+technical/security review is requested there, followed by Rafael's explicitly
+reserved native/final acceptance. No independent reviewer or automatic acceptance
+is asserted. No model delegation occurred because strict inferiority was unproved.
+
+The optional bundled Codex Python validator dependency is unavailable:
+`test-codex-skills.sh` emitted its documented warning and ran all Go contract
+packages successfully. Optional Python-validator execution is NOT_RUN; no package
+or native host installation was attempted to obtain it.
