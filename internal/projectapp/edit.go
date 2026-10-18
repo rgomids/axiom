@@ -34,6 +34,7 @@ type RepositoryUpsert struct{ Key, Path string }
 // EditIntent is partial explicit intent. Omission always means preservation.
 // It carries no replay or authority input; EditAuthority carries that apart.
 type EditIntent struct {
+	Policy                 *PolicyDraft
 	Selector               string
 	Name                   OptionalText
 	WorkItemProvider       OptionalText
@@ -193,6 +194,9 @@ func (p EditProposal) Preview() EditPreview {
 
 // ValidateEditIntent rejects syntactic conflicts before any state read.
 func ValidateEditIntent(intent EditIntent) EditFailure {
+	if intent.Policy != nil && (!intent.Policy.valid || intent.Name.Supplied || intent.WorkItemProvider.Supplied || intent.RemoveWorkItemProvider || len(intent.RepositoryUpserts)+len(intent.RepositoryRemovals)+len(intent.IntegrationRemovals) != 0) {
+		return EditInvalidIntent
+	}
 	if !boundedSetupText(intent.Selector, maxSetupDestinationBytes) {
 		return EditInvalidIntent
 	}
@@ -267,20 +271,36 @@ func PreviewEdit(ctx context.Context, ports EditPorts, intent EditIntent) (EditP
 		if len(issues) != 0 {
 			return EditProposal{}, EditCandidateInvalid
 		}
-		snapshot, issues := ReadSnapshot(ports.Manifest, encoded, nil)
+		documents := []Document(nil)
+		if intent.Policy != nil {
+			documents = selection.Portable.Documents()
+		}
+		snapshot, issues := ReadSnapshot(ports.Manifest, encoded, documents)
+		if intent.Policy != nil && len(issues) == 0 && !snapshot.Project().Equivalent(candidate) {
+			return EditProposal{}, EditCandidateInvalid
+		}
 		if len(issues) != 0 {
 			return EditProposal{}, EditCandidateInvalid
 		}
 		manifest, revision, digests = encoded, snapshot.Revision(), snapshot.Digests()
 	}
-	localCandidate, repositories, bindingEffects, failure := proposeLocal(ctx, ports.Checkouts, selection.Local, intent)
-	if failure != EditOK {
-		return EditProposal{}, failure
+	localCandidate := cloneLocalRecord(selection.Local)
+	var repositories []EditRepositoryPreview
+	var bindingEffects []EditEffect
+	if intent.Policy == nil {
+		localCandidate, repositories, bindingEffects, failure = proposeLocal(ctx, ports.Checkouts, selection.Local, intent)
+		if failure != EditOK {
+			return EditProposal{}, failure
+		}
 	}
 	localCandidate.PortableRevision, localCandidate.ArtifactDigests = revision, digests
-	localWire, issues := ports.Local.EncodeLocal(localCandidate)
-	if len(issues) != 0 {
-		return EditProposal{}, EditCandidateInvalid
+	localWire := append([]byte(nil), selection.LocalWire...)
+	if intent.Policy == nil || portableChanged {
+		var issues []Issue
+		localWire, issues = ports.Local.EncodeLocal(localCandidate)
+		if len(issues) != 0 {
+			return EditProposal{}, EditCandidateInvalid
+		}
 	}
 	effects := make([]EditEffect, 0, len(bindingEffects)+2)
 	if portableChanged {
@@ -363,6 +383,9 @@ func coherentSelection(selection EditSelection) EditFailure {
 // proposePortable starts from the complete current Project and supplies only
 // explicitly changed top-level fields to Project.Propose.
 func proposePortable(current project.Project, intent EditIntent) (project.Project, EditFailure) {
+	if intent.Policy != nil {
+		return intent.Policy.Propose(current)
+	}
 	state := current.State()
 	var change project.Intent
 	if intent.Name.Supplied {

@@ -127,6 +127,9 @@ func (p EditProposal) PublicationRequest() EditPublicationRequest {
 // Every request rebuilds the proposal from fresh observations; a Project ID
 // or digest that differs from the fresh preview is denied with zero writes.
 func ApplyEdit(ctx context.Context, ports EditPorts, publisher EditPublisher, intent EditIntent, authority EditAuthority) EditResult {
+	if intent.Policy != nil {
+		return EditResult{Outcome: EditRejected, Failure: EditUnavailable}
+	}
 	if failure := ValidateEditAuthority(authority); failure != EditOK {
 		return EditResult{Outcome: EditRejected, Failure: failure}
 	}

@@ -221,9 +221,12 @@ is **Approved for Tasks**, fixed to SHA
 `c2118649803a086cab67588a6d7547ac721e7a71` by
 [human approval](https://github.com/rgomids/axiom/pull/327#issuecomment-6246039562).
 [Tasks](002-lingo-project-initialization/tasks-305-existing-project-runtime-policy.md)
-are **Proposed — Awaiting Human Approval — Tasks**; all nine are Not started.
-Historical contracts remain preserved; no implementation, Execution transition
-or product acceptance is recorded.
+are **Approved for implementation**, fixed to SHA
+`dea54ea39f87f3a8cbe9c43fbda3e302e55402ac` by
+[human approval](https://github.com/rgomids/axiom/pull/327#issuecomment-6246118505).
+[Implementation Evidence and progress](002-lingo-project-initialization/evidence-305-existing-project-runtime-policy.md)
+records T01 pure draft/candidate coverage and remaining units. Historical approved
+bytes remain preserved; no Execution transition or product acceptance is recorded.
 
 Implementation Evidence:
 [T01](002-lingo-project-initialization/evidence-t01.md),
