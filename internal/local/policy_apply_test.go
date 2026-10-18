@@ -230,6 +230,10 @@ func TestPolicyRemovalPreservesOtherProjectRegistryAndBindings(t *testing.T) {
 	f := newPolicyEditFixture(t)
 	ctx := context.Background()
 	ports := f.policyPorts(t)
+	seed := policyIntent(t, `{"runtimes":{"mode":"members","add":[{"id":"claude"}]},"modelProfiles":{"mode":"members","add":[{"key":"claude-low","runtimeRef":"claude","model":"synthetic-claude-model"}]}}`)
+	if seeded := projectapp.ApplyPolicyEdit(ctx, ports, f.publisher(nil), seed, reviewedPolicy(t, f, seed)); seeded.Outcome != projectapp.EditPublished {
+		t.Fatal(seeded.Outcome)
+	}
 	selection, failure := ports.Edit.Source.SelectForEdit(ctx, "sample")
 	if failure != projectapp.EditOK {
 		t.Fatal(failure)
@@ -267,15 +271,32 @@ func TestPolicyRemovalPreservesOtherProjectRegistryAndBindings(t *testing.T) {
 	if _, err := store.Publish(ctx, fresh.Token, cfg); err != nil {
 		t.Fatal(err)
 	}
+	executions, err := NewWorkflowStore(f.state)
+	if err != nil {
+		t.Fatal(err)
+	}
+	frozen := createLocalV3Execution(t, executions)
+	links, err := NewWorkItemStore(f.state)
+	if err != nil {
+		t.Fatal(err)
+	}
+	link := testWorkItemLink()
+	if err := links.Save(ctx, link); err != nil {
+		t.Fatal(err)
+	}
 	paths := []string{filepath.Join(otherSource, manifestName), filepath.Join(f.state, "projects", state.ID, installationRecord), filepath.Join(f.state, "runtime-profiles", "v1", runtimeProfileObject)}
+	paths = append(paths, executionPath(t, f.state, frozen), filepath.Join(f.state, "work-items", link.ProjectID, workItemName(link.RepositoryKey, link.Provider, link.Resource, link.ExternalID)))
 	before := map[string][]byte{}
 	for _, path := range paths {
 		before[path] = fileBytes(t, path)
 	}
-	intent := policyIntent(t, `{"runtimes":{"mode":"replace","values":[]},"modelProfiles":{"mode":"replace","values":[]},"runtimePreferences":{"mode":"replace","values":[]}}`)
+	intent := policyIntent(t, `{"runtimes":{"mode":"members","remove":["claude"]},"modelProfiles":{"mode":"members","remove":["claude-low"]}}`)
 	result := projectapp.ApplyPolicyEdit(ctx, ports, f.publisher(nil), intent, reviewedPolicy(t, f, intent))
 	if result.Outcome != projectapp.EditPublished || result.ReadBack.Status != "confirmed" {
 		t.Fatal(result.Outcome, result.ReadBack)
+	}
+	if values := result.ReadBack.Observed.Policy.Runtimes.Values; len(values) != 1 || values[0].ID != "codex" {
+		t.Fatal("A did not retain only Codex", values)
 	}
 	for path, original := range before {
 		if !bytes.Equal(original, fileBytes(t, path)) {
@@ -290,6 +311,10 @@ func TestPolicyRemovalPreservesOtherProjectRegistryAndBindings(t *testing.T) {
 	b.PortableRevision, b.ArtifactDigests = a.PortableRevision, a.ArtifactDigests
 	if !reflect.DeepEqual(a, b) {
 		t.Fatal("local bindings changed")
+	}
+	retained, err := executions.Load(ctx, frozen.ProjectID, frozen.RepositoryKey, frozen.WorkItem)
+	if err != nil || !reflect.DeepEqual(retained.Binding, frozen.Binding) || retained.StorageRevision != frozen.StorageRevision {
+		t.Fatal("immutable Execution binding changed", err)
 	}
 	other, err := f.portable.Inspect(ctx, "other")
 	if err != nil || !other.Snapshot.Project().Equivalent(p) {

@@ -1,6 +1,6 @@
 # AXM-34 / G-1 implementation Evidence
 
-Status: **Implementation in progress**, 2026-10-18. No product acceptance,
+Status: **Implementation integrated; local validation passed; human/native review pending**, 2026-10-18. No product acceptance,
 Execution transition, merge, release or issue completion is claimed.
 
 Authority: approved Tasks at `dea54ea39f87f3a8cbe9c43fbda3e302e55402ac`,
@@ -37,15 +37,20 @@ passage. PASS below applies only to the described unit and checks.
 
 | Task | G1-AC | Oracle | State / Evidence |
 | --- | --- | --- | --- |
-| T01 | 01–04, 12, 14 | V01 | Implemented pure draft/candidate, tests below; integration still depends on T02–T07 |
-| T02 | 04, 07, 08 | V02 | Pure compatibility implemented/tested below; integrated snapshot/immutable-consumer proof pending T03/T09 |
-| T03 | 01, 06, 07, 09, 10, 13, 14 | V03 | Read-only sealed preview core and synthetic tests implemented; full readiness parity/integrated passage pending; continuation below |
-| T04 | 07, 10, 14 | V04 | Guarded adapter increment and synthetic/multiprocess tests implemented; full coverage closure pending; continuation below |
-| T05 | 01, 05, 06, 09–11, 14 | V05 | NOT RUN / pending |
-| T06 | 01, 02, 05, 08, 11, 13, 14 | V06 | NOT RUN / pending |
-| T07 | 01, 03, 06, 09, 12–15 | V07 | NOT RUN / pending |
-| T08 | 01, 09, 14, 15 | V08 | NOT RUN / pending |
-| T09 | 05, 08, 11, 12, 14, 15 | V09 | NOT RUN / pending |
+| T01 | 01–04, 12, 14 | V01 | Implemented, reused unchanged; strict/domain/codec and integrated CLI tests |
+| T02 | 04, 07, 08 | V02 | Implemented; exact pure compatibility, real v2/v3 `none`, schema-4 edit refusal |
+| T03 | 01, 06, 07, 09, 10, 13, 14 | V03 | Implemented; canonical metadata parity, guidance, safe projection and proof-denial tests |
+| T04 | 07, 10, 14 | V04 | Implemented; seven sealed dependency groups, native multiprocess and controlled drift tests; exact platform qualification below |
+| T05 | 01, 05, 06, 09–11, 14 | V05 | Implemented; exact replay, guarded no-op, publication and policy-specific fault/recovery tests |
+| T06 | 01, 02, 05, 08, 11, 13, 14 | V06 | Implemented; observed read-back, later writer/source/readiness drift, A/B/shared registry and immutable binding comparisons |
+| T07 | 01, 03, 06, 09, 12–15 | V07 | Implemented; actual CLI, guided/structured parity and executable processes with complete read-back |
+| T08 | 01, 09, 14, 15 | V08 | Implemented; thin routing, installed shared bytes, ownership/receipt and transport tests; native host conversation NOT RUN |
+| T09 | 05, 08, 11, 12, 14, 15 | V09 | Integrated validation and Evidence; final result/limitations in r3 consolidated receipt below |
+
+Earlier pending/NOT RUN statements and handoffs below are historical increment
+receipts. The r3 consolidated receipt supersedes their progress state. Tasks,
+Specification, Plan and ADR approval bytes remain unchanged; this matrix records
+implementation and actual checks, not acceptance of AXM-34 or native conversation.
 
 ## T01 — pure draft/candidate
 
@@ -601,3 +606,141 @@ commit). Installed v1/v4 tests verify that specific refusal without adoption or
 rewriting. Scoped policy/readiness/lifecycle tests pass; full suites are rerun
 below on the corrected code. Earlier broad race checks passed, and repository,
 format and tidy checks passed; these are not misreported as full final validation.
+
+## r3 consolidated Task/AC/V receipt
+
+Production code head: `ec1ff8cb2675f0469ada46f8210150e71e1eac49`. T01/T02
+remain reused; r3 implementation commits are `ae8441c`, `27cf0dd`, `31d8db9`,
+`0245d3a`, `fa8cea1`, `1a00809`, `ec1ff8c`. Concurrent remote `ff54137` was
+reconciled in `1289a19` without a forced push or merging the PR. The subsequent
+A/B test refinement seeds both Codex and Claude, removes only Claude/dependents
+from A, and compares real existing canonical Work Item and format-3 configured
+Execution files, including frozen Workflow/Stage/Agent/Profile/effort/proof data.
+It reuses existing validated store fixtures; no invented compatibility corpus or
+new production inventory is added. Both immutable records are read back canonically.
+
+### Acceptance mapping
+
+PASS here means deterministic synthetic evidence for the named boundary. Native
+host behavior, target-specific qualification and human acceptance remain separate.
+
+| G1-AC | Tasks / V | Concrete evidence and limit |
+| --- | --- | --- |
+| 01 | T01/03/05–08; V01/03/05–08 | `TestPolicyCLIV2InstalledJourney`, `TestPolicyCLIJourneyGuidedParityReadbackAndValidate`, executable process journey; unchanged UUID/schema. Native conversation NOT RUN. |
+| 02 | T01/06; V01/06 | `TestPolicyDraftPartialMembersAndPreservation`, forms/last-removal tests, `TestPolicyDraftEditSnapshotNoopAndIsolation`, guarded no-op/read-back bytes. Pure companion snapshots preserved; unsupported installed layouts refuse. |
+| 03 | T01/07; V01/07 | strict/bounds/tree tests, unsafe/mixed/incomplete CLI refusal, duplicate flag/parser corpus; bounds 8/32/32 and 9/33/33 refusal. |
+| 04 | T01/02; V01/02 | strict dependent-reference/target conflicts and explicit repair tests, pure exact Workflow reference tests; no cascade. |
+| 05 | T05/06/09; V05/06/09 | `TestPolicyRemovalPreservesOtherProjectRegistryAndBindings`: both Runtime candidates in A/B, remove only Claude in A; compare/read back B, shared configuration, A bindings and historical immutable records. |
+| 06 | T03/05/07; V03/05/07 | snapshot parity missing/disabled/wrong association/model, retained policy under exact authority, existing Runtime consumer/selection corpus, explicit uninspected executable/auth/capability facts; no fallback or live readiness claim. |
+| 07 | T02–04; V02–04 | exact definition/preference/default/constraints/tamper/overflow corpus plus guarded catalog/selection. Current v2/v3 active selection is explicitly none; actual selected Workflows require schema 4, whose G1 editing refuses. No schema expansion. |
+| 08 | T02/06/09; V02/06/09 | four explicit impact scopes, unknown/uninspected inventory, real immutable format-3 Execution/Workflow/Profile/effort/proof and Work Item bytes/read-back during A policy edit; existing compiler/admission/freshness regressions. |
+| 09 | T03/05/07/08; V03/05/07/08 | exact UUID/digest/revisions/local authority, missing/partial/wrong tuples, cancellation, stale replay and host-route input-preservation tests; no readiness/JSON consent bypass. |
+| 10 | T03–05; V03–05 | seven stale tokens, each original dependency changed at commit, same-revision configuration content, operational identity, source relocation/hardlink, metadata Repository replacement, two processes/one winner. Bounded ADR-0005 model only. |
+| 11 | T05/06/09; V05/06/09 | `TestPolicyApplyTruthfulRecovery`, storage fault matrix, read-back failed reader/later writer/same-byte source replacement/local readiness drift; prior/new/recovery classification; no blind retry. Physical power loss NOT RUN. |
+| 12 | T01/07/09; V01/07/09 | same-schema v2/v3 journeys; installed v1/v4 separate-migration refusal; tampered schema refusal; existing CREATE/unrelated EDIT and frozen compatibility suites. |
+| 13 | T03/06/07; V03/06/07 | full per-operation readiness equality at preview/read-back/validate; denied executable-discovery/live-source spies. Operational preflight retains its separately observed proof contract. |
+| 14 | T01/03–09; V01/03–09 | strict secret/path/error sentinels, whole-tree zero-write refusal/preview/no-op, private existing storage primitives, links/replacements, safe bounded policy DTO and unchanged bindings; staged sensitive checks and comment/diff scan. Gitleaks unavailable. |
+| 15 | T07–09; V07–09 | actual help/inspection parser, unchanged host-route JSON/authority, identical installed Codex/Claude skill bytes/receipts, safe output contract; native conversation NOT RUN. |
+
+### Final dependency/writer coverage
+
+| Sealed group | Reader / exact binding | Writer coordination / final check |
+| --- | --- | --- |
+| Installation | exact selected wire/revision, `policyFileToken` | `ReplaceRecord`/`ProjectEditPublisher`; state-root → projects → installation locks through commit, exact CAS and precommit reread |
+| Source | manifest bytes/full artifact revision; `policySourceToken` includes existing Workflow files and object/ancestor identities | `PortableStore.Update`/Workflow source writer; portable namespace protection, `policyGuard` before commit; unsupported companion layouts refuse |
+| Locations | source and installation directory/ancestor identity token | same root/source locks and bounded pathname checks; independent leaf replacements do not hide later directory drift at read-back |
+| Workflow | strict exact catalog/index/definition wire/digest or none | `PublishWorkflow` and selection EDIT; source namespace exclusion, exact compatibility re-evaluation before commit |
+| Operational | exact state revision/absence plus file identity | `CommitOperational`/recovery under common root chain; lock-held reread before commit |
+| Runtime | existing `inspectLocked` content/absence/object/epoch Token | `RuntimeProfileStore.Publish`, retirement/recovery/epoch writers under shared root coordination; no nested Inspect |
+| Readiness | canonical Repository/Documentation metadata status digest, exact retained bindings | existing metadata probes at preview and beforeCommit; controlled availability/object drift refuses. No external process locks or arbitrary hostile same-UID freshness guarantee |
+| Live proofs | none acquired | executable/auth/capability values remain uninspected; no credential, Provider/network or Runtime invocation |
+
+### Native executable receipt at production code head
+
+`go test ./cmd/lingo -run '^TestExecutablePolicyPreviewApplyAndReadBack$'
+-count=1 -v` — PASS, exit 0, Linux 6.12.94+ x86_64, Go 1.27.2,
+filesystem reported `ext2/ext3`. Private synthetic temporary stores, unrelated
+CWD, separate executable processes; no live vendor execution.
+
+```text
+project: ede8cb90-60a8-41db-a85f-83786b3bc33b; schema: 3
+before portable: 235fe68a39d1eeb49b99f87f002e7223c539111c049c5fe7bf8f45dc9375661f
+before local: 35f612afe9c4517bd41737c6d5d9eff16773e68fad3ebd2ecc01b15bf535e3c8
+preview digest: 73d325055c9fbc126bdb25739bcc4bdb031021f7ad52213ad9a5ccb02f59df83
+observed portable: 43b0eb08eda7907337b317f482ed20ffdc9800fbb4df43d72576f76df23ffc57
+observed local: 4ee180ae43f659dcb99d08833739cf0de946c014a46a6182c590cd2feacf488a
+exact authority: supplied only after preview; partial/stale refused
+publication: applied; read-back: confirmed
+actual writes: selected manifest and required installation bookkeeping
+preview/partial authority/stale replay: zero authoritative writes
+```
+
+Receipt tokens are observations, never authority reusable in another fixture.
+Final source SHA-256 fingerprints:
+
+| Source | SHA-256 |
+| --- | --- |
+| `internal/projectapp/policy_draft.go` (reused) | `507a6e0b62025c16cb00f2c703c45e28fc7ce2a376ef92cc7793cab212192221` |
+| `internal/projectapp/policy_preview.go` | `5c567750d8b8fe730970225a7fdce02b30588317760c5c14f1e90a6bcb721466` |
+| `internal/projectapp/policy_apply.go` | `3ef6697b25d2db517ee0a1838be2fef1f8844e9b32943ca1da79f74e8d485a82` |
+| `internal/local/policy_edit_guard.go` | `8f079e1750a43439838de90650d27d04650598f076f13e944c52639c82b11863` |
+| `internal/local/policy_edit_observation.go` | `96b39dfbaa9e6daedb14572e1f461affca7e09697751244f873faa26c532ccfd` |
+| `cmd/lingo/policy_edit.go` | `ffb0688ae2ca04253dbfaaa943796b523add91551611d298a8a98893b5db8c2b` |
+| embedded `axiom-project/SKILL.md` | `b5ec7bbce1c10109ea4c8ffc902fc04bd7788e8b486d2a3fd5506b3f518a03c5` |
+
+### Final executed checks and review
+
+All production fingerprints above match the corrected code head `ec1ff8c`.
+The final test/Evidence refinement changes no production byte.
+
+| Check | Observed result |
+| --- | --- |
+| `go test ./... && go vet ./...` on corrected production sources | PASS, exit 0; CLI 209.161s |
+| Same full command after the final A/B immutable-record refinement | PASS, exit 0; local 21.080s, other unchanged packages cached |
+| `go test -race ./internal/projectapp ./internal/local ./internal/cli ./internal/codexruntime ./internal/runtimeapplication` | Projectapp/CLI/Codex/runtimeapplication PASS. Local initially FAIL in existing `TestRunLeaseOSLockCrossProcess`: child helper printed PASS but exceeded its five-second process deadline during overlapping validation; not a policy assertion failure |
+| `go test -race ./internal/local -run 'TestPolicyRemoval\|TestRunLeaseOSLockCrossProcess' -count=1` | PASS, exit 0, 2.469s; the first A/B refinement initially used a legacy Work Item filename, corrected to the canonical store naming function |
+| `go test -race ./internal/local` repeated without the full Go-suite overlap | PASS, exit 0, 184.019s; includes complete final policy fault/concurrency and immutable-record tests. No timeout or production lease rule changed |
+| `go build ./... && go mod verify` | PASS, exit 0; all modules verified |
+| `./scripts/validate-repository.sh .` after final Evidence/test refinement | PASS, exit 0; optional runtime behavioral scenarios remain explicitly SKIPPED/UNVERIFIED |
+| `./scripts/check-go-quality.sh format`, `./scripts/check-go-quality.sh tidy` | PASS, exit 0 |
+| Staged path/content review, `git diff --check`, staged sensitive-file checks | PASS before every commit; final check repeated at publication |
+| Approved amendment/Plan/Tasks vs `dea54ea`; ADR/module/frozen corpus diff | Empty; no change to accepted contracts/dependencies/historical fixtures |
+| Added Go-comment scan | Zero matches; no new Go code/test comments |
+| Local Staticcheck / gitleaks | Unavailable; no installation. Pinned CI Staticcheck passed within PR Checks at `ec1ff8c` |
+| PR Checks at exact production head `ec1ff8c` | SUCCESS, [run 39137526380](https://github.com/rgomids/axiom/actions/runs/39137526380), 5m32s; delivery-metadata SUCCESS, [run 39137526333](https://github.com/rgomids/axiom/actions/runs/39137526333) |
+| Non-publishing native Linux/macOS suite at exact production head `ec1ff8c` | [Run 39137530556](https://github.com/rgomids/axiom/actions/runs/39137530556): IN_PROGRESS at this versioned receipt; contracts and both native upgrade journeys SUCCESS; both full race-suite jobs still running. Final observed conclusion belongs to the final PR receipt, not inherited green |
+
+The superseded native run at `1a00809` was cancelled after the lifecycle/readiness
+correction; it is not passing Evidence for the final code. No workflow definition,
+runner, infrastructure, secret, toolchain or repository permission was changed.
+
+Orchestrator engineering/security review: no blocking finding identified in the
+implemented supported scope. Exact authority, no-op, old/new/recovery semantics,
+read-back truth, immutable scopes, safe output and shared skill ownership were
+reviewed against the approved Tasks and accepted ADRs. This is a main-session
+technical review, not independent-agent or human approval. No delegation because
+strict model inferiority remains unverified.
+
+Remaining limits are explicit: native LLM conversation NOT RUN (no paid/vendor
+Runtime launched); the CI native runners supplement local Linux testing but do
+not qualify every exact release-target OS/architecture/filesystem row; physical
+power loss, arbitrary hostile same-UID interleavings and unsupported source layouts
+are not claimed. Existing active Workflow selection in v2/v3 is none; schema-4
+G1 editing remains refused. Canonical Execution lifecycle stays unknown, with no
+transition or new Execution. No merge, release, self-approval, issue closure,
+Provider status change or product acceptance.
+
+```yaml
+objective: Review integrated G1-T01–T09 in sole PR 327
+state: implementation_integrated_validation_limited
+completed_units:
+  - T01/T02 reused unchanged; T03/T04 parity, readiness guidance and guarded dependencies
+  - T05 exact replay/no-op/recovery; T06 observed read-back and actual immutable A/B isolation
+  - T07 canonical CLI and executable journey; T08 thin shared-host routing and ownership
+  - T09 local integrated regression/security checks and consolidated AC/V/Evidence
+remaining_units:
+  - Observe native workflow 39137530556 and final documentation/test-head PR checks
+  - Native conversation and exact target qualification where available, with separate live-test authority
+  - Human technical review and assessment of documented limits; no inferred acceptance
+next_action: Read exact PR HEAD/checks and final receipt; review the implementation, do not create another PR or retry an uncertain product edit
+```
