@@ -474,3 +474,23 @@ explicit Runtime resolver's authentication/executable blocker assertions. T05's
 application path is implemented; detailed publication faults reuse the existing
 protocol and remain subject to final integrated V05/V09 evidence. T06 read-back
 and CLI exposure remain next, not implied by these application tests.
+
+### r3 — T06 observed read-back
+
+Successful publication and guarded no-op now perform a new canonical selection
+by exact UUID and a no-change preview through the same safe observer/evaluator.
+Read-back compares actual manifest/local bytes and source identity to the expected
+candidate, exposes expected and observed revisions, and separates `confirmed`,
+`drift`, `unverified` and `recovery_required`. Runtime/operational/Workflow snapshot
+change is disclosed independently of confirmed policy bytes. The confirmed commit
+outcome is retained if read-back fails; nothing retries or rolls back automatically.
+
+Executed, exit 0: targeted policy/readiness suites; targeted policy/readiness race
+suites (before the additional A/B case); `go vet ./internal/local
+./internal/projectapp`. `TestPolicyReadBackTruthAndDrift` covers schemas 2/3,
+no-op, failed reader after commit, a later authorized writer before read-back and
+changed local Runtime configuration. `TestPolicyRemovalPreservesOtherProjectRegistryAndBindings`
+removes A's complete Runtime/Profile/preference set and verifies A's observed
+revision, B's portable/local bytes and read-back, shared registry bytes, and all
+unrelated A installation bindings. Synthetic UUIDs are the existing `123e4567...4000`
+and `123e4567...4001` fixtures, never real provider data.

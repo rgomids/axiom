@@ -1,12 +1,17 @@
 package projectapp
 
-import "context"
+import (
+	"bytes"
+	"context"
+	"encoding/hex"
+)
 
 type PolicyEditResult struct {
 	Outcome     EditOutcome
 	Failure     EditFailure
 	Proposal    PolicyEditProposal
 	Publication EditPublicationResult
+	ReadBack    *PolicyEditReadBack
 }
 
 func (p PolicyEditProposal) publicationRequest() EditPublicationRequest {
@@ -64,5 +69,42 @@ func ApplyPolicyEdit(ctx context.Context, ports PolicyEditPorts, publisher EditP
 	default:
 		result.Outcome = EditFailedPublish
 	}
+	if result.Outcome == EditPublished || result.Outcome == EditUnchanged {
+		result.ReadBack = readBackPolicyEdit(context.WithoutCancel(ctx), ports, proposal)
+	}
 	return result
+}
+
+type PolicyEditReadBack struct {
+	Status                   string             `json:"status"`
+	ExpectedPortableRevision string             `json:"expectedPortableRevision"`
+	ExpectedLocalRevision    string             `json:"expectedLocalRevision"`
+	ReadinessChanged         bool               `json:"readinessChanged"`
+	Observed                 *PolicyEditPreview `json:"observed,omitempty"`
+}
+
+func readBackPolicyEdit(ctx context.Context, ports PolicyEditPorts, expected PolicyEditProposal) *PolicyEditReadBack {
+	portable, _ := expected.edit.local.PortableRevision.Digest()
+	local, _ := ObserveLocalRevision(expected.edit.localWire).Digest()
+	out := &PolicyEditReadBack{Status: "unverified", ExpectedPortableRevision: hex.EncodeToString(portable[:]), ExpectedLocalRevision: hex.EncodeToString(local[:])}
+	draft, failure := DecodePolicyDraft([]byte("{}"))
+	if failure != EditOK {
+		return out
+	}
+	observed, failure := PreviewPolicyEdit(ctx, ports, EditIntent{Selector: expected.preview.ProjectID, Policy: &draft})
+	if failure != EditOK {
+		if failure == EditRecoveryRequired {
+			out.Status = "recovery_required"
+		}
+		return out
+	}
+	preview := observed.Preview()
+	out.Observed = &preview
+	if observed.preview.ProjectID != expected.preview.ProjectID || observed.edit.preview.PortableDestination != expected.edit.preview.PortableDestination || observed.edit.preview.LocalDestination != expected.edit.preview.LocalDestination || !bytes.Equal(observed.edit.observedManifest, expected.edit.manifest) || !bytes.Equal(observed.edit.observedLocalWire, expected.edit.localWire) {
+		out.Status = "drift"
+		return out
+	}
+	out.Status = "confirmed"
+	out.ReadinessChanged = observed.dependencies.Runtime != expected.dependencies.Runtime || observed.dependencies.Workflow != expected.dependencies.Workflow || observed.dependencies.Operational != expected.dependencies.Operational
+	return out
 }

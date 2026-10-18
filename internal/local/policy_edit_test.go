@@ -17,13 +17,28 @@ import (
 	fx "github.com/rgomids/axiom/internal/runtimeprofile/runtimeprofiletest"
 )
 
-type policySelection struct{ value projectapp.EditSelection }
+type policySelection struct {
+	fixture editPublicationFixture
+}
 
-func (s policySelection) SelectForEdit(context.Context, string) (projectapp.EditSelection, projectapp.EditFailure) {
-	return s.value, projectapp.EditOK
+func (s policySelection) SelectForEdit(ctx context.Context, _ string) (projectapp.EditSelection, projectapp.EditFailure) {
+	f := s.fixture
+	o, code := f.installation.Inspect(ctx, editTestProjectID)
+	if code != "" {
+		return projectapp.EditSelection{}, projectapp.EditRecoveryRequired
+	}
+	p, err := f.portable.Inspect(ctx, "sample")
+	if err != nil {
+		return projectapp.EditSelection{}, projectapp.EditStateUnsafe
+	}
+	return projectapp.EditSelection{Portable: p.Snapshot, Local: ApplicationRecord(o.Record), LocalWire: o.Wire, PortableDestination: f.source, LocalDestination: filepath.Dir(f.recordPath()), PortableRevision: p.Revision, LocalRevision: o.Revision}, projectapp.EditOK
 }
 
 func newPolicyEditFixture(t *testing.T) editPublicationFixture {
+	return newPolicyEditVersionFixture(t, 3)
+}
+
+func newPolicyEditVersionFixture(t *testing.T, version int) editPublicationFixture {
 	t.Helper()
 	f := editPublicationFixture{projects: privateTestRoot(t), state: privateTestRoot(t)}
 	var err error
@@ -35,7 +50,7 @@ func newPolicyEditFixture(t *testing.T) editPublicationFixture {
 	if err != nil {
 		t.Fatal(err)
 	}
-	p, issues := project.New(project.State{SchemaVersion: 3, ID: editTestProjectID, Slug: "sample", Name: "SENTINEL-NAME", Runtimes: project.Configured([]project.Runtime{{ID: fx.CodexRuntimeID}}), ModelProfiles: project.Configured([]project.ModelProfile{{Key: fx.CodexHighProfileID, RuntimeRef: project.Configured(fx.CodexRuntimeID), Model: project.Configured("synthetic-codex-model")}}), BusinessContext: project.Configured(project.BusinessContext{Text: project.Configured("SENTINEL-CONTEXT")}), CredentialReferences: project.Configured([]project.CredentialReference{{Key: "SENTINEL-CREDENTIAL"}})})
+	p, issues := project.New(project.State{SchemaVersion: version, ID: editTestProjectID, Slug: "sample", Name: "SENTINEL-NAME", Runtimes: project.Configured([]project.Runtime{{ID: fx.CodexRuntimeID}}), ModelProfiles: project.Configured([]project.ModelProfile{{Key: fx.CodexHighProfileID, RuntimeRef: project.Configured(fx.CodexRuntimeID), Model: project.Configured("synthetic-codex-model")}}), BusinessContext: project.Configured(project.BusinessContext{Text: project.Configured("SENTINEL-CONTEXT")}), CredentialReferences: project.Configured([]project.CredentialReference{{Key: "SENTINEL-CREDENTIAL"}})})
 	if len(issues) != 0 {
 		t.Fatal(issues)
 	}
@@ -55,16 +70,7 @@ func newPolicyEditFixture(t *testing.T) editPublicationFixture {
 
 func (f editPublicationFixture) policyPorts(t *testing.T) projectapp.PolicyEditPorts {
 	t.Helper()
-	o, code := f.installation.Inspect(context.Background(), editTestProjectID)
-	if code != "" {
-		t.Fatal(code)
-	}
-	p, err := f.portable.Inspect(context.Background(), "sample")
-	if err != nil {
-		t.Fatal(err)
-	}
-	selection := projectapp.EditSelection{Portable: p.Snapshot, Local: ApplicationRecord(o.Record), LocalWire: o.Wire, PortableDestination: f.source, LocalDestination: filepath.Dir(f.recordPath()), PortableRevision: p.Revision, LocalRevision: o.Revision}
-	return projectapp.PolicyEditPorts{Edit: projectapp.EditPorts{Source: policySelection{selection}, Checkouts: DirectoryObserver{}, Manifest: manifest.Codec{}, Local: RecordCodec{}}, Facts: PolicyEditObserver{Installation: f.installation, Portable: f.portable}}
+	return projectapp.PolicyEditPorts{Edit: projectapp.EditPorts{Source: policySelection{fixture: f}, Checkouts: DirectoryObserver{}, Manifest: manifest.Codec{}, Local: RecordCodec{}}, Facts: PolicyEditObserver{Installation: f.installation, Portable: f.portable}}
 }
 
 func policyIntent(t *testing.T, wire string) projectapp.EditIntent {
