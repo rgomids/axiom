@@ -7,12 +7,12 @@ import (
 )
 
 func policyRuntimeReadiness(p project.Project, workflow projectapp.PolicyWorkflowReport, facts RuntimeProfileSnapshot) []projectapp.PolicyRuntimeReadiness {
+	if !project.RuntimePolicyDeclared(p.State()) {
+		return []projectapp.PolicyRuntimeReadiness{{Code: "policy_unconfigured"}}
+	}
 	consumer, code := runtimeapplication.ConsumerFromRecordV3(facts.State, facts.V3)
 	if code != "" {
 		return []projectapp.PolicyRuntimeReadiness{{Code: code}}
-	}
-	if !project.RuntimePolicyDeclared(p.State()) {
-		return []projectapp.PolicyRuntimeReadiness{{Code: "policy_unconfigured"}}
 	}
 	rows := []projectapp.PolicyRuntimeReadiness{}
 	for _, impact := range workflow.Impact {

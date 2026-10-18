@@ -11,10 +11,11 @@ import (
 )
 
 type PolicyEditDependencies struct {
-	Source      string
-	Workflow    string
-	Operational string
-	Runtime     string
+	Installation string
+	Source       string
+	Workflow     string
+	Operational  string
+	Runtime      string
 }
 
 type PolicyEditFacts struct {
@@ -168,7 +169,7 @@ func policyRuntimeCode(code string) bool {
 }
 
 func validPolicyDependencies(d PolicyEditDependencies) bool {
-	for _, token := range []string{d.Source, d.Workflow, d.Operational, d.Runtime} {
+	for _, token := range []string{d.Installation, d.Source, d.Workflow, d.Operational, d.Runtime} {
 		wire, err := hex.DecodeString(token)
 		if err != nil || len(wire) != sha256.Size || hex.EncodeToString(wire) != token {
 			return false

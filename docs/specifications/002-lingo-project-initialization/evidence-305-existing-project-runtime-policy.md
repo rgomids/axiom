@@ -39,8 +39,8 @@ passage. PASS below applies only to the described unit and checks.
 | --- | --- | --- | --- |
 | T01 | 01–04, 12, 14 | V01 | Implemented pure draft/candidate, tests below; integration still depends on T02–T07 |
 | T02 | 04, 07, 08 | V02 | Pure compatibility implemented/tested below; integrated snapshot/immutable-consumer proof pending T03/T09 |
-| T03 | 01, 06, 07, 09, 10, 13, 14 | V03 | NOT RUN / pending |
-| T04 | 07, 10, 14 | V04 | NOT RUN / pending |
+| T03 | 01, 06, 07, 09, 10, 13, 14 | V03 | Read-only sealed preview core and synthetic tests implemented; full readiness parity/integrated passage pending; continuation below |
+| T04 | 07, 10, 14 | V04 | Guarded adapter increment and synthetic/multiprocess tests implemented; full coverage closure pending; continuation below |
 | T05 | 01, 05, 06, 09–11, 14 | V05 | NOT RUN / pending |
 | T06 | 01, 02, 05, 08, 11, 13, 14 | V06 | NOT RUN / pending |
 | T07 | 01, 03, 06, 09, 12–15 | V07 | NOT RUN / pending |
@@ -292,3 +292,133 @@ from the previously green documentary SHA. Technical/human review requested for
 the bounded increment; continuation of T03–T09 is required before G-1 review for
 full delivery. No local Runtime readiness, product acceptance or Work Item
 completion is inferred from any test or CI outcome.
+
+
+## Continuation increment — sealed preview and publication guards
+
+This section supersedes the earlier continuation handoff, without retconning its
+receipts. G-1 remains incomplete. T01/T02 were reused, not reimplemented.
+
+Preflight: worktree clean at `a9ec90421452a6725460045b418fefe235f719ca`;
+remote branch and PR head matched. Read the exact handoff comment
+`6250512102`, #305, #327 comments/reviews/checks and open PR inventory. Only #327
+belongs to AXM-34. Approved amendment/Plan/Tasks diff against `dea54ea` is empty.
+Direct Linear issue/relations/comments reads confirmed In Progress, no blockedBy,
+and the exact Tasks approval. No provider narrative was imported. Canonical
+Execution remains unknown; no new Execution or transition. No delegation because
+strict model inferiority cannot be verified.
+
+Code increment `3c4cf2daf7475c8ea8ea790d5532b9cc348f47a4` adds the T03 core:
+`PreviewPolicyEdit`, its opaque proposal and separate safe DTO, the local
+`PolicyEditObserver`, and metadata-only Runtime evaluation. Selection happens once;
+the local adapter rechecks selected installation and manifest bytes while reading
+operational/configuration/catalog facts. The proposal seals full candidate via the
+existing EDIT digest plus dependency tokens, policy/diff, exact Workflow report,
+admission, scoped readiness and allowed effects. No fresh timestamp enters identity.
+Preview output omits manifest/context/name, paths and credential references.
+Dependencies are internal hashes, not portable fields or output paths.
+
+Readiness uses the proposed Project, existing `EvaluatePolicyV3` and
+`EvaluateReadiness`, with retained installation observations explicitly disclosed as
+`retained_installation_metadata_no_new_proof`. Work Item does not inherit Runtime
+blockers. No executable lookup/launch, auth/network/Provider call, credential-value
+read or proof acquisition is wired. Unknown live evidence remains
+`inventory_unavailable`; stable outer `runtime_policy_unavailable` and
+`runtime_resolution_blocked` accompany fixed inner reasons. This does not establish
+real machine readiness. `project validate` still uses its existing composition:
+full preview/validate/read-back observation parity remains to be integrated.
+
+The T04 adapter increment adds optional exact `PolicyDependencies` to existing
+`EditPublicationRequest`. With them, publication validates policy-only changes and
+installation bookkeeping preservation before I/O. Root → projects → installation
+locks remain held through portable commit. It checks dependencies before creating
+recovery state and again under the portable lock at `beforeCommit`, using lock-held
+readers rather than nested `Inspect`. Missing stores stay missing. Workflow
+compatibility is recomputed under protection. Legacy EDIT requests retain existing
+behavior. Application policy apply and legacy policy `PublicationRequest()` remain
+closed; no CLI flag or conversational route is exposed by this increment.
+
+| Dependency | Reader / token | Writer / coordination | Protected check / tests |
+| --- | --- | --- | --- |
+| Source manifest and object/ancestor identity | `policyFileToken`, selected snapshot and exact manifest CAS | `PortableStore.Update`, namespace/source locks | `policyGuard` inside `PortableStore.Update` beforeCommit; same-byte inode replacement and stale token tests |
+| Installation wire, identity, UUID/slug | `PolicyEditObserver`, `policyFileToken`, exact LocalExpected | `ReplaceRecord` / `ProjectEditPublisher`, state-root → projects → installation | exact bytes plus identity before commit; stale/identity replacement and policy-only-scope tests |
+| Operational state/absence | `observeOperationalRecord`, hash of exact revision/absence | `CommitOperational`, shared state-root chain | lock-held reread before commit; absent→present test |
+| Workflow catalog/index/selected definition or none | `readWorkflowCatalog`, hash of complete catalog including wire and documents | `PublishWorkflow`, portable namespace lock; selection writers use existing EDIT | catalog digest and exact compatibility under portable lock; changed catalog test |
+| Runtime/Profile config/absence and authorization epoch | `RuntimeProfileStore.inspectLocked`, existing exact Token | `RuntimeProfileStore.Publish` / recovery / epoch publication, state-root coordination | lock-held token reread through commit; missing-store→present and stale token tests |
+| Live executable/auth/capability observations | None consulted | None added | explicit unavailability; no freshness or proof claim |
+| Companion documents / unsupported sources | Existing single-manifest owned PortableStore only | No new writer/support | source confinement and complete-candidate decoding refuse unsupported inputs; full G-1 companion qualification remains open |
+
+Actual new tests in `internal/local/policy_edit_test.go` and
+`policy_edit_guard_test.go` cover deterministic safe preview, caller-copy isolation,
+unchanged portable/local bytes, absent stores, candidate model change instead of
+old-policy reload, corrupt configuration, unsafe/unsealed facts, canonical
+unconfigured blocker, positive guarded publication despite local config absence,
+all five stale tokens, controlled changes to each dependency immediately before
+commit, policy-only scope refusal, and two native processes with the same request
+(exactly one applied, one conflict; 15-second process deadline). Process tests ran
+three times. These are bounded synthetic tests, not full V03/V04 passage.
+
+Executed checks for this increment (exit 0 unless noted):
+
+- `go test ./internal/projectapp ./internal/runtimeapplication ./internal/local`.
+- `go test ./... && go vet ./...`: PASS, exit 0 (CLI 182.894s), before
+  the final policy/local prior-generation coherence check; targeted race/vet below
+  repeated after that three-line guard correction.
+- `go vet ./internal/projectapp ./internal/runtimeapplication ./internal/local`.
+- `go test -race ./internal/projectapp ./internal/runtimeapplication ./internal/local`
+  on the initial preview increment; local suite 100.846s.
+- `go test ./internal/local -run 'TestPolicyPublication' -count=3` and scoped vet.
+- `go test -race ./internal/local -run 'TestPolicy' -count=1` after guard additions;
+  repeated after canonical unconfigured-blocker ordering correction.
+- `./scripts/check-go-quality.sh format`, `./scripts/check-go-quality.sh tidy`.
+- `./scripts/validate-repository.sh .`: PASS; native conversational behavioral
+  scenarios explicitly skipped/unverified.
+
+Environment: Go 1.27.2, Linux 6.12.94+ x86_64, filesystem reported `ext2/ext3`.
+Native mechanisms are existing directory-descriptor locks, os.Root confinement,
+no-follow private-file checks and ADR-0007 file publication. This does not qualify
+macOS, every filesystem, hostile arbitrary same-UID races or power loss. No new
+dependency/tool installation. Existing standard-library codecs/SHA-256 and adopted
+lock/publication primitives suffice; no generic transaction engine was added.
+Gitleaks remains unavailable; staged sensitive-file checks remain required.
+
+At read-back of preview commit `3c4cf2d`, PR Checks run `39132593482` and
+delivery-metadata `39132593487` were SUCCESS. These results do not apply to later
+commits. Final guard commit and its CI are reported in the PR publication receipt.
+
+### Remaining work / next session
+
+T03 and T04 are **in progress**, not complete. Full V03 requires observation parity
+with canonical validate/read-back, broader Workflow/local-state/capability/effort
+cases, explicit actionable repair guidance and output-bound/security closure.
+Full V04 requires the approved exhaustive drift/writer/absence/content-counter and
+native supported/unsupported-source coverage, beyond this guard core. Do not
+start the dependent T05 exposure until these passage criteria are satisfied.
+T05 exact application replay/no-op/recovery, T06 observed read-back, T07 CLI/guided
+transport, T08 thin axiom-project route and T09 integrated/native Evidence remain
+unimplemented. No G1-AC01–15 full passage is claimed; the original gap matrix above
+remains binding, with V03/V04 partial evidence added here.
+
+```yaml
+objective: Complete G1-T01–G1-T09 in sole PR 327
+state: in_progress
+completed_units:
+  - T01/T02 pure units at 3b0ed19/4816372, unchanged in this continuation
+  - T03 sealed preview core at 3c4cf2d, with scoped synthetic checks
+  - T04 dependency guard core, see final publication receipt
+remaining_units:
+  - T03 readiness parity and exhaustive V03 closure
+  - T04 complete guard coverage and V04 closure, after T03
+  - T05 exact replay/no-op/recovery, after T04
+  - T06 observed canonical read-back, after T05
+  - T07 canonical CLI/guided transport, after T06
+  - T08 thin conversational route, after T07
+  - T09 integrated AC/V/native Evidence, after T08
+constraints:
+  - preserve approved amendment/Plan/Tasks and existing T01/T02
+  - no application policy apply or CLI exposure until guarded replay/read-back
+  - canonical Execution unknown; do not infer absence or create a competing one
+  - same branch and PR; normal pushes; no merge/release/acceptance/closure
+validation_status: see executed checks above and final PR receipt
+next_action: finish T03 parity/negative cases, then close T04 coverage before T05
+```

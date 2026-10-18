@@ -200,3 +200,16 @@ func TestPolicyPreviewRejectsUnsafeOrUnsealedFacts(t *testing.T) {
 		}
 	}
 }
+
+func TestPolicyPreviewUnconfiguredPolicyKeepsCanonicalBlocker(t *testing.T) {
+	f := newPolicyEditFixture(t)
+	intent := policyIntent(t, `{"runtimes":{"mode":"absent"},"modelProfiles":{"mode":"absent"},"runtimePreferences":{"mode":"absent"}}`)
+	proposal, failure := projectapp.PreviewPolicyEdit(context.Background(), f.policyPorts(t), intent)
+	if failure != projectapp.EditOK {
+		t.Fatal(failure)
+	}
+	row := proposal.Preview().Runtime[0]
+	if row.Code != "policy_unconfigured" || row.Blocker != projectapp.BlockerRuntimePolicyUnavailable {
+		t.Fatal("lost canonical unconfigured blocker", row)
+	}
+}

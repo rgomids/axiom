@@ -217,6 +217,10 @@ func observeOperational(target *os.Root, projectID string) (projectapp.Operation
 	default:
 		return projectapp.OperationalObservation{}, nil, ErrUnsafe
 	}
+	return observeOperationalRecord(target, projectID)
+}
+
+func observeOperationalRecord(target *os.Root, projectID string) (projectapp.OperationalObservation, []byte, error) {
 	if _, err := readPrivateFile(target, "installation.json"); err != nil {
 		if os.IsNotExist(err) {
 			return projectapp.OperationalObservation{}, nil, ErrNotFound

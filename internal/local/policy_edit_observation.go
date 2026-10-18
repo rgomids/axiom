@@ -47,6 +47,10 @@ func (o PolicyEditObserver) ObservePolicyEdit(ctx context.Context, selection pro
 		return facts, projectapp.EditStateUnsafe
 	}
 	facts.Dependencies.Operational = hexDigest([]byte("operational:" + facts.Operational.Revision))
+	facts.Dependencies.Installation, err = policyFileToken(filepath.Join(selection.LocalDestination, installationRecord))
+	if err != nil {
+		return facts, projectapp.EditStateUnsafe
+	}
 	runtimeStore, err := NewRuntimeProfileStore(o.Installation.root)
 	if err != nil {
 		return facts, projectapp.EditStateUnsafe
@@ -94,7 +98,10 @@ func policyWorkflowToken(catalog WorkflowCatalog) (string, error) {
 }
 
 func policySourceToken(source string) (string, error) {
-	target := filepath.Join(source, manifestName)
+	return policyFileToken(filepath.Join(source, manifestName))
+}
+
+func policyFileToken(target string) (string, error) {
 	var facts strings.Builder
 	current := volumeRoot(target)
 	parts := pathComponents(target)

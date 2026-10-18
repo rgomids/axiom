@@ -40,6 +40,7 @@ func ValidateEditAuthority(authority EditAuthority) EditFailure {
 // generations they replace. An empty PortableNext means the portable Project
 // is unchanged and is only re-verified against PortableExpected.
 type EditPublicationRequest struct {
+	PolicyDependencies  *PolicyEditDependencies
 	ProjectID           string
 	Slug                string
 	PortableDestination string
