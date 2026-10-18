@@ -235,3 +235,112 @@ Execution state. No merge/release/card closure or acceptance is recorded here.
 - `./scripts/delivery-issues.sh check-pr --title /tmp/axm33-plan-title.txt
   --body /tmp/axm33-plan-pr-body.md`: PASS, metadata declared, related/completes
   none. Consolidated scanner unavailable as stated above.
+
+## Tasks — decomposição e handoff documental — 2026-10-18
+
+Registro incremental; os checkpoints anteriores preservam sua história.
+[Plan rev.1](plan.md), SHA `2a9bdd0e62d6af127a3cce0f3d18141088a2aaa9`, foi
+posteriormente aceito para Tasks pela [decisão humana](https://github.com/rgomids/axiom/pull/329#issuecomment-6254539185)
+e [registro Linear](https://linear.app/rgomids/issue/AXM-33/guiar-configuracao-de-project-e-runtime-com-preflight-de-viabilidade#comment-3c387a40).
+[READY_FOR_tasks](https://linear.app/rgomids/issue/AXM-33/guiar-configuracao-de-project-e-runtime-com-preflight-de-viabilidade#comment-6f9f1aea)
+é gate observado do provider, não transição de Execution canônica. Spec rev.1
+aceita em `a99ba8d3afe49f47ab508422ed7ca70e2e553569` e Plan aceito mantêm seus
+bytes completos, inclusive Proposed histórico. O índice anota provenance posterior.
+
+### Entrada, classificação e fontes
+
+- Worktree limpo na branch existente, HEAD e PR #329 OPEN/Draft no SHA exato do
+  Plan aceito acima. Inventário completo de PRs abertos confirmou somente #329
+  para AXM-33. Não havia tasks.md para substituir; nenhum segundo PR criado.
+- Consultas GitHub ao comentário humano #6254539185 e Linear aos comentários
+  `3c387a40-b68b-4985-b2f7-582181248fe3` e
+  `6f9f1aea-f71a-41e5-af21-af8a4c182efe` confirmaram decisão e gate. AXM-33
+  permanece In Review, sem blockedBy formal observado. Canonical Execution,
+  revisão/gates/estágio derivados **unknown**; sem consulta de estado de produto,
+  reconstrução ou inferência a partir de PR/status/CI.
+- `git fetch origin main docs/axm-33-guided-configuration-specification
+  docs/axm-32-output-separation-specification`: sucesso. PR #328 continua
+  OPEN/Draft em `aba1c4d843e4b44a891531831aec2c79e95aae18`; ADR-0030 aceita
+  foi lida nesse snapshot, sem copiar implementação/estado privado do dono.
+  A aceitação e o checkpoint do dono não demonstram apresentação entregue.
+- Fontes incrementais: AGENTS/CONTRIBUTING, skills axiom-sdd/orchestrate/review/
+  document, políticas security/contribution/quality/documentation, governança
+  documental/Linear-GitHub, template de PR, Constituição, Spec/Plan/Evidence 009,
+  cláusulas pertinentes dos ADRs/contratos referenciados pelo Plan. Nenhuma
+  fonte externa foi tratada como instrução com autoridade superior ao pedido.
+- Publicação autorizada é síntese técnica original, referências bounded de
+  decisão e fatos sanitizados do alvo autorizado. Não importar conteúdo privado,
+  transcript, configuração real, paths de operador, credenciais ou auth output.
+  Nenhuma dependência instalada. Scanner consolidado `gitleaks` indisponível.
+- Sem delegação: não há prova verificável de modelo estritamente inferior ao
+  Orchestrator; inspeções e integração foram executadas nesta sessão.
+
+### Decomposição, revisão e limites
+
+[Tasks rev.1](tasks.md), **Proposed**, contém T01–T09: contratos, inventário/
+preflight, escolhas/preview, continuidade/read-back/recovery, testes sintéticos,
+integração AXM-32, regressão/paridade, C12 real gated e reconciliação/review.
+Cada unidade declara escopo provável, dependências, resultado, conclusão,
+validação e Evidence E01–E09. Matrizes GC-01–06 → P1–P6 → Tasks → Evidence →
+C01–C16 e casos → oráculos preservam a cobertura do Plan/Spec. Nenhuma tarefa de
+produto foi executada; E01–E09 designam registros futuros, não resultados atuais.
+
+Dependências causais são sequenciais até T07. Só preparação documental T09 é
+independente das observações T08 após T07; finalização aguarda resultado/blocker
+registrado. Ausência de pré-requisitos reais mantém T08 incompleta/C12 NOT_RUN;
+T09 pode produzir handoff de bloqueio, sem declarar validação real completa.
+G0–G4 distinguem aceite/authority, contratos, apresentação entregue, ambientes
+nativos e operação real autorizada. G1 aqui é rótulo documental de gate, não
+operação G-1 nem novo estado de produto.
+
+Revisão semântica/arquitetural/security do Orchestrator usando axiom-review:
+nenhum finding bloqueante identificado no escopo documental. Não é revisão
+independente ou aceite humano. Não há mudança de requisito, arquitetura,
+schema/wire, ownership, store ou authority. Lacuna/colisão material exige
+Clarification e eventual ADR aceita antes da parte afetada. Principais riscos:
+AXM-32/par compatível, instalação efetiva G-1, fontes de suporte/auth/proof e
+produtor real; nenhum deles é resolvido pela redação das Tasks.
+
+Todas as validações de produto/Runtime são **NOT_RUN**: unitárias/contratuais
+futuras, C01–C16 synthetic, paridade Codex/Claude, C12 real, regressões Go dos
+donos, auth/probes/inferência e E2E AXM-12/#278. Checks documentais de governança
+não provam comportamento. AXM-34/G-1 e AXM-32 conservam seus escopos/aceites,
+AXM-31 autonomia/authority; AXM-12 mantém E2E amplo/R-2/R-3 separados.
+
+### Handoff de Tasks
+
+Somente tasks.md, este append-only Evidence e índice são alterados. Nenhum
+artifact aceito, código, skill, teste de produto, manifesto, configuração,
+registry, Execution ou metadata de status/labels/relações foi modificado.
+Autoridade atual cobre apenas proposta documental, checks, commit/push na mesma
+branch, atualização do mesmo Draft PR e comentário bounded no AXM-33.
+
+Próxima ação: review/Clarification e **aceite humano de Tasks rev.1 no SHA exato
+publicado**. Implementação precisa autoridade própria; não iniciar T01 nesta
+sessão. Não há merge/release, fechamento ou aceite registrado. Retomar lendo
+head/diff do PR #329 e este checkpoint; revalidar o PR único e donos antes de
+mutações. SHA, push/head remoto, CI observado e link do comentário Linear serão
+registrados no PR/Linear após commit, sem tentativa de autorreferência no commit.
+
+### Verificações executadas nesta etapa
+
+- `./scripts/validate-repository.sh .`: PASS, exit 0. Verificações estruturais e
+  fixtures de governança/bootstrap, automation registry, label policy, 30 ADRs e
+  sensitive-files. Cenários comportamentais de Runtime: SKIP/UNVERIFIED explícito;
+  nenhuma suite Go de produto ou Runtime foi executada nesta sessão.
+- `python3 scripts/check-adr-governance.py .`: PASS, 30 ADRs, estrutura somente.
+- `python3 /tmp/axm33-check-tasks.py` (helper efêmero fora da árvore versionada):
+  PASS, 163 links/âncoras locais; fences/tabelas Markdown; nove IDs estáveis com
+  todos os campos; dependências ordenadas sem ciclos; seis linhas GC e dezesseis
+  casos NOT_RUN; identidade byte a byte Spec/Plan aceitos; prefixo histórico de
+  Evidence preservado; exatamente três arquivos autorizados no delta.
+- `git diff --check` e `git diff --cached --check`: PASS. Revisão completa dos
+  três documentos staged, sem dados privados/secrets observados ou escopo alheio.
+- `./scripts/check-sensitive-files.sh --staged .`: PASS.
+- `./scripts/delivery-issues.sh check-pr --title /tmp/axm33-tasks-title.txt
+  --body /tmp/axm33-tasks-pr-body.md`: PASS; related/completes none.
+- `command -v gitleaks`: indisponível; scanner consolidado NOT_RUN, não instalado.
+  Hygiene do repositório e revisão manual não alegam cobertura equivalente.
+
+Esses resultados são documentais, não E01–E09 de execução futura nem aceite.
+CI do SHA novo será observado após publicação; nenhum resultado anterior é herdado.

@@ -17,15 +17,20 @@ for planning, 2026-10-18**, fixed to `a99ba8d3afe49f47ab508422ed7ca70e2e553569` 
 and [Linear record](https://linear.app/rgomids/issue/AXM-33/guiar-configuracao-de-project-e-runtime-com-preflight-de-viabilidade#comment-e55b95ac).
 The Spec's historical Proposed header/bytes remain unchanged; this annotation
 records later provenance, not retroactive editing or canonical gate advancement.
-[Plan](009-guided-project-runtime-configuration/plan.md): **Proposed, rev.1,
-2026-10-18**, for [AXM-33](https://linear.app/rgomids/issue/AXM-33), under the
-[observed plan gate](https://linear.app/rgomids/issue/AXM-33/guiar-configuracao-de-project-e-runtime-com-preflight-de-viabilidade#comment-6cc861da).
-Composes existing owners for canonical inventory, early feasibility, informed
-partial opt-in, exact per-apply authority, read-back and scoped readiness.
-Preserves AXM-32 presentation ownership and G-1/G-2 contracts. C01–C16, native
-Codex/Claude and real C12 remain **NOT_RUN**; G-1 merged is not installed/proven.
+[Plan](009-guided-project-runtime-configuration/plan.md) rev.1: **Accepted for
+Tasks, 2026-10-18**, fixed to `2a9bdd0e62d6af127a3cce0f3d18141088a2aaa9` by
+[human decision](https://github.com/rgomids/axiom/pull/329#issuecomment-6254539185)
+and [Linear record](https://linear.app/rgomids/issue/AXM-33/guiar-configuracao-de-project-e-runtime-com-preflight-de-viabilidade#comment-3c387a40).
+Its historical Proposed header/bytes remain unchanged.
+[Tasks](009-guided-project-runtime-configuration/tasks.md): **Proposed, rev.1,
+2026-10-18**, under the [observed tasks gate](https://linear.app/rgomids/issue/AXM-33/guiar-configuracao-de-project-e-runtime-com-preflight-de-viabilidade#comment-6f9f1aea).
+Nine ordered units compose existing owners for inventory, early feasibility,
+progressive choices, exact authority, stale/read-back and bounded handoff;
+trace GC-01–06 to C01–C16 and gated validation/integration. AXM-32 owns presentation,
+AXM-34 owns G-1 policy editing, AXM-31 owns autonomy and AXM-12 owns broad E2E
+acceptance. C01–C16, native Codex/Claude parity and real C12 remain **NOT_RUN**.
 [Evidence/handoff](009-guided-project-runtime-configuration/evidence.md) separates
-historical specify checks from plan inspection/validation. Plan acceptance, Tasks,
+historical stages from Tasks checks. Exact-revision Tasks acceptance,
 implementation, Execution/gate mutations, merge and release remain separately gated.
 
 ## 007 — Configurable Project workflows
