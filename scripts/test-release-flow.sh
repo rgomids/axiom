@@ -1501,6 +1501,8 @@ stage_prepared_run() {
   mkdir -p "$root"
   cp -R "$temporary/run-$id/artifacts" "$root/artifacts"
   cp "$temporary/run-$id/evidence.txt" "$root/release-evidence.txt"
+  printf 'tag=%s\nrevision=%s\nvalidation_revision=%s\n' \
+    "$tag" "$rev" "$(git -C "$fixture" rev-parse origin/main)" >"$root/prepare-metadata.txt"
   "$fixture/scripts/release-notes.sh" --tag "$tag" --revision "$rev" --repo rgomids/axiom >"$root/release-notes.md"
   jq -n --arg path "$path" '{path: $path, event: "workflow_dispatch", head_branch: "main", status: "completed", conclusion: "success"}' \
     >"$state/runs/$id.json"
@@ -1525,9 +1527,10 @@ check 'status made no remote effect' test "$(mutations)" == 0
 
 stage_prepared_run 5151 v0.1.0-rc.1 "$c4" first
 release prepare --tag v0.1.0-rc.1 >"$temporary/prepare"
-check 'prepare dispatches only the preparation workflow' bash -c "[[ \$(grep -c '^workflow run release-artifacts.yml' '$state/ledger') == 1 ]] && grep -Fq 'revision=$c4' '$state/ledger'"
+check 'prepare dispatches only the preparation workflow with a pinned harness' bash -c "[[ \$(grep -c '^workflow run release-artifacts.yml' '$state/ledger') == 1 ]] && grep -Fq 'revision=$c4' '$state/ledger' && grep -Fq 'validation_revision=$c4' '$state/ledger'"
 check 'prepare makes no release, tag, asset or publication effect' test "$(release_effects)" == 0
 check 'prepare stops at the authority boundary' bash -c "grep -Fxq next_action=authorize_publication '$temporary/prepare' && grep -Fxq prepared_run=5151 '$temporary/prepare'"
+check 'status reports the exact validation harness pin' bash -c "grep -Fxq validation_revision=$c4 '$temporary/prepare'"
 for key in tag=v0.1.0-rc.1 "revision=$c4" channel=rc prerelease=true make_latest=false prepared_run=5151 publication_state=absent; do
   check "prepared envelope states $key" grep -Fxq "preview.$key" "$temporary/prepare"
 done
@@ -1568,6 +1571,10 @@ stage_prepared_run 8181 v0.1.0-rc.1 "$c4" first
 printf 'edited\n' >>"$state/runs/8181/axiom-release-v0.1.0-rc.1/release-notes.md"
 release status --tag v0.1.0-rc.1 --prepared-run 8181 >"$temporary/status"
 check 'prepared notes must be the revision notes' grep -Fq 'release notes differ' "$temporary/status"
+stage_prepared_run 8282 v0.1.0-rc.1 "$c4" first
+printf 'validation_revision=%s\n' "$c1" >"$state/runs/8282/axiom-release-v0.1.0-rc.1/prepare-metadata.txt"
+release status --tag v0.1.0-rc.1 --prepared-run 8282 >"$temporary/status"
+check 'a harness pin before the release source is refused' bash -c "grep -Fxq next_action=blocked '$temporary/status' && grep -Fq 'valid upgrade journey validation revision' '$temporary/status'"
 rm "$state/environment.json"
 expect_failure 'unprotected release environment blocks publication' 'publication is not the next step' \
   release publish --tag v0.1.0-rc.1 --revision "$c4" --prepared-run 5151 --preview-digest "$digest_value" --authorize-publication
@@ -1855,6 +1862,8 @@ mkdir -p "$rprepared"
 cp -R "$temporary/rset/artifacts" "$rprepared/artifacts"
 cp "$temporary/rset/evidence.txt" "$rprepared/release-evidence.txt"
 cp "$temporary/rset/notes.md" "$rprepared/release-notes.md"
+printf 'tag=v0.3.0\nrevision=%s\nvalidation_revision=%s\n' "$rsource" "$rcontrol" \
+  >"$rprepared/prepare-metadata.txt"
 "$rfix/scripts/release-corrections.sh" --source-revision "$rsource" --corrections-revision "$rcontrol" \
   --corrections-digest "$AXIOM_RELEASE_CORRECTIONS_DIGEST" >"$rprepared/release-recovery.txt"
 printf '{"path":".github/workflows/release-artifacts.yml","event":"workflow_dispatch","head_branch":"main","status":"completed","conclusion":"success"}\n' >"$state/runs/6161.json"
@@ -2579,7 +2588,7 @@ check 'merged Release PR: the release commit is discovered without operator SHAs
 check 'a new start is refused while a merged release awaits publication' bash -c "! (cd '$sfix' && ./scripts/release.sh start) 2>/dev/null"
 stage_prepared_run 5151 v0.2.0 "$srel" first
 release prepare >"$temporary/sprepare"
-check 'prepare dispatches the exact release commit and nothing else' bash -c "[[ \$(grep -c '^workflow run release-artifacts.yml' '$state/ledger') == 1 ]] && grep -Fq 'tag=v0.2.0 -f revision=$srel' '$state/ledger' && [[ \$(grep -c '^workflow' '$state/ledger') == 1 ]]"
+check 'prepare dispatches the exact release commit and pinned main harness' bash -c "[[ \$(grep -c '^workflow run release-artifacts.yml' '$state/ledger') == 1 ]] && grep -Fq 'tag=v0.2.0 -f revision=$srel' '$state/ledger' && grep -Fq 'validation_revision=$srel' '$state/ledger' && [[ \$(grep -c '^workflow' '$state/ledger') == 1 ]]"
 check 'prepare creates no tag or release' bash -c "[[ $(release_effects) == 0 ]] && [[ -z \$(git -C '$sremote' tag -l v0.2.0) ]] && [[ \$(ls '$state/releases') == 50.json ]]"
 check 'prepare stops at the authority boundary with the complete envelope' bash -c "grep -Fxq state=awaiting_publication_authority '$temporary/sprepare' && grep -Fxq next_action=authorize_publication '$temporary/sprepare' && grep -Fxq preview.revision=$srel '$temporary/sprepare' && grep -Fxq preview.tag=v0.2.0 '$temporary/sprepare' && grep -Fxq preview.make_latest=true '$temporary/sprepare' && grep -Fxq preview.prepared_run=5151 '$temporary/sprepare' && grep -Fxq preview.delivery_issues=5 '$temporary/sprepare' && grep -q '^preview.effect.tag=create_at_revision' '$temporary/sprepare' && grep -Eq '^preview_digest=[0-9a-f]{64}$' '$temporary/sprepare'"
 sdigest=$(awk -F= '$1 == "preview_digest" {print $2}' "$temporary/sprepare")

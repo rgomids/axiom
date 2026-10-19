@@ -199,7 +199,7 @@ release_commit_for() {
 # in a clean clone of $revision with that revision's scripts, and writes the
 # publication envelope to $temporary/envelope. On refusal it sets reason.
 prepared_envelope() {
-  local dir=$temporary/prepared clone=$temporary/source origin_url
+  local dir=$temporary/prepared clone=$temporary/source origin_url validation_revision
   [[ "$prepared_run" =~ ^[0-9]+$ ]] || { reason='prepared run id must be numeric'; return 1; }
   rm -rf -- "$dir" "$clone"
   mkdir "$dir"
@@ -207,6 +207,18 @@ prepared_envelope() {
     reason="cannot download axiom-release-$tag from run $prepared_run"
     return 1
   fi
+  [[ -f "$dir/prepare-metadata.txt" && ! -L "$dir/prepare-metadata.txt" ]] || {
+    reason='prepared set lacks regular preparation metadata'
+    return 1
+  }
+  validation_revision=$(sed -n 's/^validation_revision=\([0-9a-f]\{40\}\)$/\1/p' "$dir/prepare-metadata.txt" 2>/dev/null)
+  if [[ ! "$validation_revision" =~ ^[0-9a-f]{40}$ ]] \
+    || ! git -C "$repository_root" rev-list --first-parent origin/main | grep -Fx "$validation_revision" >/dev/null \
+    || ! git -C "$repository_root" merge-base --is-ancestor "$revision" "$validation_revision"; then
+    reason='prepared set lacks a valid upgrade journey validation revision on main'
+    return 1
+  fi
+  printf 'validation_revision=%s\n' "$validation_revision" >>"$temporary/status"
   origin_url=$(git -C "$repository_root" remote get-url origin)
   git clone --quiet --no-hardlinks "$repository_root" "$clone"
   git -C "$clone" checkout --quiet --detach "${repair_revision:-${corrections_revision:-$revision}}"
@@ -734,10 +746,12 @@ case "$command" in
     tag=$(value tag "$temporary/status")
     revision=$(value revision "$temporary/status")
     dispatched_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-    dispatch_args=(workflow run "$prepare_workflow" --repo "$repository" --ref main -f "tag=$tag" -f "revision=$revision")
+    validation_revision=$(value main "$temporary/status")
+    [[ "$validation_revision" =~ ^[0-9a-f]{40}$ ]] || fail 'current main revision is unavailable for validation pin'
+    dispatch_args=(workflow run "$prepare_workflow" --repo "$repository" --ref main -f "tag=$tag" -f "revision=$revision" -f "validation_revision=$validation_revision")
     if [[ -n "$corrections_revision" ]]; then dispatch_args+=(-f "corrections_revision=$corrections_revision" -f "corrections_digest=$corrections_digest"); fi
     gh "${dispatch_args[@]}" >/dev/null || fail 'preparation dispatch failed'
-    printf 'effect=workflow_dispatched workflow=%s tag=%s revision=%s publication=none\n' "$prepare_workflow" "$tag" "$revision"
+    printf 'effect=workflow_dispatched workflow=%s tag=%s revision=%s validation_revision=%s publication=none\n' "$prepare_workflow" "$tag" "$revision" "$validation_revision"
     run=$(find_run "$prepare_workflow" "$dispatched_at")
     [[ -n "$run" ]] || fail 'cannot find the preparation run'
     prepared_run=$(jq -r '.databaseId' <<<"$run")

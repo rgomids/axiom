@@ -36,6 +36,10 @@ release contracts and upgrade journeys.
    exact SHA. It is called by a daily scheduled and manually dispatchable
    `nightly.yml`, by the manual native qualification workflow, and by
    `release-artifacts.yml` at the release revision.
+
+> Superseded by [ADR-0031 — Pin upgrade-journey validation separately from release artifacts](0031-release-validation-harness-pin.md#decision), accepted 2026-10-18.
+> Only the upgrade-journey harness pin is superseded; release artifacts and all other native-suite validation remain bound to the release revision.
+
 4. Publication already accepts only a fully successful `release-artifacts.yml`
    run (`verify-prepared-release.sh`). A failed or missing native suite at the
    release revision therefore blocks preview and publication, even with a

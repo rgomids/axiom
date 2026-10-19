@@ -4,7 +4,8 @@ The change-aware classifier of Issue #243 (`classify-ci-changes.py`, its plan,
 row and conclusion artifacts) is retired by the
 [AXM-8](https://linear.app/rgomids/issue/AXM-8/mvp-run-and-coordinate-stage-agents-through-cli-and-runtime-skills) maintainer decision (Linear comment `247f9812-31d2-4c62-af63-7fd972d18f54`)
 recorded in [ADR-0029](../decisions/0029-minimal-pr-gate-native-qualification.md)
-(Proposed). Its history remains in Git and in the Issue #243 Evidence.
+(Accepted, with the journey harness pin refined by ADR-0031). Its history remains
+in Git and in the Issue #243 Evidence.
 
 ## Pull requests: two required checks
 
@@ -33,7 +34,9 @@ Reproduce locally with Go from `go.mod`:
 - `contracts`: release pipeline, native acceptance, release flow, delivery,
   recovery, Release PR dispatch and code health contracts.
 - `upgrade-journeys (linux|macos)`: owned N → candidate upgrades from public
-  release assets.
+  release assets. A release preparation builds the candidate from its release
+  SHA and runs the journey script from a separate, explicitly pinned descendant
+  of `main`; nightly and manual qualification use their single SHA for both.
 
 It runs from three callers; a failed job fails the calling run:
 
@@ -41,7 +44,7 @@ It runs from three callers; a failed job fails the calling run:
 | --- | --- | --- |
 | `nightly.yml` | daily schedule and `workflow_dispatch` | visible native regression signal on the default branch or a dispatched ref |
 | `native-acceptance-qualification.yml` | `workflow_dispatch` | non-publishing qualification; `verify-propagation` requires the native suite to succeed |
-| `release-artifacts.yml` | release preparation | gates publication: `verify-prepared-release.sh` accepts only a fully successful run, so a failed or missing native suite at the release revision blocks the preview and publication |
+| `release-artifacts.yml` | release preparation | gates publication: `verify-prepared-release.sh` accepts only a fully successful run, so a failed or missing native suite blocks the preview and publication; release artifacts and suites/contracts use the release revision, while only the journey harness uses its pinned validation revision |
 
 ## Release consumers of required checks
 

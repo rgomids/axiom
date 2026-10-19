@@ -100,14 +100,19 @@ Never infer or reuse a repair selection for another release without authority.
    - `prepare` (`state=release_pr_merged`, or an RC): run
      `scripts/release.sh prepare` (add `--tag <tag>` for an RC). It dispatches
      only the preparation workflow (`release-artifacts.yml`, read-only token,
-     no tag or release) for the exact release commit, waits for it,
-     re-verifies the prepared artifact set in a clean checkout of the revision
-     and prints the publication envelope. Preparation needs no publication
-     authority. Continue with step 3.
+     no tag or release) for the exact release commit. It separately pins the
+     latest successful `main` SHA as the upgrade-journey harness, while the
+     candidate archive, native suites and contracts remain at the release SHA.
+     It waits for the workflow, re-verifies the prepared artifact set in a
+     clean checkout of the release revision and prints the publication
+     envelope plus the prepared `validation_revision` metadata. Preparation
+     needs no publication authority. Continue with step 3.
    - `authorize_publication` (`state=awaiting_publication_authority`): go to step 3.
    - `verify_published` (`state=published`): go to step 5.
 3. **Authority boundary.** Show every `preview.*` line of the publication
-   envelope and the `preview_digest`. The envelope includes:
+   envelope and the `preview_digest`. The preparation output also shows
+   `validation_revision` from immutable metadata associated with `prepared_run`.
+   The envelope includes:
    - tag, revision, channel, prerelease and `make_latest`;
    - the prepared run and the release notes and `SHA256SUMS` digests;
    - every artifact with its SHA-256;
