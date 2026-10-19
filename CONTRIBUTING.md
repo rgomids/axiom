@@ -243,10 +243,7 @@ Every Pull Request has two required checks in the `main` ruleset
 
 Linux/macOS `go test -race`, release contracts and upgrade journeys run in the
 [native suite](.github/workflows/native-suite.yml): nightly, on manual dispatch
-and in every release preparation, where a failure blocks publication. Release
-preparation builds the candidate and runs the native suites/contracts at the
-release SHA; the upgrade journey script alone uses a separately pinned,
-first-parent descendant of `main`, recorded in the prepared metadata.
+and in every release preparation, where a failure blocks publication.
 
 CI has a read-only token and never publishes anything. Renaming a job changes a
 required check: update the ruleset file and the repository ruleset together.
@@ -562,8 +559,7 @@ PUBLISH  publish-release.yml: same artifact -> re-verify -> envelope == authoriz
 ```
 
 1. [`release-artifacts.yml`](.github/workflows/release-artifacts.yml), dispatched
-   from `main` with the tag, full source revision and full validation revision,
-   checks them with
+   from `main` with the tag and full revision, checks them with
    `release-preflight.sh`, builds the set with `build-release-archives.sh` from a
    clean checkout, verifies it with `verify-release-artifacts.sh` (closed
    artifact set, `SHA256SUMS`, provenance, exact revision), renders the release
@@ -572,8 +568,6 @@ PUBLISH  publish-release.yml: same artifact -> re-verify -> envelope == authoriz
    the same set and runs the native arm64 smoke. Either smoke failing fails
    preparation; JSON summaries are retained separately with the run. See the
    [smoke contract and residual risks](docs/development/prepared-artifact-smoke.md).
-   Upgrade journeys build the candidate from the release source but execute
-   their harness from the pinned validation revision.
    It has a read-only token and publishes nothing.
 2. `scripts/release.sh` downloads that artifact, re-verifies it with
    [`verify-prepared-release.sh`](scripts/verify-prepared-release.sh) in a clean

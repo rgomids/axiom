@@ -997,9 +997,8 @@ semantic version without the leading `v`:
 
 The manually dispatched `Release artifacts` workflow
 (`.github/workflows/release-artifacts.yml`) is the PREPARE phase of the
-[Release flow](#release-flow). It takes `tag`, `revision` and
-`validation_revision` inputs, runs from `main`, checks out the exact release
-revision, requires it to be clean and to pass
+[Release flow](#release-flow). It takes `tag` and `revision` inputs, runs from
+`main`, checks out that exact revision, requires it to be clean and to pass
 `release-preflight.sh`, builds the four supported rows with
 `build-release-archives.sh`, verifies the complete set, renders the release
 notes, and retains `artifacts/`, `release-evidence.txt`, `release-notes.md`,
@@ -1050,7 +1049,7 @@ The process, versioning and authority rules are in
 |---|---|---|
 | `.github/workflows/ci.yml` | every PR and dispatch; not on push to `main` | required checks only; read-only token; `release.sh` resolves a `main` commit's CI from the head of its merged PR when both trees are equal |
 | `.github/workflows/release-please.yml` | manual dispatch from `main` by `release.sh start` with `planned_version` and `main` (never a push) | requires `main` to still be the planned SHA at dispatch, re-runs `release-plan.sh` on it, then opens/updates the Release PR (`CHANGELOG.md`, `.release-please-manifest.json`); dispatches CI and `delivery-metadata` on the Release PR branch only when the PR records the planned version and its base is the validated SHA or an ancestor; never tags or releases |
-| `.github/workflows/release-artifacts.yml` | manual dispatch from `main` with `tag`, `revision` and `validation_revision` | PREPARE: preflight, build, verify, notes; retains the exact set as workflow artifact `axiom-release-<tag>`; upgrade harness uses its separately pinned validation SHA; read-only token; never publishes |
+| `.github/workflows/release-artifacts.yml` | manual dispatch from `main` with `tag` and `revision` | PREPARE: preflight, build, verify, notes; retains the exact set as workflow artifact `axiom-release-<tag>`; read-only token; never publishes |
 | `.github/workflows/publish-release.yml` | manual dispatch from `main` with `tag`, `revision`, `prepared_run`, `preview_digest` | PUBLISH: re-verifies that prepared artifact, requires its envelope digest to equal `preview_digest`, then draft, upload, read-back, publish and, for a stable release, the envelope's Issue effects; `publish` job gated by the `release` environment; never rebuilds |
 | `.github/workflows/delivery-metadata.yml` | PR opened, edited, reopened or synchronized (not Release PRs); dispatch by `release-please.yml` on the Release PR branch | validates the Conventional Commit title and `Related-Issues`/`Completes-Issues`, and refuses closing keywords; on dispatch passes only for the bot-authored Release PR head (`delivery-github.sh release-pr-head`); no token write, no secret |
 | `.github/workflows/delivery-sync.yml` | push to `main` | merge-time delivery projection: completing PRs move Issues to `Awaiting Release` (Issues stay open; one closed by GitHub at exactly that merge is reopened); a release commit records `Target Release`; with projection enabled, released Issues are reconciled to `Released` |
@@ -1136,8 +1135,7 @@ Prepare, then review the envelope:
 ./scripts/release.sh status --tag v0.1.0-rc.1 --revision <full-sha> --prepared-run <run_id>
 ```
 
-`prepare` dispatches `release-artifacts.yml` with the latest successful-`main`
-validation SHA (no publication), waits for it and
+`prepare` dispatches `release-artifacts.yml` (no publication), waits for it and
 prints the result of `status --prepared-run`: the prepared artifact is
 downloaded, re-verified with `verify-prepared-release.sh` in a clean clone at the
 revision, and its publication envelope is printed as `preview.*` lines with
@@ -1150,8 +1148,7 @@ authorization of that digest:
 gh run watch <run_id> --repo rgomids/axiom --exit-status
 ```
 
-The digest binds the tag, revision and prepared run; status also prints the
-prepared set's `validation_revision`, recorded in its metadata. `--tag`, `--revision`
+The digest binds the tag, revision and prepared run; `--tag`, `--revision`
 and `--prepared-run` are optional and, when given, must equal the envelope's.
 
 Without `--authorize-publication`, or when the envelope recomputed now differs

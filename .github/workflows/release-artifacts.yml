@@ -20,10 +20,6 @@ on:
         description: Full 40-character commit SHA on main to build
         required: true
         type: string
-      validation_revision:
-        description: Full 40-character main SHA containing the upgrade journey harness used for validation
-        required: true
-        type: string
 
       corrections_revision:
         description: Optional full SHA on main containing reviewed recovery corrections and release control scripts
@@ -63,11 +59,9 @@ jobs:
         env:
           RELEASE_TAG: ${{ inputs.tag }}
           RELEASE_REVISION: ${{ inputs.revision }}
-          VALIDATION_REVISION: ${{ inputs.validation_revision }}
         run: |
           # Strict shape before GITHUB_ENV; release-preflight.sh applies the full rules.
           [[ "$RELEASE_REVISION" =~ ^[0-9a-f]{40}$ ]]
-          [[ "$VALIDATION_REVISION" =~ ^[0-9a-f]{40}$ ]]
           [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?$ ]]
           {
             printf 'RELEASE_TAG=%s\n' "$RELEASE_TAG"
@@ -79,14 +73,6 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
           path: source
-      - name: Validate pinned journey harness ancestry
-        env:
-          VALIDATION_REVISION: ${{ inputs.validation_revision }}
-        run: |
-          git -C source fetch --quiet origin main
-          [[ $(git -C source rev-parse origin/main) == "$VALIDATION_REVISION" ]]
-          git -C source rev-list --first-parent origin/main | grep -Fx "$VALIDATION_REVISION" >/dev/null
-          git -C source merge-base --is-ancestor "$RELEASE_REVISION" "$VALIDATION_REVISION"
       - name: Checkout pinned recovery control
         if: inputs.corrections_revision != ''
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -142,7 +128,6 @@ jobs:
       - name: Verify complete artifact set and render notes
         env:
           GH_TOKEN: ${{ github.token }}
-          VALIDATION_REVISION: ${{ inputs.validation_revision }}
         working-directory: source
         run: |
           out="$RUNNER_TEMP/axiom-release"
@@ -156,13 +141,11 @@ jobs:
           {
             printf 'tag=%s\n' "$RELEASE_TAG"
             printf 'revision=%s\n' "$RELEASE_REVISION"
-            printf 'validation_revision=%s\n' "$VALIDATION_REVISION"
             printf 'workflowRun=%s/%s/actions/runs/%s\n' "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID"
             printf 'workflowRunAttempt=%s\n' "$GITHUB_RUN_ATTEMPT"
             printf 'workflowRef=%s\n' "$GITHUB_WORKFLOW_REF"
             printf 'go=%s\n' "$(go env GOVERSION)"
           } >"$out/prepare-metadata.txt"
-          printf 'validation_revision=%s\n' "$VALIDATION_REVISION" >>"$GITHUB_STEP_SUMMARY"
           [[ -z $(git status --porcelain --untracked-files=normal) ]]
           cat "$out/release-evidence.txt" >>"$GITHUB_STEP_SUMMARY"
       - name: Smoke exact prepared Linux artifact
@@ -189,13 +172,14 @@ jobs:
 
   native-suite:
     # Native Linux/macOS suites, release contracts and upgrade journeys at the
-    # exact preflighted revision. A failure fails this run, and
+    # exact preflighted revision; only the upgrade harness uses this workflow SHA.
+    # A failure fails this run, and
     # verify-prepared-release.sh refuses a run that did not succeed.
     needs: prepare
     uses: ./.github/workflows/native-suite.yml
     with:
       ref: ${{ inputs.revision }}
-      journey_ref: ${{ inputs.validation_revision }}
+      journey_ref: ${{ github.sha }}
 
   native-acceptance:
     needs: prepare

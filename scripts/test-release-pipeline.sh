@@ -173,9 +173,6 @@ while IFS= read -r line; do
 done < <(grep -E '^\s+(- )?uses:' "$workflow")
 [[ $(grep -c 'inputs.tag' "$workflow") == $(grep -c 'RELEASE_TAG: \${{ inputs.tag }}' "$workflow") ]]
 grep -Fq 'persist-credentials: false' "$workflow"
-grep -Fq 'validation_revision:' "$workflow"
-grep -Fq 'rev-parse origin/main) == "$VALIDATION_REVISION"' "$workflow"
-grep -Fq 'journey_ref: ${{ inputs.validation_revision }}' "$workflow"
 python3 "$repository_root/scripts/test-prepared-artifact-smoke.py"
 
 # Build-once transfer boundary: Linux smoke precedes retention; macOS depends
@@ -183,8 +180,6 @@ python3 "$repository_root/scripts/test-prepared-artifact-smoke.py"
 python3 - "$workflow" <<'PYWORKFLOW'
 import sys
 workflow = open(sys.argv[1]).read()
-native = open(sys.argv[1].replace('release-artifacts.yml', 'native-suite.yml')).read()
-assert "printf 'validation_revision=%s\\n' \"$VALIDATION_REVISION\" >>\"$GITHUB_STEP_SUMMARY\"" in workflow
 prepare, macos = workflow.split('\n  smoke-macos:\n')
 assert prepare.count('run: ./scripts/build-release-archives.sh') == 1
 assert prepare.index('name: Smoke exact prepared Linux artifact') < prepare.index('name: Retain the prepared set')
@@ -200,13 +195,6 @@ for section, row in ((prepare, 'linux-amd64'), (macos, 'macos-27-arm64')):
     assert '--row ' + row in section
     assert 'if: always()' in section
     assert 'name: axiom-release-smoke-' + row in section
-journeys = native.split('\n  upgrade-journeys:\n', 1)[1]
-assert "ref: ${{ inputs.journey_ref || inputs.ref }}" in journeys
-assert 'working-directory: source' in journeys and 'working-directory: harness' in journeys
-assert 'cache-dependency-path: source/go.sum' in journeys
-assert 'git -C harness for-each-ref' in journeys
-assert 'git -C source archive v0.1.0-poc.1' in journeys
-assert 'candidate release archives' in journeys
 PYWORKFLOW
 
 printf 'tested_revision=%s\n' "$revision"
