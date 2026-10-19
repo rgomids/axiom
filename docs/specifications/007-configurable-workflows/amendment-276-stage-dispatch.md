@@ -1,5 +1,15 @@
 # Specification 007 amendment — #276 public stage dispatch, capability proof and coordination state
 
+> **AXM-36 prospective reconciliation — 2026-10-19.**
+> [ADR-0032](../../decisions/0032-runtime-admission-without-certification.md#supersedes)
+> was [accepted at `b4baf106`](https://github.com/rgomids/axiom/pull/334#issuecomment-6278024276).
+> Only A2/A6 certification gates and tuple proof-reference obligations
+> change within [RA-6](amendment-axm36-runtime-admission.md#ra-6--verified-coupling-and-prospective-reconciliation).
+> Historical text and Evidence below are preserved. Profile ownership, safe
+> source inspection, identity, policy, authority and supervisor contracts remain.
+> The [Proposed Plan](plan-axm36-runtime-admission.md) specifies the bounded
+> structural retirement and successor-format design; it grants no implementation.
+
 ## Status
 
 **Accepted, 2026-10-11**, by [explicit maintainer acceptance](https://github.com/rgomids/axiom/pull/311#issuecomment-6109867861)

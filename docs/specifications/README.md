@@ -69,10 +69,12 @@ merge, release or product acceptance is inferred.
 
 [AXM-36 runtime admission amendment](007-configurable-workflows/amendment-axm36-runtime-admission.md)
 and [ADR-0032](../decisions/0032-runtime-admission-without-certification.md):
-**Proposed, 2026-10-19; specify only**. Defines admission without capability
-certification or a version registry, operational failure/recovery behavior and
-a bounded prospective conflict map. Human acceptance is pending before
-Plan/Implementation; current dispatch behavior and accepted history are unchanged.
+**Accepted, 2026-10-19**, at `b4baf106` by
+[explicit human decision](https://github.com/rgomids/axiom/pull/334#issuecomment-6278024276), including the bounded partial-supersession map.
+The [AXM-36 Plan](007-configurable-workflows/plan-axm36-runtime-admission.md)
+is **Proposed**: structural retirement, integrity/effort/dispatch contracts,
+history, operational diagnosis and RA-AC1–10 validation design. No Tasks,
+Implementation, real Runtime acceptance or canonical Execution transition.
 
 [AXM-31 operator autonomy amendment](007-configurable-workflows/amendment-axm31-operator-autonomy.md):
 **Accepted, 2026-10-17**, by [explicit human acceptance](https://github.com/rgomids/axiom/pull/325#issuecomment-6241938642)

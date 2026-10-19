@@ -2,6 +2,18 @@
 
 ## Status and authority
 
+Accepted on 2026-10-19 by [explicit maintainer acceptance](https://github.com/rgomids/axiom/pull/334#issuecomment-6278024276)
+of commit `b4baf106f02b89028149ff57b01bf960524692f8`, including RA-1–RA-6,
+RA-AC1–10 and the bounded partial-supersession map. The historical proposal
+text below remains unchanged. Its pending-acceptance statements and deferred
+`Supersedes` instruction describe revision 1 before the recorded decision;
+the accepted [ADR-0032](../../decisions/0032-runtime-admission-without-certification.md#supersedes)
+now owns effective supersession. The [AXM-36 Plan](plan-axm36-runtime-admission.md)
+is Proposed for separate review; no Implementation or real Runtime authority
+is implied. No canonical Execution was reconstructed or advanced.
+
+Historical status and authority (revision 1):
+
 Proposed, revision 1, 2026-10-19. **Specify only; human acceptance pending.**
 Implements no behavior and grants no dispatch authority. The product direction
 in [AXM-36](https://linear.app/rgomids/issue/AXM-36/simplificar-runtime-admission-e-tratamento-de-falhas-operacionais)

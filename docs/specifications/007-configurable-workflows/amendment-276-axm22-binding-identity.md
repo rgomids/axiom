@@ -1,5 +1,15 @@
 # Specification 007 amendment — AXM-22 Process mode and effort-source identity
 
+> **AXM-36 prospective reconciliation — 2026-10-19.**
+> [ADR-0032](../../decisions/0032-runtime-admission-without-certification.md#supersedes)
+> was [accepted at `b4baf106`](https://github.com/rgomids/axiom/pull/334#issuecomment-6278024276).
+> Only PM-5/PM-5a, PM-7, PM.4, PM-13 and the exact-identity declaration portions of BI-2/BI-2a and PM-2
+> change within [RA-6](amendment-axm36-runtime-admission.md#ra-6--verified-coupling-and-prospective-reconciliation).
+> Historical text and Evidence below are preserved. Profile ownership, safe
+> source inspection, identity, policy, authority and supervisor contracts remain.
+> The [Proposed Plan](plan-axm36-runtime-admission.md) specifies the bounded
+> structural retirement and successor-format design; it grants no implementation.
+
 ## Status
 
 **Approved implementation direction, 2026-10-14**, by explicit maintainer

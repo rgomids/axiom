@@ -2,6 +2,17 @@
 
 ## Status
 
+Accepted on 2026-10-19 by [explicit maintainer acceptance](https://github.com/rgomids/axiom/pull/334#issuecomment-6278024276)
+of this ADR and the AXM-36 amendment at commit `b4baf106f02b89028149ff57b01bf960524692f8`.
+The acceptance includes exactly the partial-supersession map below. This
+annotation records that decision; it grants no Implementation, dispatch,
+inference, merge, release or Execution acceptance. The separately authorized
+[Plan](../specifications/007-configurable-workflows/plan-axm36-runtime-admission.md)
+remains Proposed. The original proposal wording below is preserved as history;
+its pending-acceptance statements describe the pre-acceptance revision.
+
+Historical status:
+
 Proposed, 2026-10-19. Explicit human acceptance of this exact proposal and the
 [AXM-36 amendment](../specifications/007-configurable-workflows/amendment-axm36-runtime-admission.md)
 is pending before Plan/Implementation. The product direction is decided;
@@ -45,7 +56,13 @@ protection. Unknown/partial effects prevent automatic redispatch. Login and
 exit 0 alone never satisfy a Stage contract. CLI and thin skills expose the
 same sanitized Evidence, certainty and actionable next step.
 
-## Proposed partial supersession map
+## Supersedes
+
+Effective on the acceptance above, limited to the fragments listed below.
+All unrelated decisions remain in force. The following proposal introduction
+is historical; the map itself was explicitly accepted at the recorded SHA.
+
+Historical introduction:
 
 This section records **intended**, not effective supersession. In accordance
 with ADR-0018, no `Supersedes` section or annotation on an accepted ADR is added

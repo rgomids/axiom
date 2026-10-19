@@ -1,5 +1,15 @@
 # Issue #306 — Profile-owned effort and default Workflow onboarding
 
+> **AXM-36 prospective reconciliation — 2026-10-19.**
+> [ADR-0032](../../decisions/0032-runtime-admission-without-certification.md#supersedes)
+> was [accepted at `b4baf106`](https://github.com/rgomids/axiom/pull/334#issuecomment-6278024276).
+> Only PE-03/04/05/05a/06 proof, proof-reference and exact-version eligibility obligations
+> change within [RA-6](amendment-axm36-runtime-admission.md#ra-6--verified-coupling-and-prospective-reconciliation).
+> Historical text and Evidence below are preserved. Profile ownership, safe
+> source inspection, identity, policy, authority and supervisor contracts remain.
+> The [Proposed Plan](plan-axm36-runtime-admission.md) specifies the bounded
+> structural retirement and successor-format design; it grants no implementation.
+
 ## Status and authority
 
 **Accepted, 2026-10-11**, by [explicit maintainer acceptance](https://github.com/rgomids/axiom/pull/310#issuecomment-6109183466), at commit `823bce3141bae5e90951c5239181c46d88cfbfe9`, blob `4bc5b65830fb9ec885bdd53c2484f53c13a02b86`. [Acceptance receipt](../002-lingo-project-initialization/evidence-306-acceptance-tasks.md) preserves exact authority and history. Accepted D3 modifies future contracts through versioned migration; Workflow schema 1 and old Executions retain their meaning. Tasks preparation is authorized; this revision reconciles status/backlinks only, with no implementation/schema/fixture/vendor change.

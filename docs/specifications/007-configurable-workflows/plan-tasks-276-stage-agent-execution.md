@@ -1,5 +1,15 @@
 # Plan and Tasks — #276 run and coordinate stage agents through CLI and Runtime skills
 
+> **AXM-36 prospective reconciliation — 2026-10-19.**
+> [ADR-0032](../../decisions/0032-runtime-admission-without-certification.md#supersedes)
+> was [accepted at `b4baf106`](https://github.com/rgomids/axiom/pull/334#issuecomment-6278024276).
+> Only proof/registry producers, qualification tasks/fixtures and proof-dependent admission consumers
+> change within [RA-6](amendment-axm36-runtime-admission.md#ra-6--verified-coupling-and-prospective-reconciliation).
+> Historical text and Evidence below are preserved. Profile ownership, safe
+> source inspection, identity, policy, authority and supervisor contracts remain.
+> The [Proposed Plan](plan-axm36-runtime-admission.md) specifies the bounded
+> structural retirement and successor-format design; it grants no implementation.
+
 Current scope: [accepted decision dispositions](#accepted-decision-dispositions--2026-10-16) and [maintainer addendum](#implementation-scope-addendum--2026-10-15). Technical baseline: [2026-10-15 reconciliation addendum](#reconciliation-addendum--2026-10-15), including the v3 configuration overlay and current delivery governance. Historical status statements below retain their dated meaning.
 
 ## Accepted decision dispositions — 2026-10-16
