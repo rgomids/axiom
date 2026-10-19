@@ -486,6 +486,9 @@ func projectView(project local.ResolvedProject) *cli.ProjectView {
 	return view
 }
 func (s lifecycleService) Configure(ctx context.Context, input cli.ConfigureInput) cli.Result {
+	if input.PolicyDraft != nil && input.Project == "" {
+		return editFailure(projectapp.EditInvalidIntent, s.provenance)
+	}
 	if input.Project != "" {
 		return s.configureEdit(ctx, input)
 	}
@@ -644,6 +647,13 @@ func (s lifecycleService) configureEdit(ctx context.Context, input cli.Configure
 	for _, repository := range input.Repositories {
 		intent.RepositoryUpserts = append(intent.RepositoryUpserts, projectapp.RepositoryUpsert{Key: repository.Key, Path: repository.Path})
 	}
+	if input.PolicyDraft != nil {
+		draft, failure := projectapp.DecodePolicyDraft([]byte(*input.PolicyDraft))
+		if failure != projectapp.EditOK {
+			return editFailure(failure, s.provenance)
+		}
+		intent.Policy = &draft
+	}
 	return s.projectEdit(ctx, intent, editReplay{ProjectID: input.ProjectID, PreviewDigest: input.PreviewDigest, AuthorizeLocal: input.AuthorizeLocal})
 }
 
@@ -675,6 +685,10 @@ func (s lifecycleService) projectEdit(ctx context.Context, intent projectapp.Edi
 		Checkouts: local.DirectoryObserver{}, Manifest: manifest.Codec{}, Local: local.RecordCodec{},
 	}
 	publisher := local.ProjectEditPublisher{Installation: s.installation, Portable: s.portable, Fault: s.editFault}
+	if intent.Policy != nil {
+		policyPorts := projectapp.PolicyEditPorts{Edit: ports, Facts: local.PolicyEditObserver{Installation: s.installation, Portable: s.portable}}
+		return s.policyEditResult(projectapp.ApplyPolicyEdit(ctx, policyPorts, publisher, intent, authority))
+	}
 	outcome := projectapp.ApplyEdit(ctx, ports, publisher, intent, authority)
 	if outcome.Outcome == projectapp.EditRejected {
 		return editFailure(outcome.Failure, s.provenance)
@@ -737,6 +751,8 @@ func editFailure(failure projectapp.EditFailure, source provenance.Value) cli.Re
 		message, next = "Integration to remove is not declared", "Remove only declared Integration keys; run integration list"
 	case projectapp.EditRepositoryUnavailable:
 		message, next = "Repository path is unavailable", "Provide an existing absolute non-link Repository path"
+	case projectapp.EditPolicySchemaUnsupported:
+		message, next = "Project Runtime policy editing requires schema 2 or 3", "Legacy Project reads remain available; migration requires a separate approved operation"
 	case projectapp.EditCandidateInvalid:
 		message, next = "Resulting Project configuration is invalid", "Adjust the edit so the complete Project remains valid"
 	case projectapp.EditStateUnsafe:

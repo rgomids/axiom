@@ -104,7 +104,7 @@ printf '{"number":7,"html_url":"https://github.com/acme/core/issues/7","state":"
 	}
 	j.run(cli.ExitSuccess, "project", "show", "--selector", "journey")
 	validated := j.run(cli.ExitSuccess, "project", "validate", "--project", "journey")
-	if text(validated, "readiness", "effective") != "ready" {
+	if text(validated, "readiness", "effective") != "partial" || text(validated, "readiness", "runtime", "detail") != "inventory_unavailable" {
 		t.Fatalf("validate = %v", validated["readiness"])
 	}
 

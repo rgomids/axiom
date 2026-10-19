@@ -112,3 +112,18 @@ func TestWorkflowProfilesV3FailsClosed(t *testing.T) {
 		})
 	}
 }
+
+func TestWorkflowProfilesV3RetainsMultiRuntimeAuthoringGate(t *testing.T) {
+	state := v3PolicyState(t)
+	state.SchemaVersion = 1
+	state.Runtimes = project.Declaration[[]project.Runtime]{}
+	state.Runtime = project.Configured(project.Runtime{ID: fx.CodexRuntimeID})
+	p, issues := project.New(state)
+	if len(issues) != 0 {
+		t.Fatal(issues)
+	}
+	bindings, code := projectapp.ValidateWorkflowProfilesV3(schema2Workflow(t, fx.CodexHighProfileID), fx.Consumer(t, fx.CodexOnly()), p.State())
+	if bindings != nil || code != "project_policy_update_required" {
+		t.Fatal("legacy Project widened Workflow authoring permission")
+	}
+}

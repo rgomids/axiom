@@ -759,6 +759,7 @@ rewritten. No missing configuration selects Codex.
 
 `project configure` CREATE can author the policy from local candidates
 (`--runtime`, `--model-profile`, `--runtime-preference`; see Guided bootstrap).
+Existing installed v2/v3 Projects use the policy-only EDIT journey below.
 Alternatively, declare it in an authored `axiom.yaml` (`runtimes`,
 `modelProfiles`, optional `runtimePreferences`) and record that manifest with an
 exact binding for each declared Repository:
@@ -1486,6 +1487,56 @@ fail before any effect with the same blocker code as `category` plus a
 `preflight` payload; `workflow start` enforces the shared and Work Item blockers
 the same way and its Runtime requirement through the reviewed Runtime preview.
 Readiness never grants authority.
+
+## Edit an existing Project Runtime/Profile policy
+
+Use an explicit installed UUID/slug. `--policy-draft` accepts strict inline JSON,
+not a file path or raw YAML. `{}` reads the current policy. Omitting the replay
+tuple performs validation, dry-run and canonical preview only, with zero writes.
+
+```bash
+axiom --json project configure --project my-project --policy-draft '{}'
+axiom --json project configure --project my-project --policy-draft '{"runtimes":{"mode":"members","add":[{"id":"codex"}]},"modelProfiles":{"mode":"members","add":[{"key":"worker","runtimeRef":"codex","model":"approved-model"}]},"runtimePreferences":{"mode":"members","add":[{"role":"implementation","complexity":"high","modelProfileRef":"worker"}]}}'
+```
+
+The `policyEdit.preview` contains only portable policy, exact Workflow impact,
+scoped readiness, observed revisions, digest and allowed effects. It excludes
+full manifests, host paths, credential references and local bindings. Review it,
+then repeat the identical intent with all three returned authority inputs:
+`--project-id <uuid> --preview-digest <digest> --authorize-local`. A stale or partial
+tuple refuses. A policy no-op verifies exact authority and dependencies without
+publishing or changing revisions. Guided and structured modes use the same input
+and authorization; EDIT never infers consent from prompt text.
+
+Omitted groups preserve their declaration and members. Each supplied group uses
+one of `{"mode":"absent"}`, `{"mode":"unconfigured"}`,
+`{"mode":"replace","values":[]}`, or `{"mode":"members","add":[],"replace":[],"remove":[]}`.
+Runtime removal targets an ID string, Profile removal a key string, and preference
+removal an exact `{"role":"implementation","complexity":"high"}` pair. Adds
+require absence; replacements/removals require existence. Dependent removals or
+replacements must be explicit. Empty configured lists differ from absent and
+unconfigured. Bounds remain 8 Runtimes, 32 Profiles and 32 preferences; draft input
+is at most 256 KiB, depth 32 and 16,384 nodes, with 16/64/64 member operations.
+Do not combine policy intent with other EDIT or CREATE flags.
+
+Policy storage requires portable validity and exact active Workflow compatibility;
+missing/disabled/mismatched local Profiles do not delete portable declarations or
+prevent an otherwise authorized save. `project validate` and policy read-back use
+the same read-only metadata and policy rules for v2/v3. Executable, authentication
+and capability proofs remain uninspected (`inventory_unavailable`); the explicit
+Runtime resolution operation still acquires its own current observations.
+Readiness grants no authority. Follow `runtime.next` guidance to `axiom-runtime`
+for local setup, under separate authority.
+
+`policyEdit.outcome` preserves publication truth. `readBack.status` distinguishes
+`confirmed`, `drift`, `unverified` and `recovery_required`, with expected/observed
+revisions and any changed readiness snapshot. A confirmed portable commit followed
+by local bookkeeping or read-back failure is partial, never claimed rollback.
+Inspect recovery separately; do not reapply blindly. No policy edit rewrites
+Workflow/Execution/Stage Plan snapshots, Work Items, another Project or local
+Runtime/Profile configuration. Schemas 1/4/newer and unsupported source/layouts
+are refused without migration. Source publication remains confined to the recorded
+Project under the existing Lingo projects root.
 
 ## Maintain resource lifecycle (Issue #230)
 

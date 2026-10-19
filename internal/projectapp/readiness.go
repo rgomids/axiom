@@ -78,6 +78,7 @@ type CapabilityReadinessView struct {
 }
 
 type RuntimeReadiness struct {
+	Next   string `json:"next,omitempty"`
 	Status string `json:"status"`
 	Detail string `json:"detail,omitempty"`
 }
@@ -177,6 +178,10 @@ type RuntimeProbe interface {
 	Availability(context.Context, string) string
 }
 
+type SnapshotRuntimeProbe interface {
+	AvailabilityFor(context.Context, ReadinessSubject) string
+}
+
 type ProjectReadiness struct {
 	Projects      ReadinessProjects
 	Repositories  RepositoryProbe
@@ -191,18 +196,18 @@ const RuntimeNotEvaluated = "not_evaluated"
 
 // Evaluate gathers read-only observations and applies EvaluateReadiness.
 func (r ProjectReadiness) Evaluate(ctx context.Context, selector string) ReadinessReport {
-	return r.evaluate(ctx, selector, true)
+	return r.evaluate(ctx, selector, true, true)
 }
 
 // EvaluateOperation is the requirement-specific projection used before
 // effects: it observes only what the operation requires (the Work Item set
 // does not observe Runtimes) and returns that operation's readiness.
 func (r ProjectReadiness) EvaluateOperation(ctx context.Context, selector string, operation ReadinessOperation) (ReadinessReport, OperationReadiness) {
-	report := r.evaluate(ctx, selector, operation == OperationExecution)
+	report := r.evaluate(ctx, selector, operation == OperationExecution, false)
 	return report, report.Operation(operation)
 }
 
-func (r ProjectReadiness) evaluate(ctx context.Context, selector string, runtime bool) ReadinessReport {
+func (r ProjectReadiness) evaluate(ctx context.Context, selector string, runtime, snapshotRuntime bool) ReadinessReport {
 	if r.Projects == nil || r.Repositories == nil || r.Documentation == nil || r.Runtime == nil {
 		return blockedReport(BlockerProjectStateInvalid)
 	}
@@ -237,7 +242,11 @@ func (r ProjectReadiness) evaluate(ctx context.Context, selector string, runtime
 		// Missing portable intent needs no machine observation.
 		input.RuntimeCode = "policy_unconfigured"
 		if project.RuntimePolicyDeclared(state) {
-			input.RuntimeCode = r.Runtime.Availability(ctx, state.ID)
+			if probe, ok := r.Runtime.(SnapshotRuntimeProbe); ok && snapshotRuntime {
+				input.RuntimeCode = probe.AvailabilityFor(ctx, subject)
+			} else {
+				input.RuntimeCode = r.Runtime.Availability(ctx, state.ID)
+			}
 		}
 	}
 	return EvaluateReadiness(input)
@@ -340,6 +349,10 @@ func EvaluateReadiness(in ReadinessInput) ReadinessReport {
 	default:
 		report.Runtime = RuntimeReadiness{Status: "blocked", Detail: runtimeCode}
 		execution = append(execution, Finding{Code: BlockerRuntimeResolution, Detail: runtimeCode})
+	}
+
+	if runtimeCode != "" && runtimeCode != RuntimeNotEvaluated {
+		report.Runtime.Next = PolicyRuntimeGuidance(runtimeCode)
 	}
 
 	sources, _ := state.DocumentationSources.Value()

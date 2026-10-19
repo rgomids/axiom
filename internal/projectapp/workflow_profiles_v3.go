@@ -31,8 +31,6 @@ func ValidateWorkflowProfilesV3(d workflowdefinition.Definition, consumer runtim
 	for _, profile := range consumer.Configuration().ModelProfiles {
 		owners[profile.ID] = profile.RuntimeID
 	}
-	profiles, _ := p.ModelProfiles.Value()
-	runtimes, _ := p.Runtimes.Value()
 	bindings := []WorkflowProfileBindingV3{}
 	for _, stage := range d.Stages {
 		for _, agent := range stage.Agents {
@@ -52,27 +50,15 @@ func ValidateWorkflowProfilesV3(d workflowdefinition.Definition, consumer runtim
 				// Disabled, absent or non-allowlisted: never another Profile.
 				return nil, "project_policy_update_required"
 			}
-			runtimeAllowed := false
-			for _, r := range runtimes {
-				runtimeAllowed = runtimeAllowed || r.ID == intent.RuntimeID
-			}
-			projectAllowed := false
-			for _, profile := range profiles {
-				runtimeID, rok := profile.RuntimeRef.Value()
-				model, mok := profile.Model.Value()
-				projectAllowed = projectAllowed || profile.Key == id && rok && mok && profile.State.Form() != project.NotConfigured && runtimeID == intent.RuntimeID && model == intent.Model
-			}
-			if !runtimeAllowed || !projectAllowed {
+			if p.Runtimes.Form() != project.Present {
 				return nil, "project_policy_update_required"
 			}
-			if len(agent.RuntimeConstraints) > 0 {
-				match := false
-				for _, runtimeID := range agent.RuntimeConstraints {
-					match = match || runtimeID == intent.RuntimeID
-				}
-				if !match {
-					return nil, "profile_runtime_mismatch"
-				}
+			runtimeID, model, reason := portableProfileAssociation(p, id)
+			if reason != "" || runtimeID != intent.RuntimeID || model != intent.Model {
+				return nil, "project_policy_update_required"
+			}
+			if !policyRuntimePermitted(agent, runtimeID) {
+				return nil, "profile_runtime_mismatch"
 			}
 			bindings = append(bindings, WorkflowProfileBindingV3{StageID: stage.ID, AgentID: agent.ID, Profile: intent})
 		}

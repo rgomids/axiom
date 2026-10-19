@@ -6,7 +6,6 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 )
 
@@ -269,19 +268,21 @@ func TestPublishedV015RefusesForeignWorkflowWithoutContentEffects(t *testing.T) 
 	}
 }
 
-// Reconstruct only the replaced prefix, then verify every byte by the immutable
-// history digests before using it. No Git executable or new historical receipt
-// fixture is needed; receipt generation uses the existing integration contract.
 func seedPreOperatorAutonomyRoot(t *testing.T, service Service, root string) {
 	t.Helper()
-	previous := sharedSkillHistory[len(sharedSkillHistory)-2]
+	previous := skillSetRevision{}
+	for _, revision := range sharedSkillHistory {
+		if revision.skills["axiom-project"] == "14bd0419ff6b050bd2f8bd46a2b5ee2c6a23147e73bd6838f775bc577ab34800" && revision.skills["axiom-work-item"] == "c59e6193ae89a4a4f615728b4a78a79816f13db6d6de6f7716e81ff53df304f0" {
+			previous = revision
+		}
+	}
+
 	for _, name := range skillNames {
-		current, err := os.ReadFile(filepath.Join("testdata", "output-separation-v2", name, "SKILL.md"))
+		current, err := os.ReadFile(filepath.Join("testdata", "pre-operator-autonomy", name+".md"))
 		if err != nil {
 			t.Fatal(err)
 		}
-		prefix, _, _ := strings.Cut(string(current), "\n\n## Conversational continuity")
-		prefix = strings.ReplaceAll(prefix, ", `diagnostic`", "")
+		prefix := string(current)
 		if digestOf([]byte(prefix)) != previous.skills[name] {
 			t.Fatalf("%s replaced bytes do not match retained history", name)
 		}

@@ -11,7 +11,12 @@ import (
 
 func outputSeparationPrevious(t *testing.T) skillSetRevision {
 	t.Helper()
-	previous := sharedSkillHistory[len(sharedSkillHistory)-1]
+	previous := skillSetRevision{}
+	for _, revision := range sharedSkillHistory {
+		if revision.skills["axiom-project"] == "d676740525a254105521e1bf426284cc0a457830183da6ed6f8057dc7a8dfc26" {
+			previous = revision
+		}
+	}
 	if previous.skillSetVersion != "2" || previous.binaryCompatibility != "2" || len(previous.skills) != 4 {
 		t.Fatal("missing complete replaced presentation revision")
 	}

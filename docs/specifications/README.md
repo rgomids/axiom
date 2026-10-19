@@ -33,6 +33,38 @@ plans. Approval gates remain separate: an approved Specification permits plannin
 implementation requires an approved Plan/Tasks and explicit authorization for the
 bounded delivery unit. Technical merge does not imply human acceptance or next-Task authority.
 
+## 009 — Guided Project/Runtime configuration with feasibility preflight
+
+[Specification](009-guided-project-runtime-configuration/spec.md) rev.1: **Accepted
+for planning, 2026-10-18**, fixed to `a99ba8d3afe49f47ab508422ed7ca70e2e553569` by
+[explicit human decision](https://github.com/rgomids/axiom/pull/329#issuecomment-6254246774)
+and [Linear record](https://linear.app/rgomids/issue/AXM-33/guiar-configuracao-de-project-e-runtime-com-preflight-de-viabilidade#comment-e55b95ac).
+The Spec's historical Proposed header/bytes remain unchanged; this annotation
+records later provenance, not retroactive editing or canonical gate advancement.
+[Plan](009-guided-project-runtime-configuration/plan.md) rev.1: **Accepted for
+Tasks, 2026-10-18**, fixed to `2a9bdd0e62d6af127a3cce0f3d18141088a2aaa9` by
+[human decision](https://github.com/rgomids/axiom/pull/329#issuecomment-6254539185)
+and [Linear record](https://linear.app/rgomids/issue/AXM-33/guiar-configuracao-de-project-e-runtime-com-preflight-de-viabilidade#comment-3c387a40).
+Its historical Proposed header/bytes remain unchanged.
+[Tasks](009-guided-project-runtime-configuration/tasks.md) rev.1: **Accepted,
+2026-10-18**, fixed to `6d5046440a2638630bfb729dfd8cff7184d74e23` by
+[human decision](https://github.com/rgomids/axiom/pull/329#issuecomment-6254729819).
+Historical accepted bytes remain unchanged. Implementation guidance composes the
+four existing owners for inventory/preflight, progressive choices, exact authority,
+stale/read-back and bounded handoff. Contract tests and bounded Codex synthetic
+decision observations pass; full behavioral validation is incomplete.
+[Resume r2 observations](009-guided-project-runtime-configuration/observations-r2.md)
+cover C01–C16 snapshots and a dialogue with replayed history, with explicit limits.
+[Resume r3](009-guided-project-runtime-configuration/evidence.md#retomada-r3--2026-10-18)
+adds synthetic JSON fact/authority/read-back contracts and package rollback checks
+for both adapters. AXM-32 is read-only compatibility input; activation of the
+combined binary/skill pair remains dependent on its compatible delivery.
+Native parity, complete tool conversation and real C12 remain NOT_RUN, delegated
+to Rafael by his 2026-10-18 decision; they do not block this synthetic delivery.
+AXM-34 and AXM-12 retain ownership. Evidence records T01–T09, checks and limits;
+independent review and human acceptance remain pending. No Execution advancement,
+merge, release or product acceptance is inferred.
+
 ## 007 — Configurable Project workflows
 
 [AXM-31 operator autonomy amendment](007-configurable-workflows/amendment-axm31-operator-autonomy.md):
@@ -233,6 +265,25 @@ Issue #231 adds the [Project bootstrap v3 and readiness contract](002-lingo-proj
 and [local implementation Evidence](002-lingo-project-initialization/evidence-issue-231.md):
 portable schema 3 context, local documentation bindings, guided bootstrap and
 operation-scoped readiness. V1/v2 remain supported without rewrite.
+
+G-1 / [#305](https://github.com/rgomids/axiom/issues/305),
+[AXM-34](https://linear.app/rgomids/issue/AXM-34):
+[existing Project Runtime/Profile policy amendment](002-lingo-project-initialization/amendment-305-existing-project-runtime-policy.md)
+is **Approved for planning** (SDD specify), fixed to SHA
+`6a5b00e43e7a575bfde4e25d2a3110602d9a414c` by
+[human approval](https://github.com/rgomids/axiom/pull/327#issuecomment-6245855021).
+[Technical Plan](002-lingo-project-initialization/plan-305-existing-project-runtime-policy.md)
+is **Approved for Tasks**, fixed to SHA
+`c2118649803a086cab67588a6d7547ac721e7a71` by
+[human approval](https://github.com/rgomids/axiom/pull/327#issuecomment-6246039562).
+[Tasks](002-lingo-project-initialization/tasks-305-existing-project-runtime-policy.md)
+are **Approved for implementation**, fixed to SHA
+`dea54ea39f87f3a8cbe9c43fbda3e302e55402ac` by
+[human approval](https://github.com/rgomids/axiom/pull/327#issuecomment-6246118505).
+[Implementation Evidence and progress](002-lingo-project-initialization/evidence-305-existing-project-runtime-policy.md)
+records T01 pure draft/candidate and T02 portable Workflow coverage, with
+T03–T09 pending and a continuation handoff. Historical approved
+bytes remain preserved; no Execution transition or product acceptance is recorded.
 
 Implementation Evidence:
 [T01](002-lingo-project-initialization/evidence-t01.md),
