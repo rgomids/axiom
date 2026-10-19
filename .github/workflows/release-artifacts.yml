@@ -172,12 +172,14 @@ jobs:
 
   native-suite:
     # Native Linux/macOS suites, release contracts and upgrade journeys at the
-    # exact preflighted revision. A failure fails this run, and
+    # exact preflighted revision; only the upgrade harness uses this workflow SHA.
+    # A failure fails this run, and
     # verify-prepared-release.sh refuses a run that did not succeed.
     needs: prepare
     uses: ./.github/workflows/native-suite.yml
     with:
       ref: ${{ inputs.revision }}
+      journey_ref: ${{ github.sha }}
 
   native-acceptance:
     needs: prepare
