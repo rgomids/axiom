@@ -26,6 +26,15 @@
   Projects created by `project configure` carry no policy and block until an
   authored policy is installed.
 
+## [0.20.0](https://github.com/rgomids/axiom/compare/v0.19.0...v0.20.0) (2026-10-19)
+
+
+### Features
+
+* **cli:** separate canonical results, terminal output and host conversation ([#328](https://github.com/rgomids/axiom/issues/328)) ([bbee947](https://github.com/rgomids/axiom/commit/bbee9479586a7ffad1863f235ef5902df6fc427c))
+* **project:** edit Runtime policy with exact authority and read-back ([#327](https://github.com/rgomids/axiom/issues/327)) ([000936e](https://github.com/rgomids/axiom/commit/000936e5de71169ff563b236bcf17c3cfabc146c))
+* **project:** guide configuration with early feasibility preflight ([#329](https://github.com/rgomids/axiom/issues/329)) ([f9b2002](https://github.com/rgomids/axiom/commit/f9b2002d4a859ff53baf76166fae30097c5e2413))
+
 ## [0.19.0](https://github.com/rgomids/axiom/compare/v0.18.0...v0.19.0) (2026-10-18)
 
 
