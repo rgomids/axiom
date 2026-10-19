@@ -143,10 +143,10 @@ func TestOperatorBudgetAndHandoffInstructionContracts(t *testing.T) {
 	}
 }
 
-func TestOperatorAuxiliaryPresentationContracts(t *testing.T) {
+func TestOperatorConversationalPresentationContracts(t *testing.T) {
 	for _, name := range []string{"axiom-project", "axiom-workflow", "axiom-work-item"} {
 		wire, _ := fs.ReadFile(skillFiles, "skills/"+name+"/SKILL.md")
-		for _, required := range []string{"Present that Markdown exactly as returned", "After that intact result", "Auxiliary explanation", "must not hide refusal", "Authority\nalways refers to the canonical preview", "Do not\nrepeat an operation", "real host support", "ordered\ntextual list", "Neither view changes definition\nor selection", "same already observed result", "`diagnostic`"} {
+		for _, required := range []string{"Use leading `axiom --json` internally", "The host writes the normal conversational response itself", "Preserve every material", "Authority always refers to the canonical preview", "Do not repeat an operation", "real host support", "ordered\ntextual list", "Neither view changes definition\nor selection", "same already observed result", "`diagnostic`"} {
 			if !strings.Contains(string(wire), required) {
 				t.Errorf("%s missing %q", name, required)
 			}

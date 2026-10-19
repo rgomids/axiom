@@ -11,7 +11,7 @@ import (
 // The canonical renderers present a classified result; they never classify one
 // or hardcode provenance.
 func TestCompletionRenderersDoNotClassifyOrHardcodeVersion(t *testing.T) {
-	renderers := map[string][]string{"completion.go": {"renderCompletionJSON"}, "presentation.go": {"presentEvent", "renderMarkdownView", "writeLiteralPayload", "writeChildren", "writeItem", "inlineValue", "inlineObject"}}
+	renderers := map[string][]string{"completion.go": {"renderCompletionJSON"}, "presentation.go": {"presentEvent", "renderTerminal", "writeTerminalField", "writeTerminalValue", "terminalText"}}
 	for name, functions := range renderers {
 		file, err := parser.ParseFile(token.NewFileSet(), filepath.Join(name), nil, parser.ParseComments)
 		if err != nil {

@@ -1,0 +1,6 @@
+Interrupted — outcome not confirmed (interrupted)
+operation completed
+next: Resume execution
+references:
+  [1]: execution:123
+provenance: {product: Axiom, version: development, revision: abc123def456, sourceState: clean}

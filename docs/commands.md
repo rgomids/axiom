@@ -51,7 +51,7 @@ expected revision, `stageId`, `workflowRef` and `plan.digest`; provisional
 `approved: true` never grants authority. Synthetic R-1 evidence does not establish
 native operability (R-2) or human MVP acceptance (R-3), deferred to #278.
 
-Workflow authoring uses the same canonical Markdown presentation as other
+Workflow authoring uses the same native terminal presentation as other
 commands. Use `--json` when machine-readable output is required; both views
 preserve the complete `workflowAuthoring` payload and exact preview values.
 
@@ -1263,24 +1263,24 @@ back to the normal flow. See the
 
 ## CLI output and help
 
-Every canonical result is human-first ([#232](https://github.com/rgomids/axiom/issues/232)).
-By default, direct Lingo use and both Runtime skills print deterministic
-Markdown rendered from the exact canonical JSON event of the same command:
-a level-3 heading that names the status beside its canonical code (for example
-``### Partially completed — recovery required (`partial`)``), the
-Axiom-authored result, then `Next`, `References`, `Details` and scalar payload
-fields, one `#### <payload>` section per structured operation payload in JSON
-order, and a `Provenance` footer. Every JSON key and value appears in the human
-view; Provider-authored and local values are printed literally in code spans or
-fenced blocks, with terminal control and bidirectional-override characters
-escaped; a code span uses the shortest backtick fence absent from its value,
-so literal values stay near their JSON size. Nothing is dropped or truncated:
-if a readable view would exceed four times the JSON bound, the human view keeps
-the same summary and exit code and prints each payload as its exact canonical
-JSON in a fenced block under a `(canonical JSON)` heading, a view that provably
-fits that bound. No model call formats a result. Scripts and automation
-use the stable JSON surface by putting `--json` before the command; `--human`
-selects the default explicitly:
+Canonical MVP results use native terminal text by default, including TTY,
+pipes and redirection ([Spec 008](specifications/008-output-separation/spec.md),
+[ADR-0030](decisions/0030-canonical-results-terminal-and-host-presentation.md)).
+The renderer projects the same canonical event once: status label/code, result,
+next/references/details, labelled operation payloads and provenance. It generates
+no Markdown headings, emphasis, tables or fenced JSON fallback. Deep collections
+use compact native delimiters; values and actionable IDs/digests are not truncated.
+Control and bidi characters remain visible as escapes. Output is static plain
+text for every terminal capability, width and `NO_COLOR` setting (including an
+empty value); no color, cursor movement or model call is required.
+
+Scripts, automation and installed skills must request the stable typed JSON
+surface with leading `--json`. There is no automatic JSON selection for non-TTY
+stdout. `--human` explicitly selects the default; the programmatic Go `Run`
+entrypoint retains JSON. Help remains deterministic human text even with JSON
+selected. Conflicting/repeated/misplaced output flags remain input errors.
+Short/broken writes return failure, even if the underlying operation confirmed
+an effect; they do not roll back or repeat the operation.
 
 ```bash
 axiom project show --selector my-project
@@ -1328,9 +1328,35 @@ typed payloads until their authorized MVP Tasks migrate them. Exit codes remain
 
 Skills collect missing selectors conversationally, but Lingo retains validation,
 repository resolution, workflow ordering, and external-mutation authority. Skills
-invoke the default human view and present Lingo's Markdown as returned, reading
-follow-up values such as a preview `digest` from their labelled fields; they use
-`--json` only when the user explicitly asks for machine-readable output.
+request leading `--json` internally on natural and explicit entry paths. The
+already operating host synthesizes a concise response from typed data: objective,
+effective result, material blockers/risks/decision and supported next action.
+It preserves every material exception and exact actionable token without a
+mandatory payload dump, literal relay or Auxiliary paragraph. Explicit raw-JSON
+requests receive the same original JSON unchanged; no operation is repeated.
+Malformed, incomplete, unsupported, wrong-target or contradictory observations
+stop dependent actions and require bounded read/handoff. Missing facts are
+unknown; neither a summary nor completion success grants authority or acceptance.
+
+For `project validate`, read `readiness.structure`, `effective` and each scoped
+operation independently. Completion success/0, valid structure, effective partial,
+Work Item ready and Execution blocked can coexist. Missing Runtime policy is a
+supported explanation only with typed `runtime_policy_unavailable` in that
+operation's blockers; `runtime_resolution_blocked` alone does not identify it.
+
+The embedded presentation contract is skill-set/binary compatibility `3`.
+Upgrade the binary and all four skills together in each host root. Version-2
+owned bytes/receipts remain recognized for protected upgrade; modified or foreign
+content is preserved and requires inspection. Mixed pairs are not ready merely
+because their JSON parses. Before upgrading, retain the previous binary and an
+exact backup of each owned skill root including its receipt. To roll back, stop
+use of the pair, preserve the upgraded root separately, restore the complete
+previous root to its original path and use its matching binary. Verify status
+and all four digests before resuming; do not force an old installer to overwrite
+new or user-modified content. Claude receipts bind the original root path.
+Operational state is not removed or replayed by pair restoration. Historical
+[#232](https://github.com/rgomids/axiom/issues/232) and AXM-31 acceptance remains
+valid; Spec 008 prospectively replaces their presentation requirements.
 
 ## Resolve a configured Project globally
 

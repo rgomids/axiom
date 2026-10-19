@@ -1,0 +1,6 @@
+Partially completed — recovery required (partial)
+operation completed
+next: Retry local persistence
+references:
+  [1]: provider:github#7
+provenance: {product: Axiom, version: development, revision: abc123def456, sourceState: clean}

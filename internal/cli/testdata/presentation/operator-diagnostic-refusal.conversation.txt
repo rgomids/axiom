@@ -1,0 +1,1 @@
+Project editing was refused (validation_failure): edit_project_not_found. Authority not established. Not observed: Exact target and revision. Missing: Canonical Project identity. Inspect Projects read-only before dependent actions.

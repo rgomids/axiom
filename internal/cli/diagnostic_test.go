@@ -22,7 +22,7 @@ func TestOperatorDiagnosticRenderingIsAdditiveAndBounded(t *testing.T) {
 		if presentEvent(&human, humanOutput, c.Status(), wire, 1<<20) != ExitFailure {
 			t.Fatal("changed refusal exit")
 		}
-		rendered, err := renderMarkdown(wire)
+		rendered, err := renderTerminal(wire)
 		if err != nil || human.String() != string(rendered) {
 			t.Fatal("JSON/Markdown diverged")
 		}

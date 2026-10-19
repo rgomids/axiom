@@ -1,5 +1,29 @@
 # Specifications
 
+[Specification 008](008-output-separation/spec.md) received
+[explicit human acceptance](https://github.com/rgomids/axiom/pull/328#issuecomment-6246060142)
+at `18d29a6c5446357defb2563483cfac180dcc4043` on 2026-10-18.
+[ADR-0030](../decisions/0030-canonical-results-terminal-and-host-presentation.md)
+is **Accepted (2026-10-18)** by [explicit maintainer decision](https://github.com/rgomids/axiom/pull/328#issuecomment-6250321308).
+The [later R1 decision](https://linear.app/rgomids/issue/AXM-32/separar-saida-do-lingo-da-apresentacao-conversacional-da-ia#comment-f5c308fd)
+confirms that [Clarify](008-output-separation/clarify.md)'s inventory satisfies the
+pre-Plan requirement for planning only; universal/dynamic coverage remains
+unverified. G1/G2 remain conditional watch items, not preventive Plan preconditions.
+The [Plan](008-output-separation/plan.md) was **Accepted (2026-10-18)** at
+`962adfdcd22384c681613810b78022469ee813cb` by
+[explicit human decision](https://github.com/rgomids/axiom/pull/328#issuecomment-6253809891),
+authorizing only SDD Tasks preparation. Its historical Proposed bytes are preserved.
+[Tasks](008-output-separation/tasks.md) were **Approved (2026-10-18)** at
+`2efacfdb3957c458df84514b0e2a4ac532cae4c8` with
+[explicit implementation authority](https://github.com/rgomids/axiom/pull/328#issuecomment-6253982994).
+The [r4 decision](https://github.com/rgomids/axiom/pull/328#issuecomment-6255274772)
+limits implementation validation to synthetic fixtures. D1–D3 and accepted
+behavioral requirements remain unchanged. [Implementation Evidence](008-output-separation/evidence.md#resume-r4--synthetic-implementation-authority--2026-10-18)
+records T01–T08, deterministic checks and limits. Real Execution, native
+conversation/C12 and final human acceptance remain **NOT_RUN**, delegated to
+Rafael; independent review is pending. Historical Proposed artifact text is preserved.
+
+
 Issue [#306](https://github.com/rgomids/axiom/issues/306): [Plan](002-lingo-project-initialization/plan-306-local-runtime-profiles.md), [Spec 002 amendment](002-lingo-project-initialization/amendment-306-local-runtime-authoring.md), [mandatory design Security Review](002-lingo-project-initialization/security-review-306-local-runtime-profiles.md), [Spec 007 effort/onboarding amendment](007-configurable-workflows/amendment-306-profile-effort-onboarding.md) and ADR-0023/0024 are **Accepted, 2026-10-11**, by [exact six-artifact acceptance](https://github.com/rgomids/axiom/pull/310#issuecomment-6109183466) at `823bce3`.
 [Acceptance/Tasks Evidence](002-lingo-project-initialization/evidence-306-acceptance-tasks.md) preserves blobs and historical [Planning Evidence](002-lingo-project-initialization/evidence-306-planning-reconciliation.md).
 [Tasks](002-lingo-project-initialization/tasks-306-local-runtime-profiles.md) received [explicit implementation authorization](https://github.com/rgomids/axiom/pull/310#issuecomment-6109821395); [unified PD-OWN](https://github.com/rgomids/axiom/pull/310#issuecomment-6109651213) assigns all 23 T/X Tasks to #306, with independent local T16 and transversal X07 checkpoints. The approved Tasks bytes remain historical. [Implementation Evidence](002-lingo-project-initialization/evidence-306-implementation.md) records local/synthetic/native results, exact implementation-head CI and separate external acceptance gates.

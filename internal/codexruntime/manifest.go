@@ -10,8 +10,8 @@ import (
 )
 
 const (
-	SkillSetVersion     = "2"
-	BinaryCompatibility = "2"
+	SkillSetVersion     = "3"
+	BinaryCompatibility = "3"
 	receiptName         = ".axiom-skill-set.receipt"
 )
 
@@ -273,6 +273,20 @@ var sharedSkillHistory = []skillSetRevision{
 		"axiom-runtime":   "7a3d90f74a9e5eb3f6580ca0bb9f55b8983db2fda9ea69feca2bae72499fef35",
 		"axiom-work-item": "965df8b3435c4afa3fd674ceae86ce98ecae405440a00854478610c74ef18c39",
 		"axiom-workflow":  "c7c5dec9abcf5dd133036ef97c69203b52ca7d6aee1aa50dbf9d3616680f4773",
+	}},
+	// Retain the origin/main skill set replaced by this merge.
+	{skillSetVersion: "2", binaryCompatibility: "2", skills: map[string]string{
+		"axiom-project":   "71346c28efa3f0acdd1bebc55d8d803af347d7fbf40c82f5dbc97253cf06f712",
+		"axiom-runtime":   "3e563db2e8c02765cbafdda19fd284e81a343849aa44b9ce30f5650c9a947f98",
+		"axiom-work-item": "06467f4c06598dcb872cc8710521e350f5435f1161c07079e98a612d4676adaf",
+		"axiom-workflow":  "223b0debe6ab24a2c37bcc7ac0c99ab24322d3d24e25e865fb6db80ce41167a9",
+	}},
+	// Retain the HEAD skill set replaced by this merge.
+	{skillSetVersion: "3", binaryCompatibility: "3", skills: map[string]string{
+		"axiom-project":   "5c282cedb7ad38f0cc2997ca3a28fa1c996ba7f8e3fe3b0d2efc9d570042961f",
+		"axiom-runtime":   "f9ede6421e27df73dd68d477d776c622c56b8a91eac8eeb78a9b11ddf9392930",
+		"axiom-work-item": "59f23649a793bb8a793be3753f0e1d25f057b9c94edc62c08f6018c7a03bed91",
+		"axiom-workflow":  "ab9192a3c94b03c94431bc8d506569212ab17ba1ded03a4a5c64aa439f9028ab",
 	}},
 }
 
