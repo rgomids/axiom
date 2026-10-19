@@ -290,3 +290,34 @@ The commit containing this Evidence and its exact remote head/CI are recorded
 in the PR continuation comment. Continue this PR; do not duplicate Tasks,
 Execution or implementation. No further approval is requested for work already
 authorized within the approved scope.
+
+## r2 publication blocker after local checkpoint
+
+The inactive foundation checkpoint was committed locally as
+`c2e9d80` (`refactor(runtime): add inactive AXM-36 admission foundations`).
+Staged sensitive-file and whitespace checks passed before commit.
+
+`git push origin docs/axm-36-runtime-admission-specify` failed with exit 128:
+
+```text
+/usr/local/bin/gh auth git-credential get: 1: /usr/local/bin/gh: not found
+fatal: could not read Username for 'https://github.com': No such device or address
+```
+
+This is a Git authentication-helper configuration failure, not branch-protection
+Evidence. `gh` read-only API commands are available via `/usr/bin/gh`, but that
+does not establish usable Git-push authentication. Under the maintainer's explicit
+rule, an auth failure blocks publication: no helper/config/credential repair,
+symlink, alternate push transport, API commit upload or force operation is used.
+Remote branch/PR implementation publication and exact-head CI are unverified;
+read-back and the PR continuation comment identify the unchanged remote head.
+The drafted implementation PR description was not applied because its code has
+not reached the remote branch.
+
+The continuation above is now **blocked at publication**, with T01 still partial
+and T02/T03 not started. Keep the local implementation commit and this evidence
+commit. The smallest required operator action is to restore the intended Git
+credential-helper setup on this box (currently references the missing absolute
+path), then resume normal push and exact-head CI for this same branch/PR before
+continuing T01. That does not require reapproving the implementation scope.
+No canonical state, status, label, external inference or acceptance changed.
