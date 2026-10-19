@@ -4,6 +4,8 @@ Este diretório registra decisões técnicas duráveis e difíceis de reverter.
 
 ## Index
 
+- [ADR-0032 — Runtime admission without capability certification](0032-runtime-admission-without-certification.md) — Proposed, 2026-10-19; AXM-36 specify proposal for operational admission and failure recovery. Intended partial supersession is mapped in the proposal; human acceptance remains pending before Plan/Implementation. No effective supersession annotations yet.
+
 - [ADR-0031 — Pin upgrade-journey validation separately from release artifacts](0031-release-validation-harness-pin.md) — **Proposed**; harness-only workflow SHA pin; explicit human acceptance pending.
 
 - [ADR-0030 — Canonical results, terminal output and host presentation](0030-canonical-results-terminal-and-host-presentation.md) — **Accepted** 2026-10-18, [explicit maintainer decision](https://github.com/rgomids/axiom/pull/328#issuecomment-6250321308) on exact revision `18d29a6`; separates canonical JSON, native terminal rendering and host-owned Markdown. D1–D3 are resolved; [R1 inventory](../specifications/008-output-separation/clarify.md) records G1/G2 as observable, non-blocking watch items pending concrete impact. No earlier accepted ADR was retroactively rewritten.

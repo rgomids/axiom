@@ -67,6 +67,13 @@ merge, release or product acceptance is inferred.
 
 ## 007 — Configurable Project workflows
 
+[AXM-36 runtime admission amendment](007-configurable-workflows/amendment-axm36-runtime-admission.md)
+and [ADR-0032](../decisions/0032-runtime-admission-without-certification.md):
+**Proposed, 2026-10-19; specify only**. Defines admission without capability
+certification or a version registry, operational failure/recovery behavior and
+a bounded prospective conflict map. Human acceptance is pending before
+Plan/Implementation; current dispatch behavior and accepted history are unchanged.
+
 [AXM-31 operator autonomy amendment](007-configurable-workflows/amendment-axm31-operator-autonomy.md):
 **Accepted, 2026-10-17**, by [explicit human acceptance](https://github.com/rgomids/axiom/pull/325#issuecomment-6241938642)
 of revision `2e9295293c84a51523df50b28258149debb6badf` (the original Proposed bytes
