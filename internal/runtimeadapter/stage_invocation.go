@@ -45,9 +45,29 @@ func (c AttemptCorrelation) environment() ([]string, error) {
 // BuildStageInvocation owns every option and output bound. Caller configuration
 // may select the reviewed executable/model, but cannot supply argv or credentials.
 func BuildStageInvocation(request StageInvocationRequest) (executiongraph.Invocation, error) {
+	return buildStageInvocation(request, true)
+}
+
+// BuildOperationalStageInvocation uses one invocation per Runtime, independently of version metadata.
+func BuildOperationalStageInvocation(request StageInvocationRequest) (executiongraph.Invocation, error) {
+	return buildStageInvocation(request, false)
+}
+
+func buildStageInvocation(request StageInvocationRequest, versionBound bool) (executiongraph.Invocation, error) {
 	p := request.Profile
 	if !stagePath(p.Executable) || filepath.Base(p.Executable) != p.RuntimeID || p.Model == "" || strings.HasPrefix(p.Model, "-") || strings.ContainsAny(p.Model, "\x00\r\n") || len(p.Arguments) != 0 || len(p.Environment) != 0 || p.CredentialReference != "" || !stagePath(request.Workspace) || !stagePath(request.Inbox) || !stagePath(request.AxiomPath) || stageContains(request.Workspace, request.Inbox) || stageContains(request.Inbox, request.Workspace) || strings.ContainsAny(request.AxiomPath, " ,():*;\"'`$|&<>\\") {
 		return executiongraph.Invocation{}, ErrInvalidAdapterConfiguration
+	}
+	if !versionBound {
+		for _, entry := range request.ParentEnvironment {
+			key, _, _ := strings.Cut(entry, "=")
+			if strings.EqualFold(key, "CODEX_HOME") || strings.EqualFold(key, "CLAUDE_CONFIG_DIR") {
+				return executiongraph.Invocation{}, ErrEffortConfigurationUnsafe
+			}
+			if p.RuntimeID == "claude" && strings.EqualFold(key, "CLAUDE_CODE_EFFORT_LEVEL") {
+				return executiongraph.Invocation{}, ErrEffortOverrideConflict
+			}
+		}
 	}
 	environment, err := StageEnvironment(p.RuntimeID, request.ParentEnvironment)
 	if err != nil {
@@ -63,7 +83,7 @@ func BuildStageInvocation(request StageInvocationRequest) (executiongraph.Invoca
 	cwd := request.Workspace
 	switch p.RuntimeID {
 	case "codex":
-		if request.Version != "0.159.1" {
+		if versionBound && request.Version != "0.159.1" {
 			return executiongraph.Invocation{}, ErrInvalidAdapterConfiguration
 		}
 		argv = append(argv, "exec", "--model", p.Model, "--ignore-user-config", "--ephemeral", "-")
@@ -75,7 +95,7 @@ func BuildStageInvocation(request StageInvocationRequest) (executiongraph.Invoca
 			argv = append(argv, "--add-dir", request.Inbox)
 		}
 	case "claude":
-		if request.Version != "2.1.296" {
+		if versionBound && request.Version != "2.1.296" {
 			return executiongraph.Invocation{}, ErrInvalidAdapterConfiguration
 		}
 		tools := "Read,Glob,Grep,Write"

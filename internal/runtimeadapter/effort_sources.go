@@ -84,6 +84,32 @@ func effortSourceProjection(ctx context.Context, d EffortDeclaration, p effortSu
 	if !d.PrecedenceProven || d.RuntimeID != p.RuntimeID || d.RuntimeVersion != p.RuntimeVersion || d.InvocationMode != p.InvocationMode || d.ExecutableDigest != p.ExecutableDigest || !runtimeprofile.SafeIdentifier(d.ProofReference) || len(d.Sources) > 32 || len(d.JSONKeys) > 16 || len(d.EnvironmentKeys) > 16 || len(inv.Argv) < 4 || inv.RuntimeID != p.RuntimeID {
 		return nil, ErrEffortConfigurationUnproven
 	}
+	facts, err := observeEffortFacts(ctx, effortIntent{p.RuntimeID, p.InvocationMode, p.ExecutableDigest, p.Model, p.Effort}, effortRules{JSONKeys: d.JSONKeys, EnvironmentKeys: d.EnvironmentKeys, Sources: d.Sources}, inv)
+	if err != nil {
+		return nil, err
+	}
+	wire, err := json.Marshal(struct {
+		Proof string             `json:"proof"`
+		Facts []effortSourceFact `json:"facts"`
+	}{d.ProofReference, facts})
+	return wire, err
+}
+
+type effortIntent struct {
+	RuntimeID, InvocationMode, ExecutableDigest, Model string
+	Effort                                             runtimeprofile.Effort
+}
+
+type effortRules struct {
+	JSONKeys, EnvironmentKeys []string
+	Sources                   []EffortSource
+	NestedProfiles            bool
+}
+
+func observeEffortFacts(ctx context.Context, p effortIntent, d effortRules, inv executiongraph.Invocation) ([]effortSourceFact, error) {
+	if ctx.Err() != nil || len(inv.Argv) < 4 || inv.RuntimeID != p.RuntimeID || len(d.Sources) > 32 || len(d.JSONKeys) > 16 || len(d.EnvironmentKeys) > 16 {
+		return nil, ErrEffortConfigurationUnproven
+	}
 	identity, e := ExecutableIdentity(inv.Argv[0])
 	if e != nil || identity != p.ExecutableDigest {
 		return nil, ErrEffortConfigurationUnproven
@@ -190,7 +216,7 @@ func effortSourceProjection(ctx context.Context, d EffortDeclaration, p effortSu
 		for _, wire := range wires {
 			var selected []string
 			if source.Format == "toml" {
-				selected, e = tomlEffortSelectors(wire)
+				selected, e = tomlEffortSelectorsBounded(wire, d.NestedProfiles)
 			} else {
 				selected, e = jsonEffortSelectors(wire, d.JSONKeys)
 			}
@@ -239,11 +265,7 @@ func effortSourceProjection(ctx context.Context, d EffortDeclaration, p effortSu
 		}
 		return !facts[a].Selector && facts[b].Selector
 	})
-	b, _ := json.Marshal(struct {
-		Proof string             `json:"proof"`
-		Facts []effortSourceFact `json:"facts"`
-	}{d.ProofReference, facts})
-	return b, nil
+	return facts, nil
 }
 
 // effortPathOperand reports whether value is the filesystem operand of one of
@@ -531,6 +553,10 @@ func effortTOMLKey(raw string) ([]string, bool) {
 	return parts, quote == 0
 }
 func tomlEffortSelectors(w []byte) ([]string, error) {
+	return tomlEffortSelectorsBounded(w, false)
+}
+
+func tomlEffortSelectorsBounded(w []byte, nestedProfiles bool) ([]string, error) {
 	keys := []string{}
 	table := []string{}
 	seen := map[string]bool{}
@@ -568,7 +594,7 @@ func tomlEffortSelectors(w []byte) ([]string, error) {
 		}
 		if header, ok := tomlHeader(line); ok {
 			segments, valid := effortTOMLKey(header)
-			if !valid || strings.HasPrefix(line, "[[") || containsKey(segments, "profiles") || tables[identity(segments)] || conflicts(segments) {
+			if !valid || strings.HasPrefix(line, "[[") || !nestedProfiles && containsKey(segments, "profiles") || tables[identity(segments)] || conflicts(segments) {
 				return nil, ErrEffortConfigurationUnproven
 			}
 			table = segments

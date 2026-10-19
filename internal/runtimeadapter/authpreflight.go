@@ -158,6 +158,15 @@ func DefaultManagedConfiguration() ManagedConfiguration {
 }
 
 func (p AuthPreflight) Check(ctx context.Context, target AuthTarget) AuthReport {
+	return p.check(ctx, target, false)
+}
+
+// CheckOperational observes auth independently of optional version metadata.
+func (p AuthPreflight) CheckOperational(ctx context.Context, target AuthTarget) AuthReport {
+	return p.check(ctx, target, true)
+}
+
+func (p AuthPreflight) check(ctx context.Context, target AuthTarget, operational bool) AuthReport {
 	report := AuthReport{RuntimeID: target.RuntimeID, Method: "unknown", Version: "unknown", EvidenceKind: EvidenceFake, Usability: UsabilityUnproven, Revalidation: RevalidateBeforeDispatch}
 	if p.runner != nil {
 		report.EvidenceKind = p.runner.EvidenceKind()
@@ -202,11 +211,22 @@ func (p AuthPreflight) Check(ctx context.Context, target AuthTarget) AuthReport 
 	if !version.Started {
 		return report.with(AuthUnavailable, "executable_unavailable")
 	}
-	if version.TimedOut || version.ExitCode != 0 {
+	if version.TimedOut || ctx.Err() != nil {
 		return report.with(AuthUnproven, "version_unavailable")
 	}
-	if report.Version = versionToken(version.Output); report.Version == "unknown" {
+	if version.ExitCode != 0 && !operational {
+		return report.with(AuthUnproven, "version_unavailable")
+	}
+	if version.ExitCode == 0 {
+		report.Version = versionToken(version.Output)
+	}
+	if report.Version == "unknown" && !operational {
 		return report.with(AuthUnproven, "version_unrecognized")
+	}
+	if operational {
+		if after, err := ExecutableIdentity(target.Executable); err != nil || after != identity {
+			return report.with(AuthUnproven, "executable_identity_changed")
+		}
 	}
 	if target.RuntimeID == "codex" {
 		command.Argv = []string{target.Executable, "login", "status"}
@@ -217,7 +237,7 @@ func (p AuthPreflight) Check(ctx context.Context, target AuthTarget) AuthReport 
 	if !status.Started {
 		return report.with(AuthUnavailable, "executable_unavailable")
 	}
-	if status.TimedOut {
+	if status.TimedOut || ctx.Err() != nil {
 		return report.with(AuthUnproven, "status_timeout")
 	}
 	var outcome AuthStatus

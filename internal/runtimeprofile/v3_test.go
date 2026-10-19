@@ -124,7 +124,7 @@ func TestV3CanonicalCodecAndVersionDispatch(t *testing.T) {
 	if len(refs) != 2 {
 		t.Fatal(refs)
 	}
-	for _, version := range []string{"4", "99"} {
+	for _, version := range []string{"5", "99"} {
 		if _, err := DecodeVersioned([]byte(`{"formatVersion":` + version + `,"revision":1}`)); !errors.Is(err, ErrUnsupportedConfigurationFormat) {
 			t.Fatal("unsupported version accepted", version, err)
 		}

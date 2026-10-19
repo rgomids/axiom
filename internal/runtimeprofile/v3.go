@@ -101,6 +101,7 @@ type VersionedConfiguration struct {
 	FormatVersion int
 	Configuration *Configuration
 	V3            *ConfigurationV3
+	V4            *ConfigurationV4
 }
 
 // EffortApplicability is the independently observed identity a declaration
@@ -123,7 +124,13 @@ func DecodeVersioned(wire []byte) (VersionedConfiguration, error) {
 			return VersionedConfiguration{}, err
 		}
 		return VersionedConfiguration{FormatVersion: FormatVersionV3, V3: &cfg}, nil
-	case version > FormatVersionV3:
+	case version == FormatVersionV4:
+		cfg, err := DecodeV4(wire)
+		if err != nil {
+			return VersionedConfiguration{}, err
+		}
+		return VersionedConfiguration{FormatVersion: FormatVersionV4, V4: &cfg}, nil
+	case version > FormatVersionV4:
 		return VersionedConfiguration{}, ErrUnsupportedConfigurationFormat
 	}
 	return VersionedConfiguration{}, ErrInvalidConfiguration
