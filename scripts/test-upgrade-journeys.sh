@@ -113,9 +113,11 @@ tree_digest() {
 
 # Older binaries print `provenance: Axiom <version> ...`; #232 binaries print
 # the human-first `**Provenance:** product `Axiom` · version `<version>` ...` footer.
+# Current text output prints `provenance: {product: Axiom, version: <version>, ...}`.
 version_of() {
   "$H/.local/bin/axiom" version | sed -n \
     -e 's/^provenance: Axiom \([^ ]*\) .*/\1/p' \
+    -e 's/^provenance: {product: Axiom, version: \([^,]*\),.*/\1/p' \
     -e 's/^\*\*Provenance:\*\* product `Axiom` · version `\([^`]*\)`.*/\1/p'
 }
 
