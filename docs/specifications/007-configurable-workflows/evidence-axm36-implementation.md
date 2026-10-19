@@ -1,5 +1,43 @@
 # AXM-36 implementation Evidence
 
+## r3 continuity and next codec checkpoint
+
+Input is `e70a54d45587653596df0f8679c14e39842bff4a`. Read-back of
+AXM-36, its approval/gate/r3 comments, PR #334 and fetch confirms the same
+local/tracking/PR head and unchanged approved Tasks. The publication blocker
+in r2 is resolved by the maintainer's authorized helper-path correction;
+this session changes no Git configuration. Remote delivery-metadata passed;
+PR Checks was still running at initial inspection. Linear remains In Review,
+with no blockedBy. The authorized local root `/home/box/.local/state/lingo`
+exists, mode `0700`, no symlink ancestor, zero JSON records. Its r2 creation
+is preserved below; no second root or Execution is created. Other-host
+Execution state remains unavailable, not inferred from this box.
+
+Next inactive codec delta, inventoried before edits:
+
+- Graph 4 retains every graph-3 parent/header/child/envelope field; its required
+  resolution uses the Configuration-4 tuple. The outer Runtime/Profile IDs and
+  revisions must equal the tuple. Topology/effects and attempt sequence rules
+  remain shared deterministic checks, without proof observations.
+- Single run 2 retains all run-1 scope/binding/authority/epoch fields and rules;
+  its resolution uses the same tuple. Authority receipt 2 is unchanged.
+- New-generation attempts retain all historical attempt fields and add optional
+  `diagnostic`. Its closed fields are `operation`, optional `attemptId`, `code`,
+  `cause`, `causeConfidence`, `effectCertainty`, `evidenceRefs`, `nextAction`,
+  `requiredAuthority`. Payloads are fixed categories and digest references,
+  never arbitrary messages, paths or transcripts. Running attempts cannot
+  carry terminal diagnostics; a summary cannot overwrite effect uncertainty.
+- Every serialized retained field participates in the generation's digest;
+  storage revision remains excluded. Historical graph/single codecs and fixture
+  bytes stay unchanged. New codecs remain outside production store/dispatch
+  composition until the whole T01 checkpoint and coordinated T02 cutover.
+
+Nested Proposal 2 carries a compiler-owned historical tuple. Its mechanical
+successor must be Proposal 3 when the compiler successor is added; PlanDocument
+1 remains the operator-authored document. No implicit migration or tuple with
+invented proof fields is permitted. Compiler/Execution/preview/DispatchInputs
+codecs remain ordered T01 work; none is activated by this checkpoint.
+
 ## r2 input and authority
 
 Input: `91b04156a48005d9a7498372ae7990ce4fbb515d`, clean branch
@@ -321,3 +359,152 @@ credential-helper setup on this box (currently references the missing absolute
 path), then resume normal push and exact-head CI for this same branch/PR before
 continuing T01. That does not require reapproving the implementation scope.
 No canonical state, status, label, external inference or acceptance changed.
+
+## r3 inactive graph/single/proposal checkpoint
+
+T01 is still partial. T02 and T03 have not started. This checkpoint adds:
+
+- `internal/executiongraph/operational.go`: distinct Graph 4, single run 2,
+  envelope/resolution and attempt codecs; no proof/version fields. A required
+  Configuration-4 tuple must agree with all outer Runtime/Profile/revision
+  fields. Exact wire bytes determine storage revision; it is not serialized.
+- `operational_proposal.go`: derived Proposal 3, its strict codec and canonical
+  digest. Retains format/Plan revision/digest, node key/capability intent,
+  dependencies, inputs/outputs, scope/effects, owner/optional flags and controls;
+  requires the new tuple in every node. Node/Proposal fields remain digest-bound.
+  The operator's PlanDocument format is unchanged. This resolves the nested
+  derived-Projection generation noted by r2, without migrating any Plan.
+- `attempt_diagnostic.go`: a closed optional summary on new-generation attempts.
+  All free text is excluded. Codes, cause/confidence, certainty, action and
+  required authority are fixed categories; Evidence references are unique
+  `evidence:<sha256>` values, bounded to 16. The schema cannot certify that a
+  cause was observed: terminal classification and collection belong to T02.
+- Both ledgers reject diagnostics on running/successful attempts, wrong attempt
+  correlation, and summaries that downgrade unknown/ambiguous effects to
+  none/known. `effects_uncertain` cannot claim none/known certainty. Terminal
+  diagnostic changes, removal and backfilling are refused; reconciliation
+  preserves it and appends facts. Running → terminal can publish both together.
+- Existing topology/effect checks were extracted inside their current owners.
+  Historical public validators still enforce their own versions/profile rules.
+  New validators call only the shared topology checks after validating their
+  own frozen tuple; their topology projections contain no invented historical
+  version or proof. Existing attempt-sequence/prefix checks retain their meaning.
+
+No production store, policy resolver, compiler, public command, supervisor or
+adapter composition calls the new graph/single/Proposal APIs. These are inactive
+T01 contracts, not a bypass. No new dependency, service, registry, store, feature
+flag, migration, automation surface or runtime-specific file was introduced.
+No production/test/script narrative comments were added. All original stable,
+issue306, successor-history and single-stage fixtures are byte-identical to
+input; new fixtures live only in `executiongraph/testdata/axm36`.
+
+New deterministic fixtures cover absent summary, generic process failure,
+unknown effects, running state and append-only reconciliation; graph includes
+Codex and Claude tuples. Single tests exercise both adapters with default and
+new safe explicit model/effort intent. Golden bytes/digests, cross-generation
+refusal, missing required fields at nested levels, unknown/duplicate/case aliases,
+corruption/truncation/oversize, stale digests, topology/effect bounds and raw
+payload rejection are exercised. These tests launch no Runtime subprocess.
+
+### r3 Task × RA-AC matrix
+
+Every T02/T03 cell remains NOT_RUN for successor behavior. PARTIAL is foundation
+Evidence, never completion or acceptance of a full criterion.
+
+| AC | T01 cumulative foundation / remaining obligation | T02 | T03 |
+| --- | --- | --- | --- |
+| RA-AC1 | PARTIAL: strict proof-free config/tuple/Graph4/single2/Proposal3 fixtures; production installed admission pending | NOT_RUN | NOT_RUN |
+| RA-AC2 | PARTIAL: r2 identity/source observations; r3 tuple equality and Proposal identity-drift/digest refusal; preview/apply wiring pending | NOT_RUN | NOT_RUN |
+| RA-AC3 | PARTIAL: r2 exact allowed Profile consumer; r3 outer Runtime/Profile/revision mismatch refusal; shared policy/binding cutover pending | NOT_RUN | NOT_RUN |
+| RA-AC4 | NOT_RUN: new authority/spawn composition remains pending; no public new-generation route exists | NOT_RUN | NOT_RUN |
+| RA-AC5 | PARTIAL: r2 auth/source negatives retained; r3 closed operational diagnostic schema; production classification pending | NOT_RUN | NOT_RUN |
+| RA-AC6 | PARTIAL: r2 version-independent invocation; r3 code/cause/confidence schema; actual option/model/effort rejection diagnostics pending | NOT_RUN | NOT_RUN |
+| RA-AC7 | PARTIAL: retained attempt status/reason/qualifying-reference invariants; production result validation and presentation pending | NOT_RUN | NOT_RUN |
+| RA-AC8 | PARTIAL: new ledger update guards preserve immutable attempts, certainty, diagnostics, fact prefixes, epochs and cancellation; canonical CAS/crash/recovery integration pending | NOT_RUN | NOT_RUN |
+| RA-AC9 | PARTIAL: r2 source/child negatives; r3 exact effort/control projection, effect ceilings, topology and budget refusals; production confinement pending | NOT_RUN | NOT_RUN |
+| RA-AC10 | PARTIAL: every diagnostic field rejects raw secret/account/path/transcript payloads; summaries contain fixed categories/digest refs only; collection/storage/JSON/text/skill integration pending | NOT_RUN | NOT_RUN |
+
+### r3 validation and review
+
+PASS:
+
+- `AXIOM_TEST_PROBE_STATE_ROOT=/home/box/axiom-axm36-synthetic.UsdrLH
+  go test ./...`: all packages passed; `cmd/lingo` ran for 231.289s and includes
+  the existing installed synthetic single/graph/adversarial journeys. These
+  still seed legacy proof/registry fixtures and do not satisfy proof-free
+  RA-AC1–10. The full sweep compiled before the final bounds-only guard;
+  the complete executiongraph package was rerun afterward on final source.
+- `go test ./internal/executiongraph -count=1`: entire package after the final
+  graph/node bounds and uncertain-effect summary guard.
+- `go test ./internal/executiongraph -run 'TestOperational|TestAttemptDiagnostic'
+  -count=1`: new positive/negative codecs and diagnostic tests.
+- `go vet ./...`, `go build ./...`, `go mod verify`: passed before the final
+  bounds-only guard; final exact-source Staticcheck and package tests followed.
+- `task_go_root=$(go env GOROOT)` followed by
+  `PATH="$task_go_root/bin:/home/box/go/bin:$PATH" ./scripts/check-go-quality.sh`:
+  Go 1.26.0, formatting/module tidiness and pinned Staticcheck 2026.2.1 pass.
+  An initial invocation used a nonexistent assumed Go directory and selected
+  system Go 1.24.4 under `GOTOOLCHAIN=local`; it failed the version requirement.
+  Resolving the existing Go toolchain above fixed the command. No tool install,
+  dependency change or check exclusion was used.
+- `./scripts/validate-repository.sh .`: repository/bootstrap, 33 ADRs/56 fixtures,
+  automation, sensitive-file and other structural checks passed; maintainer
+  Runtime behavioral scenarios explicitly SKIP/UNVERIFIED.
+- `git diff --check`; historical/stable/issue306/single fixture and module-byte
+  comparisons; approved Tasks/Plan/amendment/ADR unchanged against approval SHA.
+- Remote `PR Checks` and `delivery-metadata` passed for input `e70a54d`.
+  This is baseline Evidence, not CI for the r3 changes.
+
+SKIP/NOT_RUN: proof-free installed acceptance matrix, real vendor auth/inference,
+external effects/E2E, native macOS, current canonical workflow transitions and
+human acceptance. Dedicated `gitleaks` is unavailable. New ledgers are not yet
+written by canonical stores, so inventory/writer/CAS/recovery compatibility
+integration is pending T01 work, not claimed by codec fixtures.
+
+Main-session review with `axiom-review` and reconciliation with `axiom-document`
+found no blocking finding in this inactive checkpoint. Reviewed generation
+separation, effect/attempt controls, schema bounds, immutable updates, sanitization,
+legacy bytes, imports and the fact that all active admission still uses the old
+gate. This is neither independent review nor technical/human acceptance of T01.
+
+### r3 runtime-neutral continuation
+
+```yaml
+objective: complete AXM36-T01, T02 and T03 in the existing PR 334
+state: in_progress
+completed_units:
+  - r2 Configuration4, frozen tuple, direct identity/auth/effort foundations
+  - r3 Graph4, single-run2 and derived Proposal3 inactive codecs and fixtures
+  - r3 closed diagnostic summary and immutable terminal/update foundation
+remaining_units:
+  - unit: finish T01 Execution4, compiler-result3, StagePlan3, preview and DispatchInputs2
+    capability: implement
+    effort: sufficient for nested frozen-schema and digest ownership
+    dependencies: existing inactive tuple and Proposal3 contracts
+    acceptance: strict success/refusal codecs, historical bytes and digest vectors
+  - unit: finish T01 canonical inventory/store/history/CAS/crash fixtures and checkpoint
+    capability: validate
+    dependencies: complete successor codecs
+    acceptance: no public dispatch route to partly converted contracts
+  - unit: T02 coordinated resolution/start/compiler/preview/run/retry/supervisor cutover and diagnostics
+    capability: implement
+    dependencies: validated complete T01
+    acceptance: RA-AC1-10, both adapters, single/graph and zero unauthorized spawn
+  - unit: T03 retire certification components and update CLI/docs/skills/installed tests
+    capability: implement-and-validate
+    dependencies: T02; joint delivery required
+    acceptance: proof-free production-composition installed matrix outside checkout
+input_sha: e70a54d45587653596df0f8679c14e39842bff4a
+branch: docs/axm-36-runtime-admission-specify
+pr: https://github.com/rgomids/axiom/pull/334
+canonical_root: /home/box/.local/state/lingo
+authority: implementation, validation, commit, normal push and update PR334 persist
+pending_authority: merge, release, closure, acceptance, real inference and external E2E remain excluded
+delegation: none; strictly inferior model capability not established
+next_action: resume remaining T01 codecs from this checkpoint; do not redo r2/r3 or begin T02 early
+```
+
+The remaining coordinated implementation and validation exceed this session's
+safe context capacity. The checkpoint preserves the same PR and local root;
+no workflow gate, Linear status/relation, label, credential or infrastructure
+change is inferred or performed.

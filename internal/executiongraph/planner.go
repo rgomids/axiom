@@ -138,13 +138,36 @@ func (p Planner) Propose(ctx context.Context, plan ApprovedPlan) (Proposal, erro
 }
 
 func (p Planner) Validate(ctx context.Context, proposal Proposal, maximumNodes int) error {
-	if (proposal.FormatVersion != ProposalFormatVersion && proposal.FormatVersion != 2) || !validToken(proposal.PlanRevision) || !validDigest(proposal.PlanDigest) || maximumNodes < 1 || maximumNodes > maxNodes || len(proposal.Nodes) == 0 || len(proposal.Nodes) > maximumNodes {
+	if proposal.FormatVersion != ProposalFormatVersion && proposal.FormatVersion != 2 {
+		return ErrInvalidGraph
+	}
+	for _, node := range proposal.Nodes {
+		if proposal.FormatVersion == 2 && !ValidProfileControls(node.ResolvedProfile, node.Controls, node.Capability) || proposal.FormatVersion == 1 && node.ResolvedProfile != nil {
+			return ErrInvalidGraph
+		}
+	}
+	if err := validateProposalTopology(proposal, maximumNodes); err != nil {
+		return err
+	}
+	if p.capabilities == nil {
+		return ErrUnresolvable
+	}
+	for _, node := range proposal.Nodes {
+		if p.capabilities.ValidateCapability(ctx, node.Capability) != nil {
+			return ErrUnresolvable
+		}
+	}
+	return nil
+}
+
+func validateProposalTopology(proposal Proposal, maximumNodes int) error {
+	if !validToken(proposal.PlanRevision) || !validDigest(proposal.PlanDigest) || maximumNodes < 1 || maximumNodes > maxNodes || len(proposal.Nodes) == 0 || len(proposal.Nodes) > maximumNodes {
 		return ErrInvalidGraph
 	}
 	nodes := make(map[string]ProposedNode, len(proposal.Nodes))
 	integrationKey := ""
 	for _, node := range proposal.Nodes {
-		if !validNode(node) || proposal.FormatVersion == 2 && !ValidProfileControls(node.ResolvedProfile, node.Controls, node.Capability) || proposal.FormatVersion == 1 && node.ResolvedProfile != nil {
+		if !validNode(node) {
 			return ErrInvalidGraph
 		}
 		if _, exists := nodes[node.Key]; exists {
@@ -187,14 +210,6 @@ func (p Planner) Validate(ctx context.Context, proposal Proposal, maximumNodes i
 			if effectsConflict(left, right) && !dependsTransitively(nodes, left.Key, right.Key) && !dependsTransitively(nodes, right.Key, left.Key) {
 				return ErrUnsafeOverlap
 			}
-		}
-	}
-	if p.capabilities == nil {
-		return ErrUnresolvable
-	}
-	for _, node := range proposal.Nodes {
-		if p.capabilities.ValidateCapability(ctx, node.Capability) != nil {
-			return ErrUnresolvable
 		}
 	}
 	return nil

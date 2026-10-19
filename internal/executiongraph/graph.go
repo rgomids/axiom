@@ -241,7 +241,19 @@ func validatePublicationRequest(request PublicationRequest) error {
 }
 
 func ValidGraph(graph Graph) bool {
-	if (graph.FormatVersion != GraphFormatVersion && graph.FormatVersion != 2) || !validOpaqueID(graph.Parent.ExecutionID) || graph.Parent.GraphRevision == 0 || !validDigest(graph.Parent.ProposalDigest) || !validDigest(graph.Parent.AuthorityDigest) || graph.Parent.CreatedAt.IsZero() || len(graph.Children) == 0 || len(graph.Children) > maxNodes {
+	if graph.FormatVersion != GraphFormatVersion && graph.FormatVersion != 2 {
+		return false
+	}
+	for _, child := range graph.Children {
+		if graph.FormatVersion == 2 && !ValidProfileControls(child.Envelope.Resolution.ResolvedProfile, child.Envelope.Controls, child.Envelope.Capability) || graph.FormatVersion == 1 && child.Envelope.Resolution.ResolvedProfile != nil {
+			return false
+		}
+	}
+	return validGraphTopology(graph)
+}
+
+func validGraphTopology(graph Graph) bool {
+	if !validOpaqueID(graph.Parent.ExecutionID) || graph.Parent.GraphRevision == 0 || !validDigest(graph.Parent.ProposalDigest) || !validDigest(graph.Parent.AuthorityDigest) || graph.Parent.CreatedAt.IsZero() || len(graph.Children) == 0 || len(graph.Children) > maxNodes {
 		return false
 	}
 	ids := map[string]bool{graph.Parent.ExecutionID: true}
@@ -250,9 +262,6 @@ func ValidGraph(graph Graph) bool {
 	projectID := ""
 	integrationCount := 0
 	for _, child := range graph.Children {
-		if graph.FormatVersion == 2 && !ValidProfileControls(child.Envelope.Resolution.ResolvedProfile, child.Envelope.Controls, child.Envelope.Capability) || graph.FormatVersion == 1 && child.Envelope.Resolution.ResolvedProfile != nil {
-			return false
-		}
 		if !validOpaqueID(child.ExecutionID) || ids[child.ExecutionID] || attemptIDs[child.ExecutionID] || child.ParentID != graph.Parent.ExecutionID || child.GraphRevision != graph.Parent.GraphRevision || !validToken(child.NodeKey) || !validEnvelope(child.Envelope) || len(child.Attempts) > int(child.Envelope.Controls.MaximumAttempts) {
 			return false
 		}
