@@ -78,5 +78,8 @@ func validateOperationalDiagnostic(a OperationalAttempt) error {
 	if a.Status == AttemptUnknown && d.EffectCertainty != "unknown" && d.EffectCertainty != "partial" || a.AmbiguousEffect && d.EffectCertainty != "unknown" && d.EffectCertainty != "partial" {
 		return ErrInvalidGraph
 	}
+	if (d.EffectCertainty == "unknown" || d.EffectCertainty == "partial") && a.Status != AttemptUnknown {
+		return ErrInvalidGraph
+	}
 	return nil
 }

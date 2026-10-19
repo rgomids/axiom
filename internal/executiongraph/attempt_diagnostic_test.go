@@ -144,3 +144,25 @@ func TestOperationalDiagnosticCannotRewriteAttempt(t *testing.T) {
 		t.Fatal("refused mutations changed original record")
 	}
 }
+
+func TestOperationalDiagnosticUncertaintyRequiresCanonicalUnknown(t *testing.T) {
+	for _, certainty := range []string{"unknown", "partial"} {
+		t.Run(certainty, func(t *testing.T) {
+			r, err := DecodeOperationalSingleStageRun(mustRead(t, "testdata/axm36/single-run-v2.json"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			d := diagnosticFixture(t)
+			d.EffectCertainty = certainty
+			r.Attempts[0].Diagnostic = &d
+			if ValidateOperationalSingleStageRun(r) == nil {
+				t.Fatal("diagnostic uncertainty could coexist with retry-eligible failed state")
+			}
+			g := operationalGraphVector(t, "process_failed")
+			g.Children[0].Attempts[0].Diagnostic.EffectCertainty = certainty
+			if ValidateOperationalGraph(g) == nil {
+				t.Fatal("graph diagnostic uncertainty could coexist with failed state")
+			}
+		})
+	}
+}

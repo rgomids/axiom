@@ -508,3 +508,22 @@ The remaining coordinated implementation and validation exceed this session's
 safe context capacity. The checkpoint preserves the same PR and local root;
 no workflow gate, Linear status/relation, label, credential or infrastructure
 change is inferred or performed.
+
+## r3 SAVE STATE
+
+The maintainer explicitly requested stopping and publishing a Portuguese handoff
+in PR #334. The final stable adjustment makes diagnostic `unknown`/`partial`
+certainty require canonical attempt status `unknown`, preventing a contradictory
+`failed` state from becoming retry-eligible when the diagnostic says effects are
+uncertain. Both graph and single negative regressions pass. This does not
+reclassify an attempt or activate the new codecs.
+
+PASS after this adjustment: `go test ./internal/executiongraph -count=1` and
+`go vet ./internal/executiongraph`. The earlier full-suite, build and quality
+results above precede this small guard; they are not claimed as rerun afterward.
+Remote `delivery-metadata` passed at `9e8a077`; its `PR Checks` was still running
+at SAVE STATE. Final-head CI must be checked by the next executor.
+
+Resume worktree `/workspace/wt/axm-36`, branch
+`docs/axm-36-runtime-admission-specify`, same Draft PR #334. T01 remains partial;
+T02/T03 have not started. No new work is started after the stop request.
