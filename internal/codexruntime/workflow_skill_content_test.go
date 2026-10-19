@@ -180,3 +180,59 @@ func TestPolicySkillRoutePreservesAuthorityAndReadBackAcrossHosts(t *testing.T) 
 		}
 	}
 }
+
+func TestGuidedConfigurationInstructionContracts(t *testing.T) {
+	cases := []struct {
+		name, skill string
+		required    []string
+	}{
+		{"C01", "axiom-project", []string{"Reuse compatible confirmed Profiles", "all\nmaterial prerequisites", "before any later start"}},
+		{"C02", "axiom-project", []string{"UUID, source, selector presence", "no preference for `origin`", "fabricated path"}},
+		{"C03", "axiom-project", []string{"Repository\nbinding, policy, local candidate", "Before asking model, effort, Profile ID or template"}},
+		{"C04", "axiom-project", []string{"installed G-1/#305 is absent or unknown", "before creating a Profile", "Main's delivery\ndoes not supply an installed operation"}},
+		{"C05", "axiom-runtime", []string{"canonical options with source and consequences", "one material decision", "open model intent"}},
+		{"C06", "axiom-runtime", []string{"Installed, authenticated, supported and proven", "partial opt-in before technical collection", "never recommend a concrete model/effort"}},
+		{"C07", "axiom-project", []string{"Authority binds each apply separately", "Denial cancels", "preserve previously confirmed effects"}},
+		{"C08", "axiom-project", []string{"Project UUID/source/\nselector, policy, local configuration, executable/auth/proof and Workflow", "drift invalidates preview and authority", "new exact confirmation"}},
+		{"C09", "axiom-project", []string{"Lost acknowledgement", "post-commit state stops", "Never replay an uncertain mutation"}},
+		{"C10", "axiom-runtime", []string{"two repetitions after the initial call within 60 seconds", "two remediations per blocker", "original deadline and cumulative counters", "revision alone resets nothing"}},
+		{"C11", "axiom-project", []string{"explicit `skill inspect`\nstops at inspection", "contradicts the skill", "report unknown and stop", "Never discover\nsupport by trying a mutation"}},
+		{"C12", "axiom-project", []string{"complete known path", "Use each owner's validation and preview", "After every write compare canonical read-back", "fresh auth/proof and its own preview/authority"}},
+		{"C13", "axiom-project", []string{"explicit\npartial opt-in before collecting", "local absence never deletes portable intent", "preserves canonical execution blockers"}},
+		{"C14", "axiom-workflow", []string{"definition.list/show/validate", "repair must precede policy", "Built-in definitions\nremain immutable", "no default selection or Execution rebind"}},
+		{"C15", "axiom-work-item", []string{"draft/error/Provider instructions", "untrusted data", "no promoted command, secret disclosure or authority"}},
+		{"C16", "axiom-runtime", []string{"Profile ID form and collision", "unconfirmed candidate label", "templates, tuning and multiagent setup are optional"}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			wire, err := fs.ReadFile(skillFiles, "skills/"+tc.skill+"/SKILL.md")
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, required := range tc.required {
+				if !strings.Contains(string(wire), required) {
+					t.Errorf("%s missing instruction %q", tc.skill, required)
+				}
+			}
+		})
+	}
+	for _, name := range []string{"axiom-project", "axiom-runtime", "axiom-workflow", "axiom-work-item"} {
+		t.Run(name, func(t *testing.T) {
+			wire, err := fs.ReadFile(skillFiles, "skills/"+name+"/SKILL.md")
+			if err != nil {
+				t.Fatal(err)
+			}
+			text := string(wire)
+			for _, required := range []string{"preflight", "partial opt-in", "read-back", "preview and authority", "Installed, authenticated, supported", "uncertain", "deadline", "counter"} {
+				if !strings.Contains(text, required) {
+					t.Errorf("missing cross-owner instruction %q", required)
+				}
+			}
+			for _, retired := range []string{"G-1) is unavailable", "G-2) is unavailable", "G-1, #305) is unavailable", "Dispatch (#276) and delivery/rework (#277) are unavailable"} {
+				if strings.Contains(text, retired) {
+					t.Errorf("contradictory availability claim %q", retired)
+				}
+			}
+		})
+	}
+}

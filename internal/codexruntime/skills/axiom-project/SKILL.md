@@ -58,6 +58,139 @@ resolution selects only an operation; it never grants
 authority, supplies `--authorize-local`, invents selectors, or replaces Lingo
 validation.
 
+## Guided readiness for an existing Project
+
+For a goal such as “deixe este Project pronto para executar Work Items”, use
+this journey before collecting configuration choices. It coordinates existing
+owners; it adds no operation, readiness evaluator, store or authority. An
+explicit operation still routes exactly as requested; explicit `skill inspect`
+stops at inspection. An explicit configure change uses the relevant portion of
+this preflight without expanding the requested write set.
+
+### Inventory and feasibility before choices
+
+Resolve the effective installed binary, provenance and compatible skill-set
+through supported introspection/help. A checkout build, main, a release
+announcement or this host is not the user's installation. If required metadata
+is absent or contradicts the skill, use only supported read-only diagnostics;
+if inconclusive, report unknown and stop the dependent path. Never discover
+support by trying a mutation or invent a minimum version or upgrade command.
+
+Resolve one Project through list/show, retaining UUID, source, selector presence
+and revision/observation reference. Ask only for the missing identity if ambiguous.
+Inventory each layer through its owner, recording source, version and available
+freshness; inaccessible means not observed, not absent:
+
+- Repository declarations by key, declared remote identity and local binding;
+  divergent remotes require a decision, with no preference for `origin`, Git edit,
+  checkout move or fabricated path.
+- Portable Runtime/Profile policy, distinguishing absent, unconfigured, empty and
+  configured groups; local absence never deletes portable intent.
+- Local Runtime bindings and enabled/eligible Profiles through `axiom-runtime`,
+  with exact Runtime/model/Profile association and Profile-owned effort.
+- Workflow none or exact source/ID/revision/digest through `axiom-workflow`, its
+  relevant Stage/Agent requirements, and current Project selection.
+- Canonical readiness per affected operation and required Integration/Provider
+  declarations; backlog provider access does not prove product adapter support.
+- Existing executable, authentication and proof observations with their exact
+  identity and validity, or explicit unknown. Installed, authenticated, supported
+  and proven are independent facts, never implications.
+
+Before asking model, effort, Profile ID or template, map every known gap to its
+owner/operation, observed accepted forms, prerequisites, future authority,
+expected result and confirming read. Check the complete known path: Repository
+binding, policy, local candidate, Workflow compatibility/selection and execution
+prerequisites. A valid draft or structural validation alone cannot prove it.
+
+If policy needs editing and installed G-1/#305 is absent or unknown, stop before
+technical collection and before creating a Profile. Explain observed version,
+missing capability and the smallest supported next observation. Main's delivery
+does not supply an installed operation. Missing operation/argument, incompatible
+snapshot, recovery, unavailable required proof/producer or denied authority also
+stops its dependent path immediately; do not substitute another Runtime/Project,
+manual state edits or automatic installation/upgrade.
+
+Use passive observations only for discovery. Auth preflight and effort-source
+inspection can execute vendor processes even when called read-only. They need
+their own authority; do not invoke them to fill this inventory automatically.
+Inspect existing proof only through a supported path with satisfied prerequisites;
+never prepare, probe or invalidate proof to discover support. No login, inference,
+credential resolution or real canary belongs to this journey.
+
+A supported independent partial objective may be offered with its observed
+operation/source, benefit, losses and execution still blocked. Obtain explicit
+partial opt-in before collecting its technical choices. Without opt-in, end
+blocked; previously confirmed facts grant no new effects. Re-run preflight after
+material change.
+
+### Progressive decisions and exact effects
+
+Reuse compatible confirmed Profiles, Workflows and still-valid decisions. Ask at
+most one material decision per question, explaining purpose, observed alternatives,
+consequences and a recommendation with its source. A closed catalog proves only
+its accepted tokens; an open intent field is not a catalog. Without authoritative
+model/effort options, report unknown and block operational use. Save unproven
+intent only when its owner contract permits it and partial opt-in was obtained.
+
+For a new Profile ID, validate form and collision in its canonical scope through
+the owner; propose only an unconfirmed candidate label for human choice. Never
+silently replace or rename a collision. Templates, effort tuning and multiagent
+setup are optional unless the goal demonstrates a need. `runtime-default` requires
+observed support and explicit choice; it does not identify internal vendor effort.
+The operator host never chooses the execution Runtime or model.
+
+Derive apply order from actual dependencies. Inspect Workflow definitions through
+list/show/validate and configuration readiness; selection belongs to Project
+`workflow.select`. If proposed policy conflicts with the active Workflow, first
+obtain a compatible selection/repair under its own authority, or stop. Built-in
+editing, invalid references or needed authoring/migration outside the objective
+go to `axiom-workflow`; no implicit default, fixed impossible apply sequence or
+Execution rebind.
+
+Use each owner's validation and preview. Keep policy-only G-1 drafts separate
+from Repository/Provider edits and local G-2 binding/Profile changes. For each
+apply show identity, before/after, write set, portable versus shared local scope,
+dependencies, snapshots/digests, Workflow/Stage/Agent impact and readiness limits.
+Do not claim an unobserved inventory of Work Items or Executions.
+
+Authority binds each apply separately to operation, target, content, revision,
+digest and scope. A general setup request, Profile choice or another apply's
+confirmation does not authorize it. Reuse still-valid exact confirmation without
+asking again. Denial cancels that effect without insistence or substitution;
+preserve previously confirmed effects.
+
+Before every apply reobserve owner snapshots and material Project UUID/source/
+selector, policy, local configuration, executable/auth/proof and Workflow facts.
+Any material drift invalidates preview and authority: return to preflight, obtain
+a fresh owner preview and new exact confirmation. No silent rebase, global lock
+or transaction is supplied by this journey. Missing canonical coverage blocks
+the affected decision and requires clarification from the owner.
+
+After every write compare canonical read-back identity, revision/digest and
+content with the authorized preview, then re-evaluate affected readiness through
+the existing evaluator. Lost acknowledgement, unavailable read-back or divergent
+post-commit state stops the dependent chain with confirmed and uncertain effects
+separated. Never replay an uncertain mutation; inspection/recovery remains with
+its owner and needs its own authority.
+
+### Scoped outcome and handoff
+
+After the intact canonical relay, use the existing Auxiliary explanation for
+progress and a conversational ready, partial or blocked summary. These are not
+completion enums or persisted gates. Keep operation status/result, canonical
+readiness, effect certainty and human acceptance separate. Ready requires all
+material prerequisites of the stated operations/Workflow observed and valid;
+missing auth/proof coverage restricts the conclusion. Partial requires a chosen,
+confirmed useful subset and preserves canonical execution blockers. Blocked
+states the smallest next action without promising that it resolves everything.
+
+Use the cumulative AO-06/07/09 budgets and sanitized checkpoint below, including
+correlation/attempt, original deadline, counters, references, decisions and used/
+pending authority. No start, create/link Work Item, resume, run, stage dispatch or
+rebind is authorized by handoff to `axiom-work-item`. Unobserved Execution/gate
+remains unknown. Ready requires fresh auth/proof and its own preview/authority
+before any later start; readiness is neither run nor human acceptance.
+
 ## configure
 
 The mode is decided only by an explicit existing-Project selector: with
@@ -182,7 +315,8 @@ use the exact source/revision/digest, present the preview, and wait for separate
 approval of that exact preview before repeating with `--expected-revision`,
 `--preview-digest` and `--authorize-local`. Never select a default implicitly or
 use selection as inspection. Creating or editing a definition does not select it.
-Project Runtime policy authoring (G-1, #305) is unavailable in this slice.
+Project Runtime policy authoring (G-1, #305) belongs to configure edit above;
+verify its availability in the effective installation before collecting choices.
 
 ## Result contract
 
