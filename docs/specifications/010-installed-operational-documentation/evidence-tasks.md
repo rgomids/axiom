@@ -70,9 +70,9 @@ future CI success is claimed in this versioned file.
 
 ## Handoff boundary
 
-Tasks Proposed, saved for continuation/review, not accepted. Final editorial review
-and full requested delivery remain pending after the SAVE STATE instruction. Candidate next stage
-`implement` requires exact Tasks acceptance and fresh explicit bounded authority;
+Tasks Proposed, delivered for review, not accepted. Final editorial/semantic review of
+the four documentary files was completed after the SAVE STATE resume (see below).
+Candidate next stage `implement` requires exact Tasks acceptance and fresh explicit bounded authority;
 start with P1 only after that authority. Dependent production stays blocked by G1.
 No next dispatch, release/merge, product acceptance, closure or blocker change.
 
@@ -103,3 +103,15 @@ review/acceptance, PR description reconciliation, exact final-head CI read-back
 and any needed documentary corrections. The save-state PR comment records the
 actual commit/push and safety scans after this file was written. Remote CI remains
 unverified here. Implementation/native tests and all ACs remain NOT_RUN.
+
+## Final editorial review — 2026-10-20
+
+Resumed from the SAVE STATE head `50896bb62b44ed21f9229cbf5e3b519b9d6d235e`, local
+and remote in sync, worktree clean; CI for that head was observed PASS (PR Checks,
+delivery-metadata). Local Orchestrator review of Tasks, acceptance addendum, this
+Evidence and the Specification index checked gates G0–G3, P1 blocking of P2–P4
+production, negative-case coverage per task, OD/AC/V and producer/consumer matrices,
+and authority boundaries. No substantive defect found; the only correction was
+replacing the stale "pending" handoff wording above. This is not independent review
+or human acceptance. AC-01–AC-08 and implementation/native tests remain **NOT_RUN**.
+Remote CI for the final delivery head is recorded in the PR read-back, not here.
