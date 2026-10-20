@@ -92,14 +92,14 @@ func withFinishedAttempt(store *fakeSingleStore, status executiongraph.AttemptSt
 
 func singleLifecycle(t *testing.T) (SingleLifecycle, *fakeSingleLedger, *fakeDetacher) {
 	t.Helper()
-	service, _, compiler, _ := previewFixture(t, true)
+	service, _, compiler := previewFixture(t, true)
 	reviewed, err := service.Preview(context.Background(), compiler.plan.Execution, compiler.plan.StageID)
 	if err != nil {
 		t.Fatal(err)
 	}
 	store, _ := singleFixtureWithPreview(t, reviewed.Digest)
 	store.run.Binding.ProposalDigest = reviewed.Plan.Digest
-	store.run.Binding.Resolution.ResolvedProfile = reviewed.Plan.Compilation.Agents[0].Input.ResolvedProfile
+	store.run.Binding.Resolution.FrozenProfile = reviewed.Plan.Compilation.Agents[0].Input.FrozenProfile
 	ledger := &fakeSingleLedger{store: store}
 	d := &fakeDetacher{}
 	n := 0
@@ -208,7 +208,7 @@ func TestSingleRetryRefusesUnreconciledUnknownAndStalePreview(t *testing.T) {
 
 func previewRef(t *testing.T) (workflowcompiler.ExecutionRef, string) {
 	t.Helper()
-	_, _, compiler, _ := previewFixture(t, true)
+	_, _, compiler := previewFixture(t, true)
 	return compiler.plan.Execution, compiler.plan.StageID
 }
 

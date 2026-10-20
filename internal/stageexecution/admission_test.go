@@ -3,6 +3,7 @@ package stageexecution
 import (
 	"bytes"
 	"crypto/sha256"
+	"encoding/json"
 	"errors"
 	"os"
 	"strings"
@@ -17,7 +18,7 @@ import (
 
 func graphFixture(t *testing.T) executiongraph.SuccessorGraph {
 	t.Helper()
-	wire, e := os.ReadFile("../executiongraph/testdata/successor/valid/publication.json")
+	wire, e := os.ReadFile("../executiongraph/testdata/axm36/graph-v4.json")
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -25,40 +26,51 @@ func graphFixture(t *testing.T) executiongraph.SuccessorGraph {
 	if e != nil {
 		t.Fatal(e)
 	}
+	var proposal executiongraph.Proposal
+	wire, e = os.ReadFile("../executiongraph/testdata/axm36/proposal-v3.json")
+	if e != nil {
+		t.Fatal(e)
+	}
+	if e = json.Unmarshal(wire, &proposal); e != nil {
+		t.Fatal(e)
+	}
+	g.Parent.ProposalDigest = proposal.Digest
 	return g
 }
 
-// currentContract is an admissible canonical v3 contract: the frozen Profile
-// plus one unrelated allowlisted Profile on the same Runtime.
 func currentContract(t *testing.T) Contract {
 	g := graphFixture(t)
-	p := g.Children[0].Envelope.Resolution.ResolvedProfile
-	cfg := runtimeprofile.ConfigurationV3{FormatVersion: runtimeprofile.FormatVersionV3, Revision: 4,
-		Runtimes: []runtimeprofile.RuntimeV3{{ID: p.RuntimeID, Adapter: p.RuntimeID, Enabled: true, AllowlistedProfileIDs: []string{p.ProfileID, "other-profile"}}},
+	p := g.Children[0].Envelope.Resolution.FrozenProfile
+	cfg := runtimeprofile.ConfigurationV4{FormatVersion: runtimeprofile.FormatVersionV4, Revision: 4,
+		Runtimes: []runtimeprofile.RuntimeV4{{ID: p.RuntimeID, Adapter: p.RuntimeID, Enabled: true, AllowlistedProfileIDs: []string{p.ProfileID, "other-profile"}}},
 		ModelProfiles: []runtimeprofile.ModelProfile{
 			{ID: p.ProfileID, RuntimeID: p.RuntimeID, Model: p.Model, Effort: p.Effort, Capabilities: []string{"read"}},
 			{ID: "other-profile", RuntimeID: p.RuntimeID, Model: "other-model", Effort: runtimeprofile.Effort{Mode: runtimeprofile.EffortRuntimeDefault, Value: "default"}, Capabilities: []string{"read"}},
 		}}
-	if err := runtimeprofile.ValidateV3(cfg); err != nil {
+	if err := runtimeprofile.ValidateV4(cfg); err != nil {
 		t.Fatal(err)
 	}
-	return Contract{Definition: func() workflowdefinition.Document { d, _ := workflowdefinition.BuiltinRevision(2); return d }(), Execution: workflow.State{FormatVersion: 3, Binding: &workflow.WorkflowBinding{SchemaVersion: 2, ResolvedProfile: p}}, Record: runtimeprofile.RecordActiveV3, Configuration: runtimeprofile.VersionedConfiguration{FormatVersion: runtimeprofile.FormatVersionV3, V3: &cfg}, Graph: &executiongraph.GraphDocument{Successor: &g}, WorkflowSelected: true, PolicyAllowed: true}
+	return Contract{Definition: func() workflowdefinition.Document { d, _ := workflowdefinition.BuiltinRevision(2); return d }(), Execution: workflow.State{FormatVersion: workflow.OperationalConfiguredFormatVersion, Binding: &workflow.WorkflowBinding{SchemaVersion: 2, FrozenProfile: p}}, Record: "active-v4", Configuration: &cfg, Graph: &executiongraph.GraphDocument{Successor: &g}, WorkflowSelected: true, PolicyAllowed: true}
 }
 
 // withoutFrozenProfile removes the frozen Profile from the current allowlist.
 func withoutFrozenProfile(c *Contract) {
-	cfg := *c.Configuration.V3
-	cfg.Runtimes = append([]runtimeprofile.RuntimeV3(nil), cfg.Runtimes...)
+	cfg := *c.Configuration
+	cfg.Runtimes = append([]runtimeprofile.RuntimeV4(nil), cfg.Runtimes...)
 	cfg.Runtimes[0].AllowlistedProfileIDs = []string{"other-profile"}
-	c.Configuration.V3 = &cfg
+	c.Configuration = &cfg
 }
 
-// historicalLocal is a pre-stable format-1/2 record; it is never current.
-func historicalLocal(format int) runtimeprofile.VersionedConfiguration {
-	return runtimeprofile.VersionedConfiguration{FormatVersion: format, Configuration: &runtimeprofile.Configuration{FormatVersion: format}}
-}
 func historicalGraph(t *testing.T, version int) executiongraph.GraphDocument {
-	g := graphFixture(t)
+	t.Helper()
+	wire, err := os.ReadFile("../executiongraph/testdata/successor/valid/publication.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	g, err := executiongraph.DecodeSuccessorGraph(wire)
+	if err != nil {
+		t.Fatal(err)
+	}
 	base := executiongraph.Graph{FormatVersion: version, Parent: g.Parent}
 	for _, c := range g.Children {
 		if version == 1 {
@@ -66,13 +78,13 @@ func historicalGraph(t *testing.T, version int) executiongraph.GraphDocument {
 		}
 		base.Children = append(base.Children, executiongraph.ChildExecution{ExecutionID: c.ExecutionID, ParentID: c.ParentID, GraphRevision: c.GraphRevision, NodeKey: c.NodeKey, Envelope: c.Envelope})
 	}
-	wire, e := executiongraph.EncodeGraph(base)
-	if e != nil {
-		t.Fatal(e)
+	wire, err = executiongraph.EncodeGraph(base)
+	if err != nil {
+		t.Fatal(err)
 	}
-	d, e := executiongraph.DecodeGraphDocument(wire)
-	if e != nil {
-		t.Fatal(e)
+	d, err := executiongraph.DecodeGraphDocument(wire)
+	if err != nil {
+		t.Fatal(err)
 	}
 	return d
 }
@@ -96,13 +108,13 @@ func TestAdmissionHistoricalMatrix(t *testing.T) {
 		{"row05-sequential-legacy-inspection", StageStatus, func(c *Contract) { c.Execution.FormatVersion = 2 }, nil, "legacy_execution_contract"},
 		{"row06-legacy-coordination", CoordinationRead, func(c *Contract) { c.Execution.FormatVersion = 1 }, nil, "legacy_execution_contract"},
 		{"row07-graph1", StageRun, func(c *Contract) { d := historicalGraph(t, 1); c.Graph = &d }, executiongraph.ErrUnsupportedGraphFormat, ""},
-		{"row08-local1", StageRun, func(c *Contract) { c.Configuration = historicalLocal(1) }, ErrProfileEffortUnconfigured, ""},
-		{"row08-local2", StageRun, func(c *Contract) { c.Configuration = historicalLocal(2) }, ErrProfileEffortUnconfigured, ""},
+		{"row08-local1", StageRun, func(c *Contract) { c.Record = "active-v1" }, ErrProfileEffortUnconfigured, ""},
+		{"row08-local2", StageRun, func(c *Contract) { c.Record = "active-v2" }, ErrProfileEffortUnconfigured, ""},
 		{"local-missing", StageRun, func(c *Contract) {
-			c.Record, c.Configuration = runtimeprofile.RecordMissingV3, runtimeprofile.VersionedConfiguration{}
+			c.Record, c.Configuration = "fresh", nil
 		}, ErrProfileEffortUnconfigured, ""},
 		{"local-retired", StageRun, func(c *Contract) {
-			c.Record, c.Configuration = runtimeprofile.RecordRetiredV3, runtimeprofile.VersionedConfiguration{}
+			c.Record, c.Configuration = "retired", nil
 		}, ErrProfileEffortUnconfigured, ""},
 		{"row09-stage-plan", StagePlan, func(c *Contract) { c.Graph = nil }, nil, ""},
 		{"row10-first-attempt-next-gates", StageRun, nil, nil, ""},
@@ -117,8 +129,7 @@ func TestAdmissionHistoricalMatrix(t *testing.T) {
 		{"unknown-successor", StageRun, func(c *Contract) { c.Graph.Successor.FormatVersion = 99 }, executiongraph.ErrUnsupportedGraphFormat, ""},
 		{"missing-successor-version", StageRun, func(c *Contract) { c.Graph.Successor.FormatVersion = 0 }, executiongraph.ErrUnsupportedGraphFormat, ""},
 		{"missing-classification", StageRun, func(c *Contract) { c.Graph.Successor.ClassificationPolicy = "" }, executiongraph.ErrUnsupportedGraphFormat, ""},
-		{"local1-probe", CapabilityProbe, func(c *Contract) { c.Graph = nil; c.Configuration = historicalLocal(1) }, ErrProfileEffortUnconfigured, ""},
-		{"missing-frozen-tuple", StageRun, func(c *Contract) { c.Execution.Binding.ResolvedProfile = nil }, ErrLegacyExecution, ""},
+		{"missing-frozen-tuple", StageRun, func(c *Contract) { c.Execution.Binding.FrozenProfile = nil }, ErrLegacyExecution, ""},
 		{"unknown-operation", Operation("stage.arbitrary"), nil, ErrAdmission, ""},
 	}
 	for _, tc := range cases {
@@ -165,7 +176,7 @@ func TestAllHistoricalGraphMutationsRefusedAndInspectionPreservesBytes(t *testin
 func TestUnknownWireNeverFallsBack(t *testing.T) {
 	g := graphFixture(t)
 	wire, _ := executiongraph.EncodeSuccessorGraph(g)
-	for _, bad := range []string{strings.Replace(string(wire), `"formatVersion":3`, `"formatVersion":4`, 1), strings.Replace(string(wire), `"formatVersion":3,`, "", 1), strings.Replace(string(wire), `"classificationPolicy":"stage-attempt-v1",`, "", 1)} {
+	for _, bad := range []string{strings.Replace(string(wire), `"formatVersion":4`, `"formatVersion":99`, 1), strings.Replace(string(wire), `"formatVersion":4,`, "", 1), strings.Replace(string(wire), `"classificationPolicy":"stage-attempt-v1",`, "", 1)} {
 		if d, e := executiongraph.DecodeGraphDocument([]byte(bad)); e == nil || d.Historical != nil || d.Successor != nil {
 			t.Fatal("fallback", e)
 		}

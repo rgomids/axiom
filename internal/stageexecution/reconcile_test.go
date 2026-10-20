@@ -118,7 +118,7 @@ func TestReconcileStaleAndUnknownAppendsFactsOnly(t *testing.T) {
 	}
 	t.Run("unknown-status", func(t *testing.T) {
 		s, _, store, _ := reconcileFixture(t)
-		raw, e := os.ReadFile("../executiongraph/testdata/successor/valid/process_outcome_unknown.json")
+		raw, e := os.ReadFile("../executiongraph/testdata/axm36/graph-v4-process_outcome_unknown.json")
 		if e != nil {
 			t.Fatal(e)
 		}

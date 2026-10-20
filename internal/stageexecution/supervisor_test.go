@@ -114,7 +114,7 @@ func (f *fakeSupervisorPreparation) Prepare(_ context.Context, g executiongraph.
 	if f.prepares == f.failPrepare {
 		return executiongraph.Invocation{}, errInjected
 	}
-	if epoch != 1 || c.Envelope.Resolution.ResolvedProfile == nil {
+	if epoch != 1 || c.Envelope.Resolution.FrozenProfile == nil {
 		return executiongraph.Invocation{}, ErrAdmission
 	}
 	return executiongraph.WithExactEnvironment(executiongraph.Invocation{RuntimeID: "codex", Argv: []string{"fake-runtime"}, Stdin: []byte(id), OutputMax: 64}, []string{"AXIOM_FAKE=1"}), nil

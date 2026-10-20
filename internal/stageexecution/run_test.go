@@ -65,7 +65,7 @@ func (f *fakeRunPorts) Start(context.Context, Publication) (executiongraph.Proce
 }
 func runFixture(t *testing.T, single bool) (RunService, RunRequest, *fakeRunPorts, *fakePreviewSource) {
 	t.Helper()
-	preview, source, compiler, _ := previewFixture(t, single)
+	preview, source, compiler := previewFixture(t, single)
 	p, e := preview.Preview(context.Background(), compiler.plan.Execution, compiler.plan.StageID)
 	if e != nil {
 		t.Fatal(e)
@@ -93,7 +93,7 @@ func TestRunGraphAndSingleCommitBeforeStart(t *testing.T) {
 	}
 }
 func TestRunAuthorityAndDriftRefuseBeforeCommit(t *testing.T) {
-	for _, name := range []string{"external authority", "local authority", "revision", "preview digest", "policy drift", "capability drift", "drift during allocation"} {
+	for _, name := range []string{"external authority", "local authority", "revision", "preview digest", "policy drift", "identity drift", "drift during allocation"} {
 		t.Run(name, func(t *testing.T) {
 			s, r, f, source := runFixture(t, false)
 			want := ErrStalePreview
@@ -110,12 +110,10 @@ func TestRunAuthorityAndDriftRefuseBeforeCommit(t *testing.T) {
 				r.PreviewDigest = strings.Repeat("f", 64)
 			case "policy drift":
 				source.o.PolicyDigest = strings.Repeat("f", 64)
-			case "capability drift":
-				c := s.Preview.Capabilities.(*fakeCapabilities)
-				for k, v := range c.views {
-					v.EvidenceRef = "changed"
-					c.views[k] = v
-				}
+			case "identity drift":
+				changed := *s.Preview.Compiler.(*fakePlanCompiler).plan.Compilation.Agents[0].Input.FrozenProfile
+				changed.ExecutableDigest = strings.Repeat("f", 64)
+				s.Preview.Compiler.(*fakePlanCompiler).plan.Compilation.Agents[0].Input.FrozenProfile = &changed
 			case "drift during allocation":
 				f.onBuild = func() { source.o.PolicyDigest = strings.Repeat("f", 64) }
 			}

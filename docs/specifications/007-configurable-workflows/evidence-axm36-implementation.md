@@ -572,3 +572,31 @@ the historical gate. PASS: `go vet ./...`; `go test` for executiongraph,
 workflow, workflowcompiler, runtimeprofile, local, stageexecution,
 stagepublication and graphapplication; `git diff --check`. Remaining T01:
 DispatchInputs 2/preview content, configuration-4 store state; then T02/T03.
+
+## r6 — stage execution regression checkpoint
+
+Resumed the r5 handoff at `4e8b5cfb5617251a3912c5cb3e9fbcf9c68a8905`.
+Authenticated read-back confirmed the same open PR #334 and branch, clean
+worktree and unchanged approved Tasks. Linear remains In Review; no transition
+or acceptance was inferred. The existing `/home/box/.local/state/lingo` root
+has no Execution files; other-host state remains unavailable. No new root,
+Execution or PR was created. No delegation: a strictly inferior model relative
+to the Orchestrator cannot be established from the exposed model metadata.
+
+Ported `internal/stageexecution` regression tests to Configuration 4, Execution
+5, Graph 4, single run 2 and the proof-free tuple. Historical graph fixture
+bytes remain unchanged; tests still refuse their dispatch and preserve their
+inspection. Replaced proof drift with exact executable tuple drift, preserved
+policy/authority/budget/lease/inbox/coordination/retry/reconciliation tests and
+removed certification-only assertions. Preview rights fixtures now disclose
+unknown vendor confinement for both adapters. The new synthetic StagePlan 3
+fixture reuses historical workflow intent and current tuple/proposal fixtures;
+it is test input, not an approved or persisted production plan.
+
+PASS: `go test ./internal/stageexecution`, `go vet ./internal/stageexecution`,
+`git diff --check`. No Runtime process or inference ran. Dedicated `gitleaks`
+is unavailable. Remote baseline `delivery-metadata` passed; baseline `PR Checks`
+failed formatting in four existing r5 files, confirmed from the job log.
+That failure remains pending correction, alongside the known unmigrated local
+and cmd/lingo test suites. T02 diagnostics, T03 guidance and the full proof-free
+installed matrix remain incomplete; this checkpoint is not delivery/acceptance.

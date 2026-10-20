@@ -1,8 +1,8 @@
 {
   "claude": {
-    "Confinement": "advisory",
+    "Confinement": "unknown",
     "Reads": "worktree; reads outside are not OS-confined",
-    "Commands": "within worktree under the disclosed confinement",
+    "Commands": "within worktree under the Runtime's own permission mode; not verified by Axiom",
     "Prohibitions": {
       "PR": "policy-only",
       "Provider calls": "policy-only",
@@ -15,15 +15,16 @@
     "NotTested": [
       "external-network",
       "home",
+      "runtime-sandbox",
       "system-temp",
       "tmpdir",
       "vendor-home"
     ]
   },
   "codex": {
-    "Confinement": "os-enforced",
+    "Confinement": "unknown",
     "Reads": "worktree; reads outside are not OS-confined",
-    "Commands": "within worktree under the disclosed confinement",
+    "Commands": "within worktree under the Runtime's own permission mode; not verified by Axiom",
     "Prohibitions": {
       "PR": "policy-only",
       "Provider calls": "policy-only",
@@ -31,11 +32,12 @@
       "merge": "policy-only",
       "nested agents": "policy-only",
       "push": "policy-only",
-      "writes outside observed writable roots": "enforced for probe-listed negative targets only"
+      "writes outside observed writable roots": "policy-only"
     },
     "NotTested": [
       "external-network",
       "home",
+      "runtime-sandbox",
       "system-temp",
       "tmpdir",
       "vendor-home"

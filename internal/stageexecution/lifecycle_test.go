@@ -210,7 +210,7 @@ func TestStatusInspectsLegacyAndRefusesForeignTarget(t *testing.T) {
 	if e != nil || result.Next[store.g.Parent.ExecutionID] != ErrLegacyExecution.Error() {
 		t.Fatal("legacy status not inspectable", result.Next, e)
 	}
-	store.contract.Execution.FormatVersion = 3
+	store.contract.Execution.FormatVersion = 5
 	foreign := lifecycleTarget(store)
 	foreign.ProjectID = "foreign-project"
 	if _, e = (StatusService{Source: source}).Read(context.Background(), foreign); !errors.Is(e, ErrAdmission) {

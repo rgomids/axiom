@@ -3,6 +3,7 @@ package stageexecution
 import (
 	"context"
 	"errors"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -21,14 +22,14 @@ func (f fakeMaterialLoader) LoadAttempt(context.Context, executiongraph.Successo
 }
 
 type fakeStageChecker struct {
-	profile *runtimeprofile.ResolvedProfile
+	profile *runtimeprofile.ResolvedProfileV4
 	err     error
 	calls   int
 }
 
 func (f *fakeStageChecker) Check(context.Context, runtimeapplication.Preview) (runtimeapplication.Binding, error) {
 	f.calls++
-	return runtimeapplication.Binding{Choice: runtimeprofile.Choice{ResolvedProfile: f.profile}}, f.err
+	return runtimeapplication.Binding{Choice: runtimeprofile.Choice{FrozenProfile: f.profile}}, f.err
 }
 
 type fakeStageSources struct {
@@ -36,7 +37,7 @@ type fakeStageSources struct {
 	err   error
 }
 
-func (f *fakeStageSources) CheckEffortSources(_ context.Context, p runtimeprofile.ResolvedProfile, _ executiongraph.Invocation) (string, error) {
+func (f *fakeStageSources) CheckEffortSources(_ context.Context, p runtimeprofile.ResolvedProfileV4, _ executiongraph.Invocation) (string, error) {
 	f.calls++
 	return p.EffortSourceDigest, f.err
 }
@@ -61,21 +62,29 @@ func TestCompiledPreparationReusesFrozenChecksAndTaskPacket(t *testing.T) {
 		t.Run(kind, func(t *testing.T) {
 			g := graphFixture(t)
 			c := g.Children[0]
-			p := *c.Envelope.Resolution.ResolvedProfile
-			p.RuntimeVersion = "0.159.1"
-			c.Envelope.Resolution.ResolvedProfile = &p
+			p := *c.Envelope.Resolution.FrozenProfile
+
+			c.Envelope.Resolution.FrozenProfile = &p
 			root := t.TempDir()
 			workspace := filepath.Join(root, "workspace")
 			inbox := filepath.Join(root, "inbox")
 			axiom := filepath.Join(root, "axiom")
 			binary := filepath.Join(root, "codex")
+			if err := os.WriteFile(binary, []byte("inert fixture; never execute"), 0o700); err != nil {
+				t.Fatal(err)
+			}
+			identity, err := runtimeadapter.ExecutableIdentity(binary)
+			if err != nil {
+				t.Fatal(err)
+			}
+			p.ExecutableDigest = identity
 			c.Envelope.Workspace = workspace
 			g.Children[0] = c
 			id := "00000000-0000-4000-8000-000000000101"
-			m := AttemptMaterial{Input: workflowcompiler.ExecutionInput{ProjectID: c.Envelope.Scope.ProjectID, RepositoryKey: c.Envelope.Scope.RepositoryKey, AgentID: "implementer", Role: c.Envelope.Capability.Role, Responsibilities: "Implement the authorized change", Instructions: "Produce the required result", NodeKey: c.NodeKey, Scope: c.Envelope.Scope, Effects: c.Envelope.AllowedEffects, Controls: c.Envelope.Controls, ResolvedProfile: &p, RuntimePreview: runtimeapplication.Preview{Choice: &runtimeprofile.Choice{ResolvedProfile: &p}}}, Invocation: runtimeadapter.StageInvocationRequest{Profile: runtimeadapter.CommandProfile{RuntimeID: p.RuntimeID, ModelProfileID: p.ProfileID, Model: p.Model, Executable: binary}, Version: p.RuntimeVersion, Workspace: workspace, Inbox: inbox, AxiomPath: axiom}, Packet: runtimeadapter.PacketContext{AttemptID: id, Inbox: inbox, AxiomPath: axiom, AxiomDigest: p.ExecutableDigest}, Context: coordination.ChildContext{Workspace: workspace, Inbox: inbox, ParentID: g.Parent.ExecutionID, ChildID: c.ExecutionID, AttemptID: id, GraphRevision: g.Parent.GraphRevision, Epoch: 1, Running: true}}
+			m := AttemptMaterial{Input: workflowcompiler.ExecutionInput{ProjectID: c.Envelope.Scope.ProjectID, RepositoryKey: c.Envelope.Scope.RepositoryKey, AgentID: "implementer", Role: c.Envelope.Capability.Role, Responsibilities: "Implement the authorized change", Instructions: "Produce the required result", NodeKey: c.NodeKey, Scope: c.Envelope.Scope, Effects: c.Envelope.AllowedEffects, Controls: c.Envelope.Controls, FrozenProfile: &p, RuntimePreview: runtimeapplication.Preview{Choice: &runtimeprofile.Choice{FrozenProfile: &p}}}, Invocation: runtimeadapter.StageInvocationRequest{Profile: runtimeadapter.CommandProfile{RuntimeID: p.RuntimeID, ModelProfileID: p.ProfileID, Model: p.Model, Executable: binary}, Workspace: workspace, Inbox: inbox, AxiomPath: axiom}, Packet: runtimeadapter.PacketContext{AttemptID: id, Inbox: inbox, AxiomPath: axiom, AxiomDigest: p.ExecutableDigest}, Context: coordination.ChildContext{Workspace: workspace, Inbox: inbox, ParentID: g.Parent.ExecutionID, ChildID: c.ExecutionID, AttemptID: id, GraphRevision: g.Parent.GraphRevision, Epoch: 1, Running: true}}
 			checker := &fakeStageChecker{profile: &p}
 			sources := &fakeStageSources{}
-			auth := &fakeStageAuth{version: p.RuntimeVersion}
+			auth := &fakeStageAuth{version: "unknown"}
 			prep := &CompiledSupervisorPreparation{Checker: checker, Sources: sources, Auth: auth}
 			switch kind {
 			case "tuple-drift":

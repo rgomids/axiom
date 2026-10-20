@@ -4,14 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"maps"
 	"os"
 	"reflect"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/rgomids/axiom/internal/capabilityproof"
 	"github.com/rgomids/axiom/internal/executiongraph"
 	"github.com/rgomids/axiom/internal/workflowcompiler"
 	"github.com/rgomids/axiom/internal/workflowdefinition"
@@ -44,31 +42,16 @@ func (f *fakePlanCompiler) PlanStageV2(_ context.Context, r workflowcompiler.Sta
 	return f.plan, nil
 }
 
-type fakeCapabilities struct {
-	views map[capabilityproof.Target]capabilityproof.View
-	calls int
-}
-
-func (f *fakeCapabilities) Show(_ context.Context, t capabilityproof.Target) (capabilityproof.View, error) {
-	f.calls++
-	v, ok := f.views[t]
-	if !ok {
-		return v, capabilityproof.ErrBlocked
-	}
-	return v, nil
-}
-
-func previewFixture(t *testing.T, single bool) (PreviewService, *fakePreviewSource, *fakePlanCompiler, *fakeCapabilities) {
+func previewFixture(t *testing.T, single bool) (PreviewService, *fakePreviewSource, *fakePlanCompiler) {
 	t.Helper()
 	g := graphFixture(t)
 	c := currentContract(t)
 	c.Graph = nil
 	// The graph parent is an allocated identity, distinct from the Execution.
 	ref := workflowcompiler.ExecutionRef{ExecutionID: "00000000-0000-4000-8000-0000000005e1", Revision: 1}
-	plan := workflowcompiler.StagePlan{FormatVersion: 2, Execution: ref, ProjectID: g.Children[0].Envelope.Scope.ProjectID, RepositoryKey: "main", Workflow: c.Definition.Ref("builtin"), StageID: "implementation", ExecutionKind: "graph", PlanDocumentDigest: strings.Repeat("a", 64), Digest: strings.Repeat("b", 64), Compilation: workflowcompiler.Result{FormatVersion: 2, Concurrency: 1, ExecutionKind: "graph", AuthorityCeiling: g.Parent.AuthorityEffects}}
-	caps := &fakeCapabilities{views: map[capabilityproof.Target]capabilityproof.View{}}
+	plan := workflowcompiler.StagePlan{FormatVersion: 3, Execution: ref, ProjectID: g.Children[0].Envelope.Scope.ProjectID, RepositoryKey: "main", Workflow: c.Definition.Ref("builtin"), StageID: "implementation", ExecutionKind: "graph", PlanDocumentDigest: strings.Repeat("a", 64), Digest: strings.Repeat("b", 64), Compilation: workflowcompiler.Result{FormatVersion: 3, Concurrency: 1, ExecutionKind: "graph", AuthorityCeiling: g.Parent.AuthorityEffects}}
 	o := PreviewObservation{Contract: c, PolicyDigest: strings.Repeat("c", 64), ValidatorPolicyDigest: strings.Repeat("d", 64), AxiomDigest: strings.Repeat("e", 64), Workspaces: map[string]string{}, Inboxes: map[string]string{}}
-	wire, e := os.ReadFile("../workflowcompiler/testdata/issue306/stage-plan-v2.json")
+	wire, e := os.ReadFile("testdata/stage-plan-v3.json")
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -98,24 +81,8 @@ func previewFixture(t *testing.T, single bool) (PreviewService, *fakePreviewSour
 		if single && i > 0 {
 			break
 		}
-		f := ch.Envelope.Resolution.ResolvedProfile
-		// The fixtures declare repository-write but authorize no write effects.
-		capability := ch.Envelope.Capability
 		o.Workspaces[ch.NodeKey] = ch.Envelope.Workspace
 		o.Inboxes[ch.NodeKey] = "/synthetic/inbox/" + ch.NodeKey
-		target := capabilityproof.Target{RuntimeID: f.RuntimeID, ProfileID: f.ProfileID, Variant: capabilityproof.ReadOnlyVariant}
-		states := map[string]capabilityproof.State{}
-		for _, cap := range append(append([]string(nil), capability.Capabilities...), capabilityproof.Noninteractive, capabilityproof.AxiomCoordination, capabilityproof.ModelInvocation) {
-			states[cap] = capabilityproof.Proven
-		}
-		if f.Effort.Mode == "explicit" {
-			states["reasoning-effort-"+f.Effort.Value] = capabilityproof.Proven
-		}
-		level := "os-enforced"
-		if f.RuntimeID == "claude" {
-			level = "advisory"
-		}
-		caps.views[target] = capabilityproof.View{Target: target, EvidenceRef: f.CapabilityProofReference, Binding: capabilityproof.Binding{RuntimeID: f.RuntimeID, ExecutableDigest: f.ExecutableDigest, Version: f.RuntimeVersion, AxiomDigest: o.AxiomDigest, ModeDigest: strings.Repeat("a", 64), AdapterVersion: "1", Variant: target.Variant}, Model: &capabilityproof.ModelBinding{ProfileID: f.ProfileID, ProfileDigest: f.ProfileDigest, Model: f.Model, ConfigurationRevision: f.ConfigurationRevision, EffortMode: f.Effort.Mode, EffortToken: f.Effort.Value, EffortSourceDigest: f.EffortSourceDigest}, States: states, Confinement: capabilityproof.Confinement{Level: level, Scope: []string{"sentinel", "workspace"}, NotTested: []string{"home", "vendor-home", "tmpdir", "system-temp", "external-network"}}}
 	}
 	if single {
 		plan.ExecutionKind = "single"
@@ -129,12 +96,12 @@ func previewFixture(t *testing.T, single bool) (PreviewService, *fakePreviewSour
 	o.Reviewed = plan
 	source := &fakePreviewSource{o: o}
 	compiler := &fakePlanCompiler{plan: plan}
-	return PreviewService{Source: source, Compiler: compiler, Capabilities: caps}, source, compiler, caps
+	return PreviewService{Source: source, Compiler: compiler}, source, compiler
 }
 func TestDispatchPreviewGraphAndSingle(t *testing.T) {
 	for _, single := range []bool{false, true} {
 		t.Run(map[bool]string{false: "graph", true: "single"}[single], func(t *testing.T) {
-			s, source, compiler, caps := previewFixture(t, single)
+			s, source, compiler := previewFixture(t, single)
 			a, e := s.Preview(context.Background(), compiler.plan.Execution, compiler.plan.StageID)
 			if e != nil {
 				t.Fatal(e)
@@ -143,7 +110,7 @@ func TestDispatchPreviewGraphAndSingle(t *testing.T) {
 			if e != nil || !reflect.DeepEqual(a, b) {
 				t.Fatal("non-deterministic preview", e)
 			}
-			if (a.Publication == nil) != single || source.calls != 2 || compiler.calls != 2 || caps.calls != 2*len(a.Children) {
+			if (a.Publication == nil) != single || source.calls != 2 || compiler.calls != 2 {
 				t.Fatal("wrong path", a)
 			}
 			digest, _ := previewDigest(a)
@@ -154,7 +121,7 @@ func TestDispatchPreviewGraphAndSingle(t *testing.T) {
 	}
 }
 func TestDispatchPreviewRightsGolden(t *testing.T) {
-	s, _, compiler, _ := previewFixture(t, false)
+	s, _, compiler := previewFixture(t, false)
 	p, e := s.Preview(context.Background(), compiler.plan.Execution, compiler.plan.StageID)
 	if e != nil {
 		t.Fatal(e)
@@ -165,8 +132,8 @@ func TestDispatchPreviewRightsGolden(t *testing.T) {
 		NotTested                    []string
 	}
 	got := map[string]surface{}
-	for _, c := range p.Children {
-		got[c.Capability.Target.RuntimeID] = surface{c.Capability.Confinement.Level, c.Reads, c.Commands, c.Prohibitions, c.NotTested}
+	for i, c := range p.Children {
+		got[p.Plan.Compilation.Agents[i].Input.FrozenProfile.RuntimeID] = surface{c.Confinement, c.Reads, c.Commands, c.Prohibitions, c.NotTested}
 	}
 	wire, _ := json.MarshalIndent(got, "", "  ")
 	wire = append(wire, '\n')
@@ -181,63 +148,61 @@ func TestDispatchPreviewRightsGolden(t *testing.T) {
 func TestDispatchPreviewRefusals(t *testing.T) {
 	cases := []struct {
 		name   string
-		change func(*fakePreviewSource, *fakePlanCompiler, *fakeCapabilities)
+		change func(*fakePreviewSource, *fakePlanCompiler)
 		want   error
 	}{
-		{"plan digest mismatch", func(s *fakePreviewSource, c *fakePlanCompiler, _ *fakeCapabilities) {
+		{"plan digest mismatch", func(s *fakePreviewSource, c *fakePlanCompiler) {
 			c.plan.Digest = strings.Repeat("f", 64)
 		}, ErrStalePreview},
-		{"plan document mismatch", func(s *fakePreviewSource, c *fakePlanCompiler, _ *fakeCapabilities) {
+		{"plan document mismatch", func(s *fakePreviewSource, c *fakePlanCompiler) {
 			c.plan.PlanDocumentDigest = strings.Repeat("f", 64)
 		}, ErrStalePreview},
-		{"missing capability", func(_ *fakePreviewSource, _ *fakePlanCompiler, c *fakeCapabilities) {
-			for k, v := range c.views {
-				delete(v.States, capabilityproof.AxiomCoordination)
-				c.views[k] = v
-			}
-		}, capabilityproof.ErrBlocked},
-		{"legacy execution", func(s *fakePreviewSource, _ *fakePlanCompiler, _ *fakeCapabilities) {
+		{"missing frozen tuple", func(s *fakePreviewSource, c *fakePlanCompiler) {
+			c.plan.Compilation.Agents[0].Input.FrozenProfile = nil
+			s.o.Reviewed = c.plan
+		}, ErrPreview},
+		{"legacy execution", func(s *fakePreviewSource, _ *fakePlanCompiler) {
 			s.o.Contract.Execution.FormatVersion = 2
 		}, ErrLegacyExecution},
-		{"legacy workflow", func(s *fakePreviewSource, _ *fakePlanCompiler, _ *fakeCapabilities) {
+		{"legacy workflow", func(s *fakePreviewSource, _ *fakePlanCompiler) {
 			s.o.Contract.Definition.Definition.SchemaVersion = 1
 		}, workflowcompiler.ErrWorkflowMigrationRequired},
-		{"policy refused", func(s *fakePreviewSource, _ *fakePlanCompiler, _ *fakeCapabilities) {
+		{"policy refused", func(s *fakePreviewSource, _ *fakePlanCompiler) {
 			s.o.Contract.PolicyAllowed = false
 		}, ErrPolicyUpdateRequired},
-		{"33 nodes", func(s *fakePreviewSource, c *fakePlanCompiler, _ *fakeCapabilities) {
+		{"33 nodes", func(s *fakePreviewSource, c *fakePlanCompiler) {
 			for len(c.plan.Compilation.Agents) < 33 {
 				c.plan.Compilation.Agents = append(c.plan.Compilation.Agents, c.plan.Compilation.Agents[0])
 			}
 			s.o.Reviewed = c.plan
 		}, ErrPreview},
-		{"33-node proposal", func(s *fakePreviewSource, c *fakePlanCompiler, _ *fakeCapabilities) {
+		{"33-node proposal", func(s *fakePreviewSource, c *fakePlanCompiler) {
 			for len(c.plan.Compilation.Proposal.Nodes) < 33 {
 				c.plan.Compilation.Proposal.Nodes = append(c.plan.Compilation.Proposal.Nodes, c.plan.Compilation.Proposal.Nodes[0])
 			}
 			s.o.Reviewed = c.plan
 		}, ErrPreview},
-		{"historical graph", func(s *fakePreviewSource, _ *fakePlanCompiler, _ *fakeCapabilities) {
+		{"historical graph", func(s *fakePreviewSource, _ *fakePlanCompiler) {
 			d := historicalGraph(t, 1)
 			s.o.Contract.Graph = &d
 		}, executiongraph.ErrUnsupportedGraphFormat},
-		{"zero attempts", func(s *fakePreviewSource, c *fakePlanCompiler, _ *fakeCapabilities) {
+		{"zero attempts", func(s *fakePreviewSource, c *fakePlanCompiler) {
 			c.plan.Compilation.Agents[0].Controls.MaximumAttempts = 0
 			s.o.Reviewed = c.plan
 		}, ErrPreview},
-		{"11 attempts", func(s *fakePreviewSource, c *fakePlanCompiler, _ *fakeCapabilities) {
+		{"11 attempts", func(s *fakePreviewSource, c *fakePlanCompiler) {
 			c.plan.Compilation.Agents[0].Controls.MaximumAttempts = 11
 			s.o.Reviewed = c.plan
 		}, ErrPreview},
-		{"over 24h", func(s *fakePreviewSource, c *fakePlanCompiler, _ *fakeCapabilities) {
+		{"over 24h", func(s *fakePreviewSource, c *fakePlanCompiler) {
 			c.plan.Compilation.Agents[0].Controls.Timeout = 24*time.Hour + time.Nanosecond
 			s.o.Reviewed = c.plan
 		}, ErrPreview},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			s, source, compiler, caps := previewFixture(t, false)
-			tc.change(source, compiler, caps)
+			s, source, compiler := previewFixture(t, false)
+			tc.change(source, compiler)
 			_, e := s.Preview(context.Background(), compiler.plan.Execution, compiler.plan.StageID)
 			if !errors.Is(e, tc.want) {
 				t.Fatalf("got %v want %v", e, tc.want)
@@ -246,7 +211,7 @@ func TestDispatchPreviewRefusals(t *testing.T) {
 	}
 }
 func TestPreviewBindsPolicyAndDisclosure(t *testing.T) {
-	s, source, compiler, _ := previewFixture(t, false)
+	s, source, compiler := previewFixture(t, false)
 	a, e := s.Preview(context.Background(), compiler.plan.Execution, compiler.plan.StageID)
 	if e != nil {
 		t.Fatal(e)
@@ -258,7 +223,7 @@ func TestPreviewBindsPolicyAndDisclosure(t *testing.T) {
 	}
 	advisory := false
 	for _, c := range b.Children {
-		if c.Capability.Confinement.Level == "advisory" {
+		if c.Confinement == "unknown" {
 			advisory = true
 			for _, v := range c.Prohibitions {
 				if v != "policy-only" {
@@ -272,30 +237,16 @@ func TestPreviewBindsPolicyAndDisclosure(t *testing.T) {
 	}
 }
 func TestDispatchPreviewBindsProcessMode(t *testing.T) {
-	s, _, compiler, caps := previewFixture(t, true)
+	s, source, compiler := previewFixture(t, true)
+	before, err := s.Preview(context.Background(), compiler.plan.Execution, compiler.plan.StageID)
+	if err != nil {
+		t.Fatal(err)
+	}
 	agent := &compiler.plan.Compilation.Agents[0]
 	agent.Effects = append(agent.Effects, executiongraph.Effect{Kind: "process", Target: "worktree"})
-	f := agent.Input.ResolvedProfile
-	readOnly := capabilityproof.Target{RuntimeID: f.RuntimeID, ProfileID: f.ProfileID, Variant: capabilityproof.ReadOnlyVariant}
-	// Evidence held only for the Process=false mode never admits a process effect.
-	if _, e := s.Preview(context.Background(), compiler.plan.Execution, compiler.plan.StageID); !errors.Is(e, capabilityproof.ErrBlocked) {
-		t.Fatalf("process effect admitted through Process=false mode: %v", e)
-	}
-	process := readOnly
-	process.Process = true
-	v := caps.views[readOnly]
-	v.Target = process
-	v.States = maps.Clone(v.States)
-	v.States[capabilityproof.Process] = capabilityproof.Proven
-	caps.views[process] = v
-	p, e := s.Preview(context.Background(), compiler.plan.Execution, compiler.plan.StageID)
-	if e != nil || len(p.Children) != 1 || p.Children[0].Capability.Target != process {
-		t.Fatalf("process mode not preserved: %+v %v", p.Children, e)
-	}
-	// The process mode still requires proven Process capability Evidence.
-	v.States[capabilityproof.Process] = capabilityproof.Unknown
-	caps.views[process] = v
-	if _, e := s.Preview(context.Background(), compiler.plan.Execution, compiler.plan.StageID); !errors.Is(e, capabilityproof.ErrBlocked) {
-		t.Fatalf("unproven Process admitted: %v", e)
+	source.o.Reviewed = compiler.plan
+	after, err := s.Preview(context.Background(), compiler.plan.Execution, compiler.plan.StageID)
+	if err != nil || before.Digest == after.Digest || !reflect.DeepEqual(after.Children[0].Effects, agent.Effects) {
+		t.Fatalf("process authority not bound: %+v %v", after, err)
 	}
 }
