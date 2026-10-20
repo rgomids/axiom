@@ -7,10 +7,8 @@ import (
 	"reflect"
 	"sort"
 	"testing"
-	"time"
 
 	"github.com/rgomids/axiom/internal/executiongraph"
-	"github.com/rgomids/axiom/internal/runtimeprofile"
 )
 
 type credentialFake struct{ references []string }
@@ -18,21 +16,6 @@ type credentialFake struct{ references []string }
 func (f *credentialFake) ResolveEnvironment(_ context.Context, reference string) ([]string, error) {
 	f.references = append(f.references, reference)
 	return []string{"RUNTIME_TOKEN=SECRET_SENTINEL"}, nil
-}
-
-func TestInventoryExposesOnlyObservedCodexAndClaude(t *testing.T) {
-	observedAt := time.Unix(1, 0).UTC()
-	inventory, err := NewInventory([]runtimeprofile.Observation{{RuntimeID: "codex", Adapter: "codex", Installed: true, Available: true, Revision: 1, ObservedAt: observedAt}, {RuntimeID: "claude", Adapter: "claude", Installed: true, Available: false, Revision: 1, ObservedAt: observedAt}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	observation, err := inventory.Observe(context.Background(), "claude")
-	if err != nil || observation.Available {
-		t.Fatalf("observation=%+v err=%v", observation, err)
-	}
-	if _, err := inventory.Observe(context.Background(), "other"); err == nil {
-		t.Fatal("unknown adapter observed")
-	}
 }
 
 func TestConcreteResolversProduceExplicitArgvAndResolveCredentialByReference(t *testing.T) {

@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -23,11 +22,11 @@ import (
 )
 
 // This chain exercises Axiom's actual protected stores and application/compiler
-// boundaries. Only positive capability evidence is injected; no vendor runs.
+// boundaries. Only operational observations are injected; no vendor runs.
 type chainAuthoringStore struct{ store local.RuntimeProfileStore }
 
 func chainSnapshot(s local.RuntimeProfileSnapshot) runtimeapplication.LocalSnapshot {
-	return runtimeapplication.LocalSnapshot{State: s.State, Revision: s.Revision, Legacy: s.Legacy, V3: s.V3, Token: s.Token}
+	return runtimeapplication.LocalSnapshot{State: s.State, Revision: s.Revision, Legacy: s.Legacy, V3: s.V3, V4: s.V4, Token: s.Token}
 }
 func (s chainAuthoringStore) Inspect(ctx context.Context) (runtimeapplication.LocalSnapshot, error) {
 	v, e := s.store.Inspect(ctx)
@@ -38,20 +37,38 @@ func (s chainAuthoringStore) Publish(ctx context.Context, token string, w []byte
 	return chainSnapshot(v), e
 }
 
-type chainObserver map[string]runtimeprofile.Observation
+// chainObserver returns the current executable identity per Runtime and an
+// effort-source digest per Profile; failure injects an inspection refusal.
+type chainObserver struct {
+	runtimes map[string]runtimeprofile.OperationalObservation
+	sources  map[string]string
+	failure  error
+}
 
-func (o chainObserver) Observe(_ context.Context, id string) (runtimeprofile.Observation, error) {
-	v, ok := o[id]
+func (o *chainObserver) ObserveExecutable(_ context.Context, id string) (runtimeprofile.OperationalObservation, error) {
+	v, ok := o.runtimes[id]
 	if !ok {
-		return v, fmt.Errorf("observation unavailable")
+		return v, runtimeprofile.ErrExecutableUnavailable
 	}
+	return v, nil
+}
+
+func (o *chainObserver) ObserveOperational(ctx context.Context, id, profileID string) (runtimeprofile.OperationalObservation, error) {
+	v, err := o.ObserveExecutable(ctx, id)
+	if err != nil {
+		return v, err
+	}
+	if o.failure != nil {
+		return v, o.failure
+	}
+	v.EffortSourceDigest = o.sources[profileID]
 	return v, nil
 }
 
 type chainPolicySource struct {
 	store    local.RuntimeProfileStore
 	project  project.Project
-	observer chainObserver
+	observer *chainObserver
 }
 
 func (s *chainPolicySource) Load(ctx context.Context, _ string) (runtimeapplication.Snapshot, error) {
@@ -59,7 +76,7 @@ func (s *chainPolicySource) Load(ctx context.Context, _ string) (runtimeapplicat
 	if err != nil {
 		return runtimeapplication.Snapshot{}, err
 	}
-	consumer, code := runtimeapplication.ConsumerFromRecordV3(snapshot.State, snapshot.V3)
+	consumer, code := runtimeapplication.ConsumerFromRecord(snapshot.State, snapshot.V4)
 	if code != "" {
 		return runtimeapplication.Snapshot{}, runtimeapplication.LocalStateError{State: snapshot.State}
 	}
@@ -139,7 +156,7 @@ func TestIssue306HistoricalCorpusIsImmutableAndReadable(t *testing.T) {
 	if v, err := runtimeprofile.DecodeVersioned(files["local-v2.json"]); err != nil || v.V3 != nil {
 		t.Fatal("historical local record read as canonical v3", err)
 	}
-	if _, code := runtimeapplication.ConsumerFromRecordV3("active-v2", nil); code != "unsupported_configuration_format" {
+	if _, code := runtimeapplication.ConsumerFromRecord("active-v2", nil); code != "unsupported_configuration_format" {
 		t.Fatalf("pre-stable record consumed: %s", code)
 	}
 	tomb, err := runtimeprofile.DecodeTombstone(files["tombstone-v1.json"])
@@ -154,7 +171,7 @@ func TestIssue306HistoricalCorpusIsImmutableAndReadable(t *testing.T) {
 	}
 }
 
-func TestProfileV3ProtectedRetirementCompilerGraphRestartChain(t *testing.T) {
+func TestProfileProtectedRetirementCompilerGraphRestartChain(t *testing.T) {
 	ctx := context.Background()
 	tmp := t.TempDir()
 	stateRoot := filepath.Join(tmp, "state")
@@ -183,7 +200,7 @@ func TestProfileV3ProtectedRetirementCompilerGraphRestartChain(t *testing.T) {
 	}
 	historicalDigest := historical.Digest
 	// PM-11 A1: the pre-stable record is retired explicitly as a whole, then
-	// canonical v3 is created through separately reviewed operations. Nothing
+	// canonical configuration 4 is created through separately reviewed operations. Nothing
 	// is migrated and no effort is inferred from the historical record.
 	author := runtimeapplication.Authoring{Store: chainAuthoringStore{store}, Installed: func(string) bool { return true }}
 	if migrate, err := author.Run(ctx, runtimeapplication.AuthoringRequest{Kind: "profile", Operation: "migrate"}); err == nil || migrate.Category != "invalid_input" {
@@ -203,11 +220,11 @@ func TestProfileV3ProtectedRetirementCompilerGraphRestartChain(t *testing.T) {
 		t.Fatal(err)
 	}
 	current, err := restarted.Inspect(ctx)
-	if err != nil || current.State != "active-v3" || current.V3 == nil || current.Revision != 5 {
-		t.Fatal("restart did not load canonical v3", err)
+	if err != nil || current.State != "active-v4" || current.V4 == nil || current.Revision != 5 {
+		t.Fatal("restart did not load canonical configuration 4", err)
 	}
-	cfg := *current.V3
-	configurationDigest, err := runtimeprofile.DigestV3(cfg)
+	cfg := *current.V4
+	configurationDigest, err := runtimeprofile.DigestV4(cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -222,14 +239,12 @@ func TestProfileV3ProtectedRetirementCompilerGraphRestartChain(t *testing.T) {
 	if len(diagnostics) > 0 {
 		t.Fatal(diagnostics)
 	}
-	observations := chainObserver{}
+	observations := &chainObserver{runtimes: map[string]runtimeprofile.OperationalObservation{}, sources: map[string]string{}}
 	for _, r := range cfg.Runtimes {
-		observations[r.ID] = runtimeprofile.Observation{RuntimeID: r.ID, Adapter: r.Adapter, Installed: true, Available: true, Version: "injected-1.0", ExecutableDigest: digestForTest("executable-" + r.ID), Revision: cfg.Revision, ObservedAt: time.Unix(1, 0).UTC(), CapabilityStatus: map[string]runtimeprofile.CapabilityStatus{"read": runtimeprofile.CapabilityProven, "repository-write": runtimeprofile.CapabilityProven}}
+		observations.runtimes[r.ID] = runtimeprofile.OperationalObservation{RuntimeID: r.ID, Adapter: r.Adapter, Installed: true, Available: true, ExecutableDigest: digestForTest("executable-" + r.ID), InvocationMode: "noninteractive", Revision: cfg.Revision, ObservedAt: time.Unix(1, 0).UTC()}
 	}
 	for _, p := range cfg.ModelProfiles {
-		o := observations[p.RuntimeID]
-		o.ProfileProofs = append(o.ProfileProofs, runtimeprofile.ProfileProof{RuntimeID: p.RuntimeID, Model: p.Model, Effort: p.Effort, ExecutableDigest: o.ExecutableDigest, RuntimeVersion: o.Version, InvocationMode: "noninteractive", ObservationRevision: o.Revision, Reference: "injected-" + p.ID, EffortSourceDigest: digestForTest("effort-sources-" + p.ID), Authentication: runtimeprofile.CapabilityProven, ModelAvailability: runtimeprofile.CapabilityProven, EffortSupport: runtimeprofile.CapabilityProven, NoOverride: runtimeprofile.CapabilityProven, CapabilityStatus: map[string]runtimeprofile.CapabilityStatus{"read": runtimeprofile.CapabilityProven, "repository-write": runtimeprofile.CapabilityProven}})
-		observations[p.RuntimeID] = o
+		observations.sources[p.ID] = digestForTest("effort-sources-" + p.ID)
 	}
 	source := &chainPolicySource{store: restarted, project: proj, observer: observations}
 	policy := runtimeapplication.New(source)
@@ -266,12 +281,12 @@ func TestProfileV3ProtectedRetirementCompilerGraphRestartChain(t *testing.T) {
 	}
 	compiler := New(policy, capabilityOK{})
 	compiled, err := compiler.CompileV2(ctx, req)
-	if err != nil || compiled.FormatVersion != 2 || compiled.Proposal == nil || compiled.Proposal.FormatVersion != 2 {
-		t.Fatal("compile v2 chain failed", err)
+	if err != nil || compiled.FormatVersion != OperationalResultVersion || compiled.Proposal == nil || compiled.Proposal.FormatVersion != executiongraph.OperationalProposalVersion {
+		t.Fatal("compile chain failed", err)
 	}
 	planned, err := compiler.PlanStageV2(ctx, stagePlanRequest(t, req, nil))
-	if err != nil || planned.FormatVersion != 2 || planned.GraphProposal == nil || planned.Compilation.Proposal == nil || planned.Compilation.Proposal.FormatVersion != 2 {
-		t.Fatal("stageplan v2 chain failed", err)
+	if err != nil || planned.FormatVersion != OperationalStagePlanVersion || planned.GraphProposal == nil || planned.Compilation.Proposal == nil || planned.Compilation.Proposal.FormatVersion != executiongraph.OperationalProposalVersion {
+		t.Fatal("stageplan chain failed", err)
 	}
 	if planned.Compilation.Digest != compiled.Digest || len(planned.Resolutions) != 3 {
 		t.Fatal("stageplan/compile disagree")
@@ -282,48 +297,33 @@ func TestProfileV3ProtectedRetirementCompilerGraphRestartChain(t *testing.T) {
 		publication.ChildAuthorities[key] = a.Effects
 		publication.Workspaces[key] = filepath.Join(tmp, "workspace", a.AgentID)
 		publication.AuthorityReferences[key] = "reviewed-local-authority-" + a.AgentID
-		publication.Resolutions[key] = executiongraph.Resolution{RuntimeID: a.Choice.RuntimeID, ModelProfileID: a.Choice.ModelProfileID, ConfigurationRevision: a.Choice.ConfigurationRevision, ObservationRevision: a.Choice.ObservationRevision, ResolvedProfile: a.Choice.ResolvedProfile}
-	}
-	graphStore, err := local.NewGraphStore(stateRoot)
-	if err != nil {
-		t.Fatal(err)
+		publication.Resolutions[key] = executiongraph.Resolution{RuntimeID: a.Choice.RuntimeID, ModelProfileID: a.Choice.ModelProfileID, ConfigurationRevision: a.Choice.ConfigurationRevision, ObservationRevision: a.Choice.ObservationRevision, FrozenProfile: a.Choice.FrozenProfile}
 	}
 	allocation := 0
 	allocate := func() (string, error) {
 		allocation++
 		return fmt.Sprintf("00000000-0000-4000-8000-%012d", allocation), nil
 	}
-	graph, err := executiongraph.NewGraphService(graphStore, allocate, func() time.Time { return time.Unix(10, 0).UTC() }).Publish(ctx, publication)
-	if err != nil || graph.FormatVersion != 2 {
-		t.Fatal("protected graph publication failed", err)
+	// The proof-free graph is an in-memory projection of the successor ledger;
+	// it is never persisted as a historical Graph document.
+	graph, err := executiongraph.NewGraphService(nil, allocate, func() time.Time { return time.Unix(10, 0).UTC() }).Build(publication)
+	if err != nil || graph.FormatVersion != executiongraph.OperationalProposalVersion || len(graph.Children) != 3 {
+		t.Fatal("graph projection failed", err)
 	}
-	graphRestart, err := local.NewGraphStore(stateRoot)
-	if err != nil {
-		t.Fatal(err)
+	if _, err := executiongraph.EncodeGraph(graph); err == nil {
+		t.Fatal("proof-free graph projection persisted as a historical Graph")
 	}
-	loaded, err := graphRestart.Load(ctx, projectID, graph.Parent.ExecutionID)
-	if err != nil || loaded.FormatVersion != 2 || len(loaded.Children) != 3 {
-		t.Fatal("graph restart failed", err)
-	}
-	beforeGraph, err := executiongraph.EncodeGraph(graph)
-	if err != nil {
-		t.Fatal(err)
-	}
-	afterGraph, err := executiongraph.EncodeGraph(loaded)
-	if err != nil || !bytes.Equal(beforeGraph, afterGraph) {
-		t.Fatal("graph restart changed frozen bytes")
-	}
-	for _, child := range loaded.Children {
-		r := child.Envelope.Resolution.ResolvedProfile
-		if r == nil || !executiongraph.ValidProfileControls(r, child.Envelope.Controls, child.Envelope.Capability) {
+	for _, child := range graph.Children {
+		r := child.Envelope.Resolution.FrozenProfile
+		if r == nil || child.Envelope.Resolution.ResolvedProfile != nil || !executiongraph.ValidFrozenProfileControls(r, child.Envelope.Controls, child.Envelope.Capability) {
 			t.Fatal("graph lost sole-profile controls")
 		}
 		if r.ConfigurationRevision != cfg.Revision || r.ConfigurationDigest != configurationDigest {
-			t.Fatal("graph lost the canonical v3 generation")
+			t.Fatal("graph lost the canonical configuration generation")
 		}
 	}
 
-	// The configured Execution3 uses the same canonical v3 resolution and retains
+	// The configured Execution 5 uses the same canonical resolution and retains
 	// its complete schema2 snapshot in the protected WorkflowStore.
 	startSelection := runtimeapplication.Request{Role: "engineer", Complexity: "medium", Capabilities: []string{"read"}, ModelProfileID: "codex-default"}
 	startPreview, err := policy.Preview(ctx, projectID, startSelection)
@@ -332,47 +332,47 @@ func TestProfileV3ProtectedRetirementCompilerGraphRestartChain(t *testing.T) {
 	}
 	now := time.Unix(20, 0).UTC()
 	executionID := "123e4567-e89b-42d3-a456-426614174001"
-	execution := workflow.State{ExecutionID: executionID, FormatVersion: workflow.ProfileConfiguredFormatVersion, WorkflowVersion: workflow.ProfileConfiguredWorkflowVersion, ProjectID: projectID, RepositoryKey: "main", WorkItem: workflow.WorkItem{Provider: "github", Resource: "example/public", ExternalID: "306", URL: "https://example.invalid/issues/306", State: "OPEN"}, RuntimeID: "codex", Stage: workflow.Stage(mapped.Definition.Stages[0].ID), Revision: 1, Status: workflow.ExecutionActive, CreatedAt: now, UpdatedAt: now, Provenance: workflow.Identity{Product: "Axiom", Version: "test", Revision: "injected", SourceState: "clean"}}
+	execution := workflow.State{ExecutionID: executionID, FormatVersion: workflow.OperationalConfiguredFormatVersion, WorkflowVersion: workflow.ProfileConfiguredWorkflowVersion, ProjectID: projectID, RepositoryKey: "main", WorkItem: workflow.WorkItem{Provider: "github", Resource: "example/public", ExternalID: "306", URL: "https://example.invalid/issues/306", State: "OPEN"}, RuntimeID: "codex", Stage: workflow.Stage(mapped.Definition.Stages[0].ID), Revision: 1, Status: workflow.ExecutionActive, CreatedAt: now, UpdatedAt: now, Provenance: workflow.Identity{Product: "Axiom", Version: "test", Revision: "injected", SourceState: "clean"}}
 	content := []byte("Sanitized business context")
-	frozenStart := *startPreview.Choice.ResolvedProfile
-	execution.Binding = &workflow.WorkflowBinding{ResolvedProfile: &frozenStart, ProjectRevision: startPreview.ProjectDigest, LocalRevision: startPreview.ConfigurationDigest, ProjectID: projectID, Definition: mapped.Ref("project"), SchemaVersion: 2, SnapshotRef: "execution:" + executionID + "#/binding/snapshot", Snapshot: append([]byte(nil), mapped.Canonical...), ObservationDigest: startPreview.ObservationDigest, RuntimePreview: startPreview.Digest(), BoundAt: now, Contexts: map[string]workflow.ContextObservation{"business-context": {Source: "business-context", Content: content, Digest: digestForTest(string(content))}}}
+	frozenStart := *startPreview.Choice.FrozenProfile
+	execution.Binding = &workflow.WorkflowBinding{FrozenProfile: &frozenStart, ProjectRevision: startPreview.ProjectDigest, LocalRevision: startPreview.ConfigurationDigest, ProjectID: projectID, Definition: mapped.Ref("project"), SchemaVersion: 2, SnapshotRef: "execution:" + executionID + "#/binding/snapshot", Snapshot: append([]byte(nil), mapped.Canonical...), ObservationDigest: startPreview.ObservationDigest, RuntimePreview: startPreview.Digest(), BoundAt: now, Contexts: map[string]workflow.ContextObservation{"business-context": {Source: "business-context", Content: content, Digest: digestForTest(string(content))}}}
 	if !workflow.ValidState(execution) {
-		t.Fatal("invalid Execution3 test state")
+		t.Fatal("invalid Execution 5 test state")
 	}
 	executionStore, err := local.NewWorkflowStore(stateRoot)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if err := executionStore.Create(ctx, execution); err != nil {
-		t.Fatal("protected Execution3 publication", err)
+		t.Fatal("protected Execution 5 publication", err)
 	}
 	executionRestart, err := local.NewWorkflowStore(stateRoot)
 	if err != nil {
 		t.Fatal(err)
 	}
 	loadedExecution, err := executionRestart.Load(ctx, projectID, "main", execution.WorkItem)
-	if err != nil || loadedExecution.FormatVersion != 3 || loadedExecution.Binding.ResolvedProfile == nil || *loadedExecution.Binding.ResolvedProfile != frozenStart || !bytes.Equal(loadedExecution.Binding.Snapshot, mapped.Canonical) {
-		t.Fatal("Execution3 restart lost snapshot", err)
+	if err != nil || loadedExecution.FormatVersion != workflow.OperationalConfiguredFormatVersion || loadedExecution.Binding.FrozenProfile == nil || *loadedExecution.Binding.FrozenProfile != frozenStart || !bytes.Equal(loadedExecution.Binding.Snapshot, mapped.Canonical) {
+		t.Fatal("Execution 5 restart lost snapshot", err)
 	}
 	modified := loadedExecution
 	bindingCopy := *loadedExecution.Binding
-	profileCopy := *loadedExecution.Binding.ResolvedProfile
+	profileCopy := *loadedExecution.Binding.FrozenProfile
 	profileCopy.Effort = runtimeprofile.Effort{Mode: "explicit", Value: "high"}
-	bindingCopy.ResolvedProfile = &profileCopy
+	bindingCopy.FrozenProfile = &profileCopy
 	modified.Binding = &bindingCopy
 	if !workflow.ValidState(modified) {
 		t.Fatal("rebind refusal fixture is not structurally valid")
 	}
 	if err := executionRestart.Save(ctx, modified); err == nil {
-		t.Fatal("protected store rebound existing Execution3")
+		t.Fatal("protected store rebound existing Execution 5")
 	}
 	retained, err := executionRestart.Load(ctx, projectID, "main", execution.WorkItem)
-	if err != nil || *retained.Binding.ResolvedProfile != frozenStart {
+	if err != nil || *retained.Binding.FrozenProfile != frozenStart {
 		t.Fatal("rebind refusal changed persisted tuple")
 	}
 	paths, err := filepath.Glob(filepath.Join(stateRoot, "executions", "v1", projectID, "*.json"))
 	if err != nil || len(paths) != 1 {
-		t.Fatalf("Execution3 record path count %d: %v", len(paths), err)
+		t.Fatalf("Execution 5 record path count %d: %v", len(paths), err)
 	}
 	recordPath := paths[0]
 	originalExecutionWire, err := os.ReadFile(recordPath)
@@ -380,18 +380,18 @@ func TestProfileV3ProtectedRetirementCompilerGraphRestartChain(t *testing.T) {
 		t.Fatal(err)
 	}
 	// The frozen issue306 corpus is historical (TestIssue306HistoricalCorpus...);
-	// the live v3 chain binds DigestV3 everywhere instead.
+	// the live chain binds DigestV4 everywhere instead.
 	if frozenStart.ConfigurationDigest != configurationDigest || startPreview.ConfigurationDigest != configurationDigest || planned.Compilation.Proposal == nil {
-		t.Fatal("Execution3 binding is not bound to DigestV3")
+		t.Fatal("Execution 5 binding is not bound to DigestV4")
 	}
 	tombstoneWire, err := runtimeprofile.EncodeTombstone(runtimeprofile.Tombstone{Kind: runtimeprofile.TombstoneKind, FormatVersion: 1, Revision: cfg.Revision + 1, PriorConfigurationDigest: configurationDigest})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if _, err := runtimeprofile.DecodeTombstone(tombstoneWire); err != nil {
-		t.Fatal("v3 retirement does not fit the existing tombstone format", err)
+		t.Fatal("configuration 4 retirement does not fit the existing tombstone format", err)
 	}
-	for _, poison := range []string{strings.Replace(string(originalExecutionWire), `"formatVersion":3`, `"formatVersion":3,"formatVersion":3`, 1), strings.Replace(string(originalExecutionWire), `"profileId":"codex-default"`, `"profileId":"codex-default","profileId":"codex-default"`, 1)} {
+	for _, poison := range []string{strings.Replace(string(originalExecutionWire), `"formatVersion":5`, `"formatVersion":5,"formatVersion":5`, 1), strings.Replace(string(originalExecutionWire), `"profileId":"codex-default"`, `"profileId":"codex-default","profileId":"codex-default"`, 1)} {
 		if poison == string(originalExecutionWire) {
 			t.Fatal("duplicate key test did not mutate wire")
 		}
@@ -399,46 +399,42 @@ func TestProfileV3ProtectedRetirementCompilerGraphRestartChain(t *testing.T) {
 			t.Fatal(err)
 		}
 		if _, err := executionRestart.Load(ctx, projectID, "main", execution.WorkItem); err == nil {
-			t.Fatal("Execution3 duplicate keys accepted")
+			t.Fatal("Execution 5 duplicate keys accepted")
 		}
 		if err := os.WriteFile(recordPath, originalExecutionWire, 0600); err != nil {
 			t.Fatal(err)
 		}
 	}
 	restored, err := executionRestart.Load(ctx, projectID, "main", execution.WorkItem)
-	if err != nil || *restored.Binding.ResolvedProfile != frozenStart {
-		t.Fatal("Execution3 restored bytes failed restart")
+	if err != nil || *restored.Binding.FrozenProfile != frozenStart {
+		t.Fatal("Execution 5 restored bytes failed restart")
 	}
 
-	// A reviewed tuple cannot authorize later proof/source or selected-model drift.
+	// A reviewed tuple cannot authorize later source, executable or inspection drift.
 	selection := runtimeapplication.Request{Role: "implementer", Complexity: "medium", Capabilities: []string{"read"}, ModelProfileID: "codex-explicit"}
 	resolved, err := policy.Preview(ctx, projectID, selection)
 	if err != nil {
 		t.Fatal(err)
 	}
-	o := observations["codex"]
-	original := o.ProfileProofs[0]
-	o.ProfileProofs[0].EffortSourceDigest = digestForTest("changed-sources")
-	observations["codex"] = o
+	original := observations.sources["codex-explicit"]
+	observations.sources["codex-explicit"] = digestForTest("changed-sources")
 	if _, err := policy.Check(ctx, resolved); err == nil {
-		t.Fatal("proof source drift reused review")
+		t.Fatal("effort-source drift reused review")
 	}
-	o.ProfileProofs[0] = original
-	o.ProfileProofs[0].Model = "other-model"
-	observations["codex"] = o
-	if _, err := compiler.CompileV2(ctx, req); err == nil {
-		t.Fatal("model-mismatched proof compiled")
+	observations.sources["codex-explicit"] = original
+	codex := observations.runtimes["codex"]
+	delete(observations.runtimes, "codex")
+	if _, err := compiler.CompileV2(ctx, req); ClassifyFailure(err).Category != "executable_unavailable" {
+		t.Fatal("missing executable compiled", err)
 	}
-	o.ProfileProofs[0] = original
-	o.ProfileProofs[0].EffortSupport = runtimeprofile.CapabilityDeclared
-	observations["codex"] = o
-	if _, err := compiler.CompileV2(ctx, req); err == nil {
-		t.Fatal("unknown effort compiled")
+	observations.runtimes["codex"] = codex
+	observations.failure = runtimeprofile.ErrEffortOverrideConflict
+	if _, err := compiler.CompileV2(ctx, req); ClassifyFailure(err).Category != "effort_override_conflict" {
+		t.Fatal("competing effort selector compiled", err)
 	}
-	// No later refusal mutates existing graph snapshots or source artifacts.
-	again, err := graphRestart.Load(ctx, projectID, graph.Parent.ExecutionID)
-	if err != nil || !reflect.DeepEqual(again.Children, loaded.Children) {
-		t.Fatal("failure rewrote historic graph")
+	observations.failure = nil
+	if _, err := policy.Check(ctx, resolved); err != nil {
+		t.Fatal("restored state no longer reproduces the review", err)
 	}
 	legacyAfter, err := os.ReadFile(legacyFixture)
 	if err != nil || !bytes.Equal(legacyAfter, legacyWire) {

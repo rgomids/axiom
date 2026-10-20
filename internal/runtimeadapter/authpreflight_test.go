@@ -115,8 +115,8 @@ func TestAuthPreflightVendorStatusOutcomes(t *testing.T) {
 		"codex unsupported surface": {"codex", ok("codex-cli 0.1.0"), exit(2, "error: unrecognized subcommand 'login'"), AuthUnsupported, "status_surface_unsupported", "unknown"},
 		"claude unsupported":        {"claude", ok("1.0.0"), exit(1, "error: unknown command 'auth'"), AuthUnsupported, "status_surface_unsupported", "unknown"},
 		"status timeout":            {"codex", ok("codex-cli 0.159.1"), StatusResult{Started: true, TimedOut: true, ExitCode: -1}, AuthUnproven, "status_timeout", "unknown"},
-		"version failure":           {"claude", exit(1, ""), ok(claudeSubscription), AuthUnproven, "version_unavailable", "unknown"},
-		"version unrecognized":      {"claude", ok("Claude Code"), ok(claudeSubscription), AuthUnproven, "version_unrecognized", "unknown"},
+		"version failure":           {"claude", exit(1, ""), ok(claudeSubscription), AuthSubscriptionObserved, "", "claude.ai"},
+		"version unrecognized":      {"claude", ok("Claude Code"), ok(claudeSubscription), AuthSubscriptionObserved, "", "claude.ai"},
 		"prerelease version":        {"codex", ok("codex-cli 1.2.3-rc.4"), ok("Logged in using ChatGPT"), AuthSubscriptionObserved, "", "chatgpt"},
 		"process not started":       {"codex", StatusResult{}, ok(""), AuthUnavailable, "executable_unavailable", "unknown"},
 	} {

@@ -14,7 +14,6 @@ import (
 
 	"github.com/rgomids/axiom/internal/executiongraph"
 	"github.com/rgomids/axiom/internal/project"
-	"github.com/rgomids/axiom/internal/runtimeadapter"
 	"github.com/rgomids/axiom/internal/runtimeapplication"
 	"github.com/rgomids/axiom/internal/runtimeprofile"
 	"github.com/rgomids/axiom/internal/workflowdefinition"
@@ -495,29 +494,27 @@ func (s fixedPolicySource) Load(context.Context, string) (runtimeapplication.Sna
 	return s.snapshot, nil
 }
 
-// Under canonical v3 policy effort is Profile-owned (ADR-0024): a schema-1
-// agent's requested effort is never satisfied by a reasoning-effort capability,
-// even when model-specific observations and Profile proofs exist, so the
-// historical schema-1 compile refuses it. Schema-2 compilation is covered by
-// TestProfileV3ProtectedRetirementCompilerGraphRestartChain.
-func TestCompileWithRealProjectPolicyAndModelSpecificObservations(t *testing.T) {
+// Under canonical configuration 4 effort is Profile-owned (ADR-0024): a
+// schema-1 agent's requested effort is never satisfied by a reasoning-effort
+// capability, even with current operational observations, so the historical
+// schema-1 compile refuses it. Schema-2 compilation is covered by
+// TestProfileProtectedRetirementCompilerGraphRestartChain.
+func TestCompileWithRealProjectPolicyRefusesSchema1AgentEffort(t *testing.T) {
 	const projectID = "123e4567-e89b-42d3-a456-426614174000"
 	state := project.State{SchemaVersion: 2, ID: projectID, Slug: "example", Name: "Example"}
 	var runtimes []project.Runtime
 	var profiles []project.ModelProfile
-	configuration := runtimeprofile.ConfigurationV3{FormatVersion: runtimeprofile.FormatVersionV3, Revision: 7}
-	var observations []runtimeprofile.Observation
+	configuration := runtimeprofile.ConfigurationV4{FormatVersion: runtimeprofile.FormatVersionV4, Revision: 7}
+	observer := &chainObserver{runtimes: map[string]runtimeprofile.OperationalObservation{}, sources: map[string]string{}}
 	for _, id := range []string{"codex", "claude"} {
 		model, profileID := "local-"+id+"-model", "profile-"+id
 		runtimes = append(runtimes, project.Runtime{ID: id})
 		profiles = append(profiles, project.ModelProfile{Key: profileID, RuntimeRef: project.Configured(id), Model: project.Configured(model)})
 		profile := runtimeprofile.ModelProfile{ID: profileID, RuntimeID: id, Model: model, Effort: runtimeprofile.Effort{Mode: "explicit", Value: "high"}, Capabilities: []string{"read", "repository-write"}, Complexities: []string{"medium"}}
-		configuration.Runtimes = append(configuration.Runtimes, runtimeprofile.RuntimeV3{ID: id, Adapter: id, Enabled: true, AllowlistedProfileIDs: []string{profileID}})
+		configuration.Runtimes = append(configuration.Runtimes, runtimeprofile.RuntimeV4{ID: id, Adapter: id, Enabled: true, AllowlistedProfileIDs: []string{profileID}})
 		configuration.ModelProfiles = append(configuration.ModelProfiles, profile)
-		capabilities := map[string]runtimeprofile.CapabilityStatus{"read": runtimeprofile.CapabilityProven, "repository-write": runtimeprofile.CapabilityProven, "reasoning-effort-high": runtimeprofile.CapabilityProven, "reasoning-effort-medium": runtimeprofile.CapabilityProven}
-		o := runtimeprofile.Observation{RuntimeID: id, Adapter: id, Installed: true, Available: true, Version: "test-1.0", ExecutableDigest: digestForTest(id), Revision: 7, ObservedAt: time.Unix(1, 0).UTC(), CapabilityStatus: capabilities, NonInteractiveModelCapabilities: map[string]map[string]runtimeprofile.CapabilityStatus{model: {"reasoning-effort-high": runtimeprofile.CapabilityProven, "reasoning-effort-medium": runtimeprofile.CapabilityProven}}}
-		o.ProfileProofs = []runtimeprofile.ProfileProof{{RuntimeID: id, Model: model, Effort: profile.Effort, ExecutableDigest: o.ExecutableDigest, RuntimeVersion: o.Version, InvocationMode: "noninteractive", ObservationRevision: o.Revision, Reference: "injected-" + profileID, EffortSourceDigest: digestForTest("sources-" + id), Authentication: runtimeprofile.CapabilityProven, ModelAvailability: runtimeprofile.CapabilityProven, EffortSupport: runtimeprofile.CapabilityProven, NoOverride: runtimeprofile.CapabilityProven, CapabilityStatus: capabilities}}
-		observations = append(observations, o)
+		observer.runtimes[id] = runtimeprofile.OperationalObservation{RuntimeID: id, Adapter: id, Installed: true, Available: true, ExecutableDigest: digestForTest(id), InvocationMode: "noninteractive", Revision: 7, ObservedAt: time.Unix(1, 0).UTC()}
+		observer.sources[profileID] = digestForTest("sources-" + id)
 	}
 	state.Runtimes, state.ModelProfiles = project.Configured(runtimes), project.Configured(profiles)
 	state.RuntimePreferences = project.Configured([]project.RuntimePreference{{Role: "integrator", Complexity: "medium", ModelProfileRef: "profile-codex"}})
@@ -525,15 +522,11 @@ func TestCompileWithRealProjectPolicyAndModelSpecificObservations(t *testing.T) 
 	if len(diagnostics) != 0 {
 		t.Fatal(diagnostics)
 	}
-	inventory, err := runtimeadapter.NewInventory(observations)
+	consumer, err := runtimeprofile.NewConsumerV4(configuration)
 	if err != nil {
 		t.Fatal(err)
 	}
-	consumer, err := runtimeprofile.NewConsumerV3(runtimeprofile.RecordActiveV3, &configuration)
-	if err != nil {
-		t.Fatal(err)
-	}
-	service := runtimeapplication.New(fixedPolicySource{snapshot: runtimeapplication.Snapshot{Project: configured, Consumer: consumer, Observer: inventory}})
+	service := runtimeapplication.New(fixedPolicySource{snapshot: runtimeapplication.Snapshot{Project: configured, Consumer: consumer, Observer: observer}})
 	r := multiRequest(t)
 	r.ProjectID = projectID
 	for index := range r.Plan.Work {

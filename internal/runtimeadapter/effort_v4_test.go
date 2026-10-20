@@ -48,7 +48,7 @@ func newOperationalEffortFixture(t *testing.T, runtimeID string, explicit bool) 
 	profile := runtimeprofile.ModelProfile{ID: runtimeID + "-profile", RuntimeID: runtimeID, Model: "synthetic-future-model", Effort: effort, Capabilities: []string{"read"}}
 	configuration := runtimeprofile.ConfigurationV4{FormatVersion: 4, Revision: 1, Runtimes: []runtimeprofile.RuntimeV4{{ID: runtimeID, Adapter: runtimeID, Enabled: true, AllowlistedProfileIDs: []string{profile.ID}}}, ModelProfiles: []runtimeprofile.ModelProfile{profile}}
 	stage := StageInvocationRequest{Profile: CommandProfile{RuntimeID: runtimeID, ModelProfileID: profile.ID, Model: profile.Model, Executable: executable}, Workspace: child, Inbox: inbox, AxiomPath: filepath.Join(base, "bin", "axiom"), RepositoryWrite: true, ParentEnvironment: []string{"HOME=" + roots.User, "PATH=/synthetic/bin"}}
-	inv, err := BuildOperationalStageInvocation(stage)
+	inv, err := BuildStageInvocation(stage)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -79,18 +79,6 @@ func TestOperationalEffortHasNoVersionOrDeclarationPrerequisite(t *testing.T) {
 				for _, value := range []string{"proof", "precedence", "runtimeVersion", f.request.Roots.User, f.request.Roots.Project, f.request.Roots.Managed} {
 					if strings.Contains(string(wire), value) {
 						t.Fatal("certification or host path in projection", value)
-					}
-				}
-				for _, version := range []string{"", "unknown", "9999.0.0", "unparseable metadata"} {
-					request := f.stage
-					request.Version = version
-					inv, err := BuildOperationalStageInvocation(request)
-					if err != nil {
-						t.Fatal("version affected invocation", err)
-					}
-					inv, _ = withStageEffort(inv, f.request.Configuration.ModelProfiles[0].Effort)
-					if !reflect.DeepEqual(inv, f.request.Invocation) {
-						t.Fatal("version changed invocation")
 					}
 				}
 			})
@@ -243,17 +231,17 @@ func TestOperationalFrozenInvocationBindsIdentityAndProfileIntent(t *testing.T) 
 		cd, _ := runtimeprofile.DigestV4(f.request.Configuration)
 		digest := strings.Repeat("a", 64)
 		frozen := runtimeprofile.ResolvedProfileV4{ProfileID: profile.ID, RuntimeID: runtimeID, Model: profile.Model, Effort: profile.Effort, ProfileDigest: pd, ConfigurationRevision: 1, ConfigurationDigest: cd, ExecutableDigest: f.request.ExecutableDigest, InvocationMode: "noninteractive", ObservationRevision: 1, ObservationDigest: digest, EffortSourceDigest: digest}
-		inv, err := BuildFrozenStageInvocationV4(f.stage, frozen)
+		inv, err := BuildFrozenStageInvocation(f.stage, frozen)
 		if err != nil || !reflect.DeepEqual(inv, f.request.Invocation) {
 			t.Fatal("frozen intent encoding", err)
 		}
 		frozen.ExecutableDigest = strings.Repeat("b", 64)
-		if _, err := BuildFrozenStageInvocationV4(f.stage, frozen); err == nil {
+		if _, err := BuildFrozenStageInvocation(f.stage, frozen); err == nil {
 			t.Fatal("executable drift accepted")
 		}
 		frozen.ExecutableDigest = f.request.ExecutableDigest
 		frozen.ProfileID = "other-profile"
-		if _, err := BuildFrozenStageInvocationV4(f.stage, frozen); err == nil {
+		if _, err := BuildFrozenStageInvocation(f.stage, frozen); err == nil {
 			t.Fatal("Profile substitution accepted")
 		}
 	}
@@ -263,7 +251,7 @@ func TestOperationalReadOnlyEffortInspectsActualInbox(t *testing.T) {
 	for _, runtimeID := range []string{"codex", "claude"} {
 		f := newOperationalEffortFixture(t, runtimeID, true)
 		f.stage.RepositoryWrite = false
-		inv, err := BuildOperationalStageInvocation(f.stage)
+		inv, err := BuildStageInvocation(f.stage)
 		if err != nil || inv.CWD != f.stage.Inbox {
 			t.Fatal("read-only child escaped inbox", err)
 		}
@@ -299,7 +287,7 @@ func TestOperationalBuilderRefusesInheritedEffortBeforeEnvironmentFiltering(t *t
 		for _, variable := range []string{"CODEX_HOME", "CLAUDE_CONFIG_DIR", "codex_home", "claude_config_dir"} {
 			request := f.stage
 			request.ParentEnvironment = append(append([]string(nil), request.ParentEnvironment...), variable+"="+f.request.Roots.User)
-			if _, err := BuildOperationalStageInvocation(request); !errors.Is(err, ErrEffortConfigurationUnsafe) {
+			if _, err := BuildStageInvocation(request); !errors.Is(err, ErrEffortConfigurationUnsafe) {
 				t.Fatal("relocation was silently removed or accepted", variable, err)
 			}
 		}
@@ -309,7 +297,7 @@ func TestOperationalBuilderRefusesInheritedEffortBeforeEnvironmentFiltering(t *t
 		for _, variable := range []string{"CLAUDE_CODE_EFFORT_LEVEL", "claude_code_effort_level"} {
 			request := f.stage
 			request.ParentEnvironment = append(append([]string(nil), request.ParentEnvironment...), variable+"=future-effort")
-			if _, err := BuildOperationalStageInvocation(request); !errors.Is(err, ErrEffortOverrideConflict) {
+			if _, err := BuildStageInvocation(request); !errors.Is(err, ErrEffortOverrideConflict) {
 				t.Fatal("equal-valued inherited effort was silently removed", variable, err)
 			}
 		}

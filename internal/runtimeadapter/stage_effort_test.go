@@ -7,10 +7,9 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
+	"time"
 
-	"github.com/rgomids/axiom/internal/capabilityproof"
 	"github.com/rgomids/axiom/internal/executiongraph"
 	"github.com/rgomids/axiom/internal/runtimeprofile"
 )
@@ -22,43 +21,48 @@ import (
 func TestStageEffortRootsResolve(t *testing.T) {
 	ctx := context.Background()
 	repo := filepath.Join(t.TempDir(), "repository")
-	write := capabilityproof.Target{RuntimeID: "codex", ProfileID: "p", Variant: capabilityproof.RepositoryWriteVariant}
+	invocation := func(runtimeID, cwd string, env ...string) executiongraph.Invocation {
+		return executiongraph.WithExactEnvironment(executiongraph.Invocation{RuntimeID: runtimeID, CWD: cwd}, env)
+	}
+	child := filepath.Join(repo, "child")
+	inbox := filepath.Join(repo, "inbox")
 	managed := filepath.Dir(DefaultManagedConfiguration().CodexConfig[0])
-	roots, err := StageEffortRoots{Repository: repo}.Resolve(ctx, write, []string{"HOME=/synthetic/home", "PATH=/usr/bin"})
+	roots, err := StageEffortRoots{Repository: repo}.ResolveOperational(ctx, invocation("codex", child, "HOME=/synthetic/home", "PATH=/usr/bin"), true)
 	if err != nil || roots != (EffortSourceRoots{User: "/synthetic/home", Project: repo, Managed: managed}) {
 		t.Fatalf("roots %+v %v", roots, err)
 	}
-	claude := write
-	claude.RuntimeID = "claude"
-	if roots, err := (StageEffortRoots{Repository: repo}).Resolve(ctx, claude, []string{"HOME=/synthetic/home"}); err != nil || roots.Managed != filepath.Dir(DefaultManagedConfiguration().ClaudeSettings[0]) {
+	if roots, err := (StageEffortRoots{Repository: repo}).ResolveOperational(ctx, invocation("claude", child, "HOME=/synthetic/home"), true); err != nil || roots.Managed != filepath.Dir(DefaultManagedConfiguration().ClaudeSettings[0]) {
 		t.Fatalf("claude managed root %+v %v", roots, err)
 	}
+	if roots, err := (StageEffortRoots{Repository: repo}).ResolveOperational(ctx, invocation("codex", inbox, "HOME=/h"), false); err != nil || roots.Project != inbox {
+		t.Fatalf("read-only child roots %+v %v", roots, err)
+	}
 	refusals := map[string]struct {
-		target capabilityproof.Target
-		repo   string
-		env    []string
+		inv  executiongraph.Invocation
+		repo string
 	}{
-		"read-only-child":   {capabilityproof.Target{RuntimeID: "codex", ProfileID: "p", Variant: capabilityproof.ReadOnlyVariant}, repo, []string{"HOME=/h"}},
-		"missing-home":      {write, repo, []string{"PATH=/usr/bin"}},
-		"relative-home":     {write, repo, []string{"HOME=h"}},
-		"unclean-home":      {write, repo, []string{"HOME=/h/../x"}},
-		"root-home":         {write, repo, []string{"HOME=/"}},
-		"duplicate-home":    {write, repo, []string{"HOME=/h", "HOME=/i"}},
-		"case-alias-home":   {write, repo, []string{"home=/h"}},
-		"codex-home":        {write, repo, []string{"HOME=/h", "CODEX_HOME=/h/.codex"}},
-		"claude-config-dir": {claude, repo, []string{"HOME=/h", "claude_config_dir=/h/.claude"}},
-		"unknown-runtime":   {capabilityproof.Target{RuntimeID: "other", ProfileID: "p", Variant: capabilityproof.RepositoryWriteVariant}, repo, []string{"HOME=/h"}},
-		"relative-repo":     {write, "repository", []string{"HOME=/h"}},
-		"root-repo":         {write, "/", []string{"HOME=/h"}},
+		"missing-home":      {invocation("codex", child, "PATH=/usr/bin"), repo},
+		"relative-home":     {invocation("codex", child, "HOME=h"), repo},
+		"unclean-home":      {invocation("codex", child, "HOME=/h/../x"), repo},
+		"root-home":         {invocation("codex", child, "HOME=/"), repo},
+		"duplicate-home":    {invocation("codex", child, "HOME=/h", "HOME=/i"), repo},
+		"case-alias-home":   {invocation("codex", child, "home=/h"), repo},
+		"codex-home":        {invocation("codex", child, "HOME=/h", "CODEX_HOME=/h/.codex"), repo},
+		"claude-config-dir": {invocation("claude", child, "HOME=/h", "claude_config_dir=/h/.claude"), repo},
+		"unknown-runtime":   {invocation("other", child, "HOME=/h"), repo},
+		"relative-cwd":      {invocation("codex", "child", "HOME=/h"), repo},
+		"root-cwd":          {invocation("codex", "/", "HOME=/h"), repo},
+		"relative-repo":     {invocation("codex", child, "HOME=/h"), "repository"},
+		"root-repo":         {invocation("codex", child, "HOME=/h"), "/"},
 	}
 	for name, c := range refusals {
-		if _, err := (StageEffortRoots{Repository: c.repo}).Resolve(ctx, c.target, c.env); !errors.Is(err, ErrEffortConfigurationUnproven) {
+		if _, err := (StageEffortRoots{Repository: c.repo}).ResolveOperational(ctx, c.inv, true); !errors.Is(err, ErrEffortConfigurationUnsafe) {
 			t.Fatalf("%s: %v", name, err)
 		}
 	}
 	canceled, cancel := context.WithCancel(ctx)
 	cancel()
-	if _, err := (StageEffortRoots{Repository: repo}).Resolve(canceled, write, []string{"HOME=/h"}); err == nil {
+	if _, err := (StageEffortRoots{Repository: repo}).ResolveOperational(canceled, invocation("codex", child, "HOME=/h"), true); err == nil {
 		t.Fatal("canceled resolution")
 	}
 }
@@ -71,37 +75,37 @@ func TestTrustedEffortAnchorAbsentManaged(t *testing.T) {
 	for _, runtime := range []string{"codex", "claude"} {
 		t.Run(runtime, func(t *testing.T) {
 			f := newEffortInspectorFixture(t, runtime)
-			present, err := InspectEffortSources(ctx, f.req)
+			present, err := InspectEffortSourcesV4(ctx, f.request)
 			if err != nil {
 				t.Fatal(err)
 			}
-			if err := os.RemoveAll(f.req.Roots.Managed); err != nil {
+			if err := os.RemoveAll(f.request.Roots.Managed); err != nil {
 				t.Fatal(err)
 			}
-			absent, err := InspectEffortSources(ctx, f.req)
+			absent, err := InspectEffortSourcesV4(ctx, f.request)
 			if err != nil || absent == present {
 				t.Fatalf("absent managed root: %q %v", absent, err)
 			}
-			if again, err := InspectEffortSources(ctx, f.req); err != nil || again != absent {
+			if again, err := InspectEffortSourcesV4(ctx, f.request); err != nil || again != absent {
 				t.Fatalf("absence not stable: %v", err)
 			}
-			if _, err := os.Lstat(f.req.Roots.Managed); !errors.Is(err, os.ErrNotExist) {
+			if _, err := os.Lstat(f.request.Roots.Managed); !errors.Is(err, os.ErrNotExist) {
 				t.Fatal("inspection created the managed root")
 			}
 			// A missing intermediate ancestor is still absence.
-			f.req.Roots.Managed = filepath.Join(f.base, "opt", "vendor", "managed")
-			if _, err := InspectEffortSources(ctx, f.req); err != nil {
+			f.request.Roots.Managed = filepath.Join(f.base, "opt", "vendor", "managed")
+			if _, err := InspectEffortSourcesV4(ctx, f.request); err != nil {
 				t.Fatalf("missing intermediate ancestor: %v", err)
 			}
 			if _, err := os.Lstat(filepath.Join(f.base, "opt")); !errors.Is(err, os.ErrNotExist) {
 				t.Fatal("inspection created an ancestor")
 			}
 			// The root appearing later is another identity.
-			f.req.Roots.Managed = filepath.Join(f.base, "managed")
-			if err := os.Mkdir(f.req.Roots.Managed, 0o700); err != nil {
+			f.request.Roots.Managed = filepath.Join(f.base, "managed")
+			if err := os.Mkdir(f.request.Roots.Managed, 0o700); err != nil {
 				t.Fatal(err)
 			}
-			if appeared, err := InspectEffortSources(ctx, f.req); err != nil || appeared == absent {
+			if appeared, err := InspectEffortSourcesV4(ctx, f.request); err != nil || appeared == absent {
 				t.Fatalf("appeared root reused the absent identity: %v", err)
 			}
 		})
@@ -116,7 +120,7 @@ func TestTrustedEffortAnchorAbsentManaged(t *testing.T) {
 			if err := os.Chmod(parent, 0o1777); err != nil {
 				t.Fatal(err)
 			}
-			f.req.Roots.Managed = filepath.Join(parent, "managed")
+			f.request.Roots.Managed = filepath.Join(parent, "managed")
 		},
 		"group-writable-parent": func(t *testing.T, f *effortInspectorFixture) {
 			parent := filepath.Join(f.base, "group")
@@ -126,7 +130,7 @@ func TestTrustedEffortAnchorAbsentManaged(t *testing.T) {
 			if err := os.Chmod(parent, 0o770); err != nil {
 				t.Fatal(err)
 			}
-			f.req.Roots.Managed = filepath.Join(parent, "managed")
+			f.request.Roots.Managed = filepath.Join(parent, "managed")
 		},
 		"symlinked-parent": func(t *testing.T, f *effortInspectorFixture) {
 			real := filepath.Join(f.base, "real")
@@ -136,44 +140,52 @@ func TestTrustedEffortAnchorAbsentManaged(t *testing.T) {
 			if err := os.Symlink(real, filepath.Join(f.base, "link")); err != nil {
 				t.Fatal(err)
 			}
-			f.req.Roots.Managed = filepath.Join(f.base, "link", "managed")
+			f.request.Roots.Managed = filepath.Join(f.base, "link", "managed")
 		},
 		"missing-user": func(t *testing.T, f *effortInspectorFixture) {
-			os.RemoveAll(f.req.Roots.User)
+			os.RemoveAll(f.request.Roots.User)
 		},
 		"missing-project": func(t *testing.T, f *effortInspectorFixture) {
-			os.RemoveAll(f.req.Roots.Project)
+			os.RemoveAll(f.request.Roots.Project)
 		},
 	}
 	for name, mutate := range unsafe {
 		t.Run(name, func(t *testing.T) {
 			f := newEffortInspectorFixture(t, "codex")
 			mutate(t, f)
-			if _, err := InspectEffortSources(ctx, f.req); !errors.Is(err, ErrEffortConfigurationUnproven) {
+			if _, err := InspectEffortSourcesV4(ctx, f.request); !errors.Is(err, ErrEffortConfigurationUnsafe) {
 				t.Fatalf("%s accepted: %v", name, err)
 			}
 		})
 	}
 }
 
-// child mirrors the fixture's project sources into a separate worktree.
+// equivalentChild mirrors the fixture's project sources into the fixture's
+// child worktree, which is the working directory of its invocation.
 func equivalentChild(t *testing.T, f *effortInspectorFixture) string {
 	t.Helper()
-	child := filepath.Join(f.base, "worktree")
-	if err := os.Mkdir(child, 0o700); err != nil {
-		t.Fatal(err)
-	}
-	for _, s := range f.declaration().Sources {
-		if s.Anchor != runtimeprofile.EffortAnchorProject {
+	for _, s := range f.rules().Sources {
+		if s.Root != f.request.Roots.Project || s.Directory {
 			continue
 		}
-		wire, err := os.ReadFile(filepath.Join(f.req.Roots.Project, filepath.FromSlash(s.Path)))
+		wire, err := os.ReadFile(filepath.Join(s.Root, s.Relative))
 		if err != nil {
 			t.Fatal(err)
 		}
-		writeFixtureFile(t, filepath.Join(child, filepath.FromSlash(s.Path)), string(wire))
+		writeFixtureFile(t, filepath.Join(f.child, s.Relative), string(wire))
 	}
-	return child
+	return f.child
+}
+
+func (f *effortInspectorFixture) projectSource(t *testing.T, root string) string {
+	t.Helper()
+	for _, s := range f.rules().Sources {
+		if s.Scope == "project" {
+			return filepath.Join(root, s.Relative)
+		}
+	}
+	t.Fatal("no project source")
+	return ""
 }
 
 func TestVerifyChildEquivalence(t *testing.T) {
@@ -182,26 +194,18 @@ func TestVerifyChildEquivalence(t *testing.T) {
 		t.Run(runtime, func(t *testing.T) {
 			f := newEffortInspectorFixture(t, runtime)
 			child := equivalentChild(t, f)
-			if err := VerifyChildEquivalence(ctx, f.req, child); err != nil {
+			if err := VerifyChildEquivalenceV4(ctx, f.request, child); err != nil {
 				t.Fatalf("equivalent child: %v", err)
 			}
 			// Equivalence reads only; the repository-root digest is unchanged.
-			before, _ := InspectEffortSources(ctx, f.req)
-			if err := VerifyChildEquivalence(ctx, f.req, child); err != nil {
+			before, _ := InspectEffortSourcesV4(ctx, f.request)
+			if err := VerifyChildEquivalenceV4(ctx, f.request, child); err != nil {
 				t.Fatal(err)
 			}
-			if after, _ := InspectEffortSources(ctx, f.req); after != before {
+			if after, _ := InspectEffortSourcesV4(ctx, f.request); after != before {
 				t.Fatal("equivalence changed the canonical digest")
 			}
 		})
-	}
-	project := func(f *effortInspectorFixture, root string) string {
-		for _, s := range f.declaration().Sources {
-			if s.Scope == "project" {
-				return filepath.Join(root, filepath.FromSlash(s.Path))
-			}
-		}
-		return ""
 	}
 	cases := map[string]struct {
 		runtime string
@@ -209,27 +213,27 @@ func TestVerifyChildEquivalence(t *testing.T) {
 		want    error
 	}{
 		"bytes-differ": {"codex", func(t *testing.T, f *effortInspectorFixture, child string) {
-			writeFixtureFile(t, project(f, child), "# other non-selector content\n")
-		}, ErrEffortConfigurationUnproven},
-		"missing-in-child": {"codex", func(t *testing.T, f *effortInspectorFixture, child string) { os.Remove(project(f, child)) }, ErrEffortConfigurationUnproven},
+			writeFixtureFile(t, f.projectSource(t, child), "# other non-selector content\n")
+		}, ErrEffortConfigurationUnsafe},
+		"missing-in-child": {"codex", func(t *testing.T, f *effortInspectorFixture, child string) { os.Remove(f.projectSource(t, child)) }, ErrEffortConfigurationUnsafe},
 		"missing-in-repository": {"codex", func(t *testing.T, f *effortInspectorFixture, child string) {
-			os.Remove(project(f, f.req.Roots.Project))
-		}, ErrEffortConfigurationUnproven},
+			os.Remove(f.projectSource(t, f.request.Roots.Project))
+		}, ErrEffortConfigurationUnsafe},
 		"child-selector": {"codex", func(t *testing.T, f *effortInspectorFixture, child string) {
-			writeFixtureFile(t, project(f, child), "model_reasoning_effort = \"low\"\n")
+			writeFixtureFile(t, f.projectSource(t, child), "model_reasoning_effort = \"low\"\n")
 		}, ErrEffortOverrideConflict},
 		"child-symlink": {"codex", func(t *testing.T, f *effortInspectorFixture, child string) {
-			path := project(f, child)
+			path := f.projectSource(t, child)
 			os.Remove(path)
-			os.Symlink(project(f, f.req.Roots.Project), path)
-		}, ErrEffortConfigurationUnproven},
-		"child-unsafe-root": {"codex", func(t *testing.T, f *effortInspectorFixture, child string) { os.Chmod(child, 0o777) }, ErrEffortConfigurationUnproven},
-		"child-missing":     {"codex", func(t *testing.T, f *effortInspectorFixture, child string) { os.RemoveAll(child) }, ErrEffortConfigurationUnproven},
+			os.Symlink(f.projectSource(t, f.request.Roots.Project), path)
+		}, ErrEffortConfigurationUnsafe},
+		"child-unsafe-root": {"codex", func(t *testing.T, f *effortInspectorFixture, child string) { os.Chmod(child, 0o777) }, ErrEffortConfigurationUnsafe},
+		"child-missing":     {"codex", func(t *testing.T, f *effortInspectorFixture, child string) { os.RemoveAll(child) }, ErrEffortConfigurationUnsafe},
 		"project-local-only-in-repository": {"claude", func(t *testing.T, f *effortInspectorFixture, child string) {
 			os.Remove(filepath.Join(child, ".claude", "settings.local.json"))
-		}, ErrEffortConfigurationUnproven},
+		}, ErrEffortConfigurationUnsafe},
 		"managed-drift-revalidated": {"claude", func(t *testing.T, f *effortInspectorFixture, child string) {
-			writeFixtureFile(t, filepath.Join(f.req.Roots.Managed, "managed-settings.d", "20-other.json"), `{"fixtureEffortKey":"high"}`)
+			writeFixtureFile(t, filepath.Join(f.request.Roots.Managed, "managed-settings.d", "20-other.json"), `{"effortLevel":"high"}`)
 		}, ErrEffortOverrideConflict},
 	}
 	for name, c := range cases {
@@ -237,57 +241,44 @@ func TestVerifyChildEquivalence(t *testing.T) {
 			f := newEffortInspectorFixture(t, c.runtime)
 			child := equivalentChild(t, f)
 			c.mutate(t, f, child)
-			if err := VerifyChildEquivalence(ctx, f.req, child); !errors.Is(err, c.want) {
+			if err := VerifyChildEquivalenceV4(ctx, f.request, child); !errors.Is(err, c.want) {
 				t.Fatalf("%s: %v, want %v", name, err, c.want)
 			}
 		})
 	}
 	f := newEffortInspectorFixture(t, "codex")
-	for name, child := range map[string]string{"repository-itself": f.req.Roots.Project, "user-root": f.req.Roots.User, "relative": "worktree", "unclean": f.base + "/x/../worktree"} {
-		if err := VerifyChildEquivalence(ctx, f.req, child); !errors.Is(err, ErrEffortConfigurationUnproven) {
+	for name, child := range map[string]string{"repository-itself": f.request.Roots.Project, "user-root": f.request.Roots.User, "managed-root": f.request.Roots.Managed, "relative": "worktree", "unclean": f.base + "/x/../child", "not-the-working-directory": f.base} {
+		if err := VerifyChildEquivalenceV4(ctx, f.request, child); !errors.Is(err, ErrEffortConfigurationUnsafe) {
 			t.Fatalf("%s: %v", name, err)
 		}
 	}
-	f.req.Consented = false
-	if err := VerifyChildEquivalence(ctx, f.req, equivalentChild(t, f)); !errors.Is(err, ErrEffortConfigurationUnproven) {
+	f.request.Consented = false
+	if err := VerifyChildEquivalenceV4(ctx, f.request, equivalentChild(t, f)); !errors.Is(err, ErrEffortConfigurationUnsafe) {
 		t.Fatalf("unconsented equivalence: %v", err)
 	}
 }
 
 type stageInspectorFixture struct {
 	*effortInspectorFixture
-	child     string
 	inspector StageEffortInspector
-	profile   runtimeprofile.ResolvedProfile
-	inv       executiongraph.Invocation
-	env       []string
+	frozen    runtimeprofile.ResolvedProfileV4
 }
 
 func newStageInspectorFixture(t *testing.T, runtime string) *stageInspectorFixture {
 	t.Helper()
 	f := &stageInspectorFixture{effortInspectorFixture: newEffortInspectorFixture(t, runtime)}
-	f.child = equivalentChild(t, f.effortInspectorFixture)
-	_, f.profile = f.legacy()
-	f.inv = f.req.Invocation
-	f.inv.CWD = f.child
-	f.inv.Env = []string{"HOME=" + f.req.Roots.User, "PATH=fixture"}
+	equivalentChild(t, f.effortInspectorFixture)
+	roots, err := (StageEffortRoots{Repository: f.request.Roots.Project}).ResolveOperational(context.Background(), f.request.Invocation, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.request.Roots = roots
+	f.frozen = f.operationalEffortFixture.frozen(t)
 	f.inspector = StageEffortInspector{
-		Configuration: func(context.Context) (runtimeprofile.VersionedConfiguration, error) { return f.req.Configuration, nil },
-		Version: func(_ context.Context, id, digest string) (string, error) {
-			if id != runtime || digest != f.req.Observed.ExecutableDigest {
-				return "", capabilityproof.ErrBlocked
-			}
-			return f.req.Observed.RuntimeVersion, nil
-		},
-		Roots: func(_ context.Context, target capabilityproof.Target, env []string) (EffortSourceRoots, error) {
-			f.env = env
-			if target.Variant != capabilityproof.RepositoryWriteVariant || target.RuntimeID != runtime {
-				return EffortSourceRoots{}, ErrEffortConfigurationUnproven
-			}
-			return f.req.Roots, nil
-		},
-		Workspaces: []string{f.child},
-		Consented:  true,
+		Configuration: func(context.Context) (runtimeprofile.ConfigurationV4, error) { return f.request.Configuration, nil },
+		Repository:    f.request.Roots.Project,
+		Workspaces:    []string{f.child},
+		Consented:     true,
 	}
 	return f
 }
@@ -299,55 +290,67 @@ func TestStageEffortInspector(t *testing.T) {
 	for _, runtime := range []string{"codex", "claude"} {
 		t.Run(runtime, func(t *testing.T) {
 			f := newStageInspectorFixture(t, runtime)
-			want, err := InspectEffortSources(ctx, f.req)
+			want, err := InspectEffortSourcesV4(ctx, f.request)
 			if err != nil {
 				t.Fatal(err)
 			}
-			got, err := f.inspector.CheckEffortSources(ctx, f.profile, f.inv)
+			got, err := f.inspector.CheckEffortSources(ctx, f.frozen, f.request.Invocation)
 			if err != nil || got != want {
 				t.Fatalf("digest %q %v, want %q", got, err, want)
 			}
-			if strings.Join(f.env, ",") != strings.Join(executiongraph.EffectiveInvocationEnvironment(f.inv), ",") {
-				t.Fatal("roots not resolved from the attempt's effective environment")
-			}
 			// Drift in the child between attempts is caught on the next call.
-			writeFixtureFile(t, filepath.Join(f.child, filepath.FromSlash(f.declaration().Sources[1].Path)), "# drift\n")
-			if _, err := f.inspector.CheckEffortSources(ctx, f.profile, f.inv); err == nil {
+			writeFixtureFile(t, f.projectSource(t, f.child), "# drift\n")
+			if _, err := f.inspector.CheckEffortSources(ctx, f.frozen, f.request.Invocation); err == nil {
 				t.Fatal("child drift admitted")
 			}
 		})
 	}
-	cases := map[string]func(*testing.T, *stageInspectorFixture){
-		"not-consented":    func(_ *testing.T, f *stageInspectorFixture) { f.inspector.Consented = false },
-		"read-only-child":  func(_ *testing.T, f *stageInspectorFixture) { f.inspector.Workspaces = nil },
-		"unreviewed-cwd":   func(_ *testing.T, f *stageInspectorFixture) { f.inv.CWD = f.base },
-		"no-roots":         func(_ *testing.T, f *stageInspectorFixture) { f.inspector.Roots = nil },
-		"invalid-profile":  func(_ *testing.T, f *stageInspectorFixture) { f.profile.RuntimeID = "" },
-		"runtime-mismatch": func(_ *testing.T, f *stageInspectorFixture) { f.inv.RuntimeID = "claude" },
-		"executable-drift": func(t *testing.T, f *stageInspectorFixture) {
-			os.Remove(f.exe)
-			writeFixtureFile(t, f.exe, "replaced; never execute\n")
+	cases := map[string]func(*testing.T, *stageInspectorFixture, *executiongraph.Invocation){
+		"not-consented": func(_ *testing.T, f *stageInspectorFixture, _ *executiongraph.Invocation) {
+			f.inspector.Consented = false
 		},
-		"version-mismatch": func(_ *testing.T, f *stageInspectorFixture) { f.profile.RuntimeVersion = "synthetic-codex-2" },
-		"configuration-unavailable": func(_ *testing.T, f *stageInspectorFixture) {
-			f.inspector.Configuration = func(context.Context) (runtimeprofile.VersionedConfiguration, error) {
-				return runtimeprofile.VersionedConfiguration{}, capabilityproof.ErrBlocked
+		"no-configuration": func(_ *testing.T, f *stageInspectorFixture, _ *executiongraph.Invocation) {
+			f.inspector.Configuration = nil
+		},
+		"invalid-profile": func(_ *testing.T, f *stageInspectorFixture, _ *executiongraph.Invocation) { f.frozen.RuntimeID = "" },
+		"unallowed-profile": func(_ *testing.T, f *stageInspectorFixture, _ *executiongraph.Invocation) {
+			f.frozen.ProfileID = "other-profile"
+		},
+		"runtime-mismatch": func(_ *testing.T, f *stageInspectorFixture, inv *executiongraph.Invocation) { inv.RuntimeID = "claude" },
+		"empty-argv":       func(_ *testing.T, f *stageInspectorFixture, inv *executiongraph.Invocation) { inv.Argv = nil },
+		"home-missing": func(_ *testing.T, f *stageInspectorFixture, inv *executiongraph.Invocation) {
+			*inv = executiongraph.WithExactEnvironment(*inv, []string{"PATH=fixture"})
+		},
+		"home-relocated": func(_ *testing.T, f *stageInspectorFixture, inv *executiongraph.Invocation) {
+			*inv = executiongraph.WithExactEnvironment(*inv, []string{"HOME=" + f.request.Roots.User, "CODEX_HOME=" + f.request.Roots.User})
+		},
+		"configuration-unavailable": func(_ *testing.T, f *stageInspectorFixture, _ *executiongraph.Invocation) {
+			f.inspector.Configuration = func(context.Context) (runtimeprofile.ConfigurationV4, error) {
+				return runtimeprofile.ConfigurationV4{}, errors.New("unavailable")
 			}
 		},
-		"roots-refused": func(_ *testing.T, f *stageInspectorFixture) {
-			f.inspector.Roots = func(context.Context, capabilityproof.Target, []string) (EffortSourceRoots, error) {
-				return EffortSourceRoots{}, ErrEffortConfigurationUnproven
+		"configuration-empty": func(_ *testing.T, f *stageInspectorFixture, _ *executiongraph.Invocation) {
+			f.inspector.Configuration = func(context.Context) (runtimeprofile.ConfigurationV4, error) {
+				return runtimeprofile.ConfigurationV4{}, nil
 			}
 		},
-		"child-not-equivalent": func(t *testing.T, f *stageInspectorFixture) {
-			os.Remove(filepath.Join(f.child, filepath.FromSlash(f.declaration().Sources[1].Path)))
+		"child-not-equivalent": func(t *testing.T, f *stageInspectorFixture, _ *executiongraph.Invocation) {
+			os.Remove(f.projectSource(t, f.child))
+		},
+		"child-selector": func(t *testing.T, f *stageInspectorFixture, _ *executiongraph.Invocation) {
+			writeFixtureFile(t, f.projectSource(t, f.child), "model_reasoning_effort = \"low\"\n")
+		},
+		"read-only-selector": func(t *testing.T, f *stageInspectorFixture, _ *executiongraph.Invocation) {
+			f.inspector.Workspaces = nil
+			writeFixtureFile(t, f.projectSource(t, f.child), "model_reasoning_effort = \"low\"\n")
 		},
 	}
 	for name, mutate := range cases {
 		t.Run(name, func(t *testing.T) {
 			f := newStageInspectorFixture(t, "codex")
-			mutate(t, f)
-			if got, err := f.inspector.CheckEffortSources(ctx, f.profile, f.inv); err == nil || got != "" {
+			inv := f.request.Invocation
+			mutate(t, f, &inv)
+			if got, err := f.inspector.CheckEffortSources(ctx, f.frozen, inv); err == nil || got != "" {
 				t.Fatalf("%s admitted: %q", name, got)
 			}
 		})
@@ -355,57 +358,63 @@ func TestStageEffortInspector(t *testing.T) {
 	canceled, cancel := context.WithCancel(ctx)
 	cancel()
 	f := newStageInspectorFixture(t, "codex")
-	if _, err := f.inspector.CheckEffortSources(canceled, f.profile, f.inv); err == nil {
+	if _, err := f.inspector.CheckEffortSources(canceled, f.frozen, f.request.Invocation); err == nil {
 		t.Fatal("canceled inspection")
 	}
 }
 
-// Preview (BindingSource over the repository root) and dispatch (inspector
+func TestStageEffortInspectorExecutableIdentity(t *testing.T) {
+	ctx := context.Background()
+	f := newStageInspectorFixture(t, "codex")
+	before, err := f.inspector.CheckEffortSources(ctx, f.frozen, f.request.Invocation)
+	if err != nil {
+		t.Fatal(err)
+	}
+	executable := f.request.Invocation.Argv[0]
+	if err := os.WriteFile(executable, []byte("replaced; never execute"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	after, err := f.inspector.CheckEffortSources(ctx, f.frozen, f.request.Invocation)
+	if err != nil || after == before {
+		t.Fatal("executable drift is not bound into the digest", err)
+	}
+	if err := os.Remove(executable); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.inspector.CheckEffortSources(ctx, f.frozen, f.request.Invocation); !errors.Is(err, ErrExecutableUnavailable) {
+		t.Fatal("missing executable admitted", err)
+	}
+}
+
+func TestStageEffortInspectorReadOnlyChildInspectsActualRoot(t *testing.T) {
+	ctx := context.Background()
+	f := newStageInspectorFixture(t, "codex")
+	f.inspector.Workspaces = nil
+	want, err := InspectEffortSourcesV4(ctx, f.request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, err := f.inspector.CheckEffortSources(ctx, f.frozen, f.request.Invocation); err != nil || got != want {
+		t.Fatalf("read-only child digest %q %v, want %q", got, err, want)
+	}
+}
+
+// Preview (OperationalSource over the repository root) and dispatch (inspector
 // over an equivalent child worktree) observe the same EffortSourceDigest.
 func TestStageEffortPreviewDispatchAgreement(t *testing.T) {
 	ctx := context.Background()
 	for _, runtime := range []string{"codex", "claude"} {
 		t.Run(runtime, func(t *testing.T) {
-			f := newBindingFixture(t, runtime)
-			target := f.target(capabilityproof.RepositoryWriteVariant, false)
-			f.seed(t, target)
-			c, err := f.source.Current(ctx, target)
+			f := newStageInspectorFixture(t, runtime)
+			executable := f.request.Invocation.Argv[0]
+			source := OperationalSource{Configuration: f.request.Configuration, LookPath: func(string) (string, error) { return executable, nil }, Repository: f.request.Roots.Project, Environment: f.stage.ParentEnvironment, Consented: true, ObservedAt: time.Unix(1, 0)}
+			observed, err := source.ObserveOperational(ctx, runtime, f.request.ProfileID)
 			if err != nil {
 				t.Fatal(err)
 			}
-			child := filepath.Join(f.base, "child-worktree")
-			for _, s := range f.cfg.Runtimes[0].EffortDeclarations[0].Sources {
-				if s.Anchor != runtimeprofile.EffortAnchorProject {
-					continue
-				}
-				wire, err := os.ReadFile(filepath.Join(f.roots.Project, filepath.FromSlash(s.Path)))
-				if err != nil {
-					t.Fatal(err)
-				}
-				writeFixtureFile(t, filepath.Join(child, filepath.FromSlash(s.Path)), string(wire))
-			}
-			os.Chmod(child, 0o700)
-			profile := f.cfg.ModelProfiles[0]
-			hash := strings.Repeat("a", 64)
-			resolved := runtimeprofile.ResolvedProfile{ProfileID: profile.ID, RuntimeID: runtime, Model: profile.Model, Effort: profile.Effort, ProfileDigest: hash, ConfigurationRevision: f.cfg.Revision, ConfigurationDigest: hash, ExecutableDigest: c.Binding.ExecutableDigest, RuntimeVersion: f.version, InvocationMode: "noninteractive", ObservationRevision: 1, ObservationDigest: hash, EffortSourceDigest: c.Model.EffortSourceDigest, CapabilityProofReference: "synthetic-proof"}
-			request := StageInvocationRequest{Profile: CommandProfile{RuntimeID: runtime, ModelProfileID: profile.ID, Executable: f.exe, Model: profile.Model}, Version: f.version, Workspace: child, Inbox: filepath.Join(f.base, "inbox"), AxiomPath: f.axiom, RepositoryWrite: true, ParentEnvironment: []string{"PATH=fixture"}}
-			inv, err := BuildFrozenStageInvocation(request, resolved)
-			if err != nil {
-				t.Fatal(err)
-			}
-			cfg := decodeV3Fixture(t, f.cfg)
-			inspector := StageEffortInspector{
-				Configuration: func(context.Context) (runtimeprofile.VersionedConfiguration, error) { return cfg, nil },
-				Version:       func(context.Context, string, string) (string, error) { return f.version, nil },
-				Roots: func(context.Context, capabilityproof.Target, []string) (EffortSourceRoots, error) {
-					return f.roots, nil
-				},
-				Workspaces: []string{child},
-				Consented:  true,
-			}
-			got, err := inspector.CheckEffortSources(ctx, resolved, inv)
-			if err != nil || got != c.Model.EffortSourceDigest {
-				t.Fatalf("dispatch digest %q %v, preview %q", got, err, c.Model.EffortSourceDigest)
+			got, err := f.inspector.CheckEffortSources(ctx, f.frozen, f.request.Invocation)
+			if err != nil || got != observed.EffortSourceDigest {
+				t.Fatalf("dispatch digest %q %v, preview %q", got, err, observed.EffortSourceDigest)
 			}
 		})
 	}
