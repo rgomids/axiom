@@ -67,8 +67,8 @@ func cleanPath(p string) bool {
 
 type Metadata struct {
 	Version, Revision, SourceState, Platform, GOOS, Architecture, SourceCommit string
-	Release                                                                     bool
-	Inventory, Provenance, ManMap, Binary                                       string
+	Release                                                                    bool
+	Inventory, Provenance, ManMap, Binary                                      string
 }
 
 func ParseMetadata(wire []byte) (Metadata, error) {
@@ -90,7 +90,7 @@ func ParseMetadata(wire []byte) (Metadata, error) {
 
 type Receipt struct {
 	Destination, Binary, Version, Revision, SourceCommit, Generation, Binding, InstalledAt string
-	Inventory, Provenance, ManMap, Archive, SkillManifest                                 string
+	Inventory, Provenance, ManMap, Archive, SkillManifest                                  string
 }
 
 func ParseReceipt(wire []byte) (Receipt, error) {

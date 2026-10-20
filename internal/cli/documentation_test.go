@@ -42,6 +42,9 @@ func TestDocumentationRenderingDeterministicAndComplete(t *testing.T) {
 			}
 		})
 	})
+	if leaves != 106 || flags != 549 {
+		t.Fatalf("public tree drifted from the accepted coverage map: leaves=%d flags=%d", leaves, flags)
+	}
 	if leaves == 0 || flags == 0 {
 		t.Fatalf("coverage is empty: leaves=%d flags=%d", leaves, flags)
 	}
@@ -75,7 +78,7 @@ func TestDocumentationManPagesDeterministicAndMapped(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(first) != 14 || len(second) != len(first) {
+	if len(first) != 15 || len(second) != len(first) {
 		t.Fatalf("pages=%d", len(first))
 	}
 	seen := map[string]bool{}

@@ -17,6 +17,7 @@ import (
 	"github.com/rgomids/axiom/internal/install"
 	"github.com/rgomids/axiom/internal/local"
 	"github.com/rgomids/axiom/internal/manifest"
+	"github.com/rgomids/axiom/internal/operationaldocs"
 	"github.com/rgomids/axiom/internal/project"
 	"github.com/rgomids/axiom/internal/projectapp"
 	"github.com/rgomids/axiom/internal/provenance"
@@ -44,6 +45,9 @@ func main() {
 	}
 	source := currentProvenance()
 	if handled, code := cli.InspectSkill(os.Args[1:], source, os.Stdout); handled {
+		os.Exit(code)
+	}
+	if handled, code := cli.InspectDocs(os.Args[1:], source, os.Stdout, resolveDocs); handled {
 		os.Exit(code)
 	}
 	if format, ok := versionFormat(os.Args[1:]); ok {
@@ -1383,4 +1387,12 @@ func newCompletion(facts completion.Facts, message string, references []string, 
 		return cli.Result{}, false
 	}
 	return cli.Result{Completion: &canonical}, true
+}
+
+func resolveDocs() operationaldocs.Resolution {
+	executable, err := os.Executable()
+	if err != nil {
+		return operationaldocs.Resolution{State: operationaldocs.StateUnknown, Reason: "io_unavailable"}
+	}
+	return operationaldocs.Resolve(executable, operationaldocs.Compiled())
 }
