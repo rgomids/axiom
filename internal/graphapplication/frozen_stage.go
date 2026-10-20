@@ -11,6 +11,19 @@ import (
 	"github.com/rgomids/axiom/internal/runtimeprofile"
 )
 
+// SubscriptionAuthenticator is the machine-local CLI subscription
+// authentication preflight (runtimeadapter.AuthPreflight).
+type SubscriptionAuthenticator interface {
+	Check(context.Context, runtimeadapter.AuthTarget) runtimeadapter.AuthReport
+}
+
+// EffortSourceInspector re-reads the effort sources of the exact invocation.
+// It returns a safe canonical source digest, never source content/paths.
+// Unknown/unreadable sources must return an error.
+type EffortSourceInspector interface {
+	CheckEffortSources(context.Context, runtimeprofile.ResolvedProfileV4, executiongraph.Invocation) (string, error)
+}
+
 // StageBindingChecker is implemented by runtimeapplication.Service over the
 // operational observer. Check reloads local configuration, the executable and
 // effort sources on each attempt, including removal, tombstones and disabled
@@ -87,7 +100,7 @@ func checkFrozenSources(ctx context.Context, sources EffortSourceInspector, froz
 // configuration, paths or environment through dispatch errors.
 func stageEffortError(err error) error {
 	switch {
-	case errors.Is(err, runtimeadapter.ErrEffortOverrideConflict), errors.Is(err, ErrEffortOverrideConflict):
+	case errors.Is(err, runtimeadapter.ErrEffortOverrideConflict):
 		return runtimeadapter.ErrEffortOverrideConflict
 	case errors.Is(err, runtimeadapter.ErrExecutableUnavailable):
 		return runtimeadapter.ErrExecutableUnavailable
