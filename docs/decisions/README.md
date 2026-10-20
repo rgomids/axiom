@@ -4,6 +4,7 @@ Este diretório registra decisões técnicas duráveis e difíceis de reverter.
 
 ## Index
 
+- [ADR-0034 — Release-content documentation association](0034-release-content-documentation-association.md) — **Proposed**; AXM-37 R1 proposes a compiled documentary descriptor and validated installation association, with bounded partial supersession of ADR-0033 only after human acceptance. Original image-proof guarantee would change; Q6/platform/lifecycle requirements remain.
 - [ADR-0033 — Installation-bound operational documentation](0033-installation-bound-operational-documentation.md) — **Accepted**; one binary-to-generation contract for private installation assets, explicit package evolution, publication/return and read-only CLI/skills/man discovery. Q1–Q6 directions accepted separately; [exact-revision architectural acceptance](https://github.com/rgomids/axiom/pull/335#issuecomment-6296075261), 2026-10-20. Plan remains a separate proposed artifact, subject to its own review and acceptance.
 
 - [ADR-0032 — Runtime admission without capability certification](0032-runtime-admission-without-certification.md) — Accepted, 2026-10-19 ([exact-revision acceptance](https://github.com/rgomids/axiom/pull/334#issuecomment-6278024276)); operational admission without certification. Partially supersedes the certification fragments of ADR-0025 and the mapped Specification 007 obligations. Implementation and Plan acceptance remain separate.

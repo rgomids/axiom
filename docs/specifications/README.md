@@ -35,6 +35,8 @@ bounded delivery unit. Technical merge does not imply human acceptance or next-T
 
 ## 010 — Installed operational documentation
 
+**Reconciliation R1 — Proposed:** [integrated decision/delta matrix](010-installed-operational-documentation/reconciliation.md), [Spec](010-installed-operational-documentation/spec-reconciled.md), [Clarification](010-installed-operational-documentation/clarify-reconciled.md), [Plan](010-installed-operational-documentation/plan-reconciled.md), [Tasks](010-installed-operational-documentation/tasks-reconciled.md), [Evidence](010-installed-operational-documentation/evidence-reconcile.md) and [ADR-0034](../decisions/0034-release-content-documentation-association.md). No replacement baseline or Implementation is accepted; historical G1 remains BLOCKED by C2. Exact decisions below describe earlier revisions and are preserved.
+
 [Specification](010-installed-operational-documentation/spec.md) rev.1 was
 [accepted](https://github.com/rgomids/axiom/pull/335#issuecomment-6292970482) on
 2026-10-20; its Proposed header is historical. Related to
