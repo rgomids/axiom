@@ -459,6 +459,8 @@
       "candidateExecution": "LoadCandidate is passive; no candidate execution",
       "fixtureScope": "Synthetic old-layout archives carrying exact proposed v2 record or unknown version; not valid complete v2 archives"
     },
-    "temporaryGoTestRemoved": true
+    "temporaryGoTestRemoved": true,
+    "temporaryGoTestSha256": "a3583538259f5559f60754200a0fb126532da24d36db577e9422d07778b3d739",
+    "archiveReproducibility": "Recorded hashes identify executed transient gzip envelopes; gzip creation timestamps were not fixed. Record bytes/hashes and dispatch recipe replay; no reproducible-archive claim."
   }
 }
