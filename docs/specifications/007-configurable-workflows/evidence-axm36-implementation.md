@@ -600,3 +600,35 @@ failed formatting in four existing r5 files, confirmed from the job log.
 That failure remains pending correction, alongside the known unmigrated local
 and cmd/lingo test suites. T02 diagnostics, T03 guidance and the full proof-free
 installed matrix remain incomplete; this checkpoint is not delivery/acceptance.
+
+### r6 SAVE STATE — maintainer stop request
+
+The maintainer requested stopping before further implementation. The stable
+stageexecution checkpoint is `70de626ba02e21cd59b6c48e2be4c807bebdf36e`,
+pushed normally to the existing branch. `go test ./internal/cli` also PASS
+(cached); no CLI change was required in this session.
+
+A subsequent partial local-test migration compiled but `go test ./internal/local`
+FAIL: remaining historical single-dispatch/inventory/outcome fixtures produce
+`unsafe project storage`; policy tests still provide format-3 configuration;
+authoring/inventory and store assertions still expect old versions; the workflow
+migration test dereferences the old V3 snapshot. No production fix or safety
+bypass was attempted. The partial test migration was saved outside the repository
+as `/home/box/axm36-r6-local-wip.patch` (SHA-256
+`fe230e3e8435abb89a7c4cd5396362f8c34b17e079f217f26f8822a32240e374`)
+and removed from the worktree. It is optional unfinished input, not validated
+code; inspect and apply with `git apply --check` before resuming it. The patch
+includes its new operational publication test. This host-local patch is not
+available to another host; the committed checkpoint is self-contained.
+
+Continue in `/workspace/wt/axm-36`, branch
+`docs/axm-36-runtime-admission-specify`, PR #334. Remaining work is unchanged
+from the r5 handoff except stageexecution and cli are now verified: finish local
+and cmd/lingo test migration; implement D5 diagnostics at pre-spawn and terminal
+save; update CLI/docs/packaged skills; run the full both-adapter installed
+synthetic matrix and RA-AC1–10, security/repository/quality checks and review.
+Fix the four r5 formatting failures identified above. No full suite, installed
+proof-free matrix or final remote CI PASS is claimed. Remote `PR Checks` FAIL
+and `delivery-metadata` PASS at `70de626`; recheck final head after this Evidence
+commit. No further implementation is started after the stop request; no merge,
+release, status/label/Execution transition or acceptance occurred.
