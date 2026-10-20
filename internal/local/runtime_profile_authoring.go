@@ -241,14 +241,9 @@ func (s RuntimeProfileStore) Inspect(ctx context.Context) (RuntimeProfileSnapsho
 	return s.inspectLocked()
 }
 
-// Publish consumes an exact reviewed snapshot. Format 3 (Specification 007
-// PM-1) is accepted over fresh, retired or active-v3 state, in canonical bytes
-// with revision+1, and never over a format 1/2 record, so nothing is migrated
-// or converted by overwrite. The existing tombstone retires an active record
-// with revision+1: priorConfigurationDigest is DigestV3 of an active-v3 record
-// (PM-9) and the historical Digest of a pre-stable active-v1/v2 record (PM-11).
-// No format 1/2 configuration is ever written. It never down-converts v3,
-// deletes the history, or retries a conflict.
+// Publish consumes an exact reviewed snapshot. Only canonical format 4 is
+// authored, with revision+1 over fresh, retired or active-v4 state. Historical
+// configurations require explicit digest-bound retirement before reconfiguration.
 func (s RuntimeProfileStore) Publish(ctx context.Context, expectedToken string, next []byte) (RuntimeProfileSnapshot, error) {
 	if err := ctx.Err(); err != nil {
 		return RuntimeProfileSnapshot{}, err
@@ -279,14 +274,6 @@ func (s RuntimeProfileStore) Publish(ctx context.Context, expectedToken string, 
 	case errors.Is(cfgErr, runtimeprofile.ErrUnsupportedConfigurationFormat):
 		v, err := runtimeprofile.DecodeVersioned(next)
 		switch {
-		case err == nil && v.FormatVersion == runtimeprofile.FormatVersionV3 && v.V3 != nil:
-			// Format 3 never replaces a v1/v2/v4 record, pending or unsafe state.
-			if prior.State != "fresh" && prior.State != "retired" && prior.State != "active-v3" {
-				return prior, runtimeprofile.ErrUnsupportedConfigurationFormat
-			}
-			if canonical, err := runtimeprofile.EncodeV3(*v.V3); err != nil || !bytes.Equal(canonical, next) || v.V3.Revision != prior.Revision+1 {
-				return prior, ErrConflict
-			}
 		case err == nil && v.FormatVersion == runtimeprofile.FormatVersionV4 && v.V4 != nil:
 			// Format 4 starts only from fresh or retired state, or replaces format 4:
 			// an active historical record is retired explicitly, never converted.

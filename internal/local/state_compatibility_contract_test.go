@@ -134,7 +134,7 @@ func TestEveryV1WriterIsRecognizedByInventory(t *testing.T) {
 		}
 	}
 	for _, kind := range append(V1Kinds(), AdditiveKinds()...) {
-		if !observed[kind] {
+		if kind != InventoryCapabilityEvidence && !observed[kind] {
 			t.Errorf("v1 kind %s is not produced by any writer in writeEveryV1Kind: exercise its store here", kind)
 		}
 	}
@@ -150,7 +150,7 @@ func TestEveryV1WriterIsRecognizedByInventory(t *testing.T) {
 	// capability-probes/ holds only transient probe envelopes, which inventory
 	// classifies as recovery state; no durable v1 writer leaves records there.
 	expected := slices.DeleteFunc(slices.Clone(StateRootDirectories), func(name string) bool {
-		return name == "workflows" || name == "capability-probes"
+		return name == "workflows" || name == "capability-probes" || name == "capability-evidence"
 	})
 	slices.Sort(written)
 	slices.Sort(expected)
@@ -266,7 +266,7 @@ func writeEveryV1Kind(t *testing.T) (string, string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	v3 := createLocalV3Execution(t, ledgers)
+	v3 := createLocalOperationalExecution(t, ledgers)
 	single, singleAuthority := localSingleStage(t, v3)
 	singles, err := NewSingleStageStore(state)
 	if err != nil {
@@ -397,13 +397,6 @@ func writeEveryV1Kind(t *testing.T) (string, string) {
 		t.Fatal(e)
 	}
 
-	evidenceStore, err := NewCapabilityStore(state)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := evidenceStore.Create(context.Background(), storeEvidence()); err != nil {
-		t.Fatal(err)
-	}
 	policyStore, err := NewValidatorPolicyStore(state)
 	if err != nil {
 		t.Fatal(err)
@@ -609,5 +602,37 @@ func TestFreezeSnapshotNormalizesWindowsJSONPaths(t *testing.T) {
 	}
 	if !strings.Contains(string(normalized), corpusMachineRoot) || strings.Contains(string(normalized), "synthetic-machine") {
 		t.Fatalf("machine path retained: %s", normalized)
+	}
+}
+
+func TestRetiredCapabilityEvidenceRemainsReadOnlyHistory(t *testing.T) {
+	paths, err := filepath.Glob("../compatibility/testdata/stable-v1/snapshots/*/state/capability-evidence/v1/*.json")
+	if err != nil || len(paths) == 0 {
+		t.Fatal("historical evidence missing", err)
+	}
+	for _, path := range paths {
+		t.Run(filepath.Base(filepath.Dir(filepath.Dir(filepath.Dir(filepath.Dir(path))))), func(t *testing.T) {
+			wire, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			root := privateTestRoot(t)
+			dir := filepath.Join(root, "capability-evidence", "v1")
+			if err := os.MkdirAll(dir, 0700); err != nil {
+				t.Fatal(err)
+			}
+			name := filepath.Join(dir, filepath.Base(path))
+			if err := os.WriteFile(name, wire, 0600); err != nil {
+				t.Fatal(err)
+			}
+			inventory, err := InspectStateInventory(context.Background(), root)
+			if err != nil || len(inventory.Entries) != 1 || inventory.Entries[0].Kind != InventoryCapabilityEvidence {
+				t.Fatal(inventory, err)
+			}
+			after, err := os.ReadFile(name)
+			if err != nil || string(after) != string(wire) {
+				t.Fatal("historical evidence changed", err)
+			}
+		})
 	}
 }

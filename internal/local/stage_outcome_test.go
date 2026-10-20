@@ -2,6 +2,7 @@ package local
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -10,6 +11,7 @@ import (
 	"time"
 
 	"github.com/rgomids/axiom/internal/executiongraph"
+	"github.com/rgomids/axiom/internal/runtimeprofile"
 	"github.com/rgomids/axiom/internal/workflow"
 )
 
@@ -36,6 +38,38 @@ func createLocalV3Execution(t *testing.T, s WorkflowStore) workflow.State {
 	return loaded
 }
 
+func createLocalOperationalExecution(t *testing.T, s WorkflowStore) workflow.State {
+	t.Helper()
+	wire, err := os.ReadFile("../workflowcompiler/testdata/issue306/execution-v3.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	state, err := decodeExecution(wire)
+	if err != nil {
+		t.Fatal(err)
+	}
+	profileWire, err := os.ReadFile("../runtimeprofile/testdata/axm36/resolved-v4.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var profile runtimeprofile.ResolvedProfileV4
+	if err := json.Unmarshal(profileWire, &profile); err != nil {
+		t.Fatal(err)
+	}
+	state.FormatVersion = workflow.OperationalConfiguredFormatVersion
+	state.Binding.ResolvedProfile = nil
+	state.Binding.FrozenProfile = &profile
+	state.StorageRevision = [32]byte{}
+	if err := s.Create(context.Background(), state); err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := s.Load(context.Background(), state.ProjectID, state.RepositoryKey, state.WorkItem)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return loaded
+}
+
 func localStageOutcome(state workflow.State, integrationAttempt string) executiongraph.StageOutcome {
 	rollup := executiongraph.StageRollup{Status: "success", ParentID: state.ExecutionID, GraphRevision: state.Revision, IntegrationChildID: "00000000-0000-4000-8000-000000000093", IntegrationAttemptID: integrationAttempt, Children: []executiongraph.StageChildOutcome{
 		{ChildID: "00000000-0000-4000-8000-000000000092", AttemptID: "00000000-0000-4000-8000-000000000094", Status: executiongraph.AttemptSucceeded, Reason: executiongraph.ResultRecorded, Required: true},
@@ -51,7 +85,7 @@ func TestStageOutcomeProjectionBindsLedgerGeneration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	state := createLocalV3Execution(t, s)
+	state := createLocalOperationalExecution(t, s)
 	before, err := os.ReadFile(executionPath(t, root, state))
 	if err != nil {
 		t.Fatal(err)
@@ -106,7 +140,7 @@ func TestStageOutcomeProjectionRefusals(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	state := createLocalV3Execution(t, s)
+	state := createLocalOperationalExecution(t, s)
 	t.Run("stale ledger generation", func(t *testing.T) {
 		stale := state
 		stale.StorageRevision[0] ^= 1

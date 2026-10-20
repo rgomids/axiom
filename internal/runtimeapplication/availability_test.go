@@ -17,7 +17,7 @@ func TestAvailabilityProjection(t *testing.T) {
 	}{
 		"available":      {func(*sourceFake, *observerFake) {}, ""},
 		"source failure": {func(s *sourceFake, _ *observerFake) { s.err = errors.New("private") }, "policy_unavailable"},
-		"not installed": {func(_ *sourceFake, o *observerFake) { delete(o.runtimes, "claude") }, "runtime_unavailable"},
+		"not installed":  {func(_ *sourceFake, o *observerFake) { delete(o.runtimes, "claude") }, "runtime_unavailable"},
 		"disabled":       {func(s *sourceFake, _ *observerFake) { s.config.Runtimes[0].Enabled = false }, "runtime_unavailable"},
 		"model mismatch": {func(s *sourceFake, _ *observerFake) { s.config.ModelProfiles[0].Model = "other" }, "no_allowed_match"},
 		"no observer":    {func(s *sourceFake, _ *observerFake) { s.snapshot.Observer = nil }, "inventory_unavailable"},

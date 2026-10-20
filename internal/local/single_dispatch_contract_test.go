@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"os"
 	"strings"
 	"testing"
 	"time"
@@ -13,26 +12,12 @@ import (
 	"github.com/rgomids/axiom/internal/workflow"
 )
 
-func TestSingleDispatchCannotInventAnExecution3AttemptGeneration(t *testing.T) {
-	wire, err := os.ReadFile("../workflowcompiler/testdata/issue306/execution-v3.json")
-	if err != nil {
-		t.Fatal(err)
-	}
-	state, err := decodeExecution(wire)
-	if err != nil {
-		t.Fatal(err)
-	}
+func TestSingleDispatchCannotInventAnExecution5AttemptGeneration(t *testing.T) {
 	store, err := NewWorkflowStore(privateTestRoot(t))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := store.Create(context.Background(), state); err != nil {
-		t.Fatal(err)
-	}
-	state, err = store.Load(context.Background(), state.ProjectID, state.RepositoryKey, state.WorkItem)
-	if err != nil {
-		t.Fatal(err)
-	}
+	state := createLocalOperationalExecution(t, store)
 	ledger, err := encodeExecution(state)
 	if err != nil {
 		t.Fatal(err)
@@ -65,7 +50,7 @@ func TestSingleDispatchCannotInventAnExecution3AttemptGeneration(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, err := decodeExecution(withAttempts); err == nil {
-		t.Fatal("attempt fields silently extended the closed Execution3 codec")
+		t.Fatal("attempt fields silently extended the closed Execution5 codec")
 	}
 	stored, err := store.Load(context.Background(), state.ProjectID, state.RepositoryKey, state.WorkItem)
 	if err != nil || stored.StorageRevision != state.StorageRevision {

@@ -212,14 +212,11 @@ func TestDispatchGraphStoreCommitAndReadback(t *testing.T) {
 
 func TestSingleDispatchStoreCommitAndScope(t *testing.T) {
 	ctx := context.Background()
-	wire, e := os.ReadFile("../workflowcompiler/testdata/issue306/execution-v3.json")
+	seed, e := NewWorkflowStore(privateTestRoot(t))
 	if e != nil {
 		t.Fatal(e)
 	}
-	state, e := decodeExecution(wire)
-	if e != nil {
-		t.Fatal(e)
-	}
+	state := createLocalOperationalExecution(t, seed)
 	state.StorageRevision = [32]byte{}
 	ledger, e := encodeExecution(state)
 	if e != nil {

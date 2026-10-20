@@ -524,10 +524,7 @@ func walkRuntimeProfilesV1(w *inventoryWalk, version *os.Root, relative string) 
 		if err != nil {
 			return w.add(childRelative, InventoryUnsafe, nil)
 		}
-		// Canonical v3 and the retired tombstone are current state. A valid
-		// format-1/2 record is recognized pre-stable history only (PM-11, B1);
-		// malformed records, future formats and protocol state stay refused.
-		if v, err := runtimeprofile.DecodeVersioned(wire); err == nil && v.FormatVersion == runtimeprofile.FormatVersionV3 && v.V3 != nil {
+		if v, err := runtimeprofile.DecodeVersioned(wire); err == nil && (v.FormatVersion == runtimeprofile.FormatVersionV3 && v.V3 != nil || v.FormatVersion == runtimeprofile.FormatVersionV4 && v.V4 != nil) {
 			return w.add(childRelative, InventoryRuntimeProfile, wire)
 		}
 		if _, err := runtimeprofile.DecodeTombstone(wire); err == nil {
@@ -536,7 +533,7 @@ func walkRuntimeProfilesV1(w *inventoryWalk, version *os.Root, relative string) 
 		if _, err := runtimeprofile.Decode(wire); err == nil {
 			return w.add(childRelative, InventoryRuntimeProfilePreStable, wire)
 		}
-		return w.add(childRelative, versionedFailureWithin(wire, runtimeprofile.FormatVersionV3), wire)
+		return w.add(childRelative, versionedFailureWithin(wire, runtimeprofile.FormatVersionV4), wire)
 	})
 }
 

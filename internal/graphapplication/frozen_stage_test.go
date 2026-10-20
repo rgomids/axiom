@@ -258,7 +258,9 @@ func (s *frozenLocalSource) Load(context.Context, string) (runtimeapplication.Sn
 	return runtimeapplication.Snapshot{Project: s.project, Consumer: consumer, Observer: frozenObserver{s.observed}}, nil
 }
 
-type frozenObserver struct{ observed runtimeprofile.OperationalObservation }
+type frozenObserver struct {
+	observed runtimeprofile.OperationalObservation
+}
 
 func (o frozenObserver) ObserveExecutable(context.Context, string) (runtimeprofile.OperationalObservation, error) {
 	v := o.observed

@@ -342,7 +342,7 @@ func TestWorkflowMigrationPublicationRefusesSameBytesProfileReplacement(t *testi
 	if err != nil {
 		t.Fatal(err)
 	}
-	digest, err := runtimeprofile.DigestV3(*active.V3)
+	digest, err := runtimeprofile.DigestV4(*active.V4)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -17,7 +17,7 @@ import (
 
 func localSingleStage(t *testing.T, state workflow.State) (executiongraph.SingleStageRun, executiongraph.SingleStageAuthority) {
 	t.Helper()
-	profile := &runtimeprofile.ResolvedProfile{ProfileID: "codex-high", RuntimeID: "codex", Model: "gpt-synthetic", Effort: runtimeprofile.Effort{Mode: runtimeprofile.EffortRuntimeDefault, Value: "default"}, ProfileDigest: strings.Repeat("1", 64), ConfigurationRevision: 1, ConfigurationDigest: strings.Repeat("2", 64), ExecutableDigest: strings.Repeat("3", 64), RuntimeVersion: "1.0.0", InvocationMode: "noninteractive", ObservationRevision: 1, ObservationDigest: strings.Repeat("4", 64), EffortSourceDigest: strings.Repeat("5", 64), CapabilityProofReference: "evidence-1"}
+	profile := &runtimeprofile.ResolvedProfileV4{ProfileID: "codex-high", RuntimeID: "codex", Model: "gpt-synthetic", Effort: runtimeprofile.Effort{Mode: runtimeprofile.EffortRuntimeDefault, Value: "default"}, ProfileDigest: strings.Repeat("1", 64), ConfigurationRevision: 1, ConfigurationDigest: strings.Repeat("2", 64), ExecutableDigest: strings.Repeat("3", 64), InvocationMode: "noninteractive", ObservationRevision: 1, ObservationDigest: strings.Repeat("4", 64), EffortSourceDigest: strings.Repeat("5", 64)}
 	item := state.WorkItem
 	scope := executiongraph.SingleStageScope{ProjectID: state.ProjectID, RepositoryKey: state.RepositoryKey, WorkItem: item.Provider + ":" + item.Resource + "#" + item.ExternalID, ExecutionID: state.ExecutionID, StageID: string(state.Stage), StageOrdinal: state.StageOrdinal}
 	digest, err := executiongraph.SingleStageScopeDigest(scope)
@@ -25,13 +25,13 @@ func localSingleStage(t *testing.T, state workflow.State) (executiongraph.Single
 		t.Fatal(err)
 	}
 	created := state.UpdatedAt.Add(time.Second).UTC()
-	binding := executiongraph.SingleStageBinding{ExecutionGeneration: hexDigestRevision(state.StorageRevision), WorkflowRevision: state.Revision, PreviewDigest: strings.Repeat("7", 64), ProposalDigest: strings.Repeat("8", 64), InputDigest: strings.Repeat("9", 64), AxiomDigest: strings.Repeat("a", 64), Workspace: "/synthetic/worktrees/one", Inbox: "/synthetic/inboxes/one", Effects: []executiongraph.Effect{{Kind: "repository-write", Target: "src"}}, Controls: executiongraph.ExecutionControls{Timeout: time.Hour, MaximumAttempts: 3}, Resolution: executiongraph.Resolution{ResolvedProfile: profile, RuntimeID: "codex", ModelProfileID: "codex-high", ConfigurationRevision: 1, ObservationRevision: 1}}
+	binding := executiongraph.SingleStageBinding{ExecutionGeneration: hexDigestRevision(state.StorageRevision), WorkflowRevision: state.Revision, PreviewDigest: strings.Repeat("7", 64), ProposalDigest: strings.Repeat("8", 64), InputDigest: strings.Repeat("9", 64), AxiomDigest: strings.Repeat("a", 64), Workspace: "/synthetic/worktrees/one", Inbox: "/synthetic/inboxes/one", Effects: []executiongraph.Effect{{Kind: "repository-write", Target: "src"}}, Controls: executiongraph.ExecutionControls{Timeout: time.Hour, MaximumAttempts: 3}, Resolution: executiongraph.Resolution{FrozenProfile: profile, RuntimeID: "codex", ModelProfileID: "codex-high", ConfigurationRevision: 1, ObservationRevision: 1}}
 	a := executiongraph.SingleStageAuthority{FormatVersion: 2, Scope: executiongraph.SingleStageAuthorityScope, ProjectID: scope.ProjectID, ExecutionID: scope.ExecutionID, StageID: scope.StageID, StageOrdinal: scope.StageOrdinal, ScopeDigest: digest, ExecutionGeneration: binding.ExecutionGeneration, WorkflowRevision: binding.WorkflowRevision, PreviewDigest: binding.PreviewDigest, DispatchDigest: binding.PreviewDigest, ProposalDigest: binding.ProposalDigest, AttemptNumber: 1, Effects: binding.Effects, Disposition: executiongraph.DispositionNotRequired, ActorKind: "human-operator", Actor: "synthetic-operator", RecordedAt: created}
 	ref, err := executiongraph.SingleStageAuthorityDigest(a)
 	if err != nil {
 		t.Fatal(err)
 	}
-	return executiongraph.SingleStageRun{Kind: executiongraph.SingleStageRunKind, FormatVersion: 1, ScopeDigest: digest, Scope: scope, Binding: binding, CreatedAt: created, Authorities: []string{ref}, Attempts: []executiongraph.SuccessorAttempt{}}, a
+	return executiongraph.SingleStageRun{Kind: executiongraph.SingleStageRunKind, FormatVersion: executiongraph.OperationalSingleStageRunVersion, ScopeDigest: digest, Scope: scope, Binding: binding, CreatedAt: created, Authorities: []string{ref}, Attempts: []executiongraph.SuccessorAttempt{}}, a
 }
 
 type singleStageFixture struct {
@@ -50,7 +50,7 @@ func newSingleStageFixture(t *testing.T) singleStageFixture {
 	if err != nil {
 		t.Fatal(err)
 	}
-	execution := createLocalV3Execution(t, ledgers)
+	execution := createLocalOperationalExecution(t, ledgers)
 	store, err := NewSingleStageStore(state)
 	if err != nil {
 		t.Fatal(err)

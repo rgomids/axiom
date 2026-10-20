@@ -3,9 +3,11 @@ package local
 import (
 	"context"
 	"errors"
+	"path/filepath"
 	"testing"
 
 	"github.com/rgomids/axiom/internal/runtimeprofile"
+	"github.com/rgomids/axiom/internal/runtimeprofile/runtimeprofiletest"
 )
 
 func v4Wire(t *testing.T, revision uint64) ([]byte, runtimeprofile.ConfigurationV4) {
@@ -34,7 +36,7 @@ func TestRuntimeProfileV4PublicationAndExplicitRetirement(t *testing.T) {
 	if err != nil || active.State != "active-v4" || active.V4 == nil || active.V3 != nil || active.Revision != 1 {
 		t.Fatalf("%+v %v", active, err)
 	}
-	if _, err := store.Publish(ctx, active.Token, v3Wire(t, 2, false)); !errors.Is(err, runtimeprofile.ErrUnsupportedConfigurationFormat) {
+	if _, err := store.Publish(ctx, active.Token, v3Wire(t, 2)); !errors.Is(err, runtimeprofile.ErrUnsupportedConfigurationFormat) {
 		t.Fatal("format 3 replaced format 4", err)
 	}
 	if _, err := store.Publish(ctx, active.Token, first); err == nil {
@@ -61,4 +63,21 @@ func TestRuntimeProfileV4PublicationAndExplicitRetirement(t *testing.T) {
 	if _, err := historical.Publish(ctx, v3.Token, upgraded); !errors.Is(err, runtimeprofile.ErrUnsupportedConfigurationFormat) {
 		t.Fatal("active format 3 converted implicitly", err)
 	}
+}
+
+func v3Wire(t *testing.T, revision uint64) []byte {
+	t.Helper()
+	cfg := runtimeprofiletest.WithRevision(runtimeprofiletest.MultiRuntime(), revision)
+	return runtimeprofiletest.Encode(t, cfg)
+}
+func activeV3Store(t *testing.T) (RuntimeProfileStore, RuntimeProfileSnapshot, string) {
+	t.Helper()
+	store := authoringStore(t)
+	writeLegacyRecord(t, store.root, v3Wire(t, 1))
+	writeEpochRecord(t, store.root, 1)
+	snapshot, err := store.Inspect(context.Background())
+	if err != nil || snapshot.State != "active-v3" {
+		t.Fatal(snapshot, err)
+	}
+	return store, snapshot, filepath.Join(store.root, "runtime-profiles", "v1", runtimeProfileObject)
 }

@@ -632,3 +632,37 @@ proof-free matrix or final remote CI PASS is claimed. Remote `PR Checks` FAIL
 and `delivery-metadata` PASS at `70de626`; recheck final head after this Evidence
 commit. No further implementation is started after the stop request; no merge,
 release, status/label/Execution transition or acceptance occurred.
+
+## Mac continuation — local store checkpoint
+
+Resumed HEAD `86bee85aa90b2f075d11f59d232da8db4b2eac67`, including r8's
+uncommitted local-test migration and four gofmt repairs. Approved Tasks match
+`91b04156a48005d9a7498372ae7990ce4fbb515d` unchanged. PR/Linear comments were
+rechecked; no conflicting active checkpoint or authority was found. No delegation:
+strict model inferiority cannot be established from available metadata.
+
+This host's dedicated root `/Users/rgomids/Library/Application Support/Lingo/axm36`
+was already created by r8, mode 0700, with zero JSON records at resumption.
+No Execution was created, imported, advanced or accepted; other hosts remain
+unobserved. Linear state and labels remain unchanged.
+
+Local publication/recovery/epoch, policy drift, inventory, single-stage and
+outcome regressions now use Configuration 4, Execution 5 and single-run 2.
+Historical fixtures and the stable corpus remain unchanged. Configuration 3 is
+readable/retirable but cannot be newly published. Inventory recognizes valid 4,
+classifies malformed 4 as malformed and future versions as unsupported. The
+retired capability Evidence kind remains supported; its writer expectation is
+replaced by explicit read-only checks over every frozen Evidence snapshot.
+No security guard or historical decoder is removed.
+
+PASS:
+- `go test ./internal/local ./internal/compatibility` (local 143.397s).
+- `go vet ./internal/local ./internal/compatibility`.
+- `go test ./internal/graphapplication ./internal/runtimeapplication`.
+
+The only changed production comment is the public `Publish` API contract,
+updated to describe format 4 and explicit historical retirement.
+The four inherited formatting repairs are included after package checks.
+CLI migration is separate work in progress; T02 diagnostics, T03 guidance,
+full RA-AC1–10/installed matrix and final-head CI remain pending. This checkpoint
+is neither T02/T03 delivery nor technical/human acceptance. No real inference.

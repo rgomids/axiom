@@ -12,7 +12,6 @@ import (
 	"testing"
 
 	"github.com/rgomids/axiom/internal/runtimeprofile"
-	"github.com/rgomids/axiom/internal/runtimeprofile/runtimeprofiletest"
 )
 
 // Specification 007 AXM-22 PM-6: the persistent authorization epoch. Every
@@ -105,11 +104,11 @@ func TestAuthorizationEpochPreviewApplyRestart(t *testing.T) {
 	if _, err := os.Lstat(s.root); !errors.Is(err, os.ErrNotExist) {
 		t.Fatal("fresh preview created state")
 	}
-	active, err := s.Publish(ctx, fresh.Token, v3Wire(t, 1, false))
+	active, err := s.Publish(ctx, fresh.Token, operationalWire(t, 1))
 	if err != nil || active.epoch != 1 || epochOf(t, s) != 1 {
 		t.Fatalf("%+v %v", active, err)
 	}
-	if _, err := s.Publish(ctx, fresh.Token, v3Wire(t, 2, false)); !errors.Is(err, ErrConflict) {
+	if _, err := s.Publish(ctx, fresh.Token, operationalWire(t, 2)); !errors.Is(err, ErrConflict) {
 		t.Fatalf("applied preview reused: %v", err)
 	}
 	before := profileDirectory(t, s)
@@ -131,7 +130,7 @@ func TestAuthorizationEpochPreviewApplyRestart(t *testing.T) {
 	if err != nil || observed.Token != active.Token || observed.epoch != 1 {
 		t.Fatalf("restart %+v %v", observed, err)
 	}
-	if _, err := restarted.Publish(ctx, observed.Token, v3Wire(t, 2, true)); err != nil || epochOf(t, s) != 2 {
+	if _, err := restarted.Publish(ctx, observed.Token, operationalWire(t, 2)); err != nil || epochOf(t, s) != 2 {
 		t.Fatalf("restarted apply: %v", err)
 	}
 }
@@ -139,12 +138,12 @@ func TestAuthorizationEpochPreviewApplyRestart(t *testing.T) {
 // Configuration or epoch change between preview and apply is stale.
 func TestAuthorizationEpochStaleBetweenPreviewAndApply(t *testing.T) {
 	ctx := context.Background()
-	s, active, _ := activeV3Store(t)
-	changed, err := s.Publish(ctx, active.Token, v3Wire(t, 2, false))
+	s, active, _ := activeOperationalStore(t)
+	changed, err := s.Publish(ctx, active.Token, operationalWire(t, 2))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.Publish(ctx, active.Token, v3Wire(t, 3, false)); !errors.Is(err, ErrConflict) {
+	if _, err := s.Publish(ctx, active.Token, operationalWire(t, 3)); !errors.Is(err, ErrConflict) {
 		t.Fatalf("configuration change: %v", err)
 	}
 	// Only the epoch changes: a different identity, same bytes.
@@ -152,7 +151,7 @@ func TestAuthorizationEpochStaleBetweenPreviewAndApply(t *testing.T) {
 	if bumped, err := s.Inspect(ctx); err != nil || bumped.Token == changed.Token || bumped.Revision != changed.Revision {
 		t.Fatalf("epoch not bound into preview identity: %v", err)
 	}
-	if _, err := s.Publish(ctx, changed.Token, v3Wire(t, 3, false)); !errors.Is(err, ErrConflict) {
+	if _, err := s.Publish(ctx, changed.Token, operationalWire(t, 3)); !errors.Is(err, ErrConflict) {
 		t.Fatalf("epoch change: %v", err)
 	}
 }
@@ -163,7 +162,7 @@ func TestAuthorizationEpochF3RollbackCannotRevivePreview(t *testing.T) {
 	ctx := context.Background()
 	for _, mode := range []string{"cleanup", "recovery"} {
 		t.Run(mode, func(t *testing.T) {
-			s, p, path := activeV3Store(t)
+			s, p, path := activeOperationalStore(t)
 			original, _ := os.ReadFile(path)
 			identity, _ := FileIdentity(path)
 			fault := errors.New("synthetic pre-commit failure")
@@ -171,7 +170,7 @@ func TestAuthorizationEpochF3RollbackCannotRevivePreview(t *testing.T) {
 				fault = ErrSimulatedInterruption
 			}
 			s.hooks.fault = faultAt(FaultF3, fault)
-			if _, err := s.Publish(ctx, p.Token, v3Wire(t, 2, true)); err == nil {
+			if _, err := s.Publish(ctx, p.Token, operationalWire(t, 2)); err == nil {
 				t.Fatal("fault not reached")
 			}
 			s.hooks = publicationHooks{}
@@ -189,13 +188,13 @@ func TestAuthorizationEpochF3RollbackCannotRevivePreview(t *testing.T) {
 			if err != nil || observed.Revision != p.Revision || observed.Token == p.Token {
 				t.Fatalf("observed %+v %v", observed, err)
 			}
-			if _, err := s.Publish(ctx, p.Token, v3Wire(t, 2, true)); !errors.Is(err, ErrConflict) {
+			if _, err := s.Publish(ctx, p.Token, operationalWire(t, 2)); !errors.Is(err, ErrConflict) {
 				t.Fatalf("pre-F3 preview revived: %v", err)
 			}
 			if !bytes.Equal(configurationBytes(t, s), original) {
 				t.Fatal("stale preview published")
 			}
-			if _, err := s.Publish(ctx, observed.Token, v3Wire(t, 2, true)); err != nil {
+			if _, err := s.Publish(ctx, observed.Token, operationalWire(t, 2)); err != nil {
 				t.Fatalf("fresh exact preview: %v", err)
 			}
 		})
@@ -206,9 +205,9 @@ func TestAuthorizationEpochF3RollbackCannotRevivePreview(t *testing.T) {
 // pre-recovery preview or recovery plan becomes valid afterward.
 func TestAuthorizationEpochF6RecoveryCannotRevivePreview(t *testing.T) {
 	ctx := context.Background()
-	s, p, _ := activeV3Store(t)
+	s, p, _ := activeOperationalStore(t)
 	s.hooks.fault = faultAt(FaultF6, ErrSimulatedInterruption)
-	next := v3Wire(t, 2, true)
+	next := operationalWire(t, 2)
 	if _, err := s.Publish(ctx, p.Token, next); err == nil {
 		t.Fatal("fault not reached")
 	}
@@ -218,7 +217,7 @@ func TestAuthorizationEpochF6RecoveryCannotRevivePreview(t *testing.T) {
 	if plan.Action != FinalizeCommitted || epochOf(t, s) != epoch+1 {
 		t.Fatalf("action %s epoch %d", plan.Action, epochOf(t, s))
 	}
-	if _, err := s.Publish(ctx, p.Token, v3Wire(t, 2, false)); !errors.Is(err, ErrConflict) {
+	if _, err := s.Publish(ctx, p.Token, operationalWire(t, 2)); !errors.Is(err, ErrConflict) {
 		t.Fatalf("pre-F6 preview revived: %v", err)
 	}
 	authority, _ := AuthorizeRecovery(plan, plan.Digest)
@@ -234,9 +233,9 @@ func TestAuthorizationEpochF6RecoveryCannotRevivePreview(t *testing.T) {
 // The recovery preview binds the epoch it advances.
 func TestAuthorizationEpochBindsRecoveryPlan(t *testing.T) {
 	ctx := context.Background()
-	s, p, _ := activeV3Store(t)
+	s, p, _ := activeOperationalStore(t)
 	s.hooks.fault = faultAt(FaultF3, ErrSimulatedInterruption)
-	s.Publish(ctx, p.Token, v3Wire(t, 2, true))
+	s.Publish(ctx, p.Token, operationalWire(t, 2))
 	s.hooks = publicationHooks{}
 	plan, _, err := s.InspectRuntimeRecovery(ctx)
 	if err != nil {
@@ -253,8 +252,8 @@ func TestAuthorizationEpochBindsRecoveryPlan(t *testing.T) {
 // fresh-looking state after retirement keeps its history.
 func TestAuthorizationEpochSurvivesRetirementAndReconfiguration(t *testing.T) {
 	ctx := context.Background()
-	s, p, _ := activeV3Store(t)
-	tomb, err := runtimeprofile.EncodeTombstone(runtimeprofile.Tombstone{Kind: runtimeprofile.TombstoneKind, FormatVersion: 1, Revision: 2, PriorConfigurationDigest: runtimeprofiletest.Digest(t, *p.V3)})
+	s, p, _ := activeOperationalStore(t)
+	tomb, err := runtimeprofile.EncodeTombstone(runtimeprofile.Tombstone{Kind: runtimeprofile.TombstoneKind, FormatVersion: 1, Revision: 2, PriorConfigurationDigest: authoringDigest(t, *p.V4)})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -262,12 +261,12 @@ func TestAuthorizationEpochSurvivesRetirementAndReconfiguration(t *testing.T) {
 	if err != nil || retired.State != "retired" || epochOf(t, s) != 2 {
 		t.Fatalf("%+v %v", retired, err)
 	}
-	recreated, err := s.Publish(ctx, retired.Token, v3Wire(t, 3, false))
-	if err != nil || recreated.State != "active-v3" || epochOf(t, s) != 3 {
+	recreated, err := s.Publish(ctx, retired.Token, operationalWire(t, 3))
+	if err != nil || recreated.State != "active-v4" || epochOf(t, s) != 3 {
 		t.Fatalf("%+v %v", recreated, err)
 	}
 	for _, stale := range []string{p.Token, retired.Token} {
-		if _, err := s.Publish(ctx, stale, v3Wire(t, 4, false)); !errors.Is(err, ErrConflict) {
+		if _, err := s.Publish(ctx, stale, operationalWire(t, 4)); !errors.Is(err, ErrConflict) {
 			t.Fatalf("pre-reconfiguration preview: %v", err)
 		}
 	}
@@ -276,7 +275,7 @@ func TestAuthorizationEpochSurvivesRetirementAndReconfiguration(t *testing.T) {
 	f := authoringStore(t)
 	initial, _ := f.Inspect(ctx)
 	f.hooks.fault = faultAt(FaultF2, errors.New("synthetic pre-commit failure"))
-	if _, err := f.Publish(ctx, initial.Token, v3Wire(t, 1, false)); err == nil {
+	if _, err := f.Publish(ctx, initial.Token, operationalWire(t, 1)); err == nil {
 		t.Fatal("fault not reached")
 	}
 	f.hooks = publicationHooks{}
@@ -284,10 +283,10 @@ func TestAuthorizationEpochSurvivesRetirementAndReconfiguration(t *testing.T) {
 	if err != nil || again.State != "fresh" || again.epoch != 1 || again.Token == initial.Token {
 		t.Fatalf("%+v %v", again, err)
 	}
-	if _, err := f.Publish(ctx, initial.Token, v3Wire(t, 1, false)); !errors.Is(err, ErrConflict) {
+	if _, err := f.Publish(ctx, initial.Token, operationalWire(t, 1)); !errors.Is(err, ErrConflict) {
 		t.Fatalf("initial fresh preview revived: %v", err)
 	}
-	if _, err := f.Publish(ctx, again.Token, v3Wire(t, 1, false)); err != nil || epochOf(t, f) != 2 {
+	if _, err := f.Publish(ctx, again.Token, operationalWire(t, 1)); err != nil || epochOf(t, f) != 2 {
 		t.Fatalf("fresh exact preview: %v", err)
 	}
 }
@@ -296,15 +295,15 @@ func TestAuthorizationEpochSurvivesRetirementAndReconfiguration(t *testing.T) {
 // advances the epoch exactly once; no update is lost.
 func TestAuthorizationEpochConcurrentWriters(t *testing.T) {
 	ctx := context.Background()
-	s, p, _ := activeV3Store(t)
+	s, p, _ := activeOperationalStore(t)
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 	successes := 0
-	for i := range 8 {
+	for range 8 {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			if _, err := s.Publish(ctx, p.Token, v3Wire(t, 2, i%2 == 0)); err == nil {
+			if _, err := s.Publish(ctx, p.Token, operationalWire(t, 2)); err == nil {
 				mu.Lock()
 				successes++
 				mu.Unlock()
@@ -322,13 +321,13 @@ func TestAuthorizationEpochConcurrentWriters(t *testing.T) {
 // failed attempt is never retried implicitly.
 func TestAuthorizationEpochNoEscalationOrRetry(t *testing.T) {
 	ctx := context.Background()
-	s, p, _ := activeV3Store(t)
+	s, p, _ := activeOperationalStore(t)
 	for _, token := range []string{"", "synthetic-forged-token"} {
-		if _, err := s.Publish(ctx, token, v3Wire(t, 2, false)); !errors.Is(err, ErrConflict) || epochOf(t, s) != 1 {
+		if _, err := s.Publish(ctx, token, operationalWire(t, 2)); !errors.Is(err, ErrConflict) || epochOf(t, s) != 1 {
 			t.Fatalf("unauthorized publication: %v epoch %d", err, epochOf(t, s))
 		}
 	}
-	if _, err := s.Publish(ctx, p.Token, v3Wire(t, 9, false)); err == nil || epochOf(t, s) != 1 {
+	if _, err := s.Publish(ctx, p.Token, operationalWire(t, 9)); err == nil || epochOf(t, s) != 1 {
 		t.Fatalf("invalid candidate advanced the epoch: %v", err)
 	}
 	calls := 0
@@ -339,7 +338,7 @@ func TestAuthorizationEpochNoEscalationOrRetry(t *testing.T) {
 		}
 		return nil
 	}
-	if _, err := s.Publish(ctx, p.Token, v3Wire(t, 2, false)); err == nil || calls != 1 || epochOf(t, s) != 2 {
+	if _, err := s.Publish(ctx, p.Token, operationalWire(t, 2)); err == nil || calls != 1 || epochOf(t, s) != 2 {
 		t.Fatalf("implicit retry: calls %d epoch %d %v", calls, epochOf(t, s), err)
 	}
 }
@@ -349,14 +348,14 @@ func TestAuthorizationEpochNoEscalationOrRetry(t *testing.T) {
 func TestAuthorizationEpochUnsafeStateFailsClosed(t *testing.T) {
 	ctx := context.Background()
 	t.Run("overflow", func(t *testing.T) {
-		s, _, path := activeV3Store(t)
+		s, _, path := activeOperationalStore(t)
 		writeEpochRecord(t, s.root, math.MaxUint64)
 		before, _ := os.ReadFile(path)
 		p, err := s.Inspect(ctx)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if _, err := s.Publish(ctx, p.Token, v3Wire(t, 2, false)); !errors.Is(err, ErrConflict) || epochOf(t, s) != math.MaxUint64 {
+		if _, err := s.Publish(ctx, p.Token, operationalWire(t, 2)); !errors.Is(err, ErrConflict) || epochOf(t, s) != math.MaxUint64 {
 			t.Fatalf("overflow: %v", err)
 		}
 		if after, _ := os.ReadFile(path); !bytes.Equal(before, after) {
@@ -375,14 +374,14 @@ func TestAuthorizationEpochUnsafeStateFailsClosed(t *testing.T) {
 		"negative-text": []byte(`{"schema":"axiom-runtime-authorization-epoch/v1","epoch":-3}` + "\n"),
 	} {
 		t.Run(name, func(t *testing.T) {
-			s, p, _ := activeV3Store(t)
+			s, p, _ := activeOperationalStore(t)
 			if err := os.WriteFile(epochPath(s), corrupt, 0o600); err != nil {
 				t.Fatal(err)
 			}
 			if _, err := s.Inspect(ctx); !errors.Is(err, ErrUnsafe) {
 				t.Fatalf("corrupt epoch inspected: %v", err)
 			}
-			if _, err := s.Publish(ctx, p.Token, v3Wire(t, 2, false)); err == nil {
+			if _, err := s.Publish(ctx, p.Token, operationalWire(t, 2)); err == nil {
 				t.Fatal("publication over corrupt epoch")
 			}
 			if kind := kindOf(t, s.root, "runtime-profiles/v1/"+authorizationEpochObject); kind != InventoryMalformed && kind != InventoryUnsafe {
@@ -394,12 +393,12 @@ func TestAuthorizationEpochUnsafeStateFailsClosed(t *testing.T) {
 		})
 	}
 	t.Run("missing", func(t *testing.T) {
-		s, p, _ := activeV3Store(t)
+		s, p, _ := activeOperationalStore(t)
 		os.Remove(epochPath(s))
 		if _, err := s.Inspect(ctx); !errors.Is(err, ErrUnsafe) {
 			t.Fatalf("missing epoch: %v", err)
 		}
-		if _, err := s.Publish(ctx, p.Token, v3Wire(t, 2, false)); err == nil {
+		if _, err := s.Publish(ctx, p.Token, operationalWire(t, 2)); err == nil {
 			t.Fatal("publication with missing epoch")
 		}
 		if _, err := os.Lstat(epochPath(s)); !errors.Is(err, os.ErrNotExist) {
@@ -407,7 +406,7 @@ func TestAuthorizationEpochUnsafeStateFailsClosed(t *testing.T) {
 		}
 	})
 	t.Run("symlink", func(t *testing.T) {
-		s, p, _ := activeV3Store(t)
+		s, p, _ := activeOperationalStore(t)
 		elsewhere := filepath.Join(t.TempDir(), "epoch")
 		os.WriteFile(elsewhere, encodeAuthorizationEpoch(1), 0o600)
 		os.Remove(epochPath(s))
@@ -417,19 +416,19 @@ func TestAuthorizationEpochUnsafeStateFailsClosed(t *testing.T) {
 		if _, err := s.Inspect(ctx); !errors.Is(err, ErrUnsafe) {
 			t.Fatalf("symlinked epoch: %v", err)
 		}
-		if _, err := s.Publish(ctx, p.Token, v3Wire(t, 2, false)); err == nil {
+		if _, err := s.Publish(ctx, p.Token, operationalWire(t, 2)); err == nil {
 			t.Fatal("publication through symlinked epoch")
 		}
 	})
 	t.Run("permissions", func(t *testing.T) {
-		s, p, _ := activeV3Store(t)
+		s, p, _ := activeOperationalStore(t)
 		if err := os.Chmod(epochPath(s), 0o644); err != nil {
 			t.Fatal(err)
 		}
 		if _, err := s.Inspect(ctx); !errors.Is(err, ErrUnsafe) {
 			t.Fatalf("permissive epoch: %v", err)
 		}
-		if _, err := s.Publish(ctx, p.Token, v3Wire(t, 2, false)); err == nil {
+		if _, err := s.Publish(ctx, p.Token, operationalWire(t, 2)); err == nil {
 			t.Fatal("publication over permissive epoch")
 		}
 	})
@@ -439,10 +438,10 @@ func TestAuthorizationEpochUnsafeStateFailsClosed(t *testing.T) {
 // reader refuses, and scoped recovery advances the committed epoch.
 func TestAuthorizationEpochInterruptedPersistence(t *testing.T) {
 	ctx := context.Background()
-	s, p, path := activeV3Store(t)
+	s, p, path := activeOperationalStore(t)
 	original, _ := os.ReadFile(path)
 	s.hooks.fault = faultAt(faultEpoch, ErrSimulatedInterruption)
-	if _, err := s.Publish(ctx, p.Token, v3Wire(t, 2, false)); !errors.Is(err, ErrRecoveryRequired) {
+	if _, err := s.Publish(ctx, p.Token, operationalWire(t, 2)); !errors.Is(err, ErrRecoveryRequired) {
 		t.Fatalf("interrupted epoch: %v", err)
 	}
 	s.hooks = publicationHooks{}
@@ -452,7 +451,7 @@ func TestAuthorizationEpochInterruptedPersistence(t *testing.T) {
 	if pending, err := s.Inspect(ctx); !errors.Is(err, ErrRecoveryRequired) || pending.State != "pending" {
 		t.Fatalf("%+v %v", pending, err)
 	}
-	if _, err := s.Publish(ctx, p.Token, v3Wire(t, 2, false)); err == nil {
+	if _, err := s.Publish(ctx, p.Token, operationalWire(t, 2)); err == nil {
 		t.Fatal("publication over interrupted epoch")
 	}
 	plan := recoverRuntime(t, s)
@@ -462,14 +461,14 @@ func TestAuthorizationEpochInterruptedPersistence(t *testing.T) {
 	if epochOf(t, s) != 2 || !slices.Equal(profileDirectory(t, s), []string{authorizationEpochObject, runtimeProfileObject}) {
 		t.Fatalf("epoch %d entries %v", epochOf(t, s), profileDirectory(t, s))
 	}
-	if _, err := s.Publish(ctx, p.Token, v3Wire(t, 2, false)); !errors.Is(err, ErrConflict) {
+	if _, err := s.Publish(ctx, p.Token, operationalWire(t, 2)); !errors.Is(err, ErrConflict) {
 		t.Fatalf("pre-interruption preview revived: %v", err)
 	}
 	observed, err := s.Inspect(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.Publish(ctx, observed.Token, v3Wire(t, 2, false)); err != nil {
+	if _, err := s.Publish(ctx, observed.Token, operationalWire(t, 2)); err != nil {
 		t.Fatalf("fresh exact preview: %v", err)
 	}
 	if kind := kindOf(t, s.root, "runtime-profiles/v1/"+authorizationEpochObject); kind != InventoryRuntimeProfile {

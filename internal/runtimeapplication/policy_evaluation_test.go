@@ -167,9 +167,9 @@ func TestPolicyIdentityDriftIsStale(t *testing.T) {
 	changedEffort := fx.CodexOnly()
 	changedEffort.ModelProfiles[0].Effort = fx.ExplicitEffort("low")
 	for name, cfg := range map[string]runtimeprofile.ConfigurationV3{
-		"revision":    fx.WithRevision(fx.CodexOnly(), 2),
-		"effort":      changedEffort,
-		"disabled":    fx.WithRuntimeDisabled(fx.CodexOnly(), fx.CodexRuntimeID),
+		"revision": fx.WithRevision(fx.CodexOnly(), 2),
+		"effort":   changedEffort,
+		"disabled": fx.WithRuntimeDisabled(fx.CodexOnly(), fx.CodexRuntimeID),
 	} {
 		if err := CheckPolicy(p, fx.Consumer(t, cfg), candidate); !errors.Is(err, ErrStale) {
 			t.Fatalf("%s drift accepted: %v", name, err)

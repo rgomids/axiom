@@ -14,7 +14,6 @@ import (
 
 	"github.com/rgomids/axiom/internal/projectapp"
 	"github.com/rgomids/axiom/internal/runtimeprofile"
-	fx "github.com/rgomids/axiom/internal/runtimeprofile/runtimeprofiletest"
 )
 
 func (f editPublicationFixture) policyRequest(t *testing.T) projectapp.EditPublicationRequest {
@@ -224,8 +223,8 @@ func TestPolicyPublicationDetectsEqualRevisionContentAndIdentityDrift(t *testing
 			if err != nil {
 				t.Fatal(err)
 			}
-			cfg := fx.CodexOnly()
-			wire, err := runtimeprofile.EncodeV3(cfg)
+			cfg := authoringConfig(1)
+			wire, err := runtimeprofile.EncodeV4(cfg)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -246,7 +245,7 @@ func TestPolicyPublicationDetectsEqualRevisionContentAndIdentityDrift(t *testing
 				switch name {
 				case "runtime_content":
 					cfg.Runtimes[0].Enabled = false
-					next, err := runtimeprofile.EncodeV3(cfg)
+					next, err := runtimeprofile.EncodeV4(cfg)
 					if err != nil {
 						t.Fatal(err)
 					}
