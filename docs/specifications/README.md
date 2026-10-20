@@ -33,6 +33,20 @@ plans. Approval gates remain separate: an approved Specification permits plannin
 implementation requires an approved Plan/Tasks and explicit authorization for the
 bounded delivery unit. Technical merge does not imply human acceptance or next-Task authority.
 
+## 010 — Installed operational documentation
+
+[Specification](010-installed-operational-documentation/spec.md) rev.1:
+**Proposed — specify only, 2026-10-20**, related to
+[AXM-37](https://linear.app/rgomids/issue/AXM-37).
+Defines offline documentation bound to the effective installation, provenance,
+discovery, integrity, upgrade/recovery consistency, additional man pages and
+reproducible acceptance obligations. Six Clarification/Plan questions remain open;
+no layout, packaging, generator or new command is adopted. Current Windows
+support withdrawal is preserved. [Evidence and handoff](010-installed-operational-documentation/evidence.md)
+separate documentary validation from unexecuted product/native acceptance.
+No Specification acceptance, canonical Execution advancement or successor-stage
+authority is inferred.
+
 ## 009 — Guided Project/Runtime configuration with feasibility preflight
 
 [Specification](009-guided-project-runtime-configuration/spec.md) rev.1: **Accepted
