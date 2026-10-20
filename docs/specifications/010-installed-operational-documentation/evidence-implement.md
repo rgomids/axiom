@@ -77,3 +77,9 @@ int main(int argc,char**argv){
   printf("%s verdict: region==start:%d pin==start:%d pathnow==start:%d\n",TAG,(d==d0&&i==i0),(ps.st_ino==i0),(cur.st_ino==i0));
   return 0;}
 ```
+
+## Later checkpoint
+
+2026-10-20 resumption: see [Resumption 1 Evidence](evidence-resume-1.md) for the
+Proposed D1/D3 contract gate, native Linux probes and current limitations.
+The measurements and blockers above remain the historical first-run snapshot.

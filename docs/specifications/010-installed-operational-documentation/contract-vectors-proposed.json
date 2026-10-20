@@ -1,0 +1,671 @@
+{
+  "status": "Proposed",
+  "scope": "Record-level synthetic vectors only; not an installable complete corpus/archive; never execute synthetic binary. Not actual codec PASS. Positive full archive requires all required outputs and skill manifest in T07.",
+  "baseline": "a6d37dca1a1ea47b545a0aa7c89dca422b429de6",
+  "pinnedV1SourceSha256": {
+    "internal/install/archive.go": "1a3933873f8512e77c803844ab5d964d2a5c4acb4715f1890704703c70a8cd39",
+    "scripts/build-release-archives.sh": "2c3dde7ab7ddecc6945509b1e15cee02178e5708c865fdce2cde43508d8a57bc",
+    "scripts/install-release.sh": "8fa88c8d5e8e365100be019ffe0437e7f2cff8951a370cc6c856d50291cd91f6",
+    "internal/install/upgrade.go": "a8faa42841fa08f8614ce0493f58fe329012730336a28ec9fb389358ca6c6f2d"
+  },
+  "positiveRecords": {
+    "metadata": "formatVersion=2\nproduct=Axiom\nversion=0.0.0-fixture\nrevision=000000000000\nsourceState=clean\nrelease=false\nplatform=linux\ngoos=linux\narchitecture=arm64\nskillSetVersion=1\nsourceCommit=0000000000000000000000000000000000000000\narchiveGeneration=2\ndocsInventorySha256=aa7e03c4c2fb322de9a5eb1ff3f9d67effd2c6ed9b66e7f17853d78b037d12c6\ndocsProvenanceSha256=2b7d8a92df6c2c5bbd27edbd084ddbb283bce176ad0ae75abf670f8aa1975f96\ndocsManMapSha256=c3a7c52aea9a98dc740783e840a4b53eb8059b8ef2b3f6a959ff5cbecc2f868a\nbinarySha256=c381041578fcb44b6b94d52f1bed21f2cf4b8370d544cb4ea7634f9bf13b7660\n",
+    "inventory": "formatVersion=1\npath\tkind\tbytes\tsha256\ndocs/man/man1/axiom.1\tman1\t45\te9d54fd1a4b9ecbd49d91fc8f9bd5bcb6770713a845e1ef2d296c72fa94cde57\ndocs/text/index.md\tmarkdown\t29\t61802b66ae0ec7501d9616fd92cb2b84e44abac7054abb1851ed1f6a15d4fb07\n",
+    "provenance": "formatVersion=1\noutput\tsource\tsourceCommit\tsourceSha256\ttransform\ndocs/man/man1/axiom.1\tdocs/operational/axiom.1\t0000000000000000000000000000000000000000\te9d54fd1a4b9ecbd49d91fc8f9bd5bcb6770713a845e1ef2d296c72fa94cde57\tcopy-v1\ndocs/text/index.md\tdocs/operational/index.md\t0000000000000000000000000000000000000000\t61802b66ae0ec7501d9616fd92cb2b84e44abac7054abb1851ed1f6a15d4fb07\tcopy-v1\n",
+    "manMap": "formatVersion=1\ncommand\tpage\tanchor\naxiom\tdocs/man/man1/axiom.1\tNAME\n",
+    "binding": {
+      "schemaVersion": 1,
+      "binaryPath": "/fixture/bin/axiom",
+      "parentDevice": 1,
+      "parentInode": 2,
+      "binaryDevice": 1,
+      "binaryInode": 3,
+      "binarySha256": "c381041578fcb44b6b94d52f1bed21f2cf4b8370d544cb4ea7634f9bf13b7660",
+      "sourceCommit": "0000000000000000000000000000000000000000",
+      "version": "0.0.0-fixture",
+      "archiveSha256": "dcd45532997d1f49e630591382f8acb45fc58fef753e7395a42a432fdf22d356",
+      "metadataSha256": "5f43c35a6d153cb599de2fdd4ce4eb0a8b024446591ca89541525cd88223c09b",
+      "generation": "5e3c7783ceaf0cf2ff3b2f12cef783f4982ad4e5ef89e01f7448ee37f844787d",
+      "provenanceSha256": "2b7d8a92df6c2c5bbd27edbd084ddbb283bce176ad0ae75abf670f8aa1975f96",
+      "manMapSha256": "c3a7c52aea9a98dc740783e840a4b53eb8059b8ef2b3f6a959ff5cbecc2f868a",
+      "skillManifestSha256": "553029f7d4732e40575d25b753c2e42e3df3999e0530f1cabce595edad445b1a"
+    },
+    "receipt": "formatVersion=2\ndestination=/fixture/bin/axiom\nsha256=c381041578fcb44b6b94d52f1bed21f2cf4b8370d544cb4ea7634f9bf13b7660\nproduct=Axiom\nversion=0.0.0-fixture\nrevision=000000000000\nsourceState=clean\nrelease=false\nplatform=linux\ngoos=linux\narchitecture=arm64\nskillSetVersion=1\narchiveSha256=dcd45532997d1f49e630591382f8acb45fc58fef753e7395a42a432fdf22d356\nskillManifestSha256=553029f7d4732e40575d25b753c2e42e3df3999e0530f1cabce595edad445b1a\ninstalledAt=2026-10-20T00:00:00Z\nsourceCommit=0000000000000000000000000000000000000000\ndocsGeneration=5e3c7783ceaf0cf2ff3b2f12cef783f4982ad4e5ef89e01f7448ee37f844787d\ndocsBindingSha256=b66162f7110fa1dd9211a1808c4a105608ed8399512783824f870eabb87aa8d9\ndocsInventorySha256=aa7e03c4c2fb322de9a5eb1ff3f9d67effd2c6ed9b66e7f17853d78b037d12c6\ndocsProvenanceSha256=2b7d8a92df6c2c5bbd27edbd084ddbb283bce176ad0ae75abf670f8aa1975f96\ndocsManMapSha256=c3a7c52aea9a98dc740783e840a4b53eb8059b8ef2b3f6a959ff5cbecc2f868a\n",
+    "outputBytesUtf8": {
+      "docs/text/index.md": "# Synthetic proposed fixture\n",
+      "docs/man/man1/axiom.1": ".TH AXIOM 1\n.SH NAME\naxiom synthetic fixture\n"
+    }
+  },
+  "negativeVectors": [
+    {
+      "id": "metadata-field-removed",
+      "mutation": "remove each key",
+      "expected": "reject",
+      "candidateCalls": 0,
+      "futureOwners": [
+        "T07"
+      ]
+    },
+    {
+      "id": "metadata-field-added",
+      "mutation": "extra=x",
+      "expected": "reject",
+      "candidateCalls": 0,
+      "futureOwners": [
+        "T07"
+      ]
+    },
+    {
+      "id": "metadata-field-duplicate",
+      "mutation": "duplicate each key",
+      "expected": "reject",
+      "candidateCalls": 0,
+      "futureOwners": [
+        "T07"
+      ]
+    },
+    {
+      "id": "metadata-field-reordered",
+      "mutation": "swap adjacent keys",
+      "expected": "reject",
+      "candidateCalls": 0,
+      "futureOwners": [
+        "T07"
+      ]
+    },
+    {
+      "id": "unsupported-metadata",
+      "mutation": "formatVersion=3",
+      "expected": "reject",
+      "candidateCalls": 0,
+      "futureOwners": [
+        "T07"
+      ]
+    },
+    {
+      "id": "crossed-revision",
+      "mutation": "revision differs from full commit prefix",
+      "expected": "reject",
+      "candidateCalls": 0,
+      "futureOwners": [
+        "T07"
+      ]
+    },
+    {
+      "id": "platform-mismatch",
+      "mutation": "macos linux amd64",
+      "expected": "reject",
+      "candidateCalls": 0,
+      "futureOwners": [
+        "T07"
+      ]
+    },
+    {
+      "id": "malformed-lf",
+      "mutation": "CRLF / BOM / missing final LF / invalid UTF-8",
+      "expected": "reject",
+      "candidateCalls": 0,
+      "futureOwners": [
+        "T07"
+      ]
+    },
+    {
+      "id": "truncated",
+      "mutation": "truncate each record",
+      "expected": "reject",
+      "candidateCalls": 0,
+      "futureOwners": [
+        "T07"
+      ]
+    },
+    {
+      "id": "duplicate-output",
+      "mutation": "duplicate TSV path",
+      "expected": "reject",
+      "candidateCalls": 0,
+      "futureOwners": [
+        "T07"
+      ]
+    },
+    {
+      "id": "unknown-output",
+      "mutation": "extra unlisted file",
+      "expected": "reject",
+      "candidateCalls": 0,
+      "futureOwners": [
+        "T07"
+      ]
+    },
+    {
+      "id": "traversal",
+      "mutation": "../outside",
+      "expected": "reject",
+      "candidateCalls": 0,
+      "futureOwners": [
+        "T07"
+      ]
+    },
+    {
+      "id": "absolute",
+      "mutation": "/outside",
+      "expected": "reject",
+      "candidateCalls": 0,
+      "futureOwners": [
+        "T07"
+      ]
+    },
+    {
+      "id": "symlink",
+      "mutation": "tar link to external sentinel",
+      "expected": "reject",
+      "candidateCalls": 0,
+      "futureOwners": [
+        "T07"
+      ]
+    },
+    {
+      "id": "hardlink",
+      "mutation": "tar link type",
+      "expected": "reject",
+      "candidateCalls": 0,
+      "futureOwners": [
+        "T07"
+      ]
+    },
+    {
+      "id": "special-entry",
+      "mutation": "device / sparse / PAX",
+      "expected": "reject",
+      "candidateCalls": 0,
+      "futureOwners": [
+        "T07"
+      ]
+    },
+    {
+      "id": "json-duplicate",
+      "mutation": "duplicate including escaped spelling",
+      "expected": "reject",
+      "candidateCalls": 0,
+      "futureOwners": [
+        "T07"
+      ]
+    },
+    {
+      "id": "json-unknown",
+      "mutation": "add field",
+      "expected": "reject",
+      "candidateCalls": 0,
+      "futureOwners": [
+        "T07"
+      ]
+    },
+    {
+      "id": "json-trailing",
+      "mutation": "append second object",
+      "expected": "reject",
+      "candidateCalls": 0,
+      "futureOwners": [
+        "T07"
+      ]
+    },
+    {
+      "id": "unsupported-binding",
+      "mutation": "schemaVersion=2",
+      "expected": "reject",
+      "candidateCalls": 0,
+      "futureOwners": [
+        "T07"
+      ]
+    },
+    {
+      "id": "crossed-binding",
+      "mutation": "same version, different binary digest",
+      "expected": "reject",
+      "candidateCalls": 0,
+      "futureOwners": [
+        "T07"
+      ]
+    },
+    {
+      "id": "digest-tamper",
+      "mutation": "mutate each payload/control",
+      "expected": "reject",
+      "candidateCalls": 0,
+      "futureOwners": [
+        "T07"
+      ]
+    },
+    {
+      "id": "overflow",
+      "mutation": "2^64 / negative / invalid numeric lexeme",
+      "expected": "reject",
+      "candidateCalls": 0,
+      "futureOwners": [
+        "T07"
+      ]
+    },
+    {
+      "id": "quota-boundaries",
+      "mutation": "N-1,N,N+1 each bound",
+      "expected": "reject",
+      "candidateCalls": 0,
+      "futureOwners": [
+        "T07"
+      ]
+    },
+    {
+      "id": "gzip-extra-member",
+      "mutation": "append second member",
+      "expected": "reject",
+      "candidateCalls": 0,
+      "futureOwners": [
+        "T07"
+      ]
+    },
+    {
+      "id": "gzip-crc",
+      "mutation": "corrupt CRC",
+      "expected": "reject",
+      "candidateCalls": 0,
+      "futureOwners": [
+        "T07"
+      ]
+    },
+    {
+      "id": "unsupported-receipt",
+      "mutation": "formatVersion=3",
+      "expected": "reject",
+      "candidateCalls": 0,
+      "futureOwners": [
+        "T07"
+      ]
+    },
+    {
+      "id": "invalid-path-leak",
+      "mutation": "state invalid with nonnull paths",
+      "expected": "reject",
+      "candidateCalls": 0,
+      "futureOwners": [
+        "T07",
+        "T11"
+      ]
+    },
+    {
+      "id": "unknown-path-leak",
+      "mutation": "state unknown with nonnull paths",
+      "expected": "reject",
+      "candidateCalls": 0,
+      "futureOwners": [
+        "T07",
+        "T11"
+      ]
+    },
+    {
+      "id": "unknown-loaded",
+      "mutation": "loaded reported matched without observation",
+      "expected": "reject",
+      "candidateCalls": 0,
+      "futureOwners": [
+        "T07"
+      ]
+    },
+    {
+      "id": "suffix-mode",
+      "mutation": "axiom docs inspect --json",
+      "expected": "reject",
+      "candidateCalls": 0,
+      "futureOwners": [
+        "T07",
+        "T11"
+      ]
+    },
+    {
+      "id": "conflicting-mode",
+      "mutation": "axiom --json --human docs inspect",
+      "expected": "reject",
+      "candidateCalls": 0,
+      "futureOwners": [
+        "T07",
+        "T11"
+      ]
+    },
+    {
+      "id": "man-coverage-gap",
+      "mutation": "remove leaf/flag/default from generated map",
+      "expected": "reject",
+      "candidateCalls": 0,
+      "futureOwners": [
+        "T07"
+      ]
+    }
+  ],
+  "futurePositiveTests": [
+    "old-old v1",
+    "new shell/Go v1",
+    "new shell/Go v2",
+    "v2 equivalent reinstall",
+    "v1-to-v2 recognized upgrade floor v0.1.0",
+    "v2-to-v2 upgrade",
+    "discovery verified absent invalid unknown",
+    "completion interrupt exit 2"
+  ],
+  "executionStatus": "NOT_RUN for production codec/migration tests",
+  "discoveryRecordExamples": [
+    {
+      "expectedExit": 0,
+      "json": {
+        "status": "success",
+        "result": "Synthetic contract fixture",
+        "provenance": {
+          "product": "Axiom",
+          "version": "0.0.0-fixture",
+          "revision": "000000000000",
+          "sourceState": "clean"
+        },
+        "docs": {
+          "schemaVersion": 1,
+          "state": "verified",
+          "reason": "ok",
+          "binary": {
+            "path": "/fixture/bin/axiom",
+            "sha256": "c381041578fcb44b6b94d52f1bed21f2cf4b8370d544cb4ea7634f9bf13b7660",
+            "sourceCommit": "0000000000000000000000000000000000000000",
+            "version": "0.0.0-fixture",
+            "imageProof": "linux_proc_exe"
+          },
+          "installation": {
+            "bindingSha256": "b66162f7110fa1dd9211a1808c4a105608ed8399512783824f870eabb87aa8d9",
+            "generation": "5e3c7783ceaf0cf2ff3b2f12cef783f4982ad4e5ef89e01f7448ee37f844787d",
+            "compatibility": "compatible"
+          },
+          "paths": {
+            "root": "/fixture/bin/.axiom-docs/axiom/generations/5e3c7783ceaf0cf2ff3b2f12cef783f4982ad4e5ef89e01f7448ee37f844787d/docs",
+            "index": "/fixture/bin/.axiom-docs/axiom/generations/5e3c7783ceaf0cf2ff3b2f12cef783f4982ad4e5ef89e01f7448ee37f844787d/docs/text/index.md",
+            "inventory": "/fixture/bin/.axiom-docs/axiom/generations/5e3c7783ceaf0cf2ff3b2f12cef783f4982ad4e5ef89e01f7448ee37f844787d/docs/inventory.tsv",
+            "provenance": "/fixture/bin/.axiom-docs/axiom/generations/5e3c7783ceaf0cf2ff3b2f12cef783f4982ad4e5ef89e01f7448ee37f844787d/docs/provenance.tsv",
+            "manRoot": "/fixture/bin/.axiom-docs/axiom/generations/5e3c7783ceaf0cf2ff3b2f12cef783f4982ad4e5ef89e01f7448ee37f844787d/docs/man",
+            "manMap": "/fixture/bin/.axiom-docs/axiom/generations/5e3c7783ceaf0cf2ff3b2f12cef783f4982ad4e5ef89e01f7448ee37f844787d/docs/man-map.tsv"
+          },
+          "integrity": {
+            "inventorySha256": "aa7e03c4c2fb322de9a5eb1ff3f9d67effd2c6ed9b66e7f17853d78b037d12c6",
+            "provenanceSha256": "2b7d8a92df6c2c5bbd27edbd084ddbb283bce176ad0ae75abf670f8aa1975f96",
+            "manMapSha256": "c3a7c52aea9a98dc740783e840a4b53eb8059b8ef2b3f6a959ff5cbecc2f868a",
+            "files": 2,
+            "bytes": 74
+          },
+          "skills": {
+            "expectedManifestSha256": "553029f7d4732e40575d25b753c2e42e3df3999e0530f1cabce595edad445b1a",
+            "expected": [
+              {
+                "name": "axiom-project",
+                "sha256": "c77779f5e9ee98d824395bbbe586713670516fa96ca26deff23ca764d0693d1a"
+              },
+              {
+                "name": "axiom-runtime",
+                "sha256": "f6cb9eb1c86725602e4b2d831c9c2a9753f2016e1444cd283c0fcfb7edfd0497"
+              },
+              {
+                "name": "axiom-work-item",
+                "sha256": "6c44a83adec8d21e1d2ba776aeda3008ffbe12b9f104634070b0ae925a0d44bd"
+              },
+              {
+                "name": "axiom-workflow",
+                "sha256": "40e888a35af2fdd93175ef15cad1c0155eb475a156e3e70584da501d801ca8b3"
+              }
+            ],
+            "observed": [
+              {
+                "runtime": "codex",
+                "receipt": "unknown",
+                "files": "unknown",
+                "manifestSha256": null,
+                "loaded": "unknown"
+              },
+              {
+                "runtime": "claude",
+                "receipt": "unknown",
+                "files": "unknown",
+                "manifestSha256": null,
+                "loaded": "unknown"
+              }
+            ]
+          },
+          "man": {
+            "state": "available",
+            "page": "/fixture/bin/.axiom-docs/axiom/generations/5e3c7783ceaf0cf2ff3b2f12cef783f4982ad4e5ef89e01f7448ee37f844787d/docs/man/man1/axiom.1",
+            "readerSelection": "unknown"
+          },
+          "diagnostics": []
+        }
+      }
+    },
+    {
+      "expectedExit": 1,
+      "json": {
+        "status": "failure",
+        "result": "Synthetic contract fixture",
+        "provenance": {
+          "product": "Axiom",
+          "version": "0.0.0-fixture",
+          "revision": "000000000000",
+          "sourceState": "clean"
+        },
+        "docs": {
+          "schemaVersion": 1,
+          "state": "absent",
+          "reason": "legacy_installation",
+          "binary": {
+            "path": null,
+            "sha256": null,
+            "sourceCommit": null,
+            "version": null,
+            "imageProof": "unavailable"
+          },
+          "installation": {
+            "bindingSha256": null,
+            "generation": null,
+            "compatibility": "legacy"
+          },
+          "paths": {
+            "root": null,
+            "index": null,
+            "inventory": null,
+            "provenance": null,
+            "manRoot": null,
+            "manMap": null
+          },
+          "integrity": {
+            "inventorySha256": null,
+            "provenanceSha256": null,
+            "manMapSha256": null,
+            "files": 0,
+            "bytes": 0
+          },
+          "skills": {
+            "expectedManifestSha256": null,
+            "expected": [],
+            "observed": [
+              {
+                "runtime": "codex",
+                "receipt": "unknown",
+                "files": "unknown",
+                "manifestSha256": null,
+                "loaded": "unknown"
+              },
+              {
+                "runtime": "claude",
+                "receipt": "unknown",
+                "files": "unknown",
+                "manifestSha256": null,
+                "loaded": "unknown"
+              }
+            ]
+          },
+          "man": {
+            "state": "unknown",
+            "page": null,
+            "readerSelection": "unknown"
+          },
+          "diagnostics": [
+            {
+              "code": "legacy_installation",
+              "message": "Synthetic proposed fixture; no product observation"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "expectedExit": 1,
+      "json": {
+        "status": "validation_failure",
+        "result": "Synthetic contract fixture",
+        "provenance": {
+          "product": "Axiom",
+          "version": "0.0.0-fixture",
+          "revision": "000000000000",
+          "sourceState": "clean"
+        },
+        "docs": {
+          "schemaVersion": 1,
+          "state": "invalid",
+          "reason": "hash_mismatch",
+          "binary": {
+            "path": null,
+            "sha256": null,
+            "sourceCommit": null,
+            "version": null,
+            "imageProof": "unavailable"
+          },
+          "installation": {
+            "bindingSha256": null,
+            "generation": null,
+            "compatibility": "unknown"
+          },
+          "paths": {
+            "root": null,
+            "index": null,
+            "inventory": null,
+            "provenance": null,
+            "manRoot": null,
+            "manMap": null
+          },
+          "integrity": {
+            "inventorySha256": null,
+            "provenanceSha256": null,
+            "manMapSha256": null,
+            "files": 0,
+            "bytes": 0
+          },
+          "skills": {
+            "expectedManifestSha256": null,
+            "expected": [],
+            "observed": [
+              {
+                "runtime": "codex",
+                "receipt": "unknown",
+                "files": "unknown",
+                "manifestSha256": null,
+                "loaded": "unknown"
+              },
+              {
+                "runtime": "claude",
+                "receipt": "unknown",
+                "files": "unknown",
+                "manifestSha256": null,
+                "loaded": "unknown"
+              }
+            ]
+          },
+          "man": {
+            "state": "unknown",
+            "page": null,
+            "readerSelection": "unknown"
+          },
+          "diagnostics": [
+            {
+              "code": "hash_mismatch",
+              "message": "Synthetic proposed fixture; no product observation"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "expectedExit": 1,
+      "json": {
+        "status": "failure",
+        "result": "Synthetic contract fixture",
+        "provenance": {
+          "product": "Axiom",
+          "version": "0.0.0-fixture",
+          "revision": "000000000000",
+          "sourceState": "clean"
+        },
+        "docs": {
+          "schemaVersion": 1,
+          "state": "unknown",
+          "reason": "image_proof_unavailable",
+          "binary": {
+            "path": null,
+            "sha256": null,
+            "sourceCommit": null,
+            "version": null,
+            "imageProof": "unavailable"
+          },
+          "installation": {
+            "bindingSha256": null,
+            "generation": null,
+            "compatibility": "unknown"
+          },
+          "paths": {
+            "root": null,
+            "index": null,
+            "inventory": null,
+            "provenance": null,
+            "manRoot": null,
+            "manMap": null
+          },
+          "integrity": {
+            "inventorySha256": null,
+            "provenanceSha256": null,
+            "manMapSha256": null,
+            "files": 0,
+            "bytes": 0
+          },
+          "skills": {
+            "expectedManifestSha256": null,
+            "expected": [],
+            "observed": [
+              {
+                "runtime": "codex",
+                "receipt": "unknown",
+                "files": "unknown",
+                "manifestSha256": null,
+                "loaded": "unknown"
+              },
+              {
+                "runtime": "claude",
+                "receipt": "unknown",
+                "files": "unknown",
+                "manifestSha256": null,
+                "loaded": "unknown"
+              }
+            ]
+          },
+          "man": {
+            "state": "unknown",
+            "page": null,
+            "readerSelection": "unknown"
+          },
+          "diagnostics": [
+            {
+              "code": "image_proof_unavailable",
+              "message": "Synthetic proposed fixture; no product observation"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,1767 @@
+{
+  "status": "Proposed",
+  "baseline": "a6d37dca1a1ea47b545a0aa7c89dca422b429de6",
+  "publicLeaves": 105,
+  "flagRegistrations": 549,
+  "globalPresentationFlags": [
+    "--json",
+    "--human"
+  ],
+  "futureLeaf": {
+    "path": [
+      "axiom",
+      "docs",
+      "inspect"
+    ],
+    "proposedPage": "docs/man/man1/axiom-docs.1",
+    "proposedSection": "DOCS_INSPECT"
+  },
+  "commands": [
+    {
+      "flags": [],
+      "path": [
+        "axiom",
+        "help"
+      ],
+      "proposedPage": "docs/man/man1/axiom.1",
+      "proposedSection": "HELP"
+    },
+    {
+      "flags": [],
+      "path": [
+        "axiom",
+        "version"
+      ],
+      "proposedPage": "docs/man/man1/axiom.1",
+      "proposedSection": "VERSION"
+    },
+    {
+      "flags": [],
+      "path": [
+        "axiom",
+        "first-run"
+      ],
+      "proposedPage": "docs/man/man1/axiom-first-run.1",
+      "proposedSection": "FIRST_RUN"
+    },
+    {
+      "flags": [],
+      "path": [
+        "axiom",
+        "skill",
+        "inspect"
+      ],
+      "proposedPage": "docs/man/man1/axiom-skill.1",
+      "proposedSection": "SKILL_INSPECT"
+    },
+    {
+      "flags": [],
+      "path": [
+        "axiom",
+        "runtime",
+        "codex",
+        "install"
+      ],
+      "proposedPage": "docs/man/man1/axiom-runtime.1",
+      "proposedSection": "RUNTIME_CODEX_INSTALL"
+    },
+    {
+      "flags": [],
+      "path": [
+        "axiom",
+        "runtime",
+        "codex",
+        "status"
+      ],
+      "proposedPage": "docs/man/man1/axiom-runtime.1",
+      "proposedSection": "RUNTIME_CODEX_STATUS"
+    },
+    {
+      "flags": [],
+      "path": [
+        "axiom",
+        "runtime",
+        "codex",
+        "auth"
+      ],
+      "proposedPage": "docs/man/man1/axiom-runtime.1",
+      "proposedSection": "RUNTIME_CODEX_AUTH"
+    },
+    {
+      "flags": [],
+      "path": [
+        "axiom",
+        "runtime",
+        "claude",
+        "install"
+      ],
+      "proposedPage": "docs/man/man1/axiom-runtime.1",
+      "proposedSection": "RUNTIME_CLAUDE_INSTALL"
+    },
+    {
+      "flags": [],
+      "path": [
+        "axiom",
+        "runtime",
+        "claude",
+        "status"
+      ],
+      "proposedPage": "docs/man/man1/axiom-runtime.1",
+      "proposedSection": "RUNTIME_CLAUDE_STATUS"
+    },
+    {
+      "flags": [],
+      "path": [
+        "axiom",
+        "runtime",
+        "claude",
+        "auth"
+      ],
+      "proposedPage": "docs/man/man1/axiom-runtime.1",
+      "proposedSection": "RUNTIME_CLAUDE_AUTH"
+    },
+    {
+      "flags": [
+        "profile=",
+        "runtime="
+      ],
+      "path": [
+        "axiom",
+        "runtime",
+        "binding",
+        "list"
+      ],
+      "proposedPage": "docs/man/man1/axiom-runtime-binding.1",
+      "proposedSection": "RUNTIME_BINDING_LIST"
+    },
+    {
+      "flags": [
+        "profile=",
+        "runtime="
+      ],
+      "path": [
+        "axiom",
+        "runtime",
+        "binding",
+        "show"
+      ],
+      "proposedPage": "docs/man/man1/axiom-runtime-binding.1",
+      "proposedSection": "RUNTIME_BINDING_SHOW"
+    },
+    {
+      "flags": [
+        "authorize-local=false",
+        "capabilities=",
+        "complexities=",
+        "effort=",
+        "effort-mode=",
+        "enabled=",
+        "expected-revision=",
+        "model=",
+        "preview-digest=",
+        "profile=",
+        "runtime="
+      ],
+      "path": [
+        "axiom",
+        "runtime",
+        "binding",
+        "create"
+      ],
+      "proposedPage": "docs/man/man1/axiom-runtime-binding.1",
+      "proposedSection": "RUNTIME_BINDING_CREATE"
+    },
+    {
+      "flags": [
+        "authorize-local=false",
+        "capabilities=",
+        "complexities=",
+        "effort=",
+        "effort-mode=",
+        "enabled=",
+        "expected-revision=",
+        "model=",
+        "preview-digest=",
+        "profile=",
+        "runtime="
+      ],
+      "path": [
+        "axiom",
+        "runtime",
+        "binding",
+        "edit"
+      ],
+      "proposedPage": "docs/man/man1/axiom-runtime-binding.1",
+      "proposedSection": "RUNTIME_BINDING_EDIT"
+    },
+    {
+      "flags": [
+        "authorize-local=false",
+        "expected-revision=",
+        "preview-digest=",
+        "profile=",
+        "runtime="
+      ],
+      "path": [
+        "axiom",
+        "runtime",
+        "binding",
+        "enable"
+      ],
+      "proposedPage": "docs/man/man1/axiom-runtime-binding.1",
+      "proposedSection": "RUNTIME_BINDING_ENABLE"
+    },
+    {
+      "flags": [
+        "authorize-local=false",
+        "expected-revision=",
+        "preview-digest=",
+        "profile=",
+        "runtime="
+      ],
+      "path": [
+        "axiom",
+        "runtime",
+        "binding",
+        "disable"
+      ],
+      "proposedPage": "docs/man/man1/axiom-runtime-binding.1",
+      "proposedSection": "RUNTIME_BINDING_DISABLE"
+    },
+    {
+      "flags": [
+        "authorize-local=false",
+        "cascade=false",
+        "expected-revision=",
+        "preview-digest=",
+        "profile=",
+        "runtime="
+      ],
+      "path": [
+        "axiom",
+        "runtime",
+        "binding",
+        "remove"
+      ],
+      "proposedPage": "docs/man/man1/axiom-runtime-binding.1",
+      "proposedSection": "RUNTIME_BINDING_REMOVE"
+    },
+    {
+      "flags": [
+        "capabilities=",
+        "complexities=",
+        "effort=",
+        "effort-mode=",
+        "enabled=",
+        "model=",
+        "profile=",
+        "runtime="
+      ],
+      "path": [
+        "axiom",
+        "runtime",
+        "binding",
+        "validate-candidate"
+      ],
+      "proposedPage": "docs/man/man1/axiom-runtime-binding.1",
+      "proposedSection": "RUNTIME_BINDING_VALIDATE_CANDIDATE"
+    },
+    {
+      "flags": [
+        "authorize-local=false",
+        "expected-revision=",
+        "preview-digest=",
+        "profile=",
+        "runtime="
+      ],
+      "path": [
+        "axiom",
+        "runtime",
+        "binding",
+        "recover"
+      ],
+      "proposedPage": "docs/man/man1/axiom-runtime-binding.1",
+      "proposedSection": "RUNTIME_BINDING_RECOVER"
+    },
+    {
+      "flags": [],
+      "path": [
+        "axiom",
+        "runtime",
+        "profile",
+        "validate"
+      ],
+      "proposedPage": "docs/man/man1/axiom-runtime-profile.1",
+      "proposedSection": "RUNTIME_PROFILE_VALIDATE"
+    },
+    {
+      "flags": [
+        "capabilities=",
+        "complexity=",
+        "project=",
+        "role=",
+        "runtime="
+      ],
+      "path": [
+        "axiom",
+        "runtime",
+        "profile",
+        "preview"
+      ],
+      "proposedPage": "docs/man/man1/axiom-runtime-profile.1",
+      "proposedSection": "RUNTIME_PROFILE_PREVIEW"
+    },
+    {
+      "flags": [
+        "profile=",
+        "runtime="
+      ],
+      "path": [
+        "axiom",
+        "runtime",
+        "profile",
+        "list"
+      ],
+      "proposedPage": "docs/man/man1/axiom-runtime-profile.1",
+      "proposedSection": "RUNTIME_PROFILE_LIST"
+    },
+    {
+      "flags": [
+        "profile=",
+        "runtime="
+      ],
+      "path": [
+        "axiom",
+        "runtime",
+        "profile",
+        "show"
+      ],
+      "proposedPage": "docs/man/man1/axiom-runtime-profile.1",
+      "proposedSection": "RUNTIME_PROFILE_SHOW"
+    },
+    {
+      "flags": [
+        "authorize-local=false",
+        "capabilities=",
+        "complexities=",
+        "effort=",
+        "effort-mode=",
+        "enabled=",
+        "expected-revision=",
+        "model=",
+        "preview-digest=",
+        "profile=",
+        "runtime="
+      ],
+      "path": [
+        "axiom",
+        "runtime",
+        "profile",
+        "create"
+      ],
+      "proposedPage": "docs/man/man1/axiom-runtime-profile.1",
+      "proposedSection": "RUNTIME_PROFILE_CREATE"
+    },
+    {
+      "flags": [
+        "authorize-local=false",
+        "capabilities=",
+        "complexities=",
+        "effort=",
+        "effort-mode=",
+        "enabled=",
+        "expected-revision=",
+        "model=",
+        "preview-digest=",
+        "profile=",
+        "runtime="
+      ],
+      "path": [
+        "axiom",
+        "runtime",
+        "profile",
+        "edit"
+      ],
+      "proposedPage": "docs/man/man1/axiom-runtime-profile.1",
+      "proposedSection": "RUNTIME_PROFILE_EDIT"
+    },
+    {
+      "flags": [
+        "authorize-local=false",
+        "expected-revision=",
+        "preview-digest=",
+        "profile=",
+        "runtime="
+      ],
+      "path": [
+        "axiom",
+        "runtime",
+        "profile",
+        "enable"
+      ],
+      "proposedPage": "docs/man/man1/axiom-runtime-profile.1",
+      "proposedSection": "RUNTIME_PROFILE_ENABLE"
+    },
+    {
+      "flags": [
+        "authorize-local=false",
+        "expected-revision=",
+        "preview-digest=",
+        "profile=",
+        "runtime="
+      ],
+      "path": [
+        "axiom",
+        "runtime",
+        "profile",
+        "disable"
+      ],
+      "proposedPage": "docs/man/man1/axiom-runtime-profile.1",
+      "proposedSection": "RUNTIME_PROFILE_DISABLE"
+    },
+    {
+      "flags": [
+        "authorize-local=false",
+        "cascade=false",
+        "expected-revision=",
+        "preview-digest=",
+        "profile=",
+        "runtime="
+      ],
+      "path": [
+        "axiom",
+        "runtime",
+        "profile",
+        "remove"
+      ],
+      "proposedPage": "docs/man/man1/axiom-runtime-profile.1",
+      "proposedSection": "RUNTIME_PROFILE_REMOVE"
+    },
+    {
+      "flags": [
+        "capabilities=",
+        "complexities=",
+        "effort=",
+        "effort-mode=",
+        "enabled=",
+        "model=",
+        "profile=",
+        "runtime="
+      ],
+      "path": [
+        "axiom",
+        "runtime",
+        "profile",
+        "validate-candidate"
+      ],
+      "proposedPage": "docs/man/man1/axiom-runtime-profile.1",
+      "proposedSection": "RUNTIME_PROFILE_VALIDATE_CANDIDATE"
+    },
+    {
+      "flags": [
+        "authorize-local=false",
+        "expected-revision=",
+        "preview-digest=",
+        "profile=",
+        "runtime="
+      ],
+      "path": [
+        "axiom",
+        "runtime",
+        "profile",
+        "recover"
+      ],
+      "proposedPage": "docs/man/man1/axiom-runtime-profile.1",
+      "proposedSection": "RUNTIME_PROFILE_RECOVER"
+    },
+    {
+      "flags": [
+        "project="
+      ],
+      "path": [
+        "axiom",
+        "project",
+        "workflow",
+        "list"
+      ],
+      "proposedPage": "docs/man/man1/axiom-project.1",
+      "proposedSection": "PROJECT_WORKFLOW_LIST"
+    },
+    {
+      "flags": [
+        "digest=",
+        "project=",
+        "revision=0",
+        "source=project",
+        "workflow="
+      ],
+      "path": [
+        "axiom",
+        "project",
+        "workflow",
+        "show"
+      ],
+      "proposedPage": "docs/man/man1/axiom-project.1",
+      "proposedSection": "PROJECT_WORKFLOW_SHOW"
+    },
+    {
+      "flags": [
+        "authorize-local=false",
+        "default-revision=0",
+        "expected-revision=",
+        "file=",
+        "from-default=false",
+        "preview-digest=",
+        "project=",
+        "workflow="
+      ],
+      "path": [
+        "axiom",
+        "project",
+        "workflow",
+        "create"
+      ],
+      "proposedPage": "docs/man/man1/axiom-project.1",
+      "proposedSection": "PROJECT_WORKFLOW_CREATE"
+    },
+    {
+      "flags": [
+        "authorize-local=false",
+        "expected-revision=",
+        "file=",
+        "preview-digest=",
+        "prior-digest=",
+        "prior-revision=0",
+        "project=",
+        "workflow="
+      ],
+      "path": [
+        "axiom",
+        "project",
+        "workflow",
+        "edit"
+      ],
+      "proposedPage": "docs/man/man1/axiom-project.1",
+      "proposedSection": "PROJECT_WORKFLOW_EDIT"
+    },
+    {
+      "flags": [
+        "file=",
+        "project="
+      ],
+      "path": [
+        "axiom",
+        "project",
+        "workflow",
+        "validate"
+      ],
+      "proposedPage": "docs/man/man1/axiom-project.1",
+      "proposedSection": "PROJECT_WORKFLOW_VALIDATE"
+    },
+    {
+      "flags": [
+        "authorize-local=false",
+        "digest=",
+        "expected-revision=",
+        "preview-digest=",
+        "project=",
+        "revision=0",
+        "source=project",
+        "workflow="
+      ],
+      "path": [
+        "axiom",
+        "project",
+        "workflow",
+        "select"
+      ],
+      "proposedPage": "docs/man/man1/axiom-project.1",
+      "proposedSection": "PROJECT_WORKFLOW_SELECT"
+    },
+    {
+      "flags": [
+        "authorize-local=false",
+        "digest=",
+        "expected-revision=",
+        "preview-digest=",
+        "project=",
+        "revision=0",
+        "source=project",
+        "workflow="
+      ],
+      "path": [
+        "axiom",
+        "project",
+        "workflow",
+        "remove"
+      ],
+      "proposedPage": "docs/man/man1/axiom-project.1",
+      "proposedSection": "PROJECT_WORKFLOW_REMOVE"
+    },
+    {
+      "flags": [
+        "authorize-local=false",
+        "expected-revision=",
+        "file=",
+        "preview-digest=",
+        "project="
+      ],
+      "path": [
+        "axiom",
+        "project",
+        "workflow",
+        "recover"
+      ],
+      "proposedPage": "docs/man/man1/axiom-project.1",
+      "proposedSection": "PROJECT_WORKFLOW_RECOVER"
+    },
+    {
+      "flags": [
+        "agent-profile=",
+        "authorize-local=false",
+        "expected-revision=",
+        "preview-digest=",
+        "prior-digest=",
+        "prior-revision=0",
+        "project=",
+        "workflow="
+      ],
+      "path": [
+        "axiom",
+        "project",
+        "workflow",
+        "migrate"
+      ],
+      "proposedPage": "docs/man/man1/axiom-project.1",
+      "proposedSection": "PROJECT_WORKFLOW_MIGRATE"
+    },
+    {
+      "flags": [
+        "authorize-local=false",
+        "business-context=",
+        "context-source=",
+        "documentation=",
+        "glossary=",
+        "model-profile=",
+        "name=",
+        "policy-draft=",
+        "preview-digest=",
+        "project=",
+        "project-id=",
+        "remove-repository=",
+        "remove-technology=",
+        "remove-work-item-provider=false",
+        "repository=",
+        "repository-remote=",
+        "runtime=",
+        "runtime-preference=",
+        "slug=",
+        "technology=",
+        "work-item-provider="
+      ],
+      "path": [
+        "axiom",
+        "project",
+        "configure"
+      ],
+      "proposedPage": "docs/man/man1/axiom-project.1",
+      "proposedSection": "PROJECT_CONFIGURE"
+    },
+    {
+      "flags": [
+        "include-archived=false"
+      ],
+      "path": [
+        "axiom",
+        "project",
+        "list"
+      ],
+      "proposedPage": "docs/man/man1/axiom-project.1",
+      "proposedSection": "PROJECT_LIST"
+    },
+    {
+      "flags": [
+        "selector=",
+        "slug="
+      ],
+      "path": [
+        "axiom",
+        "project",
+        "show"
+      ],
+      "proposedPage": "docs/man/man1/axiom-project.1",
+      "proposedSection": "PROJECT_SHOW"
+    },
+    {
+      "flags": [
+        "selector=",
+        "slug="
+      ],
+      "path": [
+        "axiom",
+        "project",
+        "resolve"
+      ],
+      "proposedPage": "docs/man/man1/axiom-project.1",
+      "proposedSection": "PROJECT_RESOLVE"
+    },
+    {
+      "flags": [
+        "project=",
+        "slug="
+      ],
+      "path": [
+        "axiom",
+        "project",
+        "validate"
+      ],
+      "proposedPage": "docs/man/man1/axiom-project.1",
+      "proposedSection": "PROJECT_VALIDATE"
+    },
+    {
+      "flags": [
+        "authorize-local=false",
+        "preview-digest=",
+        "project="
+      ],
+      "path": [
+        "axiom",
+        "project",
+        "archive"
+      ],
+      "proposedPage": "docs/man/man1/axiom-project.1",
+      "proposedSection": "PROJECT_ARCHIVE"
+    },
+    {
+      "flags": [
+        "authorize-local=false",
+        "preview-digest=",
+        "project="
+      ],
+      "path": [
+        "axiom",
+        "project",
+        "reactivate"
+      ],
+      "proposedPage": "docs/man/man1/axiom-project.1",
+      "proposedSection": "PROJECT_REACTIVATE"
+    },
+    {
+      "flags": [
+        "name=",
+        "slug="
+      ],
+      "path": [
+        "axiom",
+        "project",
+        "init"
+      ],
+      "proposedPage": "docs/man/man1/axiom-project.1",
+      "proposedSection": "PROJECT_INIT"
+    },
+    {
+      "flags": [
+        "slug="
+      ],
+      "path": [
+        "axiom",
+        "project",
+        "reopen"
+      ],
+      "proposedPage": "docs/man/man1/axiom-project.1",
+      "proposedSection": "PROJECT_REOPEN"
+    },
+    {
+      "flags": [
+        "name=",
+        "slug="
+      ],
+      "path": [
+        "axiom",
+        "project",
+        "update"
+      ],
+      "proposedPage": "docs/man/man1/axiom-project.1",
+      "proposedSection": "PROJECT_UPDATE"
+    },
+    {
+      "flags": [
+        "repository=",
+        "slug=",
+        "source="
+      ],
+      "path": [
+        "axiom",
+        "project",
+        "install"
+      ],
+      "proposedPage": "docs/man/man1/axiom-project.1",
+      "proposedSection": "PROJECT_INSTALL"
+    },
+    {
+      "flags": [
+        "authorize-local=false",
+        "selector="
+      ],
+      "path": [
+        "axiom",
+        "project",
+        "context",
+        "show"
+      ],
+      "proposedPage": "docs/man/man1/axiom-project.1",
+      "proposedSection": "PROJECT_CONTEXT_SHOW"
+    },
+    {
+      "flags": [
+        "authorize-local=false",
+        "selector="
+      ],
+      "path": [
+        "axiom",
+        "project",
+        "context",
+        "default-set"
+      ],
+      "proposedPage": "docs/man/man1/axiom-project.1",
+      "proposedSection": "PROJECT_CONTEXT_DEFAULT_SET"
+    },
+    {
+      "flags": [
+        "authorize-local=false"
+      ],
+      "path": [
+        "axiom",
+        "project",
+        "context",
+        "default-clear"
+      ],
+      "proposedPage": "docs/man/man1/axiom-project.1",
+      "proposedSection": "PROJECT_CONTEXT_DEFAULT_CLEAR"
+    },
+    {
+      "flags": [
+        "authorize-local=false",
+        "selector="
+      ],
+      "path": [
+        "axiom",
+        "project",
+        "context",
+        "session-set"
+      ],
+      "proposedPage": "docs/man/man1/axiom-project.1",
+      "proposedSection": "PROJECT_CONTEXT_SESSION_SET"
+    },
+    {
+      "flags": [
+        "authorize-local=false"
+      ],
+      "path": [
+        "axiom",
+        "project",
+        "context",
+        "session-clear"
+      ],
+      "proposedPage": "docs/man/man1/axiom-project.1",
+      "proposedSection": "PROJECT_CONTEXT_SESSION_CLEAR"
+    },
+    {
+      "flags": [
+        "authorize-local=false"
+      ],
+      "path": [
+        "axiom",
+        "project",
+        "context",
+        "session-end"
+      ],
+      "proposedPage": "docs/man/man1/axiom-project.1",
+      "proposedSection": "PROJECT_CONTEXT_SESSION_END"
+    },
+    {
+      "flags": [
+        "project="
+      ],
+      "path": [
+        "axiom",
+        "integration",
+        "list"
+      ],
+      "proposedPage": "docs/man/man1/axiom-integration.1",
+      "proposedSection": "INTEGRATION_LIST"
+    },
+    {
+      "flags": [
+        "integration=",
+        "project="
+      ],
+      "path": [
+        "axiom",
+        "integration",
+        "show"
+      ],
+      "proposedPage": "docs/man/man1/axiom-integration.1",
+      "proposedSection": "INTEGRATION_SHOW"
+    },
+    {
+      "flags": [
+        "integration=",
+        "project="
+      ],
+      "path": [
+        "axiom",
+        "integration",
+        "validate"
+      ],
+      "proposedPage": "docs/man/man1/axiom-integration.1",
+      "proposedSection": "INTEGRATION_VALIDATE"
+    },
+    {
+      "flags": [
+        "authorize-local=false",
+        "integration=",
+        "preview-digest=",
+        "project="
+      ],
+      "path": [
+        "axiom",
+        "integration",
+        "disable"
+      ],
+      "proposedPage": "docs/man/man1/axiom-integration.1",
+      "proposedSection": "INTEGRATION_DISABLE"
+    },
+    {
+      "flags": [
+        "authorize-local=false",
+        "integration=",
+        "preview-digest=",
+        "project="
+      ],
+      "path": [
+        "axiom",
+        "integration",
+        "enable"
+      ],
+      "proposedPage": "docs/man/man1/axiom-integration.1",
+      "proposedSection": "INTEGRATION_ENABLE"
+    },
+    {
+      "flags": [
+        "authorize-local=false",
+        "integration=",
+        "preview-digest=",
+        "project=",
+        "project-id="
+      ],
+      "path": [
+        "axiom",
+        "integration",
+        "remove"
+      ],
+      "proposedPage": "docs/man/man1/axiom-integration.1",
+      "proposedSection": "INTEGRATION_REMOVE"
+    },
+    {
+      "flags": [
+        "acceptance=",
+        "authorize-external=false",
+        "authorize-local=false",
+        "beneficiary=",
+        "classification=",
+        "constraints=",
+        "context=",
+        "desired-outcome=",
+        "elaborated-section=",
+        "intent=",
+        "non-goals=",
+        "preview-digest=",
+        "problem=",
+        "project=",
+        "provider-repository=",
+        "repository=",
+        "scope=",
+        "type=",
+        "value=",
+        "work-item="
+      ],
+      "path": [
+        "axiom",
+        "work-item",
+        "create"
+      ],
+      "proposedPage": "docs/man/man1/axiom-work-item.1",
+      "proposedSection": "WORK_ITEM_CREATE"
+    },
+    {
+      "flags": [
+        "authorize-external=false",
+        "authorize-local=false",
+        "number=0",
+        "preview-digest=",
+        "project=",
+        "provider-repository=",
+        "repository=",
+        "work-item="
+      ],
+      "path": [
+        "axiom",
+        "work-item",
+        "select"
+      ],
+      "proposedPage": "docs/man/man1/axiom-work-item.1",
+      "proposedSection": "WORK_ITEM_SELECT"
+    },
+    {
+      "flags": [
+        "project=",
+        "repository="
+      ],
+      "path": [
+        "axiom",
+        "work-item",
+        "list"
+      ],
+      "proposedPage": "docs/man/man1/axiom-work-item.1",
+      "proposedSection": "WORK_ITEM_LIST"
+    },
+    {
+      "flags": [
+        "authorize-external=false",
+        "authorize-local=false",
+        "number=0",
+        "preview-digest=",
+        "project=",
+        "provider-repository=",
+        "repository=",
+        "work-item="
+      ],
+      "path": [
+        "axiom",
+        "work-item",
+        "show"
+      ],
+      "proposedPage": "docs/man/man1/axiom-work-item.1",
+      "proposedSection": "WORK_ITEM_SHOW"
+    },
+    {
+      "flags": [
+        "acceptance=",
+        "authorize-external=false",
+        "authorize-local=false",
+        "constraints=",
+        "context=",
+        "desired-outcome=",
+        "elaborated-section=",
+        "non-goals=",
+        "number=0",
+        "preview-digest=",
+        "problem=",
+        "project=",
+        "provider-repository=",
+        "repository=",
+        "scope=",
+        "title=",
+        "work-item="
+      ],
+      "path": [
+        "axiom",
+        "work-item",
+        "update"
+      ],
+      "proposedPage": "docs/man/man1/axiom-work-item.1",
+      "proposedSection": "WORK_ITEM_UPDATE"
+    },
+    {
+      "flags": [
+        "authorize-external=false",
+        "authorize-local=false",
+        "message=",
+        "number=0",
+        "preview-digest=",
+        "project=",
+        "provider-repository=",
+        "repository=",
+        "work-item="
+      ],
+      "path": [
+        "axiom",
+        "work-item",
+        "comment"
+      ],
+      "proposedPage": "docs/man/man1/axiom-work-item.1",
+      "proposedSection": "WORK_ITEM_COMMENT"
+    },
+    {
+      "flags": [
+        "authorize-external=false",
+        "authorize-local=false",
+        "number=0",
+        "preview-digest=",
+        "project=",
+        "provider-repository=",
+        "repository=",
+        "work-item="
+      ],
+      "path": [
+        "axiom",
+        "work-item",
+        "close"
+      ],
+      "proposedPage": "docs/man/man1/axiom-work-item.1",
+      "proposedSection": "WORK_ITEM_CLOSE"
+    },
+    {
+      "flags": [
+        "authorize-external=false",
+        "authorize-local=false",
+        "number=0",
+        "preview-digest=",
+        "project=",
+        "provider-repository=",
+        "repository=",
+        "work-item="
+      ],
+      "path": [
+        "axiom",
+        "work-item",
+        "reopen"
+      ],
+      "proposedPage": "docs/man/man1/axiom-work-item.1",
+      "proposedSection": "WORK_ITEM_REOPEN"
+    },
+    {
+      "flags": [
+        "authorize-external=false",
+        "authorize-local=false",
+        "number=0",
+        "preview-digest=",
+        "project=",
+        "provider-repository=",
+        "repository=",
+        "work-item="
+      ],
+      "path": [
+        "axiom",
+        "work-item",
+        "complete"
+      ],
+      "proposedPage": "docs/man/man1/axiom-work-item.1",
+      "proposedSection": "WORK_ITEM_COMPLETE"
+    },
+    {
+      "flags": [
+        "authorize-local=false",
+        "capabilities=",
+        "complexity=",
+        "execution=",
+        "number=0",
+        "project=",
+        "repository=",
+        "role=",
+        "runtime=",
+        "runtime-preview=",
+        "work-item="
+      ],
+      "path": [
+        "axiom",
+        "workflow",
+        "start"
+      ],
+      "proposedPage": "docs/man/man1/axiom-workflow.1",
+      "proposedSection": "WORKFLOW_START"
+    },
+    {
+      "flags": [
+        "automatic=false",
+        "execution=",
+        "expected-revision=0",
+        "gate=",
+        "next=",
+        "number=0",
+        "outcome=",
+        "project=",
+        "reference=",
+        "repository=",
+        "stage-result=",
+        "work-item="
+      ],
+      "path": [
+        "axiom",
+        "workflow",
+        "advance"
+      ],
+      "proposedPage": "docs/man/man1/axiom-workflow.1",
+      "proposedSection": "WORKFLOW_ADVANCE"
+    },
+    {
+      "flags": [
+        "active=false",
+        "actor=",
+        "authorize-local=false",
+        "execution=",
+        "expected-revision=0",
+        "fact=",
+        "number=0",
+        "project=",
+        "reference=",
+        "repository=",
+        "stage-result=",
+        "work-item="
+      ],
+      "path": [
+        "axiom",
+        "workflow",
+        "fact"
+      ],
+      "proposedPage": "docs/man/man1/axiom-workflow.1",
+      "proposedSection": "WORKFLOW_FACT"
+    },
+    {
+      "flags": [
+        "execution=",
+        "expected-revision=0",
+        "number=0",
+        "project=",
+        "repository=",
+        "work-item="
+      ],
+      "path": [
+        "axiom",
+        "workflow",
+        "resume"
+      ],
+      "proposedPage": "docs/man/man1/axiom-workflow.1",
+      "proposedSection": "WORKFLOW_RESUME"
+    },
+    {
+      "flags": [
+        "execution=",
+        "number=0",
+        "project=",
+        "repository=",
+        "work-item="
+      ],
+      "path": [
+        "axiom",
+        "workflow",
+        "status"
+      ],
+      "proposedPage": "docs/man/man1/axiom-workflow.1",
+      "proposedSection": "WORKFLOW_STATUS"
+    },
+    {
+      "flags": [
+        "execution=",
+        "number=0",
+        "project=",
+        "repository=",
+        "work-item="
+      ],
+      "path": [
+        "axiom",
+        "workflow",
+        "evidence"
+      ],
+      "proposedPage": "docs/man/man1/axiom-workflow.1",
+      "proposedSection": "WORKFLOW_EVIDENCE"
+    },
+    {
+      "flags": [
+        "project=",
+        "repository="
+      ],
+      "path": [
+        "axiom",
+        "workflow",
+        "list"
+      ],
+      "proposedPage": "docs/man/man1/axiom-workflow.1",
+      "proposedSection": "WORKFLOW_LIST"
+    },
+    {
+      "flags": [
+        "authorize-external=false",
+        "execution=",
+        "expected-revision=0",
+        "number=0",
+        "preview-digest=",
+        "project=",
+        "repository=",
+        "work-item="
+      ],
+      "path": [
+        "axiom",
+        "workflow",
+        "reconcile"
+      ],
+      "proposedPage": "docs/man/man1/axiom-workflow.1",
+      "proposedSection": "WORKFLOW_RECONCILE"
+    },
+    {
+      "flags": [
+        "authorize-local=false",
+        "execution=",
+        "packet=",
+        "preview-digest=",
+        "project=",
+        "repository=",
+        "work-item="
+      ],
+      "path": [
+        "axiom",
+        "workflow",
+        "delivery",
+        "packet"
+      ],
+      "proposedPage": "docs/man/man1/axiom-workflow.1",
+      "proposedSection": "WORKFLOW_DELIVERY_PACKET"
+    },
+    {
+      "flags": [
+        "authorize-execution=false",
+        "authorize-human=false",
+        "authorize-local=false",
+        "execution=",
+        "preview-digest=",
+        "project=",
+        "repository=",
+        "request=",
+        "work-item="
+      ],
+      "path": [
+        "axiom",
+        "workflow",
+        "delivery",
+        "decision"
+      ],
+      "proposedPage": "docs/man/man1/axiom-workflow.1",
+      "proposedSection": "WORKFLOW_DELIVERY_DECISION"
+    },
+    {
+      "flags": [
+        "authorize-execution=false",
+        "authorize-human=false",
+        "authorize-local=false",
+        "execution=",
+        "preview-digest=",
+        "project=",
+        "repository=",
+        "request=",
+        "work-item="
+      ],
+      "path": [
+        "axiom",
+        "workflow",
+        "delivery",
+        "rework"
+      ],
+      "proposedPage": "docs/man/man1/axiom-workflow.1",
+      "proposedSection": "WORKFLOW_DELIVERY_REWORK"
+    },
+    {
+      "flags": [
+        "authorize-local=false",
+        "authorize-pr=false",
+        "authorize-push=false",
+        "execution=",
+        "preview-digest=",
+        "project=",
+        "repository=",
+        "request=",
+        "work-item="
+      ],
+      "path": [
+        "axiom",
+        "workflow",
+        "delivery",
+        "prepare"
+      ],
+      "proposedPage": "docs/man/man1/axiom-workflow.1",
+      "proposedSection": "WORKFLOW_DELIVERY_PREPARE"
+    },
+    {
+      "flags": [
+        "authorize-local=false",
+        "authorize-pr=false",
+        "authorize-push=false",
+        "execution=",
+        "preview-digest=",
+        "project=",
+        "repository=",
+        "request=",
+        "work-item="
+      ],
+      "path": [
+        "axiom",
+        "workflow",
+        "delivery",
+        "preview"
+      ],
+      "proposedPage": "docs/man/man1/axiom-workflow.1",
+      "proposedSection": "WORKFLOW_DELIVERY_PREVIEW"
+    },
+    {
+      "flags": [
+        "authorize-local=false",
+        "authorize-pr=false",
+        "authorize-push=false",
+        "execution=",
+        "preview-digest=",
+        "project=",
+        "repository=",
+        "request=",
+        "work-item="
+      ],
+      "path": [
+        "axiom",
+        "workflow",
+        "delivery",
+        "apply"
+      ],
+      "proposedPage": "docs/man/man1/axiom-workflow.1",
+      "proposedSection": "WORKFLOW_DELIVERY_APPLY"
+    },
+    {
+      "flags": [
+        "authorize-local=false",
+        "execution=",
+        "preview-digest=",
+        "project=",
+        "publication=",
+        "repository=",
+        "work-item="
+      ],
+      "path": [
+        "axiom",
+        "workflow",
+        "delivery",
+        "inspect"
+      ],
+      "proposedPage": "docs/man/man1/axiom-workflow.1",
+      "proposedSection": "WORKFLOW_DELIVERY_INSPECT"
+    },
+    {
+      "flags": [
+        "authorize-local=false",
+        "execution=",
+        "preview-digest=",
+        "project=",
+        "publication=",
+        "repository=",
+        "work-item="
+      ],
+      "path": [
+        "axiom",
+        "workflow",
+        "delivery",
+        "reconcile"
+      ],
+      "proposedPage": "docs/man/man1/axiom-workflow.1",
+      "proposedSection": "WORKFLOW_DELIVERY_RECONCILE"
+    },
+    {
+      "flags": [
+        "authorize-local=false",
+        "execution=",
+        "expected-revision=0",
+        "plan=",
+        "project=",
+        "repository=",
+        "stage=",
+        "work-item="
+      ],
+      "path": [
+        "axiom",
+        "workflow",
+        "stage",
+        "plan"
+      ],
+      "proposedPage": "docs/man/man1/axiom-workflow.1",
+      "proposedSection": "WORKFLOW_STAGE_PLAN"
+    },
+    {
+      "flags": [
+        "authorize-external=false",
+        "authorize-local=false",
+        "execution=",
+        "expected-revision=0",
+        "plan=",
+        "preview-digest=",
+        "project=",
+        "repository=",
+        "stage=",
+        "validator-policy=",
+        "work-item=",
+        "workspace-root="
+      ],
+      "path": [
+        "axiom",
+        "workflow",
+        "stage",
+        "run"
+      ],
+      "proposedPage": "docs/man/man1/axiom-workflow.1",
+      "proposedSection": "WORKFLOW_STAGE_RUN"
+    },
+    {
+      "flags": [
+        "execution=",
+        "project=",
+        "repository=",
+        "work-item="
+      ],
+      "path": [
+        "axiom",
+        "workflow",
+        "stage",
+        "status"
+      ],
+      "proposedPage": "docs/man/man1/axiom-workflow.1",
+      "proposedSection": "WORKFLOW_STAGE_STATUS"
+    },
+    {
+      "flags": [
+        "authorize-local=false",
+        "execution=",
+        "preview-digest=",
+        "project=",
+        "repository=",
+        "work-item="
+      ],
+      "path": [
+        "axiom",
+        "workflow",
+        "stage",
+        "cancel"
+      ],
+      "proposedPage": "docs/man/man1/axiom-workflow.1",
+      "proposedSection": "WORKFLOW_STAGE_CANCEL"
+    },
+    {
+      "flags": [
+        "authorize-external=false",
+        "authorize-local=false",
+        "child=",
+        "disposition=",
+        "execution=",
+        "expected-revision=0",
+        "plan=",
+        "preview-digest=",
+        "project=",
+        "repository=",
+        "stage=",
+        "validator-policy=",
+        "work-item="
+      ],
+      "path": [
+        "axiom",
+        "workflow",
+        "stage",
+        "retry"
+      ],
+      "proposedPage": "docs/man/man1/axiom-workflow.1",
+      "proposedSection": "WORKFLOW_STAGE_RETRY"
+    },
+    {
+      "flags": [
+        "attempt=",
+        "authorize-local=false",
+        "child=",
+        "execution=",
+        "preview-digest=",
+        "project=",
+        "repository=",
+        "work-item="
+      ],
+      "path": [
+        "axiom",
+        "workflow",
+        "stage",
+        "reconcile"
+      ],
+      "proposedPage": "docs/man/man1/axiom-workflow.1",
+      "proposedSection": "WORKFLOW_STAGE_RECONCILE"
+    },
+    {
+      "flags": [
+        "authorize-local=false",
+        "execution=",
+        "expected-revision=0",
+        "preview-digest=",
+        "project=",
+        "repository=",
+        "stage=",
+        "validator-policy=",
+        "waive=",
+        "work-item="
+      ],
+      "path": [
+        "axiom",
+        "workflow",
+        "stage",
+        "integrate"
+      ],
+      "proposedPage": "docs/man/man1/axiom-workflow.1",
+      "proposedSection": "WORKFLOW_STAGE_INTEGRATE"
+    },
+    {
+      "flags": [
+        "after=0",
+        "attempt=",
+        "child=",
+        "execution=",
+        "kind=",
+        "project=",
+        "repository=",
+        "wait=0s",
+        "work-item="
+      ],
+      "path": [
+        "axiom",
+        "workflow",
+        "coordination",
+        "list"
+      ],
+      "proposedPage": "docs/man/man1/axiom-workflow.1",
+      "proposedSection": "WORKFLOW_COORDINATION_LIST"
+    },
+    {
+      "flags": [
+        "child=",
+        "execution=",
+        "project=",
+        "record=",
+        "repository=",
+        "work-item="
+      ],
+      "path": [
+        "axiom",
+        "workflow",
+        "coordination",
+        "show"
+      ],
+      "proposedPage": "docs/man/man1/axiom-workflow.1",
+      "proposedSection": "WORKFLOW_COORDINATION_SHOW"
+    },
+    {
+      "flags": [
+        "field=",
+        "kind="
+      ],
+      "path": [
+        "axiom",
+        "workflow",
+        "coordination",
+        "publish"
+      ],
+      "proposedPage": "docs/man/man1/axiom-workflow.1",
+      "proposedSection": "WORKFLOW_COORDINATION_PUBLISH"
+    },
+    {
+      "flags": [],
+      "path": [
+        "axiom",
+        "compatibility",
+        "inspect"
+      ],
+      "proposedPage": "docs/man/man1/axiom-compatibility.1",
+      "proposedSection": "COMPATIBILITY_INSPECT"
+    },
+    {
+      "flags": [
+        "authorize-local=false",
+        "preview-digest=",
+        "target="
+      ],
+      "path": [
+        "axiom",
+        "compatibility",
+        "backup"
+      ],
+      "proposedPage": "docs/man/man1/axiom-compatibility.1",
+      "proposedSection": "COMPATIBILITY_BACKUP"
+    },
+    {
+      "flags": [
+        "authorize-local=false",
+        "preview-digest=",
+        "target="
+      ],
+      "path": [
+        "axiom",
+        "compatibility",
+        "export"
+      ],
+      "proposedPage": "docs/man/man1/axiom-compatibility.1",
+      "proposedSection": "COMPATIBILITY_EXPORT"
+    },
+    {
+      "flags": [
+        "authorize-local=false",
+        "preview-digest="
+      ],
+      "path": [
+        "axiom",
+        "artifact",
+        "cleanup"
+      ],
+      "proposedPage": "docs/man/man1/axiom-artifact.1",
+      "proposedSection": "ARTIFACT_CLEANUP"
+    },
+    {
+      "flags": [
+        "artifact=",
+        "authorize-local=false",
+        "preview-digest="
+      ],
+      "path": [
+        "axiom",
+        "artifact",
+        "retire"
+      ],
+      "proposedPage": "docs/man/man1/axiom-artifact.1",
+      "proposedSection": "ARTIFACT_RETIRE"
+    },
+    {
+      "flags": [],
+      "path": [
+        "axiom",
+        "recovery",
+        "inspect"
+      ],
+      "proposedPage": "docs/man/man1/axiom-recovery.1",
+      "proposedSection": "RECOVERY_INSPECT"
+    },
+    {
+      "flags": [
+        "authorize-local=false",
+        "preview-digest="
+      ],
+      "path": [
+        "axiom",
+        "recovery",
+        "apply"
+      ],
+      "proposedPage": "docs/man/man1/axiom-recovery.1",
+      "proposedSection": "RECOVERY_APPLY"
+    },
+    {
+      "flags": [
+        "archive=",
+        "authorize-local=false",
+        "bin-dir=",
+        "checksums=",
+        "preview-digest=",
+        "receipt-dir="
+      ],
+      "path": [
+        "axiom",
+        "upgrade"
+      ],
+      "proposedPage": "docs/man/man1/axiom-upgrade.1",
+      "proposedSection": "UPGRADE"
+    }
+  ]
+}

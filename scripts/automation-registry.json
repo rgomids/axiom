@@ -41,35 +41,6 @@
   ],
   "entries": [
     {
-      "path": ".github/workflows/axm37-identity-experiment.yml",
-      "kind": "workflow",
-      "owner": "compatibility",
-      "purpose": "Temporary AXM-37 T02 image identity, reader and lock primitive experiment; remove before human review.",
-      "lifecycle": "historical-replay",
-      "disposition": "delete",
-      "disposition_ref": "AXM-37",
-      "runtime": [
-        "github-actions",
-        "bash",
-        "python3"
-      ],
-      "scope": [
-        "ci"
-      ],
-      "trigger": null,
-      "replay_reason": "Reproduce bounded P1 native Linux evidence on the authorized PR branch.",
-      "callers": [],
-      "inputs": "Exact branch SHA; native Ubuntu amd64/arm64; embedded disposable C and Python probe",
-      "outputs": "Bounded JSON result in Actions logs; assertion failure is nonzero",
-      "local_effects": "Disposable runner temporary directory only",
-      "network_effects": "Pinned checkout from GitHub; probe itself makes no network calls",
-      "authority": "Rafael 2026-10-20 resumption: native Actions for AXM-37 only; contents: read; branch guard; no secrets",
-      "tests": [],
-      "evidence": "docs/specifications/010-installed-operational-documentation/evidence-implement.md",
-      "compatibility": [],
-      "removal_condition": "Remove workflow and registry entry after evidence collection, before human review."
-    },
-    {
       "path": ".github/workflows/ci.yml",
       "kind": "workflow",
       "owner": "ci",
