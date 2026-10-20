@@ -10,8 +10,6 @@ import (
 	"errors"
 	"reflect"
 	"sort"
-	"strings"
-	"time"
 
 	"github.com/rgomids/axiom/internal/manifest"
 	"github.com/rgomids/axiom/internal/project"
@@ -42,14 +40,13 @@ type Preview struct {
 }
 
 // Snapshot contains independently read portable and machine-local inputs.
-// Observer must return current authoritative observations on each Load/Observe;
-// an old captured inventory cannot establish freshness for a changed machine.
-// Consumer is the canonical v3 record; no other local format is consumed
-// (Specification 007 AXM-22 BLD-001B.3c-2b.3).
+// Observer must return current authoritative observations on each call; an
+// old captured inventory cannot establish freshness for a changed machine.
+// Consumer is the canonical format-4 record (AXM-36 D2).
 type Snapshot struct {
 	Project  project.Project
-	Consumer runtimeprofile.ConsumerV3
-	Observer runtimeprofile.Observer
+	Consumer runtimeprofile.ConsumerV4
+	Observer runtimeprofile.OperationalObserver
 }
 type Source interface {
 	Load(context.Context, string) (Snapshot, error)
@@ -63,8 +60,8 @@ func (s Service) Preview(ctx context.Context, projectID string, request Request)
 }
 
 // Binding is the concrete dispatch binding that Check re-derives from the same
-// snapshot that reproduced the reviewed preview. Canonical v3 carries no
-// credential reference, so CredentialReference stays empty.
+// snapshot that reproduced the reviewed preview. Canonical configuration
+// carries no credential reference, so CredentialReference stays empty.
 type Binding struct {
 	Choice              runtimeprofile.Choice
 	CredentialReference string `json:"-"`
@@ -102,7 +99,7 @@ func (s Service) preview(ctx context.Context, projectID string, request Request)
 	result.ConfigurationRevision = consumer.Revision()
 	// Selection is the exact policy intersection; several admissible Profiles
 	// are ambiguous_match and nothing is selected implicitly.
-	candidate, blocker := EvaluatePolicyV3(snapshot.Project, consumer, request)
+	candidate, blocker := EvaluatePolicy(snapshot.Project, consumer, request)
 	if blocker != nil {
 		return deny(result, blocker.Code)
 	}
@@ -110,39 +107,37 @@ func (s Service) preview(ctx context.Context, projectID string, request Request)
 		return deny(result, "inventory_unavailable")
 	}
 	runtimeID := candidate.Profile.RuntimeID
-	observation, err := snapshot.Observer.Observe(ctx, runtimeID)
+	observation, err := snapshot.Observer.ObserveOperational(ctx, runtimeID, candidate.Profile.ProfileID)
 	if err != nil {
-		observation = runtimeprofile.Observation{RuntimeID: runtimeID, Adapter: candidate.Profile.Adapter}
-	}
-	// Raw version text never crosses the presentation boundary.
-	if !safeObservation(observation) {
-		return deny(result, "invalid_observation")
+		return deny(result, observationCategory(ctx, err))
 	}
 	result.ObservationRevisions = map[string]uint64{runtimeID: observation.Revision}
-	normalized := observation
-	// Timestamp denotes collection, not machine revision; refreshed timestamps
-	// alone do not invalidate an otherwise identical authoritative observation.
-	if !normalized.ObservedAt.IsZero() {
-		normalized.ObservedAt = time.Unix(1, 0).UTC()
-	}
-	observationWire, marshalErr := json.Marshal([]runtimeprofile.Observation{normalized})
-	if marshalErr != nil {
+	resolved, err := consumer.ObservedProfile(runtimeID, candidate.Profile.ProfileID, observation)
+	if err != nil {
 		return deny(result, "invalid_observation")
 	}
-	result.ObservationDigest = digest(observationWire)
-	// The existing observation and proof gates apply to the selected Profile;
-	// a declaration or the policy selection itself never proves capability.
-	choice, code := consumer.ObservedChoice(runtimeID, candidate.Profile.ProfileID, observation, request.Capabilities)
-	if code != "" {
-		return deny(result, code)
-	}
-	if !runtimeprofile.SafeIdentifier(choice.Model) || !safeVersion(choice.RuntimeVersion) {
-		return deny(result, "unsafe_configuration")
-	}
-	choice.ResolvedProfile.ConfigurationDigest = result.ConfigurationDigest
-	choice.ResolvedProfile.ObservationDigest = result.ObservationDigest
+	result.ObservationDigest = resolved.ObservationDigest
+	choice := runtimeprofile.Choice{FrozenProfile: &resolved, RuntimeID: runtimeID, Adapter: candidate.Profile.Adapter, ModelProfileID: resolved.ProfileID, Model: resolved.Model, Capabilities: append([]string(nil), request.Capabilities...), ExecutableDigest: resolved.ExecutableDigest, ConfigurationRevision: resolved.ConfigurationRevision, ObservationRevision: resolved.ObservationRevision}
 	result.Choice = &choice
 	return result, nil
+}
+
+func observationCategory(ctx context.Context, err error) string {
+	switch {
+	case ctx.Err() != nil:
+		return "observation_cancelled"
+	case errors.Is(err, runtimeprofile.ErrExecutableUnavailable):
+		return "executable_unavailable"
+	case errors.Is(err, runtimeprofile.ErrInspectionConsentRequired):
+		return "inspection_consent_required"
+	case errors.Is(err, runtimeprofile.ErrEffortOverrideConflict):
+		return "effort_override_conflict"
+	case errors.Is(err, runtimeprofile.ErrConfigurationInvalid):
+		return "configuration_invalid"
+	case errors.Is(err, runtimeprofile.ErrConfigurationUnsafe):
+		return "configuration_unsafe"
+	}
+	return "invalid_observation"
 }
 
 // Check re-reads all inputs and accepts only the exact previewed decision.
@@ -157,9 +152,9 @@ func (s Service) Check(ctx context.Context, expected Preview) (Binding, error) {
 		return Binding{}, ErrStale
 	}
 	choice := *expected.Choice
-	if choice.ResolvedProfile != nil {
-		p := *choice.ResolvedProfile
-		choice.ResolvedProfile = &p
+	if choice.FrozenProfile != nil {
+		p := *choice.FrozenProfile
+		choice.FrozenProfile = &p
 	}
 	choice.Capabilities = append([]string(nil), choice.Capabilities...)
 	return Binding{Choice: choice}, nil
@@ -167,20 +162,12 @@ func (s Service) Check(ctx context.Context, expected Preview) (Binding, error) {
 
 // Availability is the request-independent readiness projection of the same
 // portable/local intersection Preview uses (Issue #231). It selects nothing:
-// "" means at least one allowed, enabled Runtime with an allowed profile is
-// currently observed installed and available. Otherwise it returns the #140
-// blocker code (policy_unconfigured, no_allowed_match, runtime_unavailable, ...).
-// Role-specific preferences and capabilities are checked only by Preview.
+// "" means at least one allowed, enabled Runtime with an allowed profile has a
+// currently resolvable executable. Otherwise it returns the #140 blocker code
+// (policy_unconfigured, no_allowed_match, runtime_unavailable, ...).
+// Role-specific preferences, capabilities and effort sources are checked only
+// by Preview; authentication is observed before each attempt.
 func (s Service) Availability(ctx context.Context, projectID string) string {
-	return s.availability(ctx, projectID, false)
-}
-
-// CurrentAvailability projects operational readiness for Profile-owned admission.
-// Historical availability remains inspectable through Availability.
-func (s Service) CurrentAvailability(ctx context.Context, projectID string) string {
-	return s.availability(ctx, projectID, true)
-}
-func (s Service) availability(ctx context.Context, projectID string, _ bool) string {
 	if len(project.ValidateIdentity(projectID, "preview")) != 0 {
 		return "invalid_request"
 	}
@@ -217,24 +204,15 @@ func (s Service) availability(ctx context.Context, projectID string, _ bool) str
 		if !runtime.Enabled || len(permitted[runtime.ID]) == 0 {
 			continue
 		}
-		observation, err := snapshot.Observer.Observe(ctx, runtime.ID)
+		observation, err := snapshot.Observer.ObserveExecutable(ctx, runtime.ID)
 		if err != nil || !observation.Installed || !observation.Available {
 			continue
-		}
-		if !safeObservation(observation) {
-			return "invalid_observation"
 		}
 		if observation.RuntimeID != runtime.ID || observation.Adapter != runtime.Adapter || observation.Revision != consumer.Revision() || observation.ObservedAt.IsZero() {
 			blocker = "stale_observation"
 			continue
 		}
-		for _, id := range permitted[runtime.ID] {
-			code := consumer.ProfileReadiness(runtime.ID, id, observation)
-			if code == "" {
-				return ""
-			}
-			blocker = code
-		}
+		return ""
 	}
 	return blocker
 }
@@ -243,7 +221,7 @@ func (s Service) availability(ctx context.Context, projectID string, _ bool) str
 // Runtime the Project allows with the Profiles it owns and allowlists whose
 // portable reference names the same Runtime and model. Enablement is checked
 // by the caller, so a disabled Runtime stays runtime_unavailable.
-func permittedProfiles(state project.State, consumer runtimeprofile.ConsumerV3) map[string][]string {
+func permittedProfiles(state project.State, consumer runtimeprofile.ConsumerV4) map[string][]string {
 	allowed := map[string]bool{}
 	for _, id := range project.AllowedRuntimes(state) {
 		allowed[id] = true
@@ -307,58 +285,6 @@ func token(v string) bool {
 	for _, c := range v {
 		if !(c >= 'a' && c <= 'z' || c >= '0' && c <= '9' || c == '-' || c == '_' || c == '.') {
 			return false
-		}
-	}
-	return true
-}
-func safeVersion(v string) bool {
-	if len(v) > 128 || strings.TrimSpace(v) != v {
-		return false
-	}
-	for _, c := range v {
-		if !(c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || strings.ContainsRune(" ._-()+", c)) {
-			return false
-		}
-	}
-	lower := strings.ToLower(v)
-	for _, word := range []string{"token", "secret", "password", "bearer", "api_key", "ghp_", "sk-"} {
-		if strings.Contains(lower, word) {
-			return false
-		}
-	}
-	return true
-}
-
-func safeObservation(o runtimeprofile.Observation) bool {
-	if !token(o.RuntimeID) || !token(o.Adapter) || !safeVersion(o.Version) || len(o.CapabilityStatus) > 32 || len(o.NonInteractiveModelCapabilities) > 32 || len(o.ProfileProofs) > 32 {
-		return false
-	}
-	for _, proof := range o.ProfileProofs {
-		if len(proof.CapabilityStatus) > 32 {
-			return false
-		}
-		for c, s := range proof.CapabilityStatus {
-			if !token(c) || (s != runtimeprofile.CapabilityDeclared && s != runtimeprofile.CapabilityProven) {
-				return false
-			}
-		}
-		if !runtimeprofile.SafeIdentifier(proof.RuntimeID) || !runtimeprofile.SafeIdentifier(proof.Model) || !runtimeprofile.ValidEffort(proof.Effort) || !safeVersion(proof.RuntimeVersion) || !runtimeprofile.SafeIdentifier(proof.Reference) || proof.InvocationMode != "noninteractive" {
-			return false
-		}
-	}
-	for capability, status := range o.CapabilityStatus {
-		if !token(capability) || (status != runtimeprofile.CapabilityDeclared && status != runtimeprofile.CapabilityProven) {
-			return false
-		}
-	}
-	for model, capabilities := range o.NonInteractiveModelCapabilities {
-		if model == "" || len(model) > 256 || strings.TrimSpace(model) != model || strings.ContainsAny(model, "\x00\r\n") || len(capabilities) > 32 {
-			return false
-		}
-		for capability, status := range capabilities {
-			if !token(capability) || (status != runtimeprofile.CapabilityDeclared && status != runtimeprofile.CapabilityProven) {
-				return false
-			}
 		}
 	}
 	return true

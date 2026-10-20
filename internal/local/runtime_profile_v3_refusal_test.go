@@ -36,9 +36,8 @@ func TestRuntimeProfileReaderRecognizesV3AndRefusesFuture(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// PM-1 admits v3 over fresh state only as the exact revision-1 candidate;
-	// this revision-7 fixture is not, so nothing is written.
-	if _, err := store.Publish(ctx, fresh.Token, v3); !errors.Is(err, ErrConflict) {
+
+	if _, err := store.Publish(ctx, fresh.Token, v3); !errors.Is(err, runtimeprofile.ErrUnsupportedConfigurationFormat) {
 		t.Fatalf("fresh v3 publication: %v", err)
 	}
 	if after, _ := store.Inspect(ctx); after.State != "fresh" {
@@ -59,7 +58,7 @@ func TestRuntimeProfileReaderRecognizesV3AndRefusesFuture(t *testing.T) {
 	if kind := kindOf(t, store.root, "runtime-profiles/v1/configuration.json"); kind != InventoryRuntimeProfile {
 		t.Fatalf("inventory classification %s", kind)
 	}
-	future := bytes.Replace(v3, []byte(`"formatVersion":3`), []byte(`"formatVersion":4`), 1)
+	future := bytes.Replace(v3, []byte(`"formatVersion":3`), []byte(`"formatVersion":99`), 1)
 	if err := os.WriteFile(path, future, 0600); err != nil {
 		t.Fatal(err)
 	}

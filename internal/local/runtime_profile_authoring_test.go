@@ -15,13 +15,32 @@ import (
 	"github.com/rgomids/axiom/internal/runtimeprofile/runtimeprofiletest"
 )
 
-// authoringConfig is the synthetic canonical v3 record at revision.
-func authoringConfig(revision uint64) runtimeprofile.ConfigurationV3 {
-	return runtimeprofiletest.WithRevision(runtimeprofiletest.MultiRuntime(), revision)
+func authoringConfig(revision uint64) runtimeprofile.ConfigurationV4 {
+	return operationalTestConfig(runtimeprofiletest.WithRevision(runtimeprofiletest.MultiRuntime(), revision))
+}
+
+func operationalTestConfig(historical runtimeprofile.ConfigurationV3) runtimeprofile.ConfigurationV4 {
+	cfg := runtimeprofile.ConfigurationV4{FormatVersion: 4, Revision: historical.Revision, ModelProfiles: historical.ModelProfiles, Preferences: historical.Preferences}
+	for _, r := range historical.Runtimes {
+		cfg.Runtimes = append(cfg.Runtimes, runtimeprofile.RuntimeV4{ID: r.ID, Adapter: r.Adapter, Enabled: r.Enabled, AllowlistedProfileIDs: r.AllowlistedProfileIDs})
+	}
+	return cfg
 }
 func authoringWire(t *testing.T, revision uint64) []byte {
 	t.Helper()
-	return runtimeprofiletest.Encode(t, authoringConfig(revision))
+	wire, err := runtimeprofile.EncodeV4(authoringConfig(revision))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return wire
+}
+func authoringDigest(t *testing.T, cfg runtimeprofile.ConfigurationV4) string {
+	t.Helper()
+	digest, err := runtimeprofile.DigestV4(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return digest
 }
 
 // legacyConfig is a valid recognized pre-stable record of format 1 or 2.
@@ -81,7 +100,7 @@ func TestRuntimeAuthoringLifecycle(t *testing.T) {
 		t.Fatal("inspection mutated filesystem")
 	}
 	active, err := s.Publish(ctx, fresh.Token, authoringWire(t, 1))
-	if err != nil || active.State != "active-v3" || active.V3 == nil {
+	if err != nil || active.State != "active-v4" || active.V4 == nil {
 		t.Fatalf("%+v %v", active, err)
 	}
 	if _, err := s.Publish(ctx, fresh.Token, authoringWire(t, 1)); !errors.Is(err, ErrConflict) {
@@ -101,14 +120,14 @@ func TestRuntimeAuthoringLifecycle(t *testing.T) {
 			t.Fatalf("non-DigestV3 retirement: %v", err)
 		}
 	}
-	digest := runtimeprofiletest.Digest(t, *active.V3)
+	digest := authoringDigest(t, *active.V4)
 	tomb, _ := runtimeprofile.EncodeTombstone(runtimeprofile.Tombstone{Kind: runtimeprofile.TombstoneKind, FormatVersion: 1, Revision: 2, PriorConfigurationDigest: digest})
 	retired, err := s.Publish(ctx, active.Token, tomb)
-	if err != nil || retired.State != "retired" || retired.V3 != nil {
+	if err != nil || retired.State != "retired" || retired.V4 != nil {
 		t.Fatalf("%+v %v", retired, err)
 	}
 	recreated, err := s.Publish(ctx, retired.Token, authoringWire(t, 3))
-	if err != nil || recreated.Revision != 3 || recreated.State != "active-v3" {
+	if err != nil || recreated.Revision != 3 || recreated.State != "active-v4" {
 		t.Fatalf("%+v %v", recreated, err)
 	}
 }
@@ -144,7 +163,7 @@ func TestRuntimeAuthoringIdentityConflict(t *testing.T) {
 			case "same-revision":
 				cfg := authoringConfig(1)
 				cfg.ModelProfiles[0].Model = "changed-model"
-				wire, _ := runtimeprofile.EncodeV3(cfg)
+				wire, _ := runtimeprofile.EncodeV4(cfg)
 				os.WriteFile(target, wire, 0600)
 			case "fresh-parent":
 				parent := filepath.Dir(s.root)
@@ -271,7 +290,7 @@ func TestRuntimeAuthoringLegacyRetirement(t *testing.T) {
 			source := legacyWire(t, format, 1)
 			writeLegacyRecord(t, s.root, source)
 			prior, err := s.Inspect(ctx)
-			if err != nil || prior.State != fmt.Sprintf("active-v%d", format) || prior.V3 != nil || prior.Legacy.FormatVersion != format {
+			if err != nil || prior.State != fmt.Sprintf("active-v%d", format) || prior.V4 != nil || prior.Legacy.FormatVersion != format {
 				t.Fatalf("%+v %v", prior, err)
 			}
 			// No direct v1/v2 -> v3 overwrite, no migration and no partial
@@ -285,7 +304,7 @@ func TestRuntimeAuthoringLegacyRetirement(t *testing.T) {
 			historical, _ := runtimeprofile.Digest(prior.Legacy)
 			for _, wrong := range []runtimeprofile.Tombstone{
 				{Kind: runtimeprofile.TombstoneKind, FormatVersion: 1, Revision: 3, PriorConfigurationDigest: historical},
-				{Kind: runtimeprofile.TombstoneKind, FormatVersion: 1, Revision: 2, PriorConfigurationDigest: runtimeprofiletest.Digest(t, authoringConfig(1))},
+				{Kind: runtimeprofile.TombstoneKind, FormatVersion: 1, Revision: 2, PriorConfigurationDigest: authoringDigest(t, authoringConfig(1))},
 			} {
 				wire, _ := runtimeprofile.EncodeTombstone(wrong)
 				if _, err := s.Publish(ctx, prior.Token, wire); !errors.Is(err, ErrConflict) {
@@ -304,7 +323,7 @@ func TestRuntimeAuthoringLegacyRetirement(t *testing.T) {
 				t.Fatal("tombstone format changed")
 			}
 			created, err := s.Publish(ctx, retired.Token, authoringWire(t, 3))
-			if err != nil || created.State != "active-v3" || created.Revision != 3 {
+			if err != nil || created.State != "active-v4" || created.Revision != 3 {
 				t.Fatalf("%+v %v", created, err)
 			}
 		})
@@ -403,7 +422,7 @@ func TestRuntimeAuthoringRetireRecreateRecovery(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				digest := runtimeprofiletest.Digest(t, *prior.V3)
+				digest := authoringDigest(t, *prior.V4)
 				tomb, _ := runtimeprofile.EncodeTombstone(runtimeprofile.Tombstone{Kind: runtimeprofile.TombstoneKind, FormatVersion: 1, Revision: 2, PriorConfigurationDigest: digest})
 				next := tomb
 				if operation == "recreate" {
@@ -498,7 +517,8 @@ func TestRuntimeProfileInventoryInvalidSupportedV2IsMalformed(t *testing.T) {
 		{`{"formatVersion":2,"revision":1,"runtimes":[]}`, InventoryMalformed},
 		{`{"formatVersion":1,"revision":1}`, InventoryMalformed},
 		{`{"formatVersion":3,"revision":1}`, InventoryMalformed},
-		{`{"formatVersion":4,"revision":1}`, InventoryNewer},
+		{`{"formatVersion":4,"revision":1}`, InventoryMalformed},
+		{`{"formatVersion":5,"revision":1}`, InventoryNewer},
 		{`{"formatVersion":0,"revision":1}`, InventoryOlder},
 		{string(legacyWire(t, 1, 1)), InventoryRuntimeProfilePreStable},
 		{string(legacyWire(t, 2, 1)), InventoryRuntimeProfilePreStable},

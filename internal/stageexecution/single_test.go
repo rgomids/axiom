@@ -86,7 +86,7 @@ func singleFixtureWithPreview(t *testing.T, preview string) (*fakeSingleStore, S
 	t.Helper()
 	c := currentContract(t)
 	c.Graph = nil
-	p := c.Execution.Binding.ResolvedProfile
+	p := c.Execution.Binding.FrozenProfile
 	c.Execution.ExecutionID, c.Execution.ProjectID, c.Execution.RepositoryKey, c.Execution.Stage, c.Execution.Revision = "00000000-0000-4000-8000-000000000001", "project", "main", "intake", 2
 	c.Execution.StorageRevision = sha256.Sum256([]byte("execution3"))
 	scope := executiongraph.SingleStageScope{ProjectID: "project", RepositoryKey: "main", WorkItem: "github:owner/repo#7", ExecutionID: c.Execution.ExecutionID, StageID: "intake"}
@@ -96,13 +96,13 @@ func singleFixtureWithPreview(t *testing.T, preview string) (*fakeSingleStore, S
 	}
 	created := time.Unix(1000, 0).UTC()
 	generation := fmt.Sprintf("%x", c.Execution.StorageRevision)
-	binding := executiongraph.SingleStageBinding{ExecutionGeneration: generation, WorkflowRevision: 2, PreviewDigest: preview, ProposalDigest: strings.Repeat("8", 64), InputDigest: strings.Repeat("9", 64), AxiomDigest: strings.Repeat("a", 64), Workspace: "/synthetic/worktree", Inbox: "/synthetic/inbox", Effects: []executiongraph.Effect{}, Controls: executiongraph.ExecutionControls{Timeout: 5 * time.Second, MaximumAttempts: 3}, Resolution: executiongraph.Resolution{ResolvedProfile: p, RuntimeID: p.RuntimeID, ModelProfileID: p.ProfileID, ConfigurationRevision: p.ConfigurationRevision, ObservationRevision: p.ObservationRevision}}
+	binding := executiongraph.SingleStageBinding{ExecutionGeneration: generation, WorkflowRevision: 2, PreviewDigest: preview, ProposalDigest: strings.Repeat("8", 64), InputDigest: strings.Repeat("9", 64), AxiomDigest: strings.Repeat("a", 64), Workspace: "/synthetic/worktree", Inbox: "/synthetic/inbox", Effects: []executiongraph.Effect{}, Controls: executiongraph.ExecutionControls{Timeout: 5 * time.Second, MaximumAttempts: 3, ReasoningEffort: p.Effort.Value}, Resolution: executiongraph.Resolution{FrozenProfile: p, RuntimeID: p.RuntimeID, ModelProfileID: p.ProfileID, ConfigurationRevision: p.ConfigurationRevision, ObservationRevision: p.ObservationRevision}}
 	a := executiongraph.SingleStageAuthority{FormatVersion: 2, Scope: executiongraph.SingleStageAuthorityScope, ProjectID: "project", ExecutionID: scope.ExecutionID, StageID: "intake", ScopeDigest: digest, ExecutionGeneration: generation, WorkflowRevision: 2, PreviewDigest: binding.PreviewDigest, DispatchDigest: binding.PreviewDigest, ProposalDigest: binding.ProposalDigest, AttemptNumber: 1, Effects: []executiongraph.Effect{}, Disposition: executiongraph.DispositionNotRequired, ActorKind: "human-operator", Actor: "op", RecordedAt: created}
 	ref, err := executiongraph.SingleStageAuthorityDigest(a)
 	if err != nil {
 		t.Fatal(err)
 	}
-	run := executiongraph.SingleStageRun{Kind: executiongraph.SingleStageRunKind, FormatVersion: 1, ScopeDigest: digest, Scope: scope, Binding: binding, CreatedAt: created, Authorities: []string{ref}, Attempts: []executiongraph.SuccessorAttempt{}, StorageRevision: sha256.Sum256([]byte("ledger"))}
+	run := executiongraph.SingleStageRun{Kind: executiongraph.SingleStageRunKind, FormatVersion: 2, ScopeDigest: digest, Scope: scope, Binding: binding, CreatedAt: created, Authorities: []string{ref}, Attempts: []executiongraph.SuccessorAttempt{}, StorageRevision: sha256.Sum256([]byte("ledger"))}
 	if err := executiongraph.ValidateSingleStageRun(run); err != nil {
 		t.Fatal(err)
 	}
@@ -249,7 +249,7 @@ func TestSingleSupervisorCancellationAndDrift(t *testing.T) {
 }
 
 func TestResumeSingleStartsOnlyThePendingReceipt(t *testing.T) {
-	service, _, compiler, _ := previewFixture(t, true)
+	service, _, compiler := previewFixture(t, true)
 	reviewed, err := service.Preview(context.Background(), compiler.plan.Execution, compiler.plan.StageID)
 	if err != nil {
 		t.Fatal(err)

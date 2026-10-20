@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/rgomids/axiom/internal/capabilityproof"
 	"github.com/rgomids/axiom/internal/cli"
 	"github.com/rgomids/axiom/internal/completion"
 	"github.com/rgomids/axiom/internal/executiongraph"
@@ -114,98 +113,37 @@ func (s lifecycleService) dispatchPreview(ctx context.Context, stores stageStore
 			return stageexecution.PreviewService{}, stageexecution.ErrPreview
 		}
 	}
-	capabilities, err := productionCapabilityService(s.stateRoot, s.runtimes.lookPath, stageOperation{repository: t.repository.Path, workspaceRoot: root, consented: in.AuthorizeLocal})
-	if err != nil {
-		return stageexecution.PreviewService{}, err
-	}
-	policy, err := s.stageRuntimePolicy(ctx, stores, capabilities)
+	policy, err := s.stageRuntimePolicy(ctx, t.repository.Path, in.AuthorizeLocal)
 	if err != nil {
 		return stageexecution.PreviewService{}, err
 	}
 	compiler := workflowcompiler.New(policy, stagePolicyCapabilities{policy: policy, projectID: t.state.ProjectID})
-	return stageexecution.PreviewService{Source: dispatchObservation{s: s, stores: stores, target: t, input: in, policy: policy, compiler: compiler, root: root}, Compiler: compiler, Capabilities: capabilities}, nil
+	return stageexecution.PreviewService{Source: dispatchObservation{s: s, stores: stores, target: t, input: in, policy: policy, compiler: compiler, root: root}, Compiler: compiler}, nil
 }
 
-// stagePolicy scopes proof observation to the Runtime/Profile and variant of
-// each compiler request. The same request is repeated for dispatch Check.
 type stagePolicy struct {
-	s            lifecycleService
-	stores       stageStores
-	capabilities capabilityproof.Service
+	s        lifecycleService
+	runtimes runtimeObservationSources
 }
 
-func (p stagePolicy) service(ctx context.Context, r runtimeapplication.Request) (runtimeapplication.Service, error) {
+func (p stagePolicy) service() runtimeapplication.Service {
 	if p.s.RuntimePolicySource != nil {
-		return runtimeapplication.New(p.s.RuntimePolicySource), nil
+		return runtimeapplication.New(p.s.RuntimePolicySource)
 	}
-	snapshot, err := p.stores.profiles.Inspect(ctx)
-	if err != nil {
-		return runtimeapplication.Service{}, err
-	}
-	consumer, code := runtimeapplication.ConsumerFromRecordV3(snapshot.State, snapshot.V3)
-	if code != "" {
-		return runtimeapplication.Service{}, runtimeapplication.LocalStateError{State: snapshot.State}
-	}
-	cfg := consumer.Configuration()
-	// The policy request carries capabilities, not effects; the mode is taken
-	// from them explicitly. A mode differing from preview/dispatch selects
-	// another EvidenceRef and is rejected as stale, never admitted.
-	variant, process := capabilityproof.ReadOnlyVariant, false
-	for _, c := range r.Capabilities {
-		switch c {
-		case capabilityproof.RepositoryWrite:
-			variant = capabilityproof.RepositoryWriteVariant
-		case capabilityproof.Process:
-			process = true
-		}
-	}
-	runtimes := p.s.runtimeObservationSources()
-	runtimes.capability = &p.capabilities
-	chosen := r.ModelProfileID
-	if chosen == "" {
-		for _, v := range cfg.Preferences {
-			if v.Role == r.Role && v.Complexity == r.Complexity {
-				chosen = v.ModelProfileID
-			}
-		}
-	}
-	seen := map[string]bool{}
-	for _, profile := range cfg.ModelProfiles {
-		if r.RuntimeID != "" && profile.RuntimeID != r.RuntimeID || chosen != "" && profile.ID != chosen || seen[profile.RuntimeID] {
-			continue
-		}
-		seen[profile.RuntimeID] = true
-		runtimes.capabilityTargets = append(runtimes.capabilityTargets, capabilityproof.Target{RuntimeID: profile.RuntimeID, ProfileID: profile.ID, Variant: variant, Process: process})
-	}
-	// The version is observed passively from the embedded registry for the
-	// freshly observed executable identity (PM-5a), never from a capability
-	// observation or Evidence.
-	registry, err := runtimeadapter.EmbeddedVersionObserver()
-	if err != nil {
-		return runtimeapplication.Service{}, err
-	}
-	runtimes.version = registry.Version
-	return runtimeapplication.New(runtimePolicySource{installation: p.s.installation, portable: p.s.portable, stateRoot: p.s.stateRoot, runtimes: runtimes}), nil
+	return runtimeapplication.New(runtimePolicySource{installation: p.s.installation, portable: p.s.portable, stateRoot: p.s.stateRoot, runtimes: p.runtimes})
 }
 func (p stagePolicy) Preview(ctx context.Context, id string, r runtimeapplication.Request) (runtimeapplication.Preview, error) {
-	service, err := p.service(ctx, r)
-	if err != nil {
-		return runtimeapplication.Preview{}, err
-	}
-	return service.Preview(ctx, id, r)
+	return p.service().Preview(ctx, id, r)
 }
 func (p stagePolicy) Check(ctx context.Context, preview runtimeapplication.Preview) (runtimeapplication.Binding, error) {
-	service, err := p.service(ctx, preview.Request)
-	if err != nil {
-		return runtimeapplication.Binding{}, err
-	}
-	return service.Check(ctx, preview)
+	return p.service().Check(ctx, preview)
 }
-func (s lifecycleService) stageRuntimePolicy(ctx context.Context, stores stageStores, capabilities capabilityproof.Service) (stagePolicy, error) {
+
+func (s lifecycleService) stageRuntimePolicy(ctx context.Context, repository string, consented bool) (stagePolicy, error) {
 	if ctx.Err() != nil {
 		return stagePolicy{}, ctx.Err()
 	}
-	return stagePolicy{s: s, stores: stores, capabilities: capabilities}, nil
+	return stagePolicy{s: s, runtimes: s.runtimeObservationSources().scoped(repository, consented)}, nil
 }
 
 type retainedPublisher struct {
@@ -224,12 +162,12 @@ func (p *retainedPublisher) Commit(ctx context.Context, v stageexecution.Publica
 	}
 	if v.Single != nil {
 		run := v.Single.Run
-		if _, err = p.Singles.CommitDispatchInputs(ctx, executiongraph.DispatchInputs{FormatVersion: 1, ProjectID: run.Scope.ProjectID, ParentID: run.Scope.ExecutionID, PreviewDigest: run.Binding.PreviewDigest, Preview: wire}); err != nil {
+		if _, err = p.Singles.CommitDispatchInputs(ctx, executiongraph.DispatchInputs{FormatVersion: executiongraph.OperationalDispatchInputsVersion, ProjectID: run.Scope.ProjectID, ParentID: run.Scope.ExecutionID, PreviewDigest: run.Binding.PreviewDigest, Preview: wire}); err != nil {
 			return err
 		}
 		return p.LocalPublisher.Commit(ctx, v)
 	}
-	if _, err = p.Graphs.CommitDispatchInputs(ctx, executiongraph.DispatchInputs{FormatVersion: 1, ProjectID: v.Authority.ProjectID, ParentID: v.Authority.ParentID, PreviewDigest: v.Authority.PreviewDigest, Preview: wire}); err != nil {
+	if _, err = p.Graphs.CommitDispatchInputs(ctx, executiongraph.DispatchInputs{FormatVersion: executiongraph.OperationalDispatchInputsVersion, ProjectID: v.Authority.ProjectID, ParentID: v.Authority.ParentID, PreviewDigest: v.Authority.PreviewDigest, Preview: wire}); err != nil {
 		return err
 	}
 	return p.LocalPublisher.Commit(ctx, v)

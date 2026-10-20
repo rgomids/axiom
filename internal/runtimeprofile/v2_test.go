@@ -1,8 +1,6 @@
 package runtimeprofile
 
 import (
-	"context"
-	"encoding/json"
 	"errors"
 	"reflect"
 	"strings"
@@ -110,57 +108,6 @@ func TestV2CanonicalProfileEffortAndBounds(t *testing.T) {
 		t.Fatal("33 profiles accepted")
 	}
 }
-func exactProof(c Configuration, o Observation) ProfileProof {
-	p := c.ModelProfiles[0]
-	return ProfileProof{CapabilityStatus: map[string]CapabilityStatus{"go": CapabilityProven, "repository-write": CapabilityProven}, RuntimeID: p.RuntimeID, Model: p.Model, Effort: p.Effort, ExecutableDigest: o.ExecutableDigest, RuntimeVersion: o.Version, InvocationMode: "noninteractive", ObservationRevision: o.Revision, Reference: "injected-proof", EffortSourceDigest: strings.Repeat("b", 64), Authentication: CapabilityProven, ModelAvailability: CapabilityProven, EffortSupport: CapabilityProven, NoOverride: CapabilityProven}
-}
-func TestV2SelectsProfileBeforeProofAndNeverFallsBack(t *testing.T) {
-	c := testV2()
-	o := testObservation("codex", "codex", true)
-	o.ExecutableDigest = strings.Repeat("a", 64)
-	obs := &fakeObserver{observations: map[string]Observation{"codex": o}}
-	request := Request{ConfigurationRevision: 7, Role: "implementation", Complexity: "high", Capabilities: []string{"go"}, ModelProfileID: c.ModelProfiles[0].ID}
-	r := NewResolver(obs)
-	result, err := r.Resolve(context.Background(), c, request)
-	if err == nil || result.Blocker.Code != "effort_unproven" {
-		t.Fatal("missing proof accepted")
-	}
-	proof := exactProof(c, o)
-	o.ProfileProofs = []ProfileProof{proof}
-	obs.observations["codex"] = o
-	result, err = r.Resolve(context.Background(), c, request)
-	if err != nil || result.Choice.ResolvedProfile == nil || ValidateResolvedProfile(*result.Choice.ResolvedProfile) != nil {
-		t.Fatalf("exact injected proof refused: %v", err)
-	}
-	saved := *result.Choice.ResolvedProfile
-	o.ProfileProofs[0].Reference = "changed"
-	if *result.Choice.ResolvedProfile != saved {
-		t.Fatal("resolved projection aliased evidence")
-	}
-	for _, mutate := range []func(*ProfileProof){func(p *ProfileProof) { p.Model = "other" }, func(p *ProfileProof) { p.ObservationRevision++ }, func(p *ProfileProof) { p.Effort.Value = "low" }, func(p *ProfileProof) { p.ExecutableDigest = strings.Repeat("c", 64) }, func(p *ProfileProof) { p.RuntimeVersion = "different" }, func(p *ProfileProof) { p.InvocationMode = "interactive" }, func(p *ProfileProof) { p.Authentication = CapabilityDeclared }, func(p *ProfileProof) { p.ModelAvailability = CapabilityDeclared }, func(p *ProfileProof) { p.EffortSupport = CapabilityDeclared }, func(p *ProfileProof) { p.NoOverride = CapabilityDeclared }, func(p *ProfileProof) { p.EffortSourceDigest = "" }} {
-		bad := proof
-		mutate(&bad)
-		o.ProfileProofs = []ProfileProof{bad}
-		obs.observations["codex"] = o
-		if _, err := r.Resolve(context.Background(), c, request); err == nil {
-			t.Fatal("mismatched/unproven evidence accepted")
-		}
-	}
-	// Both candidates remain ambiguous even though only the first has proof.
-	c.Preferences = nil
-	p := c.ModelProfiles[0]
-	p.ID = "alternative"
-	p.Effort.Value = "low"
-	c.ModelProfiles = append(c.ModelProfiles, p)
-	c.Runtimes[0].AllowlistedProfileIDs = append(c.Runtimes[0].AllowlistedProfileIDs, p.ID)
-	o.ProfileProofs = []ProfileProof{proof}
-	obs.observations["codex"] = o
-	request.ModelProfileID = ""
-	result, err = r.Resolve(context.Background(), c, request)
-	if !errors.Is(err, ErrAmbiguousMatch) || result.Blocker.Code != "ambiguous_match" {
-		t.Fatal("proof used as tie breaker")
-	}
-}
 func TestV2UnsafePayloadNeverEchoed(t *testing.T) {
 	for _, v := range []string{"https://example.invalid/token=synthetic", "%2574oken%253Dsynthetic", "C:\\Users\\operator\\private", "$(command)", "token\n=synthetic", "sk-synthetic"} {
 		c := testV2()
@@ -199,24 +146,6 @@ func TestExactV2AndTombstoneMemberNames(t *testing.T) {
 		mixed := strings.Replace(string(legacy), `"model":"local-codex-model"`, `"model":"local-codex-model",`+effort, 1)
 		if _, err := Decode([]byte(mixed)); err == nil {
 			t.Fatal("legacy mixed ownership accepted")
-		}
-	}
-}
-func TestLegacyResolutionRedactsUnsafeProfileIDs(t *testing.T) {
-	cfg := testConfiguration()
-	cfg.Preferences = nil
-	cfg.ModelProfiles[0].ID = "sk-synthetic"
-	cfg.Runtimes[0].AllowlistedProfileIDs = []string{"sk-synthetic"}
-	observer := &fakeObserver{observations: map[string]Observation{"codex": testObservation("codex", "codex", true), "claude": testObservation("claude", "claude", true)}}
-	req := Request{ConfigurationRevision: 7, Role: "implementation", Complexity: "high", Capabilities: []string{"go"}}
-	for _, ambiguous := range []bool{false, true} {
-		if ambiguous {
-			cfg.ModelProfiles[1].Complexities = []string{"high"}
-		}
-		result, _ := NewResolver(observer).Resolve(context.Background(), cfg, req)
-		wire, _ := json.Marshal(result)
-		if strings.Contains(string(wire), "sk-synthetic") {
-			t.Fatal("legacy resolution exposed known unsafe profile ID")
 		}
 	}
 }

@@ -21,7 +21,6 @@ import (
 	"github.com/rgomids/axiom/internal/manifest"
 	"github.com/rgomids/axiom/internal/project"
 	"github.com/rgomids/axiom/internal/projectapp"
-	"github.com/rgomids/axiom/internal/runtimeadapter"
 	"github.com/rgomids/axiom/internal/runtimeapplication"
 	"github.com/rgomids/axiom/internal/runtimeprofile"
 	"github.com/rgomids/axiom/internal/workflowcompiler"
@@ -98,7 +97,7 @@ func TestWorkflowStagePlanExecutableFailsClosedAndNeverMutates(t *testing.T) {
 	}
 	run(0, "--json", "runtime", "codex", "install")
 	selector := []string{"--project", "external", "--repository", "main", "--work-item", "github:owner/repo#7"}
-	start := append(append([]string{"--json", "workflow", "start"}, selector...), "--role", "implementation", "--complexity", "high", "--capabilities", runtimeadapter.IntegrationCapability)
+	start := append(append([]string{"--json", "workflow", "start"}, selector...), "--role", "implementation", "--complexity", "high", "--capabilities", "axiom-skills")
 	// Production composition injects no Profile proof, so the public start
 	// fails closed before any Execution exists (Specification 007 PM-7).
 	_, preview := run(1, start...)
@@ -229,7 +228,7 @@ func installStagePlanPolicy(t *testing.T, stateRoot, id string) {
 	if err := os.WriteFile(recordPath, wire, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	capabilities := []string{runtimeadapter.IntegrationCapability, "read", "repository-write"}
+	capabilities := []string{"axiom-skills", "read", "repository-write"}
 	cfg := runtimeprofile.ConfigurationV3{FormatVersion: runtimeprofile.FormatVersionV3, Revision: 1}
 	for _, runtimeID := range []string{"codex", "claude"} {
 		cfg.Runtimes = append(cfg.Runtimes, runtimeprofile.RuntimeV3{ID: runtimeID, Adapter: runtimeID, Enabled: true, AllowlistedProfileIDs: []string{"profile-" + runtimeID}})
@@ -238,11 +237,9 @@ func installStagePlanPolicy(t *testing.T, stateRoot, id string) {
 	publishRuntimeProfileV3(t, stateRoot, cfg)
 }
 
-// controlledObservations replaces only the machine observer: Project policy
-// and local configuration are still read from the real installed stores.
 type controlledObservations struct {
 	base         runtimeapplication.Source
-	observations []runtimeprofile.Observation
+	observations []runtimeprofile.OperationalObservation
 }
 
 func (s *controlledObservations) Load(ctx context.Context, id string) (runtimeapplication.Snapshot, error) {
@@ -250,48 +247,25 @@ func (s *controlledObservations) Load(ctx context.Context, id string) (runtimeap
 	if err != nil {
 		return snapshot, err
 	}
-	inventory, err := runtimeadapter.NewInventory(s.observations)
-	if err != nil {
-		return runtimeapplication.Snapshot{}, err
-	}
-	// Canonical v3 policy consumes injected per-Profile proofs; nothing here
-	// acquires proof (Specification 007 PM-7).
-	if cfg := snapshot.Consumer.Configuration(); snapshot.Consumer.Digest() != "" {
-		observations := append([]runtimeprofile.Observation(nil), s.observations...)
-		for i := range observations {
-			o := &observations[i]
-			o.Revision = cfg.Revision
-			o.ProfileProofs = nil
-			status := runtimeprofile.CapabilityProven
-			if len(o.NonInteractiveModelCapabilities) == 0 {
-				status = runtimeprofile.CapabilityDeclared
-			}
-			for _, profile := range cfg.ModelProfiles {
-				if profile.RuntimeID != o.RuntimeID {
-					continue
-				}
-				o.ProfileProofs = append(o.ProfileProofs, runtimeprofile.ProfileProof{RuntimeID: o.RuntimeID, Model: profile.Model, Effort: profile.Effort, ExecutableDigest: o.ExecutableDigest, RuntimeVersion: o.Version, InvocationMode: "noninteractive", ObservationRevision: o.Revision, Reference: "injected-stage-proof", EffortSourceDigest: strings.Repeat("a", 64), Authentication: runtimeprofile.CapabilityProven, ModelAvailability: runtimeprofile.CapabilityProven, EffortSupport: status, NoOverride: runtimeprofile.CapabilityProven, CapabilityStatus: o.CapabilityStatus})
-			}
-		}
-		inventory, err = runtimeadapter.NewInventory(observations)
-		if err != nil {
-			return runtimeapplication.Snapshot{}, err
-		}
-	}
-	snapshot.Observer = inventory
+	snapshot.Observer = s
 	return snapshot, nil
 }
-
-func provenObservations(effort bool) []runtimeprofile.Observation {
-	var observations []runtimeprofile.Observation
+func (s *controlledObservations) ObserveExecutable(ctx context.Context, id string) (runtimeprofile.OperationalObservation, error) {
+	for _, o := range s.observations {
+		if o.RuntimeID == id {
+			return o, nil
+		}
+	}
+	return runtimeprofile.OperationalObservation{}, runtimeprofile.ErrExecutableUnavailable
+}
+func (s *controlledObservations) ObserveOperational(ctx context.Context, id, profile string) (runtimeprofile.OperationalObservation, error) {
+	return s.ObserveExecutable(ctx, id)
+}
+func operationalObservations() []runtimeprofile.OperationalObservation {
+	var observations []runtimeprofile.OperationalObservation
 	for _, runtimeID := range []string{"codex", "claude"} {
 		hash := sha256.Sum256([]byte(runtimeID))
-		proven := map[string]runtimeprofile.CapabilityStatus{runtimeadapter.IntegrationCapability: runtimeprofile.CapabilityProven, "read": runtimeprofile.CapabilityProven, "repository-write": runtimeprofile.CapabilityProven, "reasoning-effort-medium": runtimeprofile.CapabilityProven, "reasoning-effort-high": runtimeprofile.CapabilityProven}
-		model := map[string]map[string]runtimeprofile.CapabilityStatus{}
-		if effort {
-			model["local-"+runtimeID+"-model"] = map[string]runtimeprofile.CapabilityStatus{"reasoning-effort-medium": runtimeprofile.CapabilityProven, "reasoning-effort-high": runtimeprofile.CapabilityProven}
-		}
-		observations = append(observations, runtimeprofile.Observation{RuntimeID: runtimeID, Adapter: runtimeID, Installed: true, Available: true, Version: "test-1.0", ExecutableDigest: hex.EncodeToString(hash[:]), Revision: 1, ObservedAt: time.Unix(1, 0).UTC(), CapabilityStatus: proven, NonInteractiveModelCapabilities: model})
+		observations = append(observations, runtimeprofile.OperationalObservation{RuntimeID: runtimeID, Adapter: runtimeID, Installed: true, Available: true, ExecutableDigest: hex.EncodeToString(hash[:]), Revision: 1, ObservedAt: time.Unix(1, 0).UTC(), InvocationMode: "noninteractive", EffortSourceDigest: strings.Repeat("a", 64)})
 	}
 	return observations
 }
@@ -303,7 +277,7 @@ func TestWorkflowStagePlanPublicJourneySingleAndMixedRuntimeGraph(t *testing.T) 
 	installLinkedTarget(t, env)
 	installStagePlanPolicy(t, env.state, workItemSourceProjectID)
 	service := currentProfileStartFixture(t, env.service.(lifecycleService), env.state)
-	observed := &controlledObservations{base: runtimePolicySource{installation: service.installation, portable: service.portable, stateRoot: env.state, runtimes: service.runtimeObservationSources()}, observations: provenObservations(true)}
+	observed := &controlledObservations{base: runtimePolicySource{installation: service.installation, portable: service.portable, stateRoot: env.state, runtimes: service.runtimeObservationSources()}, observations: operationalObservations()}
 	service.RuntimePolicySource = observed
 	ctx := context.Background()
 	invoke := func(code int, args ...string) []byte {
@@ -370,7 +344,7 @@ func TestWorkflowStagePlanPublicJourneySingleAndMixedRuntimeGraph(t *testing.T) 
 	if drifted := run(0, planArgs(a, "intake", single)...); drifted.Plan.Digest == p.Digest {
 		t.Fatal("Runtime observation drift did not require a new proposal")
 	}
-	observed.observations = provenObservations(true)
+	observed.observations = operationalObservations()
 
 	// B: new schema-2 copy with an explicit Profile per agent and independent Codex/Claude DAG.
 	historicalWire, err := os.ReadFile("../../docs/specifications/007-configurable-workflows/examples/custom-r1.json")
@@ -502,11 +476,6 @@ func TestWorkflowStagePlanPublicJourneySingleAndMixedRuntimeGraph(t *testing.T) 
 			t.Fatalf("scope %q outside the Repository accepted: %+v", target, escaped)
 		}
 	}
-	observed.observations = provenObservations(false)
-	if unsupported := run(1, planArgs(b, "implementation", graphPlan)...); unsupported.Category != "runtime_unresolvable" {
-		t.Fatalf("unproven model effort accepted: %+v", unsupported)
-	}
-	observed.observations = provenObservations(true)
 	observed.observations[1].Available = false
 	if unavailable := run(1, planArgs(b, "implementation", graphPlan)...); unavailable.Category != "runtime_unresolvable" {
 		t.Fatalf("unavailable Claude fell back: %+v", unavailable)

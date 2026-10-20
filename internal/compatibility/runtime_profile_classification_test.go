@@ -65,7 +65,7 @@ func TestRuntimeProfileUpgradeClassification(t *testing.T) {
 		{"malformed v1", "configuration.json", []byte(`{"formatVersion":1,"revision":1}`), local.InventoryMalformed, Malformed, StrategyRefuse, OutcomeUnsafe, false},
 		{"malformed v2", "configuration.json", []byte(`{"formatVersion":2,"revision":1,"runtimes":[]}`), local.InventoryMalformed, Malformed, StrategyRefuse, OutcomeUnsafe, false},
 		{"malformed v3", "configuration.json", bytes.Replace(v3, []byte(`"revision":1`), []byte(`"revision":0`), 1), local.InventoryMalformed, Malformed, StrategyRefuse, OutcomeUnsafe, false},
-		{"future", "configuration.json", bytes.Replace(v3, []byte(`"formatVersion":3`), []byte(`"formatVersion":4`), 1), local.InventoryNewer, UnsupportedNewer, StrategyRefuse, OutcomeUnsupported, false},
+		{"future", "configuration.json", bytes.Replace(v3, []byte(`"formatVersion":3`), []byte(`"formatVersion":99`), 1), local.InventoryNewer, UnsupportedNewer, StrategyRefuse, OutcomeUnsupported, false},
 		{"pending", ".axiom-recovery-configuration.json", v3, local.InventoryRecovery, RecoveryRequired, StrategyRefuse, OutcomeRecoveryRequired, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

@@ -15,7 +15,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/rgomids/axiom/internal/capabilityproof"
 	"github.com/rgomids/axiom/internal/cli"
 	"github.com/rgomids/axiom/internal/completion"
 	"github.com/rgomids/axiom/internal/coordination"
@@ -83,6 +82,9 @@ func (s lifecycleService) WorkflowStage(ctx context.Context, in cli.WorkflowStag
 			switch in.Operation {
 			case "run", "status", "cancel", "retry", "reconcile", "integrate":
 				d.Operation = "workflow stage " + in.Operation
+				if d.Attempt != nil && (in.Operation == "run" || in.Operation == "retry") {
+					d.Attempt.Operation = "stage-" + in.Operation
+				}
 			case "coordination-list", "coordination-show", "coordination-publish":
 				d.Operation = "workflow coordination " + strings.TrimPrefix(in.Operation, "coordination-")
 			default:
@@ -229,25 +231,11 @@ func (s lifecycleService) stageContract(ctx context.Context, stores stageStores,
 		// The Workflow was explicitly selected when this Execution was bound.
 		c.WorkflowSelected = state.Binding.SchemaVersion == 2
 	}
-	// Stage admission (AdmitV3) derives the frozen Profile's availability from
-	// the canonical v3 record; a removed, disallowed or disabled Profile blocks
-	// and nothing falls back to another Profile, model, Runtime or effort.
 	snapshot, err := stores.profiles.Inspect(ctx)
 	if err != nil {
 		return c, stageexecution.ErrProfileEffortUnconfigured
 	}
-	switch snapshot.State {
-	case "active-v3":
-		c.Record = runtimeprofile.RecordActiveV3
-		c.Configuration = runtimeprofile.VersionedConfiguration{FormatVersion: runtimeprofile.FormatVersionV3, V3: snapshot.V3}
-	case "retired":
-		c.Record = runtimeprofile.RecordRetiredV3
-	case "fresh":
-		c.Record = runtimeprofile.RecordMissingV3
-	default:
-		// Pre-stable records are never current configuration (PM-11, B1).
-		return c, stageexecution.ErrProfileEffortUnconfigured
-	}
+	c.Record, c.Configuration = snapshot.State, snapshot.V4
 	return c, nil
 }
 
@@ -344,6 +332,11 @@ func (s lifecycleService) stageSuccess(category, message string, references []st
 // stageError maps application errors to canonical status and category. It
 // never upgrades an uncertain outcome.
 func (s lifecycleService) stageError(err error, payload any) cli.WorkflowStageResponse {
+	if d := stageexecution.PreSpawnDiagnostic(err, "stage-preview"); d != nil {
+		out := s.stageFailure(completion.ValidationFailure, d.Code, "Stage operation refused", d.NextAction, payload)
+		out.Result.Diagnostic.Attempt = d
+		return out
+	}
 	type rule struct {
 		target   error
 		status   completion.Status
@@ -365,8 +358,7 @@ func (s lifecycleService) stageError(err error, payload any) cli.WorkflowStageRe
 		{executiongraph.ErrMissingOwner, completion.ValidationFailure, "invalid_stage_topology", "Review stage dependencies, ownership and overlapping effects before a fresh preview"},
 		{executiongraph.ErrInvalidPlan, completion.ValidationFailure, "invalid_stage_plan", "Review the bounded stage Plan and its execution controls before a fresh preview"},
 		{workflowcompiler.ErrInvalidRequest, completion.ValidationFailure, "invalid_stage_plan", "Review the bounded stage Plan and its execution controls before a fresh preview"},
-		{workflowcompiler.ErrRuntimeBlocked, completion.ValidationFailure, "runtime_unresolvable", "Inspect the Project Runtime policy, Profiles and current capability Evidence"},
-		{capabilityproof.ErrBlocked, completion.ValidationFailure, "capability_unknown", "Inspect capability Evidence and producer support; a probe needs its own supported observation, envelope and authority"},
+		{workflowcompiler.ErrRuntimeBlocked, completion.ValidationFailure, "runtime_unresolvable", "Inspect the Project Runtime policy and local Profiles, then request a fresh preview"},
 		{stageexecution.ErrReconcileLeaseHeld, completion.ValidationFailure, "reconcile_lease_held", "Wait for the supervisor to finish or cancel the stage"},
 		{stageexecution.ErrReconcileOrphanAlive, completion.ValidationFailure, "stop_orphan_then_reconcile", "Inspect recorded process identity and liveness; wait or hand off a separately authorized stop before reconciliation"},
 		{stageexecution.ErrReconcileIneligible, completion.ValidationFailure, "reconcile_not_required", "Only stale or unknown latest attempts are reconciled"},
@@ -391,6 +383,10 @@ func (s lifecycleService) stageError(err error, payload any) cli.WorkflowStageRe
 		{local.ErrConflict, completion.RetryableFailure, "temporarily_unavailable", "A concurrent stage operation holds the lease; retry the read first"},
 		{local.ErrRecoveryRequired, completion.Failure, "recovery_required", "Run recovery inspect and apply the reviewed plan"},
 		{executiongraph.ErrInvalidGraph, completion.Failure, "recovery_required", "Inspect stage status and recovery state"},
+	}
+	var blocker runtimeprofile.Blocker
+	if errors.As(err, &blocker) && workflowcompiler.OperationalRefusal(blocker.Code) {
+		return s.stageFailure(completion.ValidationFailure, blocker.Code, "Stage operation refused", operationalNext(blocker.Code), payload)
 	}
 	for _, r := range rules {
 		if errors.Is(err, r.target) {

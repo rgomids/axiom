@@ -11,11 +11,11 @@ import (
 func effortObjectIdentity(file *os.File) (string, error) {
 	info, err := file.Stat()
 	if err != nil {
-		return "", ErrEffortConfigurationUnproven
+		return "", ErrEffortConfigurationUnsafe
 	}
 	stat, ok := info.Sys().(*syscall.Stat_t)
 	if !ok {
-		return "", ErrEffortConfigurationUnproven
+		return "", ErrEffortConfigurationUnsafe
 	}
 	return fmt.Sprintf("%d:%d", stat.Dev, stat.Ino), nil
 }

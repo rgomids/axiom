@@ -6,7 +6,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -19,20 +18,8 @@ import (
 	"github.com/rgomids/axiom/internal/runtimeprofile"
 )
 
-var ErrEffortConfigurationUnproven = errors.New("effort_configuration_unproven")
-var ErrEffortOverrideConflict = errors.New("effort_override_conflict")
+var ErrEffortOverrideConflict = runtimeprofile.ErrEffortOverrideConflict
 
-// EffortDeclaration is supplied by the separately authorized capability-proof
-// owner. Axiom supplies no default vendor version, settings key or precedence.
-// Proof acquisition/authentication/inference remain outside this inspector.
-type EffortDeclaration struct {
-	RuntimeID, RuntimeVersion, InvocationMode, ExecutableDigest, ProofReference string
-	PrecedenceProven                                                            bool
-	// Exact supported JSON keys come from authoritative version/mode evidence.
-	JSONKeys        []string
-	EnvironmentKeys []string
-	Sources         []EffortSource
-}
 type EffortSource struct {
 	Scope          string
 	Root, Relative string
@@ -40,10 +27,6 @@ type EffortSource struct {
 	Format string
 	// Directory explicitly consents to the entire bounded managed drop-in inventory.
 	Directory bool
-}
-type EffortInspection struct {
-	Consented   bool
-	Declaration EffortDeclaration
 }
 type effortSourceFact struct {
 	Binding  string `json:"binding,omitempty"`
@@ -53,47 +36,31 @@ type effortSourceFact struct {
 	Selector bool   `json:"selector"`
 }
 
-// CheckEffortSources inspects only explicitly scoped, recognized sources. The
-// canonical digest records safe compatibility facts; raw values/paths are absent.
-func (i EffortInspection) CheckEffortSources(ctx context.Context, p runtimeprofile.ResolvedProfile, inv executiongraph.Invocation) (string, error) {
-	wire, err := i.effortProjection(ctx, p, inv)
-	if err != nil {
-		return "", err
-	}
-	return effortHash(wire), nil
-}
-func (i EffortInspection) effortProjection(ctx context.Context, p runtimeprofile.ResolvedProfile, inv executiongraph.Invocation) ([]byte, error) {
-	if !i.Consented || runtimeprofile.ValidateResolvedProfile(p) != nil {
-		return nil, ErrEffortConfigurationUnproven
-	}
-	return effortSourceProjection(ctx, i.Declaration, effortSubject{p.RuntimeID, p.RuntimeVersion, p.InvocationMode, p.ExecutableDigest, p.Model, p.Effort}, inv)
+type effortIntent struct {
+	RuntimeID, InvocationMode, ExecutableDigest, Model string
+	Effort                                             runtimeprofile.Effort
 }
 
-// effortSubject is the identity the canonical effort-source digest is bound
-// to: the independently observed executable and mode plus the Model Profile's
-// model and effort intent (ADR-0024). It carries no capability proof.
-type effortSubject struct {
-	RuntimeID, RuntimeVersion, InvocationMode, ExecutableDigest, Model string
-	Effort                                                             runtimeprofile.Effort
+type effortRules struct {
+	JSONKeys, EnvironmentKeys []string
+	Sources                   []EffortSource
+	NestedProfiles            bool
 }
 
-// effortSourceProjection is the single canonical PE-05a projection shared by
-// CheckEffortSources and InspectEffortSources; effortHash of it is the
-// EffortSourceDigest. Callers validate p.
-func effortSourceProjection(ctx context.Context, d EffortDeclaration, p effortSubject, inv executiongraph.Invocation) ([]byte, error) {
-	if !d.PrecedenceProven || d.RuntimeID != p.RuntimeID || d.RuntimeVersion != p.RuntimeVersion || d.InvocationMode != p.InvocationMode || d.ExecutableDigest != p.ExecutableDigest || !runtimeprofile.SafeIdentifier(d.ProofReference) || len(d.Sources) > 32 || len(d.JSONKeys) > 16 || len(d.EnvironmentKeys) > 16 || len(inv.Argv) < 4 || inv.RuntimeID != p.RuntimeID {
-		return nil, ErrEffortConfigurationUnproven
+func observeEffortFacts(ctx context.Context, p effortIntent, d effortRules, inv executiongraph.Invocation) ([]effortSourceFact, error) {
+	if ctx.Err() != nil || len(inv.Argv) < 4 || inv.RuntimeID != p.RuntimeID || len(d.Sources) > 32 || len(d.JSONKeys) > 16 || len(d.EnvironmentKeys) > 16 {
+		return nil, ErrEffortConfigurationUnsafe
 	}
 	identity, e := ExecutableIdentity(inv.Argv[0])
 	if e != nil || identity != p.ExecutableDigest {
-		return nil, ErrEffortConfigurationUnproven
+		return nil, ErrEffortConfigurationUnsafe
 	}
 	mode := "exec"
 	if p.RuntimeID == "claude" {
 		mode = "--print"
 	}
 	if inv.Argv[1] != mode || inv.Argv[2] != "--model" || inv.Argv[3] != p.Model {
-		return nil, ErrEffortConfigurationUnproven
+		return nil, ErrEffortConfigurationUnsafe
 	}
 	facts := []effortSourceFact{}
 	args := inv.Argv[4:]
@@ -102,7 +69,7 @@ func effortSourceProjection(ctx context.Context, d EffortDeclaration, p effortSu
 		switch p.RuntimeID {
 		case "codex":
 			if len(args) < 2 || args[len(args)-2] != "--config" || args[len(args)-1] != "model_reasoning_effort="+p.Effort.Value {
-				return nil, ErrEffortConfigurationUnproven
+				return nil, ErrEffortConfigurationUnsafe
 			}
 			args = args[:len(args)-2]
 			facts = append(facts, effortSourceFact{Scope: "argv", Key: "model_reasoning_effort", Present: true, Selector: true})
@@ -117,11 +84,11 @@ func effortSourceProjection(ctx context.Context, d EffortDeclaration, p effortSu
 				}
 			}
 			if count != 1 {
-				return nil, ErrEffortConfigurationUnproven
+				return nil, ErrEffortConfigurationUnsafe
 			}
 			facts = append(facts, effortSourceFact{Scope: "canonical-environment", Key: "CLAUDE_CODE_EFFORT_LEVEL", Present: true, Selector: true})
 		default:
-			return nil, ErrEffortConfigurationUnproven
+			return nil, ErrEffortConfigurationUnsafe
 		}
 	} else {
 		facts = append(facts, effortSourceFact{Scope: "argv", Key: "profile-no-override", Present: true})
@@ -141,17 +108,17 @@ func effortSourceProjection(ctx context.Context, d EffortDeclaration, p effortSu
 	env := executiongraph.EffectiveInvocationEnvironment(inv)
 	keys := append([]string(nil), d.EnvironmentKeys...)
 	if p.RuntimeID == "claude" && !containsKey(keys, "CLAUDE_CODE_EFFORT_LEVEL") {
-		return nil, ErrEffortConfigurationUnproven
+		return nil, ErrEffortConfigurationUnsafe
 	}
 	seenKeys := map[string]bool{}
 	for _, key := range keys {
 		normalized := strings.ToUpper(key)
 		if seenKeys[normalized] {
-			return nil, ErrEffortConfigurationUnproven
+			return nil, ErrEffortConfigurationUnsafe
 		}
 		seenKeys[normalized] = true
 		if !safeEffortKey(key) {
-			return nil, ErrEffortConfigurationUnproven
+			return nil, ErrEffortConfigurationUnsafe
 		}
 		present := false
 		count := 0
@@ -176,26 +143,26 @@ func effortSourceProjection(ctx context.Context, d EffortDeclaration, p effortSu
 	seen := map[string]bool{}
 	for _, source := range d.Sources {
 		if ctx.Err() != nil {
-			return nil, ErrEffortConfigurationUnproven
+			return nil, ErrEffortConfigurationUnsafe
 		}
 		if !recognizedEffortSource(p.RuntimeID, source) || seen[source.Scope+"\x00"+source.Root+"\x00"+source.Relative] {
-			return nil, ErrEffortConfigurationUnproven
+			return nil, ErrEffortConfigurationUnsafe
 		}
 		seen[source.Scope+"\x00"+source.Root+"\x00"+source.Relative] = true
 		wires, present, binding, e := observeEffortSource(source)
 		if e != nil {
-			return nil, ErrEffortConfigurationUnproven
+			return nil, ErrEffortConfigurationUnsafe
 		}
 		selectors := []string{}
 		for _, wire := range wires {
 			var selected []string
 			if source.Format == "toml" {
-				selected, e = tomlEffortSelectors(wire)
+				selected, e = tomlEffortSelectorsBounded(wire, d.NestedProfiles)
 			} else {
 				selected, e = jsonEffortSelectors(wire, d.JSONKeys)
 			}
 			if e != nil {
-				return nil, ErrEffortConfigurationUnproven
+				return nil, ErrEffortConfigurationInvalid
 			}
 			selectors = append(selectors, selected...)
 		}
@@ -221,7 +188,7 @@ func effortSourceProjection(ctx context.Context, d EffortDeclaration, p effortSu
 			found = found || s.Scope == scope
 		}
 		if !found {
-			return nil, ErrEffortConfigurationUnproven
+			return nil, ErrEffortConfigurationUnsafe
 		}
 	}
 	sort.Slice(facts, func(a, b int) bool {
@@ -239,11 +206,7 @@ func effortSourceProjection(ctx context.Context, d EffortDeclaration, p effortSu
 		}
 		return !facts[a].Selector && facts[b].Selector
 	})
-	b, _ := json.Marshal(struct {
-		Proof string             `json:"proof"`
-		Facts []effortSourceFact `json:"facts"`
-	}{d.ProofReference, facts})
-	return b, nil
+	return facts, nil
 }
 
 // effortPathOperand reports whether value is the filesystem operand of one of
@@ -311,11 +274,11 @@ func recognizedEffortSource(runtimeID string, s EffortSource) bool {
 // and every existing ancestor/object identity. Symlinks and special files fail.
 func effortPathBinding(target string) (string, bool, error) {
 	if !filepath.IsAbs(target) || filepath.Clean(target) != target {
-		return "", false, ErrEffortConfigurationUnproven
+		return "", false, ErrEffortConfigurationUnsafe
 	}
 	canonical, e := effortCanonicalTarget(target)
 	if e != nil {
-		return "", false, ErrEffortConfigurationUnproven
+		return "", false, ErrEffortConfigurationUnsafe
 	}
 	target = canonical
 	facts := target
@@ -327,18 +290,18 @@ func effortPathBinding(target string) (string, bool, error) {
 			return effortHash([]byte(facts + "\x00absent:" + current)), false, nil
 		}
 		if e != nil || info.Mode()&os.ModeSymlink != 0 || !info.IsDir() && !info.Mode().IsRegular() {
-			return "", false, ErrEffortConfigurationUnproven
+			return "", false, ErrEffortConfigurationUnsafe
 		}
 		f, e := os.Open(current)
 		if e != nil {
-			return "", false, ErrEffortConfigurationUnproven
+			return "", false, ErrEffortConfigurationUnsafe
 		}
 		opened, e := f.Stat()
 		identity, e2 := effortObjectIdentity(f)
 		f.Close()
 		after, e3 := os.Lstat(current)
 		if e != nil || e2 != nil || e3 != nil || after.Mode()&os.ModeSymlink != 0 || !os.SameFile(info, opened) || !os.SameFile(after, opened) {
-			return "", false, ErrEffortConfigurationUnproven
+			return "", false, ErrEffortConfigurationUnsafe
 		}
 		facts += "\x00" + identity
 	}
@@ -354,36 +317,36 @@ func readEffortSource(s EffortSource) ([]byte, bool, string, error) {
 	}
 	root, e := os.OpenRoot(s.Root)
 	if e != nil {
-		return nil, false, "", ErrEffortConfigurationUnproven
+		return nil, false, "", ErrEffortConfigurationUnsafe
 	}
 	defer root.Close()
 	before, e := root.Lstat(s.Relative)
 	if e != nil || !before.Mode().IsRegular() || before.Size() > maxConfigFileBytes {
-		return nil, false, "", ErrEffortConfigurationUnproven
+		return nil, false, "", ErrEffortConfigurationUnsafe
 	}
 	f, e := root.Open(s.Relative)
 	if e != nil {
-		return nil, false, "", ErrEffortConfigurationUnproven
+		return nil, false, "", ErrEffortConfigurationUnsafe
 	}
 	defer f.Close()
 	opened, e := f.Stat()
 	if e != nil || !os.SameFile(before, opened) {
-		return nil, false, "", ErrEffortConfigurationUnproven
+		return nil, false, "", ErrEffortConfigurationUnsafe
 	}
 	wire, e := io.ReadAll(io.LimitReader(f, maxConfigFileBytes+1))
 	afterBinding, afterPresent, e2 := effortPathBinding(target)
 	after, e3 := f.Stat()
 	if e != nil || e2 != nil || e3 != nil || !afterPresent || beforeBinding != afterBinding || len(wire) > maxConfigFileBytes || opened.Size() != after.Size() || !opened.ModTime().Equal(after.ModTime()) {
-		return nil, false, "", ErrEffortConfigurationUnproven
+		return nil, false, "", ErrEffortConfigurationUnsafe
 	}
 	// Verify a second read against the same object; no in-place rewrite during
 	// this declared observation boundary can produce a hybrid approved wire.
 	if _, e = f.Seek(0, 0); e != nil {
-		return nil, false, "", ErrEffortConfigurationUnproven
+		return nil, false, "", ErrEffortConfigurationUnsafe
 	}
 	again, e := io.ReadAll(io.LimitReader(f, maxConfigFileBytes+1))
 	if e != nil || !bytes.Equal(wire, again) {
-		return nil, false, "", ErrEffortConfigurationUnproven
+		return nil, false, "", ErrEffortConfigurationUnsafe
 	}
 	return wire, true, effortHash([]byte(beforeBinding + "\x00" + effortHash(wire))), nil
 }
@@ -403,22 +366,22 @@ func observeEffortSource(s EffortSource) ([][]byte, bool, string, error) {
 	}
 	root, e := os.OpenRoot(target)
 	if e != nil {
-		return nil, false, "", ErrEffortConfigurationUnproven
+		return nil, false, "", ErrEffortConfigurationUnsafe
 	}
 	defer root.Close()
 	directory, e := root.Open(".")
 	if e != nil {
-		return nil, false, "", ErrEffortConfigurationUnproven
+		return nil, false, "", ErrEffortConfigurationUnsafe
 	}
 	defer directory.Close()
 	entries, e := directory.ReadDir(65)
 	if e != nil && e != io.EOF || len(entries) > 64 {
-		return nil, false, "", ErrEffortConfigurationUnproven
+		return nil, false, "", ErrEffortConfigurationUnsafe
 	}
 	names := make([]string, 0, len(entries))
 	for _, entry := range entries {
 		if !entry.Type().IsRegular() || !strings.HasSuffix(entry.Name(), ".json") {
-			return nil, false, "", ErrEffortConfigurationUnproven
+			return nil, false, "", ErrEffortConfigurationUnsafe
 		}
 		names = append(names, entry.Name())
 	}
@@ -429,7 +392,7 @@ func observeEffortSource(s EffortSource) ([][]byte, bool, string, error) {
 		child := EffortSource{Root: target, Relative: name, Format: "json"}
 		wire, present, binding, e := readEffortSource(child)
 		if e != nil || !present {
-			return nil, false, "", ErrEffortConfigurationUnproven
+			return nil, false, "", ErrEffortConfigurationUnsafe
 		}
 		facts += "\x00" + name + "\x00" + binding
 		wires = append(wires, wire)
@@ -437,12 +400,12 @@ func observeEffortSource(s EffortSource) ([][]byte, bool, string, error) {
 	// Membership and ancestor identities are rechecked before digest admission.
 	check, e := root.Open(".")
 	if e != nil {
-		return nil, false, "", ErrEffortConfigurationUnproven
+		return nil, false, "", ErrEffortConfigurationUnsafe
 	}
 	afterEntries, e := check.ReadDir(65)
 	check.Close()
 	if e != nil && e != io.EOF || len(afterEntries) != len(entries) {
-		return nil, false, "", ErrEffortConfigurationUnproven
+		return nil, false, "", ErrEffortConfigurationUnsafe
 	}
 	afterNames := []string{}
 	for _, entry := range afterEntries {
@@ -453,16 +416,16 @@ func observeEffortSource(s EffortSource) ([][]byte, bool, string, error) {
 	for _, name := range names {
 		_, childPresent, binding, e := readEffortSource(EffortSource{Root: target, Relative: name, Format: "json"})
 		if e != nil || !childPresent {
-			return nil, false, "", ErrEffortConfigurationUnproven
+			return nil, false, "", ErrEffortConfigurationUnsafe
 		}
 		recheckedFacts += "\x00" + name + "\x00" + binding
 	}
 	if recheckedFacts != facts {
-		return nil, false, "", ErrEffortConfigurationUnproven
+		return nil, false, "", ErrEffortConfigurationUnsafe
 	}
 	after, stillPresent, e := effortPathBinding(target)
 	if e != nil || !stillPresent || before != after || strings.Join(names, "\x00") != strings.Join(afterNames, "\x00") {
-		return nil, false, "", ErrEffortConfigurationUnproven
+		return nil, false, "", ErrEffortConfigurationUnsafe
 	}
 	return wires, true, effortHash([]byte(facts)), nil
 }
@@ -530,7 +493,8 @@ func effortTOMLKey(raw string) ([]string, bool) {
 	}
 	return parts, quote == 0
 }
-func tomlEffortSelectors(w []byte) ([]string, error) {
+
+func tomlEffortSelectorsBounded(w []byte, nestedProfiles bool) ([]string, error) {
 	keys := []string{}
 	table := []string{}
 	seen := map[string]bool{}
@@ -552,7 +516,7 @@ func tomlEffortSelectors(w []byte) ([]string, error) {
 		return false
 	}
 	if !utf8.Valid(w) {
-		return nil, ErrEffortConfigurationUnproven
+		return nil, ErrEffortConfigurationUnsafe
 	}
 	for _, raw := range strings.Split(string(w), "\n") {
 		line := strings.TrimSpace(raw)
@@ -561,15 +525,15 @@ func tomlEffortSelectors(w []byte) ([]string, error) {
 		}
 		comment := indexOutsideQuotes(line, "#")
 		if comment == -2 {
-			return nil, ErrEffortConfigurationUnproven
+			return nil, ErrEffortConfigurationUnsafe
 		}
 		if comment >= 0 {
 			line = strings.TrimSpace(line[:comment])
 		}
 		if header, ok := tomlHeader(line); ok {
 			segments, valid := effortTOMLKey(header)
-			if !valid || strings.HasPrefix(line, "[[") || containsKey(segments, "profiles") || tables[identity(segments)] || conflicts(segments) {
-				return nil, ErrEffortConfigurationUnproven
+			if !valid || strings.HasPrefix(line, "[[") || !nestedProfiles && containsKey(segments, "profiles") || tables[identity(segments)] || conflicts(segments) {
+				return nil, ErrEffortConfigurationUnsafe
 			}
 			table = segments
 			tables[identity(segments)] = true
@@ -577,15 +541,15 @@ func tomlEffortSelectors(w []byte) ([]string, error) {
 		}
 		key, value, ok := tomlKeyValue(line)
 		if !ok || !validEffortTOMLScalar(value) {
-			return nil, ErrEffortConfigurationUnproven
+			return nil, ErrEffortConfigurationUnsafe
 		}
 		segments, ok := effortTOMLKey(key)
 		if !ok {
-			return nil, ErrEffortConfigurationUnproven
+			return nil, ErrEffortConfigurationUnsafe
 		}
 		full := append(append([]string(nil), table...), segments...)
 		if conflicts(full) || tables[identity(full)] {
-			return nil, ErrEffortConfigurationUnproven
+			return nil, ErrEffortConfigurationUnsafe
 		}
 		seen[identity(full)] = true
 		for _, k := range full {
@@ -598,14 +562,14 @@ func tomlEffortSelectors(w []byte) ([]string, error) {
 }
 func jsonEffortSelectors(w []byte, declared []string) ([]string, error) {
 	if trimmed := strings.TrimSpace(string(w)); len(trimmed) == 0 || trimmed[0] != '{' {
-		return nil, ErrEffortConfigurationUnproven
+		return nil, ErrEffortConfigurationUnsafe
 	}
 	if len(declared) == 0 {
-		return nil, ErrEffortConfigurationUnproven
+		return nil, ErrEffortConfigurationUnsafe
 	}
 	for _, k := range declared {
 		if !safeEffortKey(k) {
-			return nil, ErrEffortConfigurationUnproven
+			return nil, ErrEffortConfigurationUnsafe
 		}
 	}
 	// Strict duplicate rejection before scanning (JSON objects with duplicate
@@ -613,7 +577,7 @@ func jsonEffortSelectors(w []byte, declared []string) ([]string, error) {
 	var visit func(*json.Decoder, int) ([]string, error)
 	visit = func(d *json.Decoder, depth int) ([]string, error) {
 		if depth > 32 {
-			return nil, ErrEffortConfigurationUnproven
+			return nil, ErrEffortConfigurationUnsafe
 		}
 		token, e := d.Token()
 		if e != nil {
@@ -633,7 +597,7 @@ func jsonEffortSelectors(w []byte, declared []string) ([]string, error) {
 				}
 				key, ok := token.(string)
 				if !ok || seen[key] {
-					return nil, ErrEffortConfigurationUnproven
+					return nil, ErrEffortConfigurationUnsafe
 				}
 				seen[key] = true
 				if containsKey(declared, key) {
@@ -652,10 +616,10 @@ func jsonEffortSelectors(w []byte, declared []string) ([]string, error) {
 	d := json.NewDecoder(strings.NewReader(string(w)))
 	keys, e := visit(d, 0)
 	if e != nil {
-		return nil, ErrEffortConfigurationUnproven
+		return nil, ErrEffortConfigurationUnsafe
 	}
 	if _, e = d.Token(); e != io.EOF {
-		return nil, ErrEffortConfigurationUnproven
+		return nil, ErrEffortConfigurationUnsafe
 	}
 	return keys, nil
 }

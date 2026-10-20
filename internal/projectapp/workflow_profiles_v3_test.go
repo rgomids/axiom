@@ -69,7 +69,7 @@ func TestWorkflowProfilesV3BindsExactProfileIntent(t *testing.T) {
 			t.Fatal("validation is not deterministic")
 		}
 		for _, b := range bindings {
-			if b.Profile.ProfileID != tc.id || b.Profile.RuntimeID != fx.CodexRuntimeID || b.Profile.Effort != tc.effort || b.Profile.ConfigurationDigest != fx.Digest(t, cfg) || b.Profile.ConfigurationRevision != cfg.Revision || b.Profile.ProfileDigest == "" {
+			if b.Profile.ProfileID != tc.id || b.Profile.RuntimeID != fx.CodexRuntimeID || b.Profile.Effort != tc.effort || b.Profile.ConfigurationDigest != fx.CurrentDigest(t, cfg) || b.Profile.ConfigurationRevision != cfg.Revision || b.Profile.ProfileDigest == "" {
 				t.Fatalf("binding lost exact identity: %+v", b)
 			}
 		}
@@ -90,7 +90,7 @@ func TestWorkflowProfilesV3FailsClosed(t *testing.T) {
 	for _, tc := range []struct {
 		name     string
 		d        workflowdefinition.Definition
-		consumer runtimeprofile.ConsumerV3
+		consumer runtimeprofile.ConsumerV4
 		profiles []project.ModelProfile
 		want     string
 	}{
@@ -102,7 +102,7 @@ func TestWorkflowProfilesV3FailsClosed(t *testing.T) {
 		{"not allowlisted", schema2Workflow(t, fx.CodexUnlistedProfileID), fx.Consumer(t, fx.MultiRuntime()), nil, "project_policy_update_required"},
 		{"project model drift", schema2Workflow(t, fx.CodexHighProfileID), fx.Consumer(t, codex), otherModel, "project_policy_update_required"},
 		{"runtime constraint mismatch", constrained, fx.Consumer(t, codex), nil, "profile_runtime_mismatch"},
-		{"unconsumed configuration", schema2Workflow(t, fx.CodexHighProfileID), runtimeprofile.ConsumerV3{}, nil, "profile_effort_unconfigured"},
+		{"unconsumed configuration", schema2Workflow(t, fx.CodexHighProfileID), runtimeprofile.ConsumerV4{}, nil, "profile_effort_unconfigured"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			bindings, code := projectapp.ValidateWorkflowProfilesV3(tc.d, tc.consumer, v3PolicyState(t, tc.profiles...))

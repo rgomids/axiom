@@ -215,7 +215,7 @@ func TestBootstrapAuthorsRuntimePolicyFromLocalCandidatesOnly(t *testing.T) {
 	}
 	service, _ := testRuntime(t, env.service.(lifecycleService), "claude")
 	report := service.readiness().Evaluate(context.Background(), "policy")
-	if code := (runtimeReadiness{service}).Availability(context.Background(), preview.Setup.ProjectID); code != "authentication_unproven" {
+	if code := (runtimeReadiness{service}).Availability(context.Background(), preview.Setup.ProjectID); code != "" {
 		t.Fatal(code)
 	}
 	if report.Effective != "partial" || report.Runtime.Detail != "inventory_unavailable" || !report.Operation(projectapp.OperationWorkItem).Ready() {

@@ -47,6 +47,8 @@ type ProcessResult struct {
 	Stopped         bool
 	OutcomeUnknown  bool
 	TimedOut        bool
+	SpawnFailed     bool
+	FailureCode     string
 }
 
 type ProcessRunner interface {
@@ -420,12 +422,16 @@ func (r OSProcessRunner) Run(ctx context.Context, invocation Invocation) Process
 }
 
 // RunObserved uses the existing containment and stop-confirmation boundary.
+// Stdin is released only after started confirms durable attempt publication.
 func (OSProcessRunner) RunObserved(ctx context.Context, invocation Invocation, started func(*ProcessCorrelation) error) ProcessResult {
 	if len(invocation.Stdin) > MaxStdinBytes || len(invocation.Argv) == 0 {
 		return ProcessResult{ExitCode: -1, OutcomeUnknown: true}
 	}
 	command := exec.Command(invocation.Argv[0], invocation.Argv[1:]...)
-	command.Stdin = bytes.NewReader(invocation.Stdin)
+	inputContext, cancelInput := context.WithCancel(ctx)
+	defer cancelInput()
+	inputReady := make(chan struct{})
+	command.Stdin = &authorizedStdin{ctx: inputContext, ready: inputReady, reader: bytes.NewReader(invocation.Stdin)}
 	command.Dir = invocation.CWD
 	command.Env = EffectiveInvocationEnvironment(invocation)
 	output := &limitedBuffer{remaining: invocation.OutputMax}
@@ -440,6 +446,22 @@ func (OSProcessRunner) RunObserved(ctx context.Context, invocation Invocation, s
 		err = group.start(command)
 	}
 	startFailed := err != nil
+	failureCode := ""
+	if startFailed {
+		failureCode = "spawn_failed"
+		if errors.Is(err, context.DeadlineExceeded) {
+			failureCode = "attempt_timeout"
+		}
+		if errors.Is(err, context.Canceled) {
+			failureCode = "attempt_cancelled"
+		}
+		if errors.Is(err, os.ErrPermission) {
+			failureCode = "permission_denied"
+		}
+		if errors.Is(err, os.ErrNotExist) {
+			failureCode = "executable_unavailable"
+		}
+	}
 	stopped := false
 	if err == nil && started != nil {
 		identity, observationErr := ObserveProcessCorrelation(int64(command.Process.Pid))
@@ -449,17 +471,25 @@ func (OSProcessRunner) RunObserved(ctx context.Context, invocation Invocation, s
 			observationErr = ErrInvalidGraph
 		}
 		if observationErr != nil {
+			cancelInput()
 			stopCtx, cancel := context.WithTimeout(context.Background(), processStopBound)
 			stopped = confirmProcessStop(stopCtx, group)
 			cancel()
 			wait := make(chan error, 1)
 			go func() { wait <- command.Wait() }()
+			exitCode := -1
 			select {
-			case <-wait:
+			case waitErr := <-wait:
+				exitCode = processExitCode(waitErr)
 			case <-time.After(processStopBound):
 			}
-			return ProcessResult{ExitCode: -1, OutcomeUnknown: true, Stopped: stopped}
+			captured := output.Bytes()
+			digest := sha256.Sum256(captured)
+			return ProcessResult{ExitCode: exitCode, Output: captured, ResultReference: "process-output:" + hex.EncodeToString(digest[:]), OutcomeUnknown: true, Stopped: stopped, TimedOut: errors.Is(ctx.Err(), context.DeadlineExceeded)}
 		}
+	}
+	if err == nil {
+		close(inputReady)
 	}
 	interrupted, completionUnknown := false, false
 	if err == nil {
@@ -486,19 +516,38 @@ func (OSProcessRunner) RunObserved(ctx context.Context, invocation Invocation, s
 			}
 		}
 	}
-	exitCode := 0
-	if err != nil {
-		exitCode = -1
-		var exitError *exec.ExitError
-		if errors.As(err, &exitError) {
-			exitCode = exitError.ExitCode()
-		}
-	}
+	exitCode := processExitCode(err)
 	// Platform observation confirms group/job termination; observed escapes
 	// or observation failures veto confirmation. POSIX groups remain advisory.
 	captured := output.Bytes()
 	digest := sha256.Sum256(captured)
-	return ProcessResult{ExitCode: exitCode, Output: captured, ResultReference: "process-output:" + hex.EncodeToString(digest[:]), Stopped: stopped, EffectAmbiguous: completionUnknown, OutcomeUnknown: interrupted && !stopped || startFailed || completionUnknown, TimedOut: errors.Is(ctx.Err(), context.DeadlineExceeded)}
+	return ProcessResult{ExitCode: exitCode, Output: captured, ResultReference: "process-output:" + hex.EncodeToString(digest[:]), Stopped: stopped, EffectAmbiguous: completionUnknown, OutcomeUnknown: interrupted && !stopped || completionUnknown, TimedOut: errors.Is(ctx.Err(), context.DeadlineExceeded), SpawnFailed: startFailed, FailureCode: failureCode}
+}
+
+func processExitCode(err error) int {
+	if err == nil {
+		return 0
+	}
+	var exitError *exec.ExitError
+	if errors.As(err, &exitError) {
+		return exitError.ExitCode()
+	}
+	return -1
+}
+
+type authorizedStdin struct {
+	ctx    context.Context
+	ready  <-chan struct{}
+	reader *bytes.Reader
+}
+
+func (r *authorizedStdin) Read(p []byte) (int, error) {
+	select {
+	case <-r.ctx.Done():
+		return 0, r.ctx.Err()
+	case <-r.ready:
+		return r.reader.Read(p)
+	}
 }
 
 type limitedBuffer struct {

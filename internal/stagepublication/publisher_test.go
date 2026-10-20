@@ -16,7 +16,7 @@ import (
 )
 
 func TestBuildSuccessorAndReceiptWithoutPublication(t *testing.T) {
-	wire, e := os.ReadFile("../workflowcompiler/testdata/issue306/stage-plan-v2.json")
+	wire, e := os.ReadFile("../stageexecution/testdata/stage-plan-v3.json")
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -27,11 +27,11 @@ func TestBuildSuccessorAndReceiptWithoutPublication(t *testing.T) {
 	req := executiongraph.PublicationRequest{Proposal: *plan.Compilation.Proposal, ExpectedDigest: plan.Compilation.Proposal.Digest, GraphRevision: plan.Execution.Revision, ParentAuthority: plan.Compilation.AuthorityCeiling, ChildAuthorities: map[string][]executiongraph.Effect{}, AuthorityReferences: map[string]string{}, Workspaces: map[string]string{}, Resolutions: map[string]executiongraph.Resolution{}}
 	for _, agent := range plan.Compilation.Agents {
 		key := agent.Input.NodeKey
-		f := agent.Input.ResolvedProfile
+		f := agent.Input.FrozenProfile
 		req.ChildAuthorities[key] = agent.Effects
 		req.AuthorityReferences[key] = "pending-dispatch-authority"
 		req.Workspaces[key] = "/synthetic/workspace/" + agent.AgentID
-		req.Resolutions[key] = executiongraph.Resolution{RuntimeID: f.RuntimeID, ModelProfileID: f.ProfileID, ConfigurationRevision: f.ConfigurationRevision, ObservationRevision: f.ObservationRevision, ResolvedProfile: f}
+		req.Resolutions[key] = executiongraph.Resolution{RuntimeID: f.RuntimeID, ModelProfileID: f.ProfileID, ConfigurationRevision: f.ConfigurationRevision, ObservationRevision: f.ObservationRevision, FrozenProfile: f}
 	}
 	preview := stageexecution.DispatchPreview{Plan: plan, Publication: &req, Digest: strings.Repeat("a", 64)}
 	// No stores or runtime ports are configured: Build must remain pure.
@@ -41,7 +41,7 @@ func TestBuildSuccessorAndReceiptWithoutPublication(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	if publication.Graph == nil || publication.Single != nil || publication.Graph.FormatVersion != 3 || publication.Graph.StageConcurrency != uint32(plan.Compilation.Concurrency) || publication.Authority.Scope != "graph-first-attempts" || executiongraph.ValidateGraphDispatchAuthority(*publication.Graph, publication.Authority, preview.Digest) != nil {
+	if publication.Graph == nil || publication.Single != nil || publication.Graph.FormatVersion != executiongraph.OperationalGraphVersion || publication.Graph.StageConcurrency != uint32(plan.Compilation.Concurrency) || publication.Authority.Scope != "graph-first-attempts" || executiongraph.ValidateGraphDispatchAuthority(*publication.Graph, publication.Authority, preview.Digest) != nil {
 		t.Fatal("invalid candidate", publication)
 	}
 	for _, c := range publication.Graph.Children {
@@ -50,8 +50,8 @@ func TestBuildSuccessorAndReceiptWithoutPublication(t *testing.T) {
 		}
 	}
 }
-func TestBuildSingleBindsExecution3AndPreviewWithoutGraph(t *testing.T) {
-	wire, e := os.ReadFile("../workflowcompiler/testdata/issue306/stage-plan-v2.json")
+func TestBuildSingleBindsExecution5AndPreviewWithoutGraph(t *testing.T) {
+	wire, e := os.ReadFile("../stageexecution/testdata/stage-plan-v3.json")
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -62,7 +62,7 @@ func TestBuildSingleBindsExecution3AndPreviewWithoutGraph(t *testing.T) {
 	agent := plan.Compilation.Agents[0]
 	plan.Execution.ExecutionID = "00000000-0000-4000-8000-000000000001"
 	plan.ExecutionKind, plan.Compilation.ExecutionKind, plan.Compilation.Proposal, plan.Compilation.Agents = "single", "single", nil, plan.Compilation.Agents[:1]
-	state := workflow.State{ExecutionID: plan.Execution.ExecutionID, Revision: plan.Execution.Revision, ProjectID: plan.ProjectID, RepositoryKey: agent.Input.RepositoryKey, Stage: workflow.Stage(plan.StageID), StageOrdinal: 2, WorkItem: workflow.WorkItem{Provider: "github", Resource: "owner/repo", ExternalID: "7"}, StorageRevision: [32]byte{1}}
+	state := workflow.State{FormatVersion: workflow.OperationalConfiguredFormatVersion, ExecutionID: plan.Execution.ExecutionID, Revision: plan.Execution.Revision, ProjectID: plan.ProjectID, RepositoryKey: agent.Input.RepositoryKey, Stage: workflow.Stage(plan.StageID), StageOrdinal: 2, WorkItem: workflow.WorkItem{Provider: "github", Resource: "owner/repo", ExternalID: "7"}, StorageRevision: [32]byte{1}}
 	child := stageexecution.ChildRights{AgentID: agent.AgentID, Workspace: "/synthetic/worktrees/a", Inbox: "/synthetic/inboxes/a", Effects: agent.Effects, Controls: agent.Controls}
 	preview := stageexecution.DispatchPreview{Plan: plan, AxiomDigest: strings.Repeat("e", 64), Children: []stageexecution.ChildRights{child}, Digest: strings.Repeat("a", 64)}
 	at := time.Unix(20, 0).UTC()
@@ -79,12 +79,12 @@ func TestBuildSingleBindsExecution3AndPreviewWithoutGraph(t *testing.T) {
 	stale := state
 	stale.Revision++
 	if _, e := BuildSingle(preview, stale, "operator", at); e != stageexecution.ErrStalePreview {
-		t.Fatalf("stale Execution3 = %v", e)
+		t.Fatalf("stale Execution5 = %v", e)
 	}
 	unread := state
 	unread.StorageRevision = [32]byte{}
 	if _, e := BuildSingle(preview, unread, "operator", at); e != stageexecution.ErrPreview {
-		t.Fatalf("unread Execution3 generation = %v", e)
+		t.Fatalf("unread Execution5 generation = %v", e)
 	}
 	graph := preview
 	graph.Publication = &executiongraph.PublicationRequest{}

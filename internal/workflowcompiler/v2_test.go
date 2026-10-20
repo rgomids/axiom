@@ -28,9 +28,10 @@ func (r v2Runtimes) Preview(ctx context.Context, id string, request runtimeappli
 		return preview, err
 	}
 	c := preview.Choice
-	c.ResolvedProfile = &runtimeprofile.ResolvedProfile{ProfileID: c.ModelProfileID, RuntimeID: c.RuntimeID, Model: c.Model, Effort: r.effort, ProfileDigest: digestForTest("profile"), ConfigurationRevision: c.ConfigurationRevision, ConfigurationDigest: preview.ConfigurationDigest, ExecutableDigest: c.ExecutableDigest, RuntimeVersion: c.RuntimeVersion, InvocationMode: "noninteractive", ObservationRevision: c.ObservationRevision, ObservationDigest: preview.ObservationDigest, EffortSourceDigest: digestForTest("effort-source"), CapabilityProofReference: "injected-proof"}
+	c.RuntimeVersion = ""
+	c.FrozenProfile = &runtimeprofile.ResolvedProfileV4{ProfileID: c.ModelProfileID, RuntimeID: c.RuntimeID, Model: c.Model, Effort: r.effort, ProfileDigest: digestForTest("profile"), ConfigurationRevision: c.ConfigurationRevision, ConfigurationDigest: preview.ConfigurationDigest, ExecutableDigest: c.ExecutableDigest, InvocationMode: "noninteractive", ObservationRevision: c.ObservationRevision, ObservationDigest: preview.ObservationDigest, EffortSourceDigest: digestForTest("effort-source")}
 	if r.unknown {
-		c.ResolvedProfile.EffortSourceDigest = ""
+		c.FrozenProfile.EffortSourceDigest = ""
 	}
 	return preview, nil
 }
@@ -49,14 +50,14 @@ func TestV2CompilerDerivesOnlyProfileEffort(t *testing.T) {
 			expected = effort.Value
 		}
 		agent := result.Agents[0]
-		if result.FormatVersion != 2 || agent.Controls.ReasoningEffort != expected || calls != 1 || agent.Input.ProfileEffort == nil || *agent.Input.ProfileEffort != effort || agent.Input.EffortSource != "local-model-profile" {
+		if result.FormatVersion != OperationalResultVersion || agent.Controls.ReasoningEffort != expected || calls != 1 || agent.Input.ProfileEffort == nil || *agent.Input.ProfileEffort != effort || agent.Input.EffortSource != "local-model-profile" {
 			t.Fatalf("wrong projection %+v calls=%d", result, calls)
 		}
 		wire, _ := json.Marshal(result)
 		if strings.Contains(string(wire), "requestedEffort") {
 			t.Fatal("v2 relabelled legacy effort")
 		}
-		if !executiongraph.ValidProfileControls(agent.Choice.ResolvedProfile, agent.Controls, agent.Capability) {
+		if agent.Input.FrozenProfile == nil || agent.Input.ResolvedProfile != nil || !executiongraph.ValidFrozenProfileControls(agent.Choice.FrozenProfile, agent.Controls, agent.Capability) {
 			t.Fatal("invalid controls")
 		}
 		stale := req
@@ -66,12 +67,12 @@ func TestV2CompilerDerivesOnlyProfileEffort(t *testing.T) {
 		}
 		stale.Plan.Work[0].Controls.ReasoningEffort = ""
 		plan, err := compiler.PlanStageV2(context.Background(), StagePlanRequest{Execution: ExecutionRef{ExecutionID: "execution", Revision: 1}, PlanDocumentDigest: digestForTest("plan"), Compile: req})
-		if err != nil || plan.FormatVersion != 2 || plan.Resolutions[0].ProfileEffort == nil {
+		if err != nil || plan.FormatVersion != OperationalStagePlanVersion || plan.Resolutions[0].ProfileEffort == nil || plan.Resolutions[0].FrozenProfile == nil || plan.Resolutions[0].CapabilityEvidenceRef != "" {
 			t.Fatal("stage2", err)
 		}
 	}
 	if _, err := New(v2Runtimes{unknown: true, effort: runtimeprofile.Effort{Mode: "explicit", Value: "high"}}, capabilityOK{}).CompileV2(context.Background(), req); err == nil {
-		t.Fatal("accepted unknown source proof")
+		t.Fatal("accepted an unobserved effort source")
 	}
 	req.Definition = workflowdefinition.Builtin()
 	req.Workflow = req.Definition.Ref("builtin")

@@ -14,16 +14,13 @@ import (
 	"github.com/rgomids/axiom/internal/project"
 	"github.com/rgomids/axiom/internal/runtimeadapter"
 	"github.com/rgomids/axiom/internal/runtimeprofile"
-	"github.com/rgomids/axiom/internal/runtimeprofile/runtimeprofiletest"
 )
 
 const projectID = "123e4567-e89b-42d3-a456-426614174000"
 
-// sourceFake re-reads config on every Load, as the production source re-reads
-// the canonical v3 record; an invalid config yields no consumer.
 type sourceFake struct {
 	snapshot Snapshot
-	config   runtimeprofile.ConfigurationV3
+	config   runtimeprofile.ConfigurationV4
 	err      error
 	loads    int
 }
@@ -31,41 +28,55 @@ type sourceFake struct {
 func (s *sourceFake) Load(context.Context, string) (Snapshot, error) {
 	s.loads++
 	snapshot := s.snapshot
-	snapshot.Consumer, _ = runtimeprofile.NewConsumerV3(runtimeprofile.RecordActiveV3, &s.config)
+	snapshot.Consumer, _ = runtimeprofile.NewConsumerV4(s.config)
 	return snapshot, s.err
 }
 
-// observerFake injects authoritative observations. Its proofs bind the exact
-// Profile intent, executable and version; nothing here acquires proof.
-type observerFake map[string]runtimeprofile.Observation
-
-func proven(id string, p runtimeprofile.ModelProfile, o runtimeprofile.Observation) runtimeprofile.ProfileProof {
-	return runtimeprofile.ProfileProof{RuntimeID: id, Model: p.Model, Effort: p.Effort, ExecutableDigest: o.ExecutableDigest, RuntimeVersion: o.Version, InvocationMode: "noninteractive", ObservationRevision: o.Revision, Reference: "injected-proof", EffortSourceDigest: strings.Repeat("b", 64), Authentication: runtimeprofile.CapabilityProven, ModelAvailability: runtimeprofile.CapabilityProven, EffortSupport: runtimeprofile.CapabilityProven, NoOverride: runtimeprofile.CapabilityProven, CapabilityStatus: map[string]runtimeprofile.CapabilityStatus{"go": runtimeprofile.CapabilityProven}}
+type observerFake struct {
+	runtimes map[string]runtimeprofile.OperationalObservation
+	failure  error
 }
 
-func (o observerFake) Observe(_ context.Context, id string) (runtimeprofile.Observation, error) {
-	v, ok := o[id]
+func (o *observerFake) ObserveExecutable(_ context.Context, id string) (runtimeprofile.OperationalObservation, error) {
+	v, ok := o.runtimes[id]
 	if !ok {
-		return v, errors.New("private raw error")
+		return v, runtimeprofile.ErrExecutableUnavailable
+	}
+	v.EffortSourceDigest = ""
+	return v, nil
+}
+
+func (o *observerFake) ObserveOperational(ctx context.Context, id, _ string) (runtimeprofile.OperationalObservation, error) {
+	if o.failure != nil {
+		return runtimeprofile.OperationalObservation{}, o.failure
+	}
+	v, ok := o.runtimes[id]
+	if !ok {
+		return v, runtimeprofile.ErrExecutableUnavailable
 	}
 	return v, nil
 }
-func setup(t *testing.T, runtimes ...string) (*sourceFake, observerFake) {
+
+func (o *observerFake) edit(id string, change func(*runtimeprofile.OperationalObservation)) {
+	v := o.runtimes[id]
+	change(&v)
+	o.runtimes[id] = v
+}
+
+func setup(t *testing.T, runtimes ...string) (*sourceFake, *observerFake) {
 	t.Helper()
 	state := project.State{SchemaVersion: 2, ID: projectID, Slug: "example", Name: "Example"}
 	rs := []project.Runtime{}
 	ps := []project.ModelProfile{}
-	cfg := runtimeprofile.ConfigurationV3{FormatVersion: runtimeprofile.FormatVersionV3, Revision: 7}
-	obs := observerFake{}
+	cfg := runtimeprofile.ConfigurationV4{FormatVersion: runtimeprofile.FormatVersionV4, Revision: 7}
+	obs := &observerFake{runtimes: map[string]runtimeprofile.OperationalObservation{}}
 	for _, id := range runtimes {
 		rs = append(rs, project.Runtime{ID: id})
 		ps = append(ps, project.ModelProfile{Key: id + "-profile", RuntimeRef: project.Configured(id), Model: project.Configured(id + "-model")})
 		profile := runtimeprofile.ModelProfile{ID: id + "-profile", RuntimeID: id, Model: id + "-model", Effort: runtimeprofile.Effort{Mode: "explicit", Value: "high"}, Capabilities: []string{"go"}, Complexities: []string{"high"}}
-		cfg.Runtimes = append(cfg.Runtimes, runtimeprofile.RuntimeV3{ID: id, Adapter: id, Enabled: true, AllowlistedProfileIDs: []string{id + "-profile"}})
+		cfg.Runtimes = append(cfg.Runtimes, runtimeprofile.RuntimeV4{ID: id, Adapter: id, Enabled: true, AllowlistedProfileIDs: []string{id + "-profile"}})
 		cfg.ModelProfiles = append(cfg.ModelProfiles, profile)
-		o := runtimeprofile.Observation{RuntimeID: id, Adapter: id, Installed: true, Available: true, Version: "test-1.0", ExecutableDigest: strings.Repeat("a", 64), Revision: 7, ObservedAt: time.Unix(1, 0), CapabilityStatus: map[string]runtimeprofile.CapabilityStatus{"go": runtimeprofile.CapabilityProven}}
-		o.ProfileProofs = []runtimeprofile.ProfileProof{proven(id, profile, o)}
-		obs[id] = o
+		obs.runtimes[id] = runtimeprofile.OperationalObservation{RuntimeID: id, Adapter: id, Installed: true, Available: true, ExecutableDigest: strings.Repeat("a", 64), InvocationMode: "noninteractive", Revision: 7, EffortSourceDigest: strings.Repeat("b", 64), ObservedAt: time.Unix(1, 0)}
 	}
 	state.Runtimes = project.Configured(rs)
 	state.ModelProfiles = project.Configured(ps)
@@ -92,7 +103,6 @@ func TestProjectResolutionBothExplicitRuntimes(t *testing.T) {
 				t.Fatal("nondeterministic preview")
 			}
 			binding, err := service.Check(context.Background(), preview)
-			// Canonical v3 carries no credential reference.
 			if err != nil || !reflect.DeepEqual(binding.Choice, *preview.Choice) || binding.CredentialReference != "" {
 				t.Fatal("preview mismatch", err)
 			}
@@ -145,76 +155,64 @@ func TestExactProfileDoesNotUseUnavailableDefaultPreference(t *testing.T) {
 
 func wireString(p Preview) string { wire, _ := json.Marshal(p); return string(wire) }
 func TestProjectResolutionBlocksWithoutFallback(t *testing.T) {
-	// Observation and proof gates apply after exact selection; narrowed cases
-	// request one Runtime so the two configured Runtimes are not ambiguous.
 	cases := []struct {
 		name, code string
-		change     func(*sourceFake, observerFake)
+		change     func(*sourceFake, *observerFake)
 		narrow     bool
 	}{
-		{"ambiguous", "ambiguous_match", func(*sourceFake, observerFake) {}, false},
-		{"missing runtimes", "policy_unconfigured", func(s *sourceFake, _ observerFake) {
+		{"ambiguous", "ambiguous_match", func(*sourceFake, *observerFake) {}, false},
+		{"missing runtimes", "policy_unconfigured", func(s *sourceFake, _ *observerFake) {
 			state := s.snapshot.Project.State()
 			state.Runtimes = project.Declaration[[]project.Runtime]{}
 			state.ModelProfiles = project.Declaration[[]project.ModelProfile]{}
 			s.snapshot.Project, _ = project.New(state)
 		}, false},
-		{"unconfigured preferences", "policy_unconfigured", func(s *sourceFake, _ observerFake) {
+		{"unconfigured preferences", "policy_unconfigured", func(s *sourceFake, _ *observerFake) {
 			state := s.snapshot.Project.State()
 			state.RuntimePreferences = project.Unconfigured[[]project.RuntimePreference]()
 			s.snapshot.Project, _ = project.New(state)
 		}, false},
-		{"unconfigured profiles", "policy_unconfigured", func(s *sourceFake, _ observerFake) {
+		{"unconfigured profiles", "policy_unconfigured", func(s *sourceFake, _ *observerFake) {
 			state := s.snapshot.Project.State()
 			state.ModelProfiles = project.Unconfigured[[]project.ModelProfile]()
 			s.snapshot.Project, _ = project.New(state)
 		}, false},
-		{"unavailable", "no_allowed_match", func(_ *sourceFake, o observerFake) {
-			for id, v := range o {
-				v.Available = false
-				o[id] = v
-			}
+		{"executable unavailable", "executable_unavailable", func(_ *sourceFake, o *observerFake) {
+			delete(o.runtimes, "codex")
 		}, true},
-		{"unavailable is not a selection", "ambiguous_match", func(_ *sourceFake, o observerFake) {
-			v := o["claude"]
-			v.Available = false
-			o["claude"] = v
+		{"unavailable is not a selection", "ambiguous_match", func(_ *sourceFake, o *observerFake) {
+			delete(o.runtimes, "claude")
 		}, false},
-		{"capability declared", "capability_unproven", func(_ *sourceFake, o observerFake) {
-			for id, v := range o {
-				v.CapabilityStatus["go"] = runtimeprofile.CapabilityDeclared
-				o[id] = v
+		{"capability undeclared by Profile", "no_allowed_match", func(s *sourceFake, _ *observerFake) {
+			for i := range s.config.ModelProfiles {
+				s.config.ModelProfiles[i].Capabilities = []string{"review"}
 			}
 		}, true},
-		{"no proof", "effort_unproven", func(_ *sourceFake, o observerFake) {
-			for id, v := range o {
-				v.ProfileProofs = nil
-				o[id] = v
+		{"inspection consent missing", "inspection_consent_required", func(_ *sourceFake, o *observerFake) { o.failure = runtimeprofile.ErrInspectionConsentRequired }, true},
+		{"competing effort selector", "effort_override_conflict", func(_ *sourceFake, o *observerFake) { o.failure = runtimeprofile.ErrEffortOverrideConflict }, true},
+		{"invalid effort syntax", "configuration_invalid", func(_ *sourceFake, o *observerFake) { o.failure = runtimeprofile.ErrConfigurationInvalid }, true},
+		{"unsafe effort source", "configuration_unsafe", func(_ *sourceFake, o *observerFake) { o.failure = runtimeprofile.ErrConfigurationUnsafe }, true},
+		{"opaque observation failure", "invalid_observation", func(_ *sourceFake, o *observerFake) { o.failure = errors.New("PRIVATE_SECRET /home/operator") }, true},
+		{"stale observation", "invalid_observation", func(_ *sourceFake, o *observerFake) {
+			o.edit("codex", func(v *runtimeprofile.OperationalObservation) { v.Revision-- })
+		}, true},
+		{"disabled runtime", "no_allowed_match", func(s *sourceFake, _ *observerFake) {
+			for i := range s.config.Runtimes {
+				s.config.Runtimes[i].Enabled = false
 			}
 		}, true},
-		{"stale observation", "no_allowed_match", func(_ *sourceFake, o observerFake) {
-			for id, v := range o {
-				v.Revision--
-				o[id] = v
-			}
-		}, true},
-		{"wrong model", "no_allowed_match", func(s *sourceFake, _ observerFake) {
+		{"wrong model", "no_allowed_match", func(s *sourceFake, _ *observerFake) {
 			for i := range s.config.ModelProfiles {
 				s.config.ModelProfiles[i].Model = "wrong-model"
 			}
 		}, false},
-		{"disallowed local codex", "no_allowed_match", func(s *sourceFake, _ observerFake) {
+		{"disallowed local codex", "no_allowed_match", func(s *sourceFake, _ *observerFake) {
 			state := s.snapshot.Project.State()
 			state.Runtimes = project.Configured([]project.Runtime{{ID: "other"}})
 			state.ModelProfiles = project.Configured([]project.ModelProfile{{Key: "other", RuntimeRef: project.Configured("other"), Model: project.Configured("model")}})
 			s.snapshot.Project, _ = project.New(state)
 		}, false},
-		{"raw error", "policy_unavailable", func(s *sourceFake, _ observerFake) { s.err = errors.New("PRIVATE_SECRET") }, false},
-		{"unsafe version", "invalid_observation", func(_ *sourceFake, o observerFake) {
-			v := o["codex"]
-			v.Version = "Bearer PRIVATE_SECRET"
-			o["codex"] = v
-		}, true},
+		{"raw error", "policy_unavailable", func(s *sourceFake, _ *observerFake) { s.err = errors.New("PRIVATE_SECRET") }, false},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -252,9 +250,7 @@ func TestProjectPreferenceAndExplicitNarrowing(t *testing.T) {
 	if err != nil || p.Choice.RuntimeID != "claude" {
 		t.Fatal(p, err)
 	}
-	v := o["claude"]
-	v.Available = false
-	o["claude"] = v
+	delete(o.runtimes, "claude")
 	p, err = New(s).Preview(context.Background(), projectID, request())
 	if err == nil || p.Choice != nil {
 		t.Fatal("preferred unavailable fell back", p)
@@ -280,23 +276,27 @@ func TestLegacyV1ProjectionNeverRewritesProject(t *testing.T) {
 	}
 }
 func TestPreviewRejectsContentAndRevisionDrift(t *testing.T) {
-	changes := map[string]func(*sourceFake, observerFake){
-		"config revision": func(s *sourceFake, _ observerFake) { s.config.Revision++ },
-		"same revision config": func(s *sourceFake, _ observerFake) {
+	changes := map[string]func(*sourceFake, *observerFake){
+		"config revision": func(s *sourceFake, _ *observerFake) { s.config.Revision++ },
+		"same revision config": func(s *sourceFake, _ *observerFake) {
 			s.config.ModelProfiles[0].Capabilities = []string{"go", "review"}
 		},
-		"same revision declaration": func(s *sourceFake, _ observerFake) {
-			s.config.Runtimes[0].EffortDeclarations = []runtimeprofile.EffortDeclaration{runtimeprofiletest.CodexDeclaration()}
-		},
-		"portable identity": func(s *sourceFake, _ observerFake) {
+		"portable identity": func(s *sourceFake, _ *observerFake) {
 			state := s.snapshot.Project.State()
 			state.Name = "Changed"
 			s.snapshot.Project, _ = project.New(state)
 		},
-		"observation revision":  func(_ *sourceFake, o observerFake) { v := o["codex"]; v.Revision++; o["codex"] = v },
-		"same revision version": func(_ *sourceFake, o observerFake) { v := o["codex"]; v.Version = "changed"; o["codex"] = v },
-		"capability": func(_ *sourceFake, o observerFake) {
-			o["codex"].CapabilityStatus["go"] = runtimeprofile.CapabilityDeclared
+		"observation revision": func(_ *sourceFake, o *observerFake) {
+			o.edit("codex", func(v *runtimeprofile.OperationalObservation) { v.Revision++ })
+		},
+		"executable bytes": func(_ *sourceFake, o *observerFake) {
+			o.edit("codex", func(v *runtimeprofile.OperationalObservation) { v.ExecutableDigest = strings.Repeat("c", 64) })
+		},
+		"effort sources": func(_ *sourceFake, o *observerFake) {
+			o.edit("codex", func(v *runtimeprofile.OperationalObservation) { v.EffortSourceDigest = strings.Repeat("d", 64) })
+		},
+		"profile effort intent": func(s *sourceFake, _ *observerFake) {
+			s.config.ModelProfiles[0].Effort = runtimeprofile.Effort{Mode: "explicit", Value: "low"}
 		},
 	}
 	for name, change := range changes {
@@ -324,85 +324,62 @@ func TestInvalidRequestDoesNotReflectRejectedText(t *testing.T) {
 	}
 }
 
-type integrationFake bool
+type executableObserver struct {
+	id, path string
+}
 
-func (i integrationFake) IntegrationReady(context.Context) bool { return bool(i) }
+func (o executableObserver) ObserveExecutable(ctx context.Context, id string) (runtimeprofile.OperationalObservation, error) {
+	observation := runtimeprofile.OperationalObservation{RuntimeID: id, Adapter: id, Revision: 7, ObservedAt: time.Unix(1, 0), InvocationMode: "noninteractive"}
+	if id != o.id {
+		return observation, runtimeprofile.ErrExecutableUnavailable
+	}
+	identity, err := runtimeadapter.ExecutableIdentity(o.path)
+	if err != nil {
+		return observation, runtimeadapter.ErrExecutableUnavailable
+	}
+	observation.Installed, observation.Available, observation.ExecutableDigest = true, true, identity
+	return observation, ctx.Err()
+}
 
-// The production observer is the only machine-local source: removing or
-// replacing the reviewed executable after preview blocks Check, and only
-// Axiom's own skill integration can make a capability proven.
-func TestExecutableObserverBindsReviewedRuntime(t *testing.T) {
+func (o executableObserver) ObserveOperational(ctx context.Context, id, _ string) (runtimeprofile.OperationalObservation, error) {
+	observation, err := o.ObserveExecutable(ctx, id)
+	observation.EffortSourceDigest = strings.Repeat("b", 64)
+	return observation, err
+}
+
+func TestExecutableIdentityBindsReviewedRuntime(t *testing.T) {
 	for _, id := range []string{"codex", "claude"} {
 		t.Run(id, func(t *testing.T) {
 			source, _ := setup(t, id)
-			source.config.ModelProfiles[0].Capabilities = []string{runtimeadapter.IntegrationCapability, "go"}
-			profile := source.config.ModelProfiles[0]
 			executable := filepath.Join(t.TempDir(), id)
 			writeExecutable(t, executable, "original")
-			ready := integrationFake(true)
-			observe := func() {
-				observer, err := runtimeadapter.NewExecutableObserver(7, time.Now(), []runtimeadapter.ObservedRuntime{{ID: id, Executable: executable, Integration: ready}})
-				if err != nil {
-					t.Fatal(err)
-				}
-				source.snapshot.Observer = injectedProof{observer, id, profile}
-			}
-			observe()
+			source.snapshot.Observer = executableObserver{id: id, path: executable}
 			service := New(source)
-			proven := Request{Role: "implementation", Complexity: "high", Capabilities: []string{runtimeadapter.IntegrationCapability}}
-			preview, err := service.Preview(context.Background(), projectID, proven)
-			if err != nil || preview.Choice == nil || preview.Choice.ExecutableDigest == "" || preview.Choice.RuntimeVersion != "test-1.0" {
+			preview, err := service.Preview(context.Background(), projectID, request())
+			if err != nil || preview.Choice == nil || preview.Choice.ExecutableDigest == "" || preview.Choice.RuntimeVersion != "" || preview.Choice.FrozenProfile == nil || preview.Choice.ResolvedProfile != nil {
 				t.Fatalf("preview=%+v err=%v", preview, err)
 			}
 			if strings.Contains(wireString(preview), executable) {
 				t.Fatal("preview exposed the executable path")
 			}
-			if unproven, err := service.Preview(context.Background(), projectID, request()); err == nil || unproven.Blocker.Code != "capability_unproven" {
-				t.Fatalf("unprovable capability resolved: %+v", unproven)
-			}
 			if _, err := service.Check(context.Background(), preview); err != nil {
 				t.Fatalf("unchanged machine state rejected: %v", err)
 			}
 			writeExecutable(t, executable, "replaced")
-			observe()
 			if _, err := service.Check(context.Background(), preview); !errors.Is(err, ErrStale) {
 				t.Fatalf("replaced executable accepted: %v", err)
 			}
 			if err := os.Remove(executable); err != nil {
 				t.Fatal(err)
 			}
-			observe()
 			if _, err := service.Check(context.Background(), preview); !errors.Is(err, ErrStale) {
 				t.Fatalf("removed executable accepted: %v", err)
 			}
-			writeExecutable(t, executable, "original")
-			ready = false
-			observe()
-			if _, err := service.Check(context.Background(), preview); !errors.Is(err, ErrStale) {
-				t.Fatalf("unverified integration accepted: %v", err)
+			if blocked, err := service.Preview(context.Background(), projectID, request()); err == nil || blocked.Blocker.Code != "executable_unavailable" {
+				t.Fatalf("missing executable resolved: %+v", blocked)
 			}
 		})
 	}
-}
-
-// injectedProof adds a proof bound to whatever executable is observed now, so
-// the test isolates executable identity and integration drift.
-type injectedProof struct {
-	base    runtimeprofile.Observer
-	id      string
-	profile runtimeprofile.ModelProfile
-}
-
-func (o injectedProof) Observe(ctx context.Context, id string) (runtimeprofile.Observation, error) {
-	observed, err := o.base.Observe(ctx, id)
-	if err == nil && id == o.id && observed.Available {
-		// A synthetic version: an unknown version can never resolve a Profile.
-		observed.Version = "test-1.0"
-		proof := proven(id, o.profile, observed)
-		proof.CapabilityStatus = map[string]runtimeprofile.CapabilityStatus{runtimeadapter.IntegrationCapability: runtimeprofile.CapabilityProven}
-		observed.ProfileProofs = []runtimeprofile.ProfileProof{proof}
-	}
-	return observed, err
 }
 
 func writeExecutable(t *testing.T, path, content string) {

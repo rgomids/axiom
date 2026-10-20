@@ -96,10 +96,23 @@ Subject to human acceptance:
      evidence.
    - Evidence keeps digests and categories only: no host paths,
      environment values, configuration, credentials or transcripts.
+
+> Superseded by [ADR-0032 — Runtime admission without capability certification](0032-runtime-admission-without-certification.md#decision), accepted 2026-10-19.
+> Only decision 5's mandatory behavioral certification, exact-version/digest
+> qualification, expiry and probe lifecycle are superseded. Authority,
+> confinement reporting, redaction and restrictions on unauthorized effects
+> remain. The historical text is preserved; decisions 1–4 remain in force.
+
 6. **Consumption of the accepted #306 contract.** Dispatch admission follows
    the accepted amendment-306 and ADR-0024: schema-2 Workflows, format-3
    Executions, frozen `resolvedProfile` tuples and PE-05a effort-source
    checks. Legacy contracts are refused, never reinterpreted.
+
+> Superseded by [ADR-0032 — Runtime admission without capability certification](0032-runtime-admission-without-certification.md#supersedes), accepted 2026-10-19.
+> Only the referenced #306 proof/reference and exact-version eligibility
+> obligations change within the accepted map. Profile ownership, immutable
+> binding and refusal to reinterpret historical contracts remain in force;
+> successor-format choices belong to the separately reviewed Plan.
 
 ## Alternatives considered
 
@@ -126,6 +139,10 @@ Subject to human acceptance:
   - the dispatch-authority record;
   - a new machine-local capability evidence store.
 
+> Superseded by [ADR-0032 — Runtime admission without capability certification](0032-runtime-admission-without-certification.md#decision), accepted 2026-10-19.
+> Only the capability-certification store expectation is superseded here;
+> classification, authority, correlation and reconciliation persist.
+
   > Superseded by [ADR-0026 — Successor execution Graph for public stage dispatch](0026-successor-stage-dispatch-graph-format.md#supersedes), accepted 2026-10-13.
   > Only the joint-Graph2/I306-X05 version-and-ownership arrangement above
   > ("versioned together with the #306 graph v2"), with the corresponding
@@ -141,6 +158,11 @@ Subject to human acceptance:
 - A same-user forgery risk remains, within ADR-0005. Records and evidence
   grant no authority.
 - Probes consume vendor inference and require explicit consent.
+
+> Superseded by [ADR-0032 — Runtime admission without capability certification](0032-runtime-admission-without-certification.md#decision), accepted 2026-10-19.
+> The mandatory qualification/probe journey is retired, including the
+> proof-conditioned confinement consequence above. Honest confinement reporting
+> and separate inference consent remain. Historical text is preserved.
 
 ## Revisit when
 

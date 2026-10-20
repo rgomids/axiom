@@ -58,34 +58,35 @@ type Request struct {
 }
 
 type ExecutionInput struct {
-	ProjectID         string                           `json:"projectId"`
-	RepositoryKey     string                           `json:"repositoryKey"`
-	AgentID           string                           `json:"agentId"`
-	NodeKey           string                           `json:"nodeKey"`
-	PlanRevision      string                           `json:"planRevision"`
-	PlanDigest        string                           `json:"planDigest"`
-	Role              string                           `json:"role"`
-	Responsibilities  string                           `json:"responsibilities"`
-	RuntimePreview    runtimeapplication.Preview       `json:"runtimePreview"`
-	ProfileEffort     *runtimeprofile.Effort           `json:"profileEffort,omitempty"`
-	EffortSource      string                           `json:"effortSource,omitempty"`
-	ResolvedProfile   *runtimeprofile.ResolvedProfile  `json:"resolvedProfile,omitempty"`
-	RequestedEffort   workflowdefinition.Effort        `json:"requestedEffort"`
-	Controls          executiongraph.ExecutionControls `json:"controls"`
-	Scope             executiongraph.Scope             `json:"scope"`
-	Effects           []executiongraph.Effect          `json:"effects"`
-	Workflow          workflowdefinition.Ref           `json:"workflow"`
-	StageID           string                           `json:"stageId"`
-	Purpose           string                           `json:"purpose"`
-	Instructions      string                           `json:"instructions"`
-	Inputs            []InputBinding                   `json:"inputs"`
-	ExpectedOutputs   []workflowdefinition.Output      `json:"expectedOutputs"`
-	Criteria          []workflowdefinition.Criterion   `json:"completionCriteria"`
-	Validators        []workflowdefinition.Validator   `json:"validators"`
-	HumanGates        []workflowdefinition.Gate        `json:"humanGates"`
-	FailurePolicy     workflowdefinition.FailurePolicy `json:"failurePolicy"`
-	Dependencies      []string                         `json:"dependencyOutputs"`
-	DependencyOutputs []DependencyOutput               `json:"dependencyOutputReferences"`
+	ProjectID         string                            `json:"projectId"`
+	RepositoryKey     string                            `json:"repositoryKey"`
+	AgentID           string                            `json:"agentId"`
+	NodeKey           string                            `json:"nodeKey"`
+	PlanRevision      string                            `json:"planRevision"`
+	PlanDigest        string                            `json:"planDigest"`
+	Role              string                            `json:"role"`
+	Responsibilities  string                            `json:"responsibilities"`
+	RuntimePreview    runtimeapplication.Preview        `json:"runtimePreview"`
+	ProfileEffort     *runtimeprofile.Effort            `json:"profileEffort,omitempty"`
+	EffortSource      string                            `json:"effortSource,omitempty"`
+	ResolvedProfile   *runtimeprofile.ResolvedProfile   `json:"resolvedProfile,omitempty"`
+	FrozenProfile     *runtimeprofile.ResolvedProfileV4 `json:"frozenProfile,omitempty"`
+	RequestedEffort   workflowdefinition.Effort         `json:"requestedEffort"`
+	Controls          executiongraph.ExecutionControls  `json:"controls"`
+	Scope             executiongraph.Scope              `json:"scope"`
+	Effects           []executiongraph.Effect           `json:"effects"`
+	Workflow          workflowdefinition.Ref            `json:"workflow"`
+	StageID           string                            `json:"stageId"`
+	Purpose           string                            `json:"purpose"`
+	Instructions      string                            `json:"instructions"`
+	Inputs            []InputBinding                    `json:"inputs"`
+	ExpectedOutputs   []workflowdefinition.Output       `json:"expectedOutputs"`
+	Criteria          []workflowdefinition.Criterion    `json:"completionCriteria"`
+	Validators        []workflowdefinition.Validator    `json:"validators"`
+	HumanGates        []workflowdefinition.Gate         `json:"humanGates"`
+	FailurePolicy     workflowdefinition.FailurePolicy  `json:"failurePolicy"`
+	Dependencies      []string                          `json:"dependencyOutputs"`
+	DependencyOutputs []DependencyOutput                `json:"dependencyOutputReferences"`
 }
 
 type DependencyOutput struct {
@@ -197,22 +198,22 @@ func (c Compiler) compile(ctx context.Context, request Request, v2 bool) (Result
 			}
 		}
 		if v2 {
-			profile := resolved.Choice.ResolvedProfile
-			if profile == nil || runtimeprofile.ValidateResolvedProfile(*profile) != nil {
+			profile := resolved.Choice.FrozenProfile
+			if profile == nil || runtimeprofile.ValidateResolvedProfileV4(*profile) != nil {
 				return Result{}, ErrRuntimeBlocked
 			}
 			profileCopy := *profile
-			resolved.Choice.ResolvedProfile = &profileCopy
+			resolved.Choice.FrozenProfile = &profileCopy
 		}
 		unit := compiledUnit(request, stage, agent, work)
 		if v2 {
-			profile := resolved.Choice.ResolvedProfile
-			unit.ResolvedProfile = profile
+			profile := resolved.Choice.FrozenProfile
+			unit.FrozenProfile = profile
 			if profile.Effort.Mode == "explicit" {
 				unit.Controls.ReasoningEffort = profile.Effort.Value
 				unit.Capability.Capabilities = sortedUnique(append(unit.Capability.Capabilities, "reasoning-effort-"+profile.Effort.Value))
 			}
-			if !executiongraph.ValidProfileControls(profile, unit.Controls, unit.Capability) {
+			if !executiongraph.ValidFrozenProfileControls(profile, unit.Controls, unit.Capability) {
 				return Result{}, ErrUnsupportedEffort
 			}
 		}
@@ -223,10 +224,10 @@ func (c Compiler) compile(ctx context.Context, request Request, v2 bool) (Result
 		input.Role, input.Responsibilities = agent.Role, agent.Responsibilities
 		input.RuntimePreview, input.RequestedEffort = resolved, agent.Effort
 		if v2 {
-			effort := resolved.Choice.ResolvedProfile.Effort
+			effort := resolved.Choice.FrozenProfile.Effort
 			input.ProfileEffort = &effort
 			input.EffortSource = "local-model-profile"
-			input.ResolvedProfile = resolved.Choice.ResolvedProfile
+			input.FrozenProfile = resolved.Choice.FrozenProfile
 		}
 		input.Controls, input.Scope, input.Effects = unit.Controls, unit.Scope, unit.Effects
 		inputReference, err := stageInputReference(input)
@@ -247,7 +248,7 @@ func (c Compiler) compile(ctx context.Context, request Request, v2 bool) (Result
 	}
 	result := Result{FormatVersion: 1, Workflow: request.Workflow, StageID: stage.ID, ExecutionKind: "graph", Mode: stage.Mode, Concurrency: stage.Concurrency, Authority: sortedEffects(requiredEffects), AuthorityCeiling: sortedEffects(request.ParentAuthority), Validation: []ValidationResult{{Check: "workflow-revision", Status: "passed"}, {Check: "stage-contract", Status: "passed"}, {Check: "bounded-plan", Status: "passed"}, {Check: "input-references", Status: "passed"}, {Check: "runtime-profile-resolution", Status: "passed"}, {Check: "effort-policy", Status: "passed"}, {Check: "authority-ceiling", Status: "passed"}, {Check: "topology-and-concurrency", Status: "passed"}}, Agents: agents, PlanRevision: request.Plan.PlanRevision, PlanDigest: request.Plan.PlanDigest}
 	if v2 {
-		result.FormatVersion = 2
+		result.FormatVersion = OperationalResultVersion
 	}
 	if len(stage.Agents) == 1 {
 		result.ExecutionKind = "single"
@@ -376,6 +377,9 @@ func (c Compiler) resolveAgent(ctx context.Context, request Request, stage workf
 			selection.RuntimeID = agent.RuntimeConstraints[0]
 		}
 		preview, err := c.runtimes.Preview(ctx, request.ProjectID, selection)
+		if err != nil && preview.Blocker != nil {
+			return runtimeapplication.Preview{}, fmt.Errorf("%w: %w", ErrRuntimeBlocked, *preview.Blocker)
+		}
 		if err != nil || !previewMatchesV2(preview, request.ProjectID, selection) || len(agent.RuntimeConstraints) > 0 && !contains(agent.RuntimeConstraints, preview.Choice.RuntimeID) {
 			return runtimeapplication.Preview{}, ErrRuntimeBlocked
 		}
@@ -747,14 +751,14 @@ func sortedUnique(values []string) []string {
 
 func previewMatchesV2(preview runtimeapplication.Preview, projectID string, request runtimeapplication.Request) bool {
 	choice := preview.Choice
-	if choice == nil || choice.ResolvedProfile == nil || runtimeprofile.ValidateResolvedProfile(*choice.ResolvedProfile) != nil {
+	if choice == nil || choice.FrozenProfile == nil || choice.ResolvedProfile != nil || runtimeprofile.ValidateResolvedProfileV4(*choice.FrozenProfile) != nil {
 		return false
 	}
-	profile := choice.ResolvedProfile
+	profile := choice.FrozenProfile
 	if preview.Blocker != nil || preview.ProjectID != projectID || preview.Request.Role != request.Role || preview.Request.Complexity != request.Complexity || preview.Request.RuntimeID != request.RuntimeID || preview.Request.ModelProfileID != request.ModelProfileID || !sameStrings(preview.Request.Capabilities, request.Capabilities) {
 		return false
 	}
-	return profile.ProfileID == choice.ModelProfileID && profile.RuntimeID == choice.RuntimeID && profile.Model == choice.Model && profile.ConfigurationRevision == preview.ConfigurationRevision && profile.ConfigurationDigest == preview.ConfigurationDigest && profile.ObservationDigest == preview.ObservationDigest && profile.ExecutableDigest == choice.ExecutableDigest && profile.RuntimeVersion == choice.RuntimeVersion && profile.ObservationRevision == choice.ObservationRevision && (request.RuntimeID == "" || request.RuntimeID == profile.RuntimeID) && (request.ModelProfileID == "" || request.ModelProfileID == profile.ProfileID)
+	return profile.ProfileID == choice.ModelProfileID && profile.RuntimeID == choice.RuntimeID && profile.Model == choice.Model && profile.ConfigurationRevision == preview.ConfigurationRevision && profile.ConfigurationDigest == preview.ConfigurationDigest && profile.ObservationDigest == preview.ObservationDigest && profile.ExecutableDigest == choice.ExecutableDigest && choice.RuntimeVersion == "" && profile.ObservationRevision == choice.ObservationRevision && (request.RuntimeID == "" || request.RuntimeID == profile.RuntimeID) && (request.ModelProfileID == "" || request.ModelProfileID == profile.ProfileID)
 }
 
 // MarshalJSON retains v1 requestedEffort while v2 exposes only Profile provenance.

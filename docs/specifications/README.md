@@ -67,6 +67,19 @@ merge, release or product acceptance is inferred.
 
 ## 007 — Configurable Project workflows
 
+[AXM-36 runtime admission amendment](007-configurable-workflows/amendment-axm36-runtime-admission.md)
+and [ADR-0032](../decisions/0032-runtime-admission-without-certification.md):
+**Accepted, 2026-10-19**, at `b4baf106` by
+[explicit human decision](https://github.com/rgomids/axiom/pull/334#issuecomment-6278024276), including the bounded partial-supersession map.
+The [AXM-36 Plan](007-configurable-workflows/plan-axm36-runtime-admission.md)
+and [Tasks T01–T03](007-configurable-workflows/tasks-axm36-runtime-admission.md)
+have [explicit implementation approval at `91b04156`](https://github.com/rgomids/axiom/pull/334#issuecomment-6279165229).
+[Implementation Evidence](007-configurable-workflows/evidence-axm36-implementation.md)
+records T01's inactive contract/observation foundations and remaining work.
+T01 is incomplete; T02/T03 cutover and retirement have not started. Production
+admission is unchanged. No real Runtime acceptance or canonical Execution
+transition is inferred.
+
 [AXM-31 operator autonomy amendment](007-configurable-workflows/amendment-axm31-operator-autonomy.md):
 **Accepted, 2026-10-17**, by [explicit human acceptance](https://github.com/rgomids/axiom/pull/325#issuecomment-6241938642)
 of revision `2e9295293c84a51523df50b28258149debb6badf` (the original Proposed bytes

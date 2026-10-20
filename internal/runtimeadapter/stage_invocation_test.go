@@ -2,25 +2,31 @@ package runtimeadapter
 
 import (
 	"context"
-	"github.com/rgomids/axiom/internal/executiongraph"
+	"errors"
 	"slices"
 	"testing"
+
+	"github.com/rgomids/axiom/internal/executiongraph"
 )
+
+func identityRequest(runtime string, write, process bool) StageInvocationRequest {
+	return StageInvocationRequest{Profile: CommandProfile{RuntimeID: runtime, Executable: nativeFixturePath("/bin/" + runtime), Model: "model"}, Workspace: nativeFixturePath("/work"), Inbox: nativeFixturePath("/inbox"), AxiomPath: nativeFixturePath("/bin/axiom"), RepositoryWrite: write, Process: process}
+}
 
 func TestStageArgvGolden(t *testing.T) {
 	for _, tc := range []struct {
-		runtime, version string
-		write            bool
-		want             []string
-		cwd              string
+		runtime string
+		write   bool
+		want    []string
+		cwd     string
 	}{
-		{"codex", "0.159.1", false, []string{"/bin/codex", "exec", "--model", "model", "--ignore-user-config", "--ephemeral", "-", "--sandbox", "workspace-write", "-C", "/inbox"}, "/inbox"},
-		{"codex", "0.159.1", true, []string{"/bin/codex", "exec", "--model", "model", "--ignore-user-config", "--ephemeral", "-", "--sandbox", "workspace-write", "-C", "/work", "--add-dir", "/inbox"}, "/work"},
-		{"claude", "2.1.296", false, []string{"/bin/claude", "--print", "--model", "model", "--input-format", "text", "--permission-prompts", "none", "--permission-mode", "dontAsk", "--allowedTools", "Read,Glob,Grep,Write,Bash(/bin/axiom:*)", "--add-dir", "/inbox"}, "/inbox"},
-		{"claude", "2.1.296", true, []string{"/bin/claude", "--print", "--model", "model", "--input-format", "text", "--permission-prompts", "none", "--permission-mode", "dontAsk", "--allowedTools", "Read,Glob,Grep,Write,Edit,Bash(/bin/axiom:*)", "--add-dir", "/inbox"}, "/work"},
+		{"codex", false, []string{"/bin/codex", "exec", "--model", "model", "--ignore-user-config", "--ephemeral", "-", "--sandbox", "workspace-write", "-C", "/inbox"}, "/inbox"},
+		{"codex", true, []string{"/bin/codex", "exec", "--model", "model", "--ignore-user-config", "--ephemeral", "-", "--sandbox", "workspace-write", "-C", "/work", "--add-dir", "/inbox"}, "/work"},
+		{"claude", false, []string{"/bin/claude", "--print", "--model", "model", "--input-format", "text", "--permission-prompts", "none", "--permission-mode", "dontAsk", "--allowedTools", "Read,Glob,Grep,Write,Bash(/bin/axiom:*)", "--add-dir", "/inbox"}, "/inbox"},
+		{"claude", true, []string{"/bin/claude", "--print", "--model", "model", "--input-format", "text", "--permission-prompts", "none", "--permission-mode", "dontAsk", "--allowedTools", "Read,Glob,Grep,Write,Edit,Bash(/bin/axiom:*)", "--add-dir", "/inbox"}, "/work"},
 	} {
 		t.Run(tc.runtime+tc.cwd, func(t *testing.T) {
-			inv, err := BuildStageInvocation(StageInvocationRequest{Profile: CommandProfile{RuntimeID: tc.runtime, Executable: "/bin/" + tc.runtime, Model: "model"}, Version: tc.version, Workspace: "/work", Inbox: "/inbox", AxiomPath: "/bin/axiom", RepositoryWrite: tc.write})
+			inv, err := BuildStageInvocation(StageInvocationRequest{Profile: CommandProfile{RuntimeID: tc.runtime, Executable: "/bin/" + tc.runtime, Model: "model"}, Workspace: "/work", Inbox: "/inbox", AxiomPath: "/bin/axiom", RepositoryWrite: tc.write})
 			if err != nil || !slices.Equal(inv.Argv, tc.want) || inv.CWD != tc.cwd {
 				t.Fatalf("%+v %v", inv, err)
 			}
@@ -34,20 +40,36 @@ func TestStageArgvGolden(t *testing.T) {
 func TestStageRejectsConfiguredArguments(t *testing.T) {
 	for _, argument := range []string{"--dangerously-bypass-approvals-and-sandbox", "--sandbox=danger-full-access", "--dangerously-skip-permissions", "--allow-dangerously-skip-permissions", "--permission-mode=bypassPermissions", "--bare", "--settings", "--profile", "--config", "--unknown"} {
 		for _, runtime := range []string{"codex", "claude"} {
-			version := "0.159.1"
-			if runtime == "claude" {
-				version = "2.1.296"
-			}
-			_, err := BuildStageInvocation(StageInvocationRequest{Profile: CommandProfile{RuntimeID: runtime, Executable: "/bin/" + runtime, Model: "model", Arguments: []string{argument}}, Version: version, Workspace: "/work", Inbox: "/inbox", AxiomPath: "/bin/axiom"})
+			_, err := BuildStageInvocation(StageInvocationRequest{Profile: CommandProfile{RuntimeID: runtime, Executable: "/bin/" + runtime, Model: "model", Arguments: []string{argument}}, Workspace: "/work", Inbox: "/inbox", AxiomPath: "/bin/axiom"})
 			if err == nil {
 				t.Fatal(argument)
 			}
 		}
 	}
-	for _, version := range []string{"", "unknown", "0.159.2"} {
-		_, err := BuildStageInvocation(StageInvocationRequest{Profile: CommandProfile{RuntimeID: "codex", Executable: "/bin/codex", Model: "model"}, Version: version, Workspace: "/work", Inbox: "/inbox", AxiomPath: "/bin/axiom"})
-		if err == nil {
-			t.Fatal(version)
+}
+
+func TestStageInvocationHasNoVersionGate(t *testing.T) {
+	for _, runtimeID := range []string{"codex", "claude"} {
+		if _, err := BuildStageInvocation(identityRequest(runtimeID, false, false)); err != nil {
+			t.Fatal(runtimeID, err)
+		}
+	}
+}
+
+func TestStageInvocationRefusesInheritedConfigurationAndEffort(t *testing.T) {
+	for _, runtimeID := range []string{"codex", "claude"} {
+		for _, variable := range []string{"CODEX_HOME", "CLAUDE_CONFIG_DIR", "codex_home", "claude_config_dir"} {
+			request := identityRequest(runtimeID, true, false)
+			request.ParentEnvironment = []string{"HOME=/home/example", variable + "=/vendor"}
+			if _, err := BuildStageInvocation(request); !errors.Is(err, ErrEffortConfigurationUnsafe) {
+				t.Fatal(runtimeID, variable, err)
+			}
+		}
+		request := identityRequest(runtimeID, true, false)
+		request.ParentEnvironment = []string{"CLAUDE_CODE_EFFORT_LEVEL=high"}
+		_, err := BuildStageInvocation(request)
+		if runtimeID == "claude" && !errors.Is(err, ErrEffortOverrideConflict) || runtimeID == "codex" && err != nil {
+			t.Fatal(runtimeID, err)
 		}
 	}
 }
@@ -99,7 +121,7 @@ func TestStageAuthMissingLoginRoot(t *testing.T) {
 }
 
 func TestStagePathAndProcessBoundary(t *testing.T) {
-	request := StageInvocationRequest{Profile: CommandProfile{RuntimeID: "claude", Executable: "/bin/claude", Model: "model"}, Version: "2.1.296", Workspace: "/work", Inbox: "/inbox", AxiomPath: "/bin/axiom"}
+	request := StageInvocationRequest{Profile: CommandProfile{RuntimeID: "claude", Executable: "/bin/claude", Model: "model"}, Workspace: "/work", Inbox: "/inbox", AxiomPath: "/bin/axiom"}
 	for _, inbox := range []string{"/work/inbox", "/", "/inbox/../inbox", "/inbox\n", "/inbox\x00"} {
 		invalid := request
 		invalid.Inbox = inbox

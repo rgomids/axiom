@@ -313,7 +313,7 @@ func decodeExecutionSnapshot(wire []byte) (workflow.State, error) {
 	if err := decoder.Decode(&dto); err != nil {
 		return workflow.State{}, ErrUnsafe
 	}
-	if (dto.FormatVersion == 2 || dto.FormatVersion == 3) && workflowdefinition.StrictJSONBounded(wire, &dto, MaxExecutionBytes) != nil {
+	if (dto.FormatVersion == 2 || dto.FormatVersion == 3 || dto.FormatVersion == workflow.OperationalConfiguredFormatVersion) && workflowdefinition.StrictJSONBounded(wire, &dto, MaxExecutionBytes) != nil {
 		return workflow.State{}, ErrUnsafe
 	}
 	if dto.FormatVersion == 1 && len(wire) > MaxRecordBytes {

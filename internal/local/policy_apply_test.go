@@ -185,7 +185,7 @@ func TestPolicyReadBackTruthAndDrift(t *testing.T) {
 					if err != nil {
 						t.Fatal(err)
 					}
-					wire, err := runtimeprofile.EncodeV3(fx.CodexOnly())
+					wire, err := runtimeprofile.EncodeV4(operationalTestConfig(fx.CodexOnly()))
 					if err != nil {
 						t.Fatal(err)
 					}
@@ -264,7 +264,7 @@ func TestPolicyRemovalPreservesOtherProjectRegistryAndBindings(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg, err := runtimeprofile.EncodeV3(fx.MultiRuntime())
+	cfg, err := runtimeprofile.EncodeV4(operationalTestConfig(fx.MultiRuntime()))
 	if err != nil {
 		t.Fatal(err)
 	}

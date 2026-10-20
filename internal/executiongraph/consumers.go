@@ -58,7 +58,7 @@ func WorkspaceProjection(g SuccessorGraph) (Graph, error) {
 	if ValidateSuccessorGraph(g) != nil {
 		return Graph{}, ErrInvalidGraph
 	}
-	historical := Graph{FormatVersion: 2, Parent: g.Parent}
+	historical := Graph{FormatVersion: g.projectionVersion(), Parent: g.Parent}
 	for _, child := range g.Children {
 		h := ChildExecution{ExecutionID: child.ExecutionID, ParentID: child.ParentID, GraphRevision: child.GraphRevision, NodeKey: child.NodeKey, Envelope: child.Envelope}
 		if !child.Envelope.IntegrationOwner && len(child.Attempts) > 0 {

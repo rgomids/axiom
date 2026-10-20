@@ -42,7 +42,7 @@ func TestStageDisposerChecksDispositionWithoutEffects(t *testing.T) {
 
 func syntheticDispatch(t *testing.T) stageexecution.DispatchPreview {
 	t.Helper()
-	wire, err := os.ReadFile("../../internal/workflowcompiler/testdata/issue306/stage-plan-v2.json")
+	wire, err := os.ReadFile("../../internal/stageexecution/testdata/stage-plan-v3.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -52,11 +52,11 @@ func syntheticDispatch(t *testing.T) stageexecution.DispatchPreview {
 	}
 	r := executiongraph.PublicationRequest{Proposal: *plan.Compilation.Proposal, ExpectedDigest: plan.Compilation.Proposal.Digest, GraphRevision: plan.Execution.Revision, ParentAuthority: plan.Compilation.AuthorityCeiling, ChildAuthorities: map[string][]executiongraph.Effect{}, AuthorityReferences: map[string]string{}, Workspaces: map[string]string{}, Resolutions: map[string]executiongraph.Resolution{}}
 	for _, a := range plan.Compilation.Agents {
-		key, f := a.Input.NodeKey, a.Input.ResolvedProfile
+		key, f := a.Input.NodeKey, a.Input.FrozenProfile
 		r.ChildAuthorities[key] = a.Effects
 		r.AuthorityReferences[key] = "pending-dispatch-authority"
 		r.Workspaces[key] = filepath.Join("/synthetic/stage/worktrees", a.AgentID)
-		r.Resolutions[key] = executiongraph.Resolution{RuntimeID: f.RuntimeID, ModelProfileID: f.ProfileID, ConfigurationRevision: f.ConfigurationRevision, ObservationRevision: f.ObservationRevision, ResolvedProfile: f}
+		r.Resolutions[key] = executiongraph.Resolution{RuntimeID: f.RuntimeID, ModelProfileID: f.ProfileID, ConfigurationRevision: f.ConfigurationRevision, ObservationRevision: f.ObservationRevision, FrozenProfile: f}
 	}
 	p := stageexecution.DispatchPreview{Plan: plan, Publication: &r, PolicyDigest: strings.Repeat("a", 64), ValidatorPolicyDigest: strings.Repeat("b", 64), AxiomDigest: strings.Repeat("c", 64)}
 	wire, err = json.Marshal(p)
@@ -142,7 +142,7 @@ func TestRetainedDispatchRefusesForgedInnerDigest(t *testing.T) {
 		t.Fatal(err)
 	}
 	r := stageexecution.SupervisorRequest{ProjectID: p.Plan.ProjectID, ParentID: "00000000-0000-4000-8000-000000000001", PreviewDigest: p.Digest}
-	if _, err = graphs.CommitDispatchInputs(ctx, executiongraph.DispatchInputs{FormatVersion: 1, ProjectID: r.ProjectID, ParentID: r.ParentID, PreviewDigest: r.PreviewDigest, Preview: wire}); err != nil {
+	if _, err = graphs.CommitDispatchInputs(ctx, executiongraph.DispatchInputs{FormatVersion: 2, ProjectID: r.ProjectID, ParentID: r.ParentID, PreviewDigest: r.PreviewDigest, Preview: wire}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err = retainedPreview(ctx, graphs, r); err == nil {

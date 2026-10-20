@@ -241,6 +241,15 @@ func (s Supervisor) runBatch(ctx context.Context, r SupervisorRequest, g *execut
 		inv, e := s.Preparation.Prepare(ctx, *g, g.Children[index], attemptID, lease.Epoch())
 		if e != nil {
 			firstErr = e
+			if at, ok := preSpawnAttempt(e, attemptID, number, lease.Epoch(), now()); ok {
+				candidate := cloneSupervisorGraph(*g)
+				candidate.Children[index].Attempts = append(candidate.Children[index].Attempts, at)
+				if saved, saveErr := s.Store.Save(ctx, candidate, lease); saveErr != nil {
+					firstErr = saveErr
+				} else {
+					*g = saved
+				}
+			}
 			break
 		}
 		// Preparation can observe drift or a cancellation published while auth
@@ -396,7 +405,24 @@ func (s Supervisor) handleEvent(ctx context.Context, r SupervisorRequest, g *exe
 	}
 	at, ok := active[ev.index]
 	if !ok {
-		return ErrSupervisorRecovery
+		at = ev.attempt
+		at.Status, at.ClassificationReason = executiongraph.AttemptUnknown, executiongraph.ProcessOutcomeUnknown
+		if ev.process.SpawnFailed {
+			at.Status, at.ClassificationReason = executiongraph.AttemptFailed, executiongraph.ProcessFailed
+		}
+		finish := now().UTC()
+		at.FinishedAt, at.ExitCode = &finish, ev.process.ExitCode
+		digest := sha256.Sum256(ev.process.Output)
+		at.OutputDigest = hex.EncodeToString(digest[:])
+		at.ResultReference = at.OutputDigest
+		at.Diagnostic = executiongraph.DiagnoseAttempt(at, ev.process)
+		candidate := cloneSupervisorGraph(*g)
+		candidate.Children[ev.index].Attempts = append(candidate.Children[ev.index].Attempts, at)
+		saved, err := s.Store.Save(ctx, candidate, lease)
+		if err == nil {
+			*g = saved
+		}
+		return err
 	}
 	records, e := s.Preparation.Drain(ctx, *g, g.Children[ev.index], at, true)
 	if e != nil {
@@ -415,6 +441,7 @@ func (s Supervisor) handleEvent(ctx context.Context, r SupervisorRequest, g *exe
 	digest := sha256.Sum256(ev.process.Output)
 	at.OutputDigest = hex.EncodeToString(digest[:])
 	at.ResultReference = at.OutputDigest
+	at.Diagnostic = executiongraph.DiagnoseAttempt(at, ev.process)
 	candidate := cloneSupervisorGraph(*g)
 	candidate.Children[ev.index].Attempts[len(candidate.Children[ev.index].Attempts)-1] = at
 	saved, e := s.Store.Save(ctx, candidate, lease)

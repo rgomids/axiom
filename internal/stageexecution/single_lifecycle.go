@@ -354,8 +354,8 @@ func (s SingleLifecycle) retryPreview(ctx context.Context, ref workflowcompiler.
 	if dispatch.Publication != nil || dispatch.Plan.Digest != run.Binding.ProposalDigest || len(dispatch.Plan.Compilation.Agents) != 1 {
 		return SingleOperationPreview{}, c, run, ErrStalePreview
 	}
-	frozen := dispatch.Plan.Compilation.Agents[0].Input.ResolvedProfile
-	if frozen == nil || *frozen != *run.Binding.Resolution.ResolvedProfile {
+	frozen, bound := dispatch.Plan.Compilation.Agents[0].Input.FrozenProfile, run.Binding.Resolution.FrozenProfile
+	if frozen == nil || bound == nil || *frozen != *bound {
 		return SingleOperationPreview{}, c, run, ErrStalePreview
 	}
 	prior := run.Attempts[len(run.Attempts)-1]

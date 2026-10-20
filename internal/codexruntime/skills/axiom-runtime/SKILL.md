@@ -24,7 +24,7 @@ When configuring for an existing Project goal, consume `axiom-project` inventory
 and complete-known-path preflight before asking model, effort, Profile ID or
 template. Reobserve its referenced facts; do not repeat still-valid decisions.
 An absent/unknown required G-1, incompatible snapshot, recovery, unavailable
-required proof/producer or denial stops the dependent path before Profile setup.
+required observation/producer or denial stops the dependent path before Profile setup.
 A saved Profile cannot bypass a missing portable policy. An independent partial
 objective needs explained benefit/losses, execution still blocked and explicit
 partial opt-in before technical collection. Direct local setup remains local;
@@ -37,26 +37,28 @@ authoritative source never recommend a concrete model/effort or infer support.
 Validate new Profile ID form and collision through the owner before proposing an
 unconfirmed candidate label. A collision never authorizes rename or replacement.
 Reuse valid configuration; templates, tuning and multiagent setup are optional.
-Use `runtime-default` only with observed support and explicit choice.
+Use `runtime-default` only for explicit no-override intent.
 
 Each binding and Profile apply has separate exact authority for operation,
 target, content, revision/digest and shared local scope; another apply's approval
 does not transfer. Denial cancels without insistence or substitution. Before each
 apply reobserve owner snapshots and material Project/source/selector, policy,
-local configuration, executable/auth/proof and Workflow facts from the handoff.
+local configuration, executable/auth/effort-source and Workflow facts from the handoff.
 Material drift invalidates preview and authority; redo preflight and obtain a
 fresh preview and exact confirmation. No global lock or transaction is implied.
 After each write compare list/show read-back identity, revision/digest and content,
 then use the existing Project readiness evaluator. Unknown/lost acknowledgement
 or divergent read-back stops the chain; never replay an uncertain mutation.
 
-Installed, authenticated, supported and proven remain independent. Passive
-discovery executes no vendor process. Auth preflight and effort-source inspection
-may execute processes and need their own authority. Do not prepare/probe/invalidate
-proof, login, infer or resolve credentials to discover support. Existing proof
-must match exact Profile/model/effort/executable/version/variant/digests/freshness;
-metadata or saved intent never proves it. Keep portable policy when local matches
-are absent; Project policy and Workflow selection stay with their owners.
+Installed, authenticated and authorized are independent facts.
+Follow inspect → authorize → execute → observe → diagnose/recover. Passive
+inspection runs no vendor process. Scoped effort-source inspection needs local
+consent; auth preflight reports login only, never inference or billing. Neither
+an unfamiliar version nor absent certification blocks an authorized Runtime.
+Executable/configuration drift invalidates preview and requires fresh authority.
+No capability probe, registry, Evidence receipt or effort declaration is required.
+Keep portable policy when local matches are absent; Project policy and Workflow
+selection stay with their owners. Execution needs its own exact authorities.
 
 Apply AO-06/07/09: at most two repetitions after the initial call within 60 seconds,
 respecting any smaller limit, only with current authority and proven replay safety;
@@ -90,9 +92,9 @@ effort mode/value. Effort belongs exclusively to the Model Profile.
 `runtime-default` with value `default` requests no Axiom override; it makes no
 claim about a vendor's concrete internal effort. Unknown model/effort facts can
 be saved as intent only when the owner contract permits; a Project journey also
-requires partial opt-in. Operational use remains blocked pending exact proof.
+requires partial opt-in. Operational use requires current policy, binding, inspection and specific authority.
 Recommend options only with canonical provenance; never use this chat's model
-or infer model access from authentication. Auth probes and inference need their
+or infer model access from authentication. Auth status subprocesses and inference need their
 own consent and never authorize local apply.
 
 Optional templates describe intent only:

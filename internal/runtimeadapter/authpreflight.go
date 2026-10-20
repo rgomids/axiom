@@ -150,13 +150,16 @@ func NewAuthPreflight(runner StatusRunner, managed ManagedConfiguration) (AuthPr
 func DefaultManagedConfiguration() ManagedConfiguration {
 	switch runtime.GOOS {
 	case "darwin":
-		return ManagedConfiguration{ClaudeSettings: []string{"/Library/Application Support/ClaudeCode/managed-settings.json"}, CodexConfig: []string{"/etc/codex/config.toml", "/etc/codex/managed_config.toml"}}
+		return ManagedConfiguration{ClaudeSettings: []string{"/Library/Application Support/ClaudeCode/managed-settings.json"}, CodexConfig: []string{"/private/etc/codex/config.toml", "/private/etc/codex/managed_config.toml"}}
 	case "linux":
 		return ManagedConfiguration{ClaudeSettings: []string{"/etc/claude-code/managed-settings.json"}, CodexConfig: []string{"/etc/codex/config.toml", "/etc/codex/managed_config.toml"}}
 	}
 	return ManagedConfiguration{}
 }
 
+// Check observes authentication independently of optional version metadata:
+// an unknown, malformed or failing version read continues to the real status
+// surface, whose outcome alone decides dispatch.
 func (p AuthPreflight) Check(ctx context.Context, target AuthTarget) AuthReport {
 	report := AuthReport{RuntimeID: target.RuntimeID, Method: "unknown", Version: "unknown", EvidenceKind: EvidenceFake, Usability: UsabilityUnproven, Revalidation: RevalidateBeforeDispatch}
 	if p.runner != nil {
@@ -202,11 +205,14 @@ func (p AuthPreflight) Check(ctx context.Context, target AuthTarget) AuthReport 
 	if !version.Started {
 		return report.with(AuthUnavailable, "executable_unavailable")
 	}
-	if version.TimedOut || version.ExitCode != 0 {
+	if version.TimedOut || ctx.Err() != nil {
 		return report.with(AuthUnproven, "version_unavailable")
 	}
-	if report.Version = versionToken(version.Output); report.Version == "unknown" {
-		return report.with(AuthUnproven, "version_unrecognized")
+	if version.ExitCode == 0 {
+		report.Version = versionToken(version.Output)
+	}
+	if after, err := ExecutableIdentity(target.Executable); err != nil || after != identity {
+		return report.with(AuthUnproven, "executable_identity_changed")
 	}
 	if target.RuntimeID == "codex" {
 		command.Argv = []string{target.Executable, "login", "status"}
@@ -217,7 +223,7 @@ func (p AuthPreflight) Check(ctx context.Context, target AuthTarget) AuthReport 
 	if !status.Started {
 		return report.with(AuthUnavailable, "executable_unavailable")
 	}
-	if status.TimedOut {
+	if status.TimedOut || ctx.Err() != nil {
 		return report.with(AuthUnproven, "status_timeout")
 	}
 	var outcome AuthStatus

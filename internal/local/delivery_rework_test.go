@@ -42,7 +42,7 @@ func localReworkFixture(t *testing.T, store WorkflowStore, state workflow.State)
 	next.UpdatedAt = next.CreatedAt
 	next.Binding.BoundAt = next.CreatedAt
 	next.Binding.SnapshotRef = "execution:" + next.ExecutionID + "#/binding/snapshot"
-	p := workflow.ReworkPreview{FormatVersion: 1, Kind: "delivery_rework", OriginalPacket: packet, DecisionDigest: d.Digest(), Input: workflow.ReworkInput{NewExecutionID: next.ExecutionID, RevisionChoice: "retained", ResolvedProfile: next.Binding.ResolvedProfile, RuntimeID: next.RuntimeID, RuntimePreview: next.Binding.RuntimePreview, Scope: d.Reason, Plan: workflow.Reference{Kind: "plan", ID: "corrective-plan", Digest: strings.Repeat("a", 64)}, Authority: workflow.Reference{Kind: "decision", ID: "new-authority", Digest: strings.Repeat("b", 64)}, Inputs: []workflow.Reference{}}, NewState: next}
+	p := workflow.ReworkPreview{FormatVersion: 1, Kind: "delivery_rework", OriginalPacket: packet, DecisionDigest: d.Digest(), Input: workflow.ReworkInput{NewExecutionID: next.ExecutionID, RevisionChoice: "retained", ResolvedProfile: next.Binding.ResolvedProfile, FrozenProfile: next.Binding.FrozenProfile, RuntimeID: next.RuntimeID, RuntimePreview: next.Binding.RuntimePreview, Scope: d.Reason, Plan: workflow.Reference{Kind: "plan", ID: "corrective-plan", Digest: strings.Repeat("a", 64)}, Authority: workflow.Reference{Kind: "decision", ID: "new-authority", Digest: strings.Repeat("b", 64)}, Inputs: []workflow.Reference{}}, NewState: next}
 	if _, err = workflow.EncodeReworkPreview(p); err != nil {
 		t.Fatal(err)
 	}

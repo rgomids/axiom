@@ -30,11 +30,12 @@ type ParentExecution struct {
 }
 
 type Resolution struct {
-	ResolvedProfile       *runtimeprofile.ResolvedProfile `json:"resolvedProfile,omitempty"`
-	RuntimeID             string                          `json:"runtimeId"`
-	ModelProfileID        string                          `json:"modelProfileId"`
-	ConfigurationRevision uint64                          `json:"configurationRevision"`
-	ObservationRevision   uint64                          `json:"observationRevision"`
+	ResolvedProfile       *runtimeprofile.ResolvedProfile   `json:"resolvedProfile,omitempty"`
+	FrozenProfile         *runtimeprofile.ResolvedProfileV4 `json:"frozenProfile,omitempty"`
+	RuntimeID             string                            `json:"runtimeId"`
+	ModelProfileID        string                            `json:"modelProfileId"`
+	ConfigurationRevision uint64                            `json:"configurationRevision"`
+	ObservationRevision   uint64                            `json:"observationRevision"`
 }
 
 type ChildEnvelope struct {
@@ -167,6 +168,10 @@ func (s GraphService) Build(request PublicationRequest) (Graph, error) {
 			frozen := *resolution.ResolvedProfile
 			resolution.ResolvedProfile = &frozen
 		}
+		if resolution.FrozenProfile != nil {
+			frozen := *resolution.FrozenProfile
+			resolution.FrozenProfile = &frozen
+		}
 		child := ChildExecution{
 			ExecutionID: childIDs[node.Key], ParentID: parentID, GraphRevision: request.GraphRevision, NodeKey: node.Key,
 			Envelope: ChildEnvelope{
@@ -233,7 +238,7 @@ func validatePublicationRequest(request PublicationRequest) error {
 			return ErrAuthoritySubset
 		}
 		resolution, ok := request.Resolutions[node.Key]
-		if !ok || !validResolution(resolution) || request.Proposal.FormatVersion == 2 && (node.ResolvedProfile == nil || resolution.ResolvedProfile == nil || *node.ResolvedProfile != *resolution.ResolvedProfile) || !validTarget(request.Workspaces[node.Key]) || !validTarget(request.AuthorityReferences[node.Key]) {
+		if !ok || !validResolution(resolution) || request.Proposal.FormatVersion == 2 && (node.ResolvedProfile == nil || resolution.ResolvedProfile == nil || *node.ResolvedProfile != *resolution.ResolvedProfile) || request.Proposal.FormatVersion == OperationalProposalVersion && (node.FrozenProfile == nil || resolution.FrozenProfile == nil || *node.FrozenProfile != *resolution.FrozenProfile) || !validTarget(request.Workspaces[node.Key]) || !validTarget(request.AuthorityReferences[node.Key]) {
 			return ErrInvalidGraph
 		}
 	}
@@ -241,7 +246,17 @@ func validatePublicationRequest(request PublicationRequest) error {
 }
 
 func ValidGraph(graph Graph) bool {
-	if (graph.FormatVersion != GraphFormatVersion && graph.FormatVersion != 2) || !validOpaqueID(graph.Parent.ExecutionID) || graph.Parent.GraphRevision == 0 || !validDigest(graph.Parent.ProposalDigest) || !validDigest(graph.Parent.AuthorityDigest) || graph.Parent.CreatedAt.IsZero() || len(graph.Children) == 0 || len(graph.Children) > maxNodes {
+	for _, child := range graph.Children {
+		resolution := child.Envelope.Resolution
+		if !validNodeProfile(graph.FormatVersion, resolution.ResolvedProfile, resolution.FrozenProfile, child.Envelope.Controls, child.Envelope.Capability) {
+			return false
+		}
+	}
+	return len(graph.Children) > 0 && validGraphTopology(graph)
+}
+
+func validGraphTopology(graph Graph) bool {
+	if !validOpaqueID(graph.Parent.ExecutionID) || graph.Parent.GraphRevision == 0 || !validDigest(graph.Parent.ProposalDigest) || !validDigest(graph.Parent.AuthorityDigest) || graph.Parent.CreatedAt.IsZero() || len(graph.Children) == 0 || len(graph.Children) > maxNodes {
 		return false
 	}
 	ids := map[string]bool{graph.Parent.ExecutionID: true}
@@ -250,9 +265,6 @@ func ValidGraph(graph Graph) bool {
 	projectID := ""
 	integrationCount := 0
 	for _, child := range graph.Children {
-		if graph.FormatVersion == 2 && !ValidProfileControls(child.Envelope.Resolution.ResolvedProfile, child.Envelope.Controls, child.Envelope.Capability) || graph.FormatVersion == 1 && child.Envelope.Resolution.ResolvedProfile != nil {
-			return false
-		}
 		if !validOpaqueID(child.ExecutionID) || ids[child.ExecutionID] || attemptIDs[child.ExecutionID] || child.ParentID != graph.Parent.ExecutionID || child.GraphRevision != graph.Parent.GraphRevision || !validToken(child.NodeKey) || !validEnvelope(child.Envelope) || len(child.Attempts) > int(child.Envelope.Controls.MaximumAttempts) {
 			return false
 		}
@@ -314,7 +326,7 @@ func validAttemptStatus(status AttemptStatus) bool {
 }
 
 func EncodeGraph(graph Graph) ([]byte, error) {
-	if !ValidGraph(graph) {
+	if graph.FormatVersion == OperationalProposalVersion || !ValidGraph(graph) {
 		return nil, ErrInvalidGraph
 	}
 	graph.StorageRevision = [sha256.Size]byte{}
@@ -338,7 +350,7 @@ func DecodeGraph(wire []byte) (Graph, error) {
 	if graph.FormatVersion == 2 && workflowdefinition.StrictJSONBounded(wire, &graph, MaxGraphBytes) != nil {
 		return Graph{}, ErrInvalidGraph
 	}
-	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) || !ValidGraph(graph) {
+	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) || graph.FormatVersion == OperationalProposalVersion || !ValidGraph(graph) {
 		return Graph{}, ErrInvalidGraph
 	}
 	graph.StorageRevision = sha256.Sum256(wire)
@@ -352,7 +364,12 @@ func validEnvelope(envelope ChildEnvelope) bool {
 
 func validResolution(resolution Resolution) bool {
 	if profile := resolution.ResolvedProfile; profile != nil {
-		if runtimeprofile.ValidateResolvedProfile(*profile) != nil || profile.RuntimeID != resolution.RuntimeID || profile.ProfileID != resolution.ModelProfileID || profile.ConfigurationRevision != resolution.ConfigurationRevision || profile.ObservationRevision != resolution.ObservationRevision {
+		if resolution.FrozenProfile != nil || runtimeprofile.ValidateResolvedProfile(*profile) != nil || profile.RuntimeID != resolution.RuntimeID || profile.ProfileID != resolution.ModelProfileID || profile.ConfigurationRevision != resolution.ConfigurationRevision || profile.ObservationRevision != resolution.ObservationRevision {
+			return false
+		}
+	}
+	if profile := resolution.FrozenProfile; profile != nil {
+		if runtimeprofile.ValidateResolvedProfileV4(*profile) != nil || profile.RuntimeID != resolution.RuntimeID || profile.ProfileID != resolution.ModelProfileID || profile.ConfigurationRevision != resolution.ConfigurationRevision || profile.ObservationRevision != resolution.ObservationRevision {
 			return false
 		}
 	}

@@ -150,7 +150,7 @@ func TestPolicyPreviewUsesCandidateAndBindsLocalConfiguration(t *testing.T) {
 		t.Fatal(err)
 	}
 	cfg := fx.CodexOnly()
-	wire, err := runtimeprofile.EncodeV3(cfg)
+	wire, err := runtimeprofile.EncodeV4(operationalTestConfig(cfg))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -241,7 +241,7 @@ func TestPolicyReadinessSnapshotParityAndGuidance(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				wire, err := runtimeprofile.EncodeV3(*scenario.config)
+				wire, err := runtimeprofile.EncodeV4(operationalTestConfig(*scenario.config))
 				if err != nil {
 					t.Fatal(err)
 				}

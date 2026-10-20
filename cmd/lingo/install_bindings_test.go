@@ -11,7 +11,6 @@ import (
 	"github.com/rgomids/axiom/internal/cli"
 	"github.com/rgomids/axiom/internal/local"
 	"github.com/rgomids/axiom/internal/projectapp"
-	"github.com/rgomids/axiom/internal/runtimeadapter"
 	"github.com/rgomids/axiom/internal/runtimeprofile"
 	"github.com/rgomids/axiom/internal/workflowdefinition"
 )
@@ -109,12 +108,12 @@ func TestAuthoredPolicyPreviewThenStartBothRuntimes(t *testing.T) {
 			defaultEffort := runtimeprofile.Effort{Mode: runtimeprofile.EffortRuntimeDefault, Value: "default"}
 			publishRuntimeProfileV3(t, env.state, runtimeprofile.ConfigurationV3{FormatVersion: runtimeprofile.FormatVersionV3, Revision: 1,
 				Runtimes:      []runtimeprofile.RuntimeV3{{ID: "claude", Adapter: "claude", Enabled: true, AllowlistedProfileIDs: []string{"careful"}}, {ID: "codex", Adapter: "codex", Enabled: true, AllowlistedProfileIDs: []string{"worker"}}},
-				ModelProfiles: []runtimeprofile.ModelProfile{{ID: "careful", RuntimeID: "claude", Model: "approved-model", Effort: defaultEffort, Capabilities: []string{runtimeadapter.IntegrationCapability}}, {ID: "worker", RuntimeID: "codex", Model: "approved-model", Effort: defaultEffort, Capabilities: []string{runtimeadapter.IntegrationCapability}}}})
+				ModelProfiles: []runtimeprofile.ModelProfile{{ID: "careful", RuntimeID: "claude", Model: "approved-model", Effort: defaultEffort, Capabilities: []string{"axiom-skills"}}, {ID: "worker", RuntimeID: "codex", Model: "approved-model", Effort: defaultEffort, Capabilities: []string{"axiom-skills"}}}})
 			// Only one Runtime is observable; the other declared one is absent.
 			service, _ := testRuntime(t, env.service.(lifecycleService), runtimeID)
 			service = currentProfileStartFixture(t, service, env.state)
 			saveTargetLink(t, env.state, "123e4567-e89b-42d3-a456-426614174000", "7", "owner/repo")
-			input := cli.WorkflowInput{Project: "authored", Repository: "main", Number: 7, Role: "review", Complexity: "low", Capabilities: []string{runtimeadapter.IntegrationCapability}}
+			input := cli.WorkflowInput{Project: "authored", Repository: "main", Number: 7, Role: "review", Complexity: "low", Capabilities: []string{"axiom-skills"}}
 			// Machine availability never selects a Runtime: two configured,
 			// admissible Profiles are ambiguous until one is chosen explicitly.
 			if implicit := service.WorkflowStart(context.Background(), input); implicit.RuntimeResolution == nil || implicit.RuntimeResolution.Blocker == nil || implicit.RuntimeResolution.Blocker.Code != "ambiguous_match" || implicit.Workflow != nil {

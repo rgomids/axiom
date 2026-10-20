@@ -5,11 +5,19 @@ import (
 	"github.com/rgomids/axiom/internal/runtimeprofile"
 )
 
-// BuildFrozenStageInvocation derives effort exclusively from the approved tuple.
-// Fresh proof, local configuration and effort-source checks belong to the
-// dispatch composition; this builder never resolves or substitutes a Profile.
-func BuildFrozenStageInvocation(request StageInvocationRequest, frozen runtimeprofile.ResolvedProfile) (executiongraph.Invocation, error) {
-	if runtimeprofile.ValidateResolvedProfile(frozen) != nil || request.Profile.RuntimeID != frozen.RuntimeID || request.Profile.ModelProfileID != frozen.ProfileID || request.Profile.Model != frozen.Model || request.Version != frozen.RuntimeVersion {
+// BuildFrozenStageInvocation derives model and effort exclusively from the
+// approved tuple and binds the executable bytes it names. Fresh configuration,
+// effort-source and authentication checks belong to the dispatch composition;
+// this builder never resolves or substitutes a Profile.
+func BuildFrozenStageInvocation(request StageInvocationRequest, frozen runtimeprofile.ResolvedProfileV4) (executiongraph.Invocation, error) {
+	if runtimeprofile.ValidateResolvedProfileV4(frozen) != nil || request.Profile.RuntimeID != frozen.RuntimeID || request.Profile.ModelProfileID != frozen.ProfileID || request.Profile.Model != frozen.Model {
+		return executiongraph.Invocation{}, ErrInvalidAdapterConfiguration
+	}
+	identity, err := ExecutableIdentity(request.Profile.Executable)
+	if err != nil {
+		return executiongraph.Invocation{}, ErrExecutableUnavailable
+	}
+	if identity != frozen.ExecutableDigest {
 		return executiongraph.Invocation{}, ErrInvalidAdapterConfiguration
 	}
 	inv, err := BuildStageInvocation(request)

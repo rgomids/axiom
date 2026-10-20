@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"io"
 	"strings"
-	"time"
 
 	"github.com/rgomids/axiom/internal/portableconfig"
 )
@@ -111,24 +110,6 @@ func DecodeTombstone(w []byte) (Tombstone, error) {
 	return t, nil
 }
 
-// ProfileProof is injected authoritative evidence consumption, not acquisition.
-// Unknown facts never become proof because a configuration was successfully saved.
-type ProfileProof struct {
-	CapabilityStatus    map[string]CapabilityStatus `json:"capabilityStatus"`
-	RuntimeID           string                      `json:"runtimeId"`
-	Model               string                      `json:"model"`
-	Effort              Effort                      `json:"effort"`
-	ExecutableDigest    string                      `json:"executableDigest"`
-	RuntimeVersion      string                      `json:"runtimeVersion"`
-	InvocationMode      string                      `json:"invocationMode"`
-	ObservationRevision uint64                      `json:"observationRevision"`
-	Reference           string                      `json:"reference"`
-	EffortSourceDigest  string                      `json:"effortSourceDigest"`
-	Authentication      CapabilityStatus            `json:"authentication"`
-	ModelAvailability   CapabilityStatus            `json:"modelAvailability"`
-	EffortSupport       CapabilityStatus            `json:"effortSupport"`
-	NoOverride          CapabilityStatus            `json:"noOverride"`
-}
 type ResolvedProfile struct {
 	ProfileID                string `json:"profileId"`
 	RuntimeID                string `json:"runtimeId"`
@@ -156,58 +137,6 @@ func ValidateResolvedProfile(p ResolvedProfile) error {
 		}
 	}
 	return nil
-}
-func resolveProfile(cfg Configuration, p ModelProfile, o Observation, capabilities []string) (ResolvedProfile, string) {
-	cd, _ := Digest(cfg)
-	return resolveProfileAt(cfg.Revision, cd, p, o, capabilities)
-}
-
-// resolveProfileAt is the single proof-consumption rule shared by the format-2
-// Resolver and the canonical v3 consumer: revision and configurationDigest are
-// the identity of the configuration the Profile was read from.
-func resolveProfileAt(revision uint64, configurationDigest string, p ModelProfile, o Observation, capabilities []string) (ResolvedProfile, string) {
-	code := "effort_unproven"
-	for _, proof := range o.ProfileProofs {
-		if proof.RuntimeID != p.RuntimeID || proof.Model != p.Model || proof.Effort != p.Effort || proof.ExecutableDigest != o.ExecutableDigest || proof.RuntimeVersion != o.Version || proof.InvocationMode != "noninteractive" || proof.ObservationRevision != o.Revision {
-			continue
-		}
-		if proof.Authentication != CapabilityProven {
-			code = "authentication_unproven"
-			continue
-		}
-		if proof.ModelAvailability != CapabilityProven {
-			code = "model_unproven"
-			continue
-		}
-		if proof.EffortSupport != CapabilityProven {
-			continue
-		}
-		if proof.NoOverride != CapabilityProven || !validDigest(proof.EffortSourceDigest) {
-			code = "effort_configuration_unproven"
-			continue
-		}
-		proven := true
-		for _, c := range capabilities {
-			if proof.CapabilityStatus[c] != CapabilityProven {
-				proven = false
-			}
-		}
-		if !proven {
-			code = "capability_unproven"
-			continue
-		}
-		pd, _ := ProfileDigest(p)
-		normalized := o
-		// Collection time is not identity; the exact observation revision binds freshness.
-		normalized.ObservedAt = time.Unix(1, 0).UTC()
-		ow, _ := json.Marshal(normalized)
-		r := ResolvedProfile{p.ID, p.RuntimeID, p.Model, p.Effort, pd, revision, configurationDigest, o.ExecutableDigest, o.Version, proof.InvocationMode, o.Revision, hash(ow), proof.EffortSourceDigest, proof.Reference}
-		if ValidateResolvedProfile(r) != nil {
-			return ResolvedProfile{}, "invalid_observation"
-		}
-		return r, ""
-	}
-	return ResolvedProfile{}, code
 }
 func hash(w []byte) string { d := sha256.Sum256(w); return hex.EncodeToString(d[:]) }
 func validDigest(s string) bool {
@@ -299,21 +228,6 @@ func SafeRuntimeVersion(v string) bool {
 		}
 	}
 	return true
-}
-
-// ProfileReadiness consumes injected evidence without selecting or dispatching.
-func ProfileReadiness(cfg Configuration, p ModelProfile, o Observation) string {
-	if cfg.FormatVersion != FormatVersionV2 {
-		return "migration_required"
-	}
-	if !validV2Profile(p) {
-		return "unsafe_configuration"
-	}
-	if len(o.ProfileProofs) == 0 {
-		return "authentication_unproven"
-	}
-	_, code := resolveProfile(cfg, p, o, nil)
-	return code
 }
 
 // Exact member names close encoding/json's case-insensitive struct aliases.

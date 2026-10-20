@@ -147,26 +147,6 @@ func mapRuntime(c runtimeprofile.ConfigurationV3, runtimeID string, edit func(*r
 	return c
 }
 
-// CodexApplicability is the synthetic observed identity CodexDeclaration
-// applies to; it is an input for lookups, not an observation.
-func CodexApplicability() runtimeprofile.EffortApplicability {
-	return runtimeprofile.EffortApplicability{RuntimeID: CodexRuntimeID, RuntimeVersion: CodexRuntimeVersion, ExecutableDigest: CodexExecutableDigest, InvocationMode: InvocationMode}
-}
-
-func ClaudeApplicability() runtimeprofile.EffortApplicability {
-	return runtimeprofile.EffortApplicability{RuntimeID: ClaudeRuntimeID, RuntimeVersion: ClaudeRuntimeVersion, ExecutableDigest: ClaudeExecutableDigest, InvocationMode: InvocationMode}
-}
-
-// Consumer builds the canonical v3 consumer for an active record c.
-func Consumer(tb testing.TB, c runtimeprofile.ConfigurationV3) runtimeprofile.ConsumerV3 {
-	tb.Helper()
-	consumer, err := runtimeprofile.NewConsumerV3(runtimeprofile.RecordActiveV3, &c)
-	if err != nil {
-		tb.Fatalf("synthetic v3 consumer: %v", err)
-	}
-	return consumer
-}
-
 func Encode(tb testing.TB, c runtimeprofile.ConfigurationV3) []byte {
 	tb.Helper()
 	wire, err := runtimeprofile.EncodeV3(c)
@@ -181,6 +161,35 @@ func Digest(tb testing.TB, c runtimeprofile.ConfigurationV3) string {
 	digest, err := runtimeprofile.DigestV3(c)
 	if err != nil {
 		tb.Fatalf("synthetic v3 digest: %v", err)
+	}
+	return digest
+}
+
+// Current is the configuration-4 form of a synthetic fixture: the same
+// Runtimes, Profiles and preferences without historical declarations.
+func Current(c runtimeprofile.ConfigurationV3) runtimeprofile.ConfigurationV4 {
+	cfg := runtimeprofile.ConfigurationV4{FormatVersion: runtimeprofile.FormatVersionV4, Revision: c.Revision, ModelProfiles: c.ModelProfiles, Preferences: c.Preferences}
+	for _, r := range c.Runtimes {
+		cfg.Runtimes = append(cfg.Runtimes, runtimeprofile.RuntimeV4{ID: r.ID, Adapter: r.Adapter, Enabled: r.Enabled, AllowlistedProfileIDs: r.AllowlistedProfileIDs})
+	}
+	return cfg
+}
+
+// Consumer consumes the configuration-4 form of fixture c.
+func Consumer(tb testing.TB, c runtimeprofile.ConfigurationV3) runtimeprofile.ConsumerV4 {
+	tb.Helper()
+	consumer, err := runtimeprofile.NewConsumerV4(Current(c))
+	if err != nil {
+		tb.Fatalf("synthetic configuration 4: %v", err)
+	}
+	return consumer
+}
+
+func CurrentDigest(tb testing.TB, c runtimeprofile.ConfigurationV3) string {
+	tb.Helper()
+	digest, err := runtimeprofile.DigestV4(Current(c))
+	if err != nil {
+		tb.Fatalf("synthetic configuration 4 digest: %v", err)
 	}
 	return digest
 }

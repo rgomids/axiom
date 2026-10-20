@@ -12,7 +12,7 @@ import (
 // proof. Publication adapters must recheck the configuration generation while
 // committing.
 type WorkflowProfilePort interface {
-	ObserveWorkflowProfiles(context.Context, string) (runtimeprofile.ConsumerV3, string, string)
+	ObserveWorkflowProfiles(context.Context, string) (runtimeprofile.ConsumerV4, string, string)
 }
 type WorkflowAgentProfileMapping struct {
 	StageID   string `json:"stageId"`
@@ -32,7 +32,7 @@ type WorkflowEffortComparison struct {
 // configuration; Profile references, allowlists, Project policy and Runtime
 // constraints are then checked by ValidateWorkflowProfilesV3. Effort stays
 // Profile-owned (ADR-0024).
-func migrateWorkflow(source workflowdefinition.Document, revision int, mappings []WorkflowAgentProfileMapping, consumer runtimeprofile.ConsumerV3, p project.State) (workflowdefinition.Document, []WorkflowEffortComparison, string) {
+func migrateWorkflow(source workflowdefinition.Document, revision int, mappings []WorkflowAgentProfileMapping, consumer runtimeprofile.ConsumerV4, p project.State) (workflowdefinition.Document, []WorkflowEffortComparison, string) {
 	if source.Definition.SchemaVersion != 1 || revision <= source.Definition.Revision {
 		return workflowdefinition.Document{}, nil, "workflow_migration_required"
 	}

@@ -12,7 +12,7 @@ import (
 )
 
 // RecordStageOutcome projects one terminal integration outcome beside the
-// Execution ledger. Execution3 bytes are never rewritten: the immutable record
+// Execution ledger. Execution 5 bytes are never rewritten: the immutable record
 // binds the exact ledger generation, which must still be canonical under the
 // exclusive Execution locks. One integration attempt has at most one outcome.
 func (s WorkflowStore) RecordStageOutcome(ctx context.Context, state workflow.State, o executiongraph.StageOutcome) (string, error) {
@@ -24,7 +24,7 @@ func (s WorkflowStore) RecordStageOutcome(ctx context.Context, state workflow.St
 		return "", err
 	}
 	ref := hexDigest(wire)
-	if o.ProjectID != state.ProjectID || o.ExecutionID != state.ExecutionID || o.ExecutionRevision != state.Revision || o.LedgerDigest != hexDigestRevision(state.StorageRevision) || state.FormatVersion != workflow.ProfileConfiguredFormatVersion {
+	if o.ProjectID != state.ProjectID || o.ExecutionID != state.ExecutionID || o.ExecutionRevision != state.Revision || o.LedgerDigest != hexDigestRevision(state.StorageRevision) || state.FormatVersion != workflow.OperationalConfiguredFormatVersion {
 		return "", ErrUnsafe
 	}
 	root, executions, version, project, err := s.openProject(state.ProjectID, false)

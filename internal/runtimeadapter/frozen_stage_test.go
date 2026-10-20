@@ -5,68 +5,68 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/rgomids/axiom/internal/runtimeprofile"
 )
 
-// Reuses delivered X05 inspection against inert temp files, never an executable
-// Runtime, ambient HOME, probe, network or inference.
+func (f operationalEffortFixture) frozen(t *testing.T) runtimeprofile.ResolvedProfileV4 {
+	t.Helper()
+	profile := f.request.Configuration.ModelProfiles[0]
+	profileDigest, err := runtimeprofile.ProfileDigest(profile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	configurationDigest, err := runtimeprofile.DigestV4(f.request.Configuration)
+	if err != nil {
+		t.Fatal(err)
+	}
+	digest := strings.Repeat("a", 64)
+	return runtimeprofile.ResolvedProfileV4{ProfileID: profile.ID, RuntimeID: profile.RuntimeID, Model: profile.Model, Effort: profile.Effort, ProfileDigest: profileDigest, ConfigurationRevision: f.request.Configuration.Revision, ConfigurationDigest: configurationDigest, ExecutableDigest: f.request.ExecutableDigest, InvocationMode: "noninteractive", ObservationRevision: 1, ObservationDigest: digest, EffortSourceDigest: digest}
+}
+
 func TestFrozenStageDeliveredEffortInspection(t *testing.T) {
 	for _, id := range []string{"codex", "claude"} {
-		for _, mode := range []string{"explicit", "runtime-default"} {
-			t.Run(id+mode, func(t *testing.T) {
-				inspection, p, original := effortInspectionFixture(t, id)
-				// Keep test names containing "effort" out of argv path values:
-				// the delivered inspector conservatively rejects that token.
-				workspace, err := os.MkdirTemp("", "axiom-stage-")
+		for _, explicit := range []bool{true, false} {
+			t.Run(id+map[bool]string{true: "/explicit", false: "/runtime-default"}[explicit], func(t *testing.T) {
+				f := newOperationalEffortFixture(t, id, explicit)
+				frozen := f.frozen(t)
+				inv, err := BuildFrozenStageInvocation(f.stage, frozen)
 				if err != nil {
 					t.Fatal(err)
 				}
-				t.Cleanup(func() { os.RemoveAll(workspace) })
-				workspace, err = filepath.EvalSymlinks(workspace)
-				if err != nil {
-					t.Fatal(err)
-				}
-				exe := filepath.Join(workspace, id)
-				if err := os.Rename(original.Argv[0], exe); err != nil {
-					t.Fatal(err)
-				}
-				p.ExecutableDigest, err = ExecutableIdentity(exe)
-				if err != nil {
-					t.Fatal(err)
-				}
-				p.RuntimeVersion = "0.159.1"
-				if id == "claude" {
-					p.RuntimeVersion = "2.1.296"
-				}
-				p.Effort = runtimeprofile.Effort{Mode: mode, Value: "default"}
-				if mode == "explicit" {
-					p.Effort.Value = "high"
-				}
-				inspection.Declaration.ExecutableDigest = p.ExecutableDigest
-				inspection.Declaration.RuntimeVersion = p.RuntimeVersion
-				request := StageInvocationRequest{Profile: CommandProfile{RuntimeID: id, ModelProfileID: p.ProfileID, Executable: exe, Model: p.Model}, Version: p.RuntimeVersion, Workspace: filepath.Join(workspace, "worktree"), Inbox: filepath.Join(workspace, "fake-inbox"), AxiomPath: filepath.Join(workspace, "axiom")}
-				inv, err := BuildFrozenStageInvocation(request, p)
-				if err != nil {
-					t.Fatal(err)
-				}
-				digest, err := inspection.CheckEffortSources(context.Background(), p, inv)
+				inspector := StageEffortInspector{Configuration: func(context.Context) (runtimeprofile.ConfigurationV4, error) { return f.request.Configuration, nil }, Repository: f.request.Roots.Project, Workspaces: []string{f.child}, Consented: true}
+				digest, err := inspector.CheckEffortSources(context.Background(), frozen, inv)
 				if err != nil || digest == "" {
 					t.Fatal(digest, err)
 				}
-				source := inspection.Declaration.Sources[0]
-				content := []byte("model_reasoning_effort = \"high\"\n")
+				source := fixedEffortRules(id, f.request.Roots).Sources[0]
+				content := "model_reasoning_effort = \"high\"\n"
 				if id == "claude" {
-					content = []byte(`{"fixtureEffortKey":"high"}`)
+					content = `{"effortLevel":"high"}`
 				}
-				if err := os.WriteFile(filepath.Join(source.Root, source.Relative), content, 0600); err != nil {
-					t.Fatal(err)
-				}
-				if _, err := inspection.CheckEffortSources(context.Background(), p, inv); !errors.Is(err, ErrEffortOverrideConflict) {
+				write(t, filepath.Join(source.Root, source.Relative), content)
+				if _, err := inspector.CheckEffortSources(context.Background(), frozen, inv); !errors.Is(err, ErrEffortOverrideConflict) {
 					t.Fatal("late selector accepted", err)
 				}
 			})
 		}
+	}
+}
+
+func TestFrozenStageRefusesMissingExecutableAndDigestMismatch(t *testing.T) {
+	f := newOperationalEffortFixture(t, "codex", true)
+	frozen := f.frozen(t)
+	frozen.ExecutableDigest = strings.Repeat("b", 64)
+	if _, err := BuildFrozenStageInvocation(f.stage, frozen); !errors.Is(err, ErrInvalidAdapterConfiguration) {
+		t.Fatal("digest mismatch accepted", err)
+	}
+	frozen.ExecutableDigest = f.request.ExecutableDigest
+	if err := os.Remove(f.stage.Profile.Executable); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := BuildFrozenStageInvocation(f.stage, frozen); !errors.Is(err, ErrExecutableUnavailable) {
+		t.Fatal("missing executable accepted", err)
 	}
 }

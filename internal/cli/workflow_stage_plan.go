@@ -23,6 +23,8 @@ type WorkflowStagePlanInput struct {
 	Project, Repository, WorkItem, Execution string
 	ExpectedRevision                         uint64
 	Stage, PlanFile                          string
+	// AuthorizeLocal is read-only effort-source inspection consent only.
+	AuthorizeLocal bool
 }
 
 // WorkflowStagePlanService is optional so existing presentation services and
@@ -65,6 +67,7 @@ func workflowStagePlanFlagSet(input *WorkflowStagePlanInput) *flag.FlagSet {
 	set.Uint64Var(&input.ExpectedRevision, "expected-revision", 0, "Exact current Execution revision; `<positive-integer>`. A changed Execution needs a fresh plan.")
 	set.StringVar(&input.Stage, "stage", "", "Stage ID in the Execution's pinned workflow revision; `<stage-id>`.")
 	set.StringVar(&input.PlanFile, "plan", "", "Bounded approved stage Plan document; `<json-file>`. Supplies work scope, controls and authority ceiling.")
+	set.BoolVar(&input.AuthorizeLocal, "authorize-local", false, "Consent to read-only inspection of the repository's Runtime effort sources; boolean. Grants no other authority.")
 	return set
 }
 

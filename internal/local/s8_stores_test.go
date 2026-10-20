@@ -44,7 +44,7 @@ func TestRuntimeProfileStorePreservesRevisionAndCompletePriorGeneration(t *testi
 		t.Fatal(err)
 	}
 	loaded, err := runtimeprofile.DecodeVersioned(wire)
-	if err != nil || loaded.V3 == nil || loaded.V3.Revision != 1 {
+	if err != nil || loaded.V4 == nil || loaded.V4.Revision != 1 {
 		t.Fatalf("canonical=%+v err=%v", loaded, err)
 	}
 	root = filepath.Join(t.TempDir(), "state")

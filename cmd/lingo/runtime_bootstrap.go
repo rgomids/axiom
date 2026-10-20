@@ -135,7 +135,7 @@ func runtimeAuthResult(report runtimeadapter.AuthReport, label string, source pr
 	var response cli.Result
 	switch report.Status {
 	case runtimeadapter.AuthSubscriptionObserved:
-		response = canonicalCompletion(completion.Facts{Completed: true}, label+" subscription login observed; usability stays unproven until a real dispatch", references, "Child dispatch repeats this preflight on its exact invocation; a real probe needs separate Runtime authorization", source)
+		response = canonicalCompletion(completion.Facts{Completed: true}, label+" subscription login observed; usability stays unproven until a real dispatch", references, "Child dispatch repeats this preflight on its exact invocation; execution needs separate Runtime authorization", source)
 	case runtimeadapter.AuthIncompatible:
 		response = canonicalCompletion(completion.Facts{ValidationFailed: true}, label+" authentication selects an API-key or provider path", references, "Remove the reported overrides from the child environment or configuration yourself, then repeat runtime auth", source)
 	case runtimeadapter.AuthUnavailable:

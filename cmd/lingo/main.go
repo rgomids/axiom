@@ -36,12 +36,6 @@ func main() {
 	if handled, code := stageSupervisorCommand(context.Background(), os.Args[1:], productionSupervisorLoader{}); handled {
 		os.Exit(code)
 	}
-	if handled, code := probeCanaryCommand(context.Background(), os.Args[1:], local.ProbeCanaryLoader{WorkingDirectory: probeWorkingDirectory()}, os.Stdout); handled {
-		os.Exit(code)
-	}
-	if handled, code := extendedCanaryCommand(os.Args[1:], probeWorkingDirectory()); handled {
-		os.Exit(code)
-	}
 	if handled, code := cli.HandleHelp(os.Args[1:], currentProvenance(), os.Stdout); handled {
 		os.Exit(code)
 	}
@@ -1028,7 +1022,7 @@ func (s lifecycleService) WorkflowResume(ctx context.Context, input cli.Workflow
 		return s.admissionDenied(decision)
 	}
 	retained := s.workflows.Status(ctx, workflowTarget(input))
-	if retained.Status == workflow.Succeeded && retained.State.FormatVersion != workflow.ProfileConfiguredFormatVersion {
+	if retained.Status == workflow.Succeeded && retained.State.FormatVersion != workflow.OperationalConfiguredFormatVersion {
 		return workflowResult(workflow.Result{Status: workflow.ValidationFailed, Category: "legacy_execution_contract", State: retained.State}, s.provenance)
 	}
 

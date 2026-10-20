@@ -326,12 +326,10 @@ func TestRetryRefusals(t *testing.T) {
 		{"succeeded", "succeeded", 3, ErrRetryIneligible, nil},
 		{"exhausted", "failed", 1, ErrRetryExhausted, nil},
 		{"unknown-unreconciled", "unknown", 3, ErrRetryIneligible, nil},
-		{"stale-capability", "failed", 3, ErrStalePreview, func(_ *testing.T, h *retryHarness, _ *RetryApply) {
-			c := h.service.Dispatch.Capabilities.(*fakeCapabilities)
-			for k, v := range c.views {
-				v.EvidenceRef = "changed"
-				c.views[k] = v
-			}
+		{"stale-identity", "failed", 3, ErrStalePreview, func(_ *testing.T, h *retryHarness, _ *RetryApply) {
+			changed := *h.service.Dispatch.Compiler.(*fakePlanCompiler).plan.Compilation.Agents[0].Input.FrozenProfile
+			changed.ExecutableDigest = strings.Repeat("f", 64)
+			h.service.Dispatch.Compiler.(*fakePlanCompiler).plan.Compilation.Agents[0].Input.FrozenProfile = &changed
 		}},
 		{"legacy-execution", "failed", 3, ErrLegacyExecution, func(_ *testing.T, h *retryHarness, _ *RetryApply) {
 			h.store.contract.Execution.FormatVersion = 2

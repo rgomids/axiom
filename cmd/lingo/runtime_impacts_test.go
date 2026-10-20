@@ -100,7 +100,7 @@ func TestRuntimeImpactsSharedProjectsPreservedAfterRemoval(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	wire, err := runtimeprofile.EncodeV3(runtimeImpactConfiguration())
+	wire, err := runtimeprofile.EncodeV4(operationalCLIConfig(runtimeImpactConfiguration()))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -143,7 +143,7 @@ func TestRuntimeImpactsSharedProjectsPreservedAfterRemoval(t *testing.T) {
 	source := runtimePolicySource{installation: service.installation, portable: service.portable, stateRoot: env.state, runtimes: runtimeObservationSources{lookPath: func(string) (string, error) { return "", exec.ErrNotFound }}}
 	policy := runtimeapplication.New(source)
 	for _, id := range []string{env.projectID, secondID} {
-		if code := policy.CurrentAvailability(ctx, id); code != "no_allowed_match" {
+		if code := policy.Availability(ctx, id); code != "no_allowed_match" {
 			t.Fatalf("removed profile for %s blocker %s", id, code)
 		}
 	}

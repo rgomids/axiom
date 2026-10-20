@@ -1,139 +1,10 @@
 package runtimeprofile
 
 import (
-	"context"
 	"errors"
 	"reflect"
-	"strings"
 	"testing"
-	"time"
 )
-
-type fakeObserver struct {
-	observations map[string]Observation
-	calls        []string
-}
-
-func (f *fakeObserver) Observe(_ context.Context, runtimeID string) (Observation, error) {
-	f.calls = append(f.calls, runtimeID)
-	observation, ok := f.observations[runtimeID]
-	if !ok {
-		return Observation{}, errors.New("unavailable")
-	}
-	return observation, nil
-}
-
-func TestResolveRequiresExactAllowedAvailableCapableChoice(t *testing.T) {
-	cfg := testConfiguration()
-	observer := &fakeObserver{observations: map[string]Observation{
-		"codex":  testObservation("codex", "codex", true),
-		"claude": testObservation("claude", "claude", true),
-	}}
-	result, err := NewResolver(observer).Resolve(context.Background(), cfg, Request{
-		ConfigurationRevision: 7, Role: "implementation", Complexity: "high", Capabilities: []string{"go", "repository-write"},
-	})
-	if err != nil || result.Choice == nil || result.Choice.RuntimeID != "codex" || result.Choice.Model != "local-codex-model" || result.Blocker != nil {
-		t.Fatalf("unexpected resolution: result=%+v err=%v", result, err)
-	}
-	if !reflect.DeepEqual(observer.calls, []string{"claude", "codex"}) {
-		t.Fatalf("observer order = %v", observer.calls)
-	}
-}
-
-func TestResolveBlocksWithoutFallback(t *testing.T) {
-	cfg := testConfiguration()
-	observer := &fakeObserver{observations: map[string]Observation{
-		"codex":  testObservation("codex", "codex", false),
-		"claude": testObservation("claude", "claude", true),
-	}}
-	result, err := NewResolver(observer).Resolve(context.Background(), cfg, Request{
-		ConfigurationRevision: 7, Role: "implementation", Complexity: "high", Capabilities: []string{"go", "repository-write"},
-	})
-	if !errors.Is(err, ErrNoMatch) || result.Blocker == nil || result.Blocker.Code != "no_allowed_match" || result.Choice != nil {
-		t.Fatalf("unexpected block: result=%+v err=%v", result, err)
-	}
-}
-
-func TestResolveDistinguishesDeclaredFromProvenCapability(t *testing.T) {
-	cfg := testConfiguration()
-	observation := testObservation("codex", "codex", true)
-	observation.CapabilityStatus["repository-write"] = CapabilityDeclared
-	observer := &fakeObserver{observations: map[string]Observation{"codex": observation, "claude": testObservation("claude", "claude", true)}}
-	_, err := NewResolver(observer).Resolve(context.Background(), cfg, Request{ConfigurationRevision: 7, Role: "implementation", Complexity: "high", Capabilities: []string{"go", "repository-write"}})
-	if !errors.Is(err, ErrNoMatch) {
-		t.Fatalf("err = %v", err)
-	}
-}
-
-func TestExplicitEffortRequiresExactNonInteractiveModelProof(t *testing.T) {
-	const capability = "reasoning-effort-high"
-	cfg := testConfiguration()
-	cfg.ModelProfiles[0].Capabilities = append(cfg.ModelProfiles[0].Capabilities, capability)
-	observation := testObservation("codex", "codex", true)
-	observation.ExecutableDigest = strings.Repeat("a", 64)
-	observation.CapabilityStatus[capability] = CapabilityProven
-	observer := &fakeObserver{observations: map[string]Observation{"codex": observation}}
-	request := Request{ConfigurationRevision: 7, Role: "implementation", Complexity: "high", Capabilities: []string{capability}, ModelProfileID: cfg.ModelProfiles[0].ID}
-	if _, err := NewResolver(observer).Resolve(context.Background(), cfg, request); !errors.Is(err, ErrNoMatch) {
-		t.Fatalf("Runtime-wide proof accepted for an unproven model: %v", err)
-	}
-	observation.NonInteractiveModelCapabilities = map[string]map[string]CapabilityStatus{"different-model": {capability: CapabilityProven}}
-	observer.observations["codex"] = observation
-	if _, err := NewResolver(observer).Resolve(context.Background(), cfg, request); !errors.Is(err, ErrNoMatch) {
-		t.Fatalf("proof for different model accepted: %v", err)
-	}
-	observation.NonInteractiveModelCapabilities = map[string]map[string]CapabilityStatus{cfg.ModelProfiles[0].Model: {capability: CapabilityDeclared}}
-	observer.observations["codex"] = observation
-	if _, err := NewResolver(observer).Resolve(context.Background(), cfg, request); !errors.Is(err, ErrNoMatch) {
-		t.Fatalf("declared effort accepted as proof: %v", err)
-	}
-	observation.NonInteractiveModelCapabilities[cfg.ModelProfiles[0].Model][capability] = CapabilityProven
-	observer.observations["codex"] = observation
-	if result, err := NewResolver(observer).Resolve(context.Background(), cfg, request); err != nil || result.Choice == nil {
-		t.Fatalf("exact effort proof rejected: result=%+v err=%v", result, err)
-	}
-	observation.Version = ""
-	observer.observations["codex"] = observation
-	if _, err := NewResolver(observer).Resolve(context.Background(), cfg, request); !errors.Is(err, ErrNoMatch) {
-		t.Fatalf("versionless effort proof accepted: %v", err)
-	}
-}
-
-func TestResolveRejectsStaleConfigurationBeforeObservation(t *testing.T) {
-	observer := &fakeObserver{}
-	result, err := NewResolver(observer).Resolve(context.Background(), testConfiguration(), Request{ConfigurationRevision: 6, Role: "implementation", Complexity: "high", Capabilities: []string{"go"}})
-	if !errors.Is(err, ErrStaleConfiguration) || result.Blocker.Code != "stale_configuration" || len(observer.calls) != 0 {
-		t.Fatalf("result=%+v err=%v calls=%v", result, err, observer.calls)
-	}
-}
-
-func TestResolveRejectsAmbiguousChoiceWithoutRanking(t *testing.T) {
-	cfg := testConfiguration()
-	cfg.Preferences = nil
-	for index := range cfg.ModelProfiles {
-		cfg.ModelProfiles[index].Complexities = []string{"high"}
-	}
-	observer := &fakeObserver{observations: map[string]Observation{"codex": testObservation("codex", "codex", true), "claude": testObservation("claude", "claude", true)}}
-	result, err := NewResolver(observer).Resolve(context.Background(), cfg, Request{ConfigurationRevision: 7, Role: "implementation", Complexity: "high", Capabilities: []string{"go"}})
-	if !errors.Is(err, ErrAmbiguousMatch) || result.Blocker == nil || len(result.Blocker.ProfileIDs) != 2 {
-		t.Fatalf("result=%+v err=%v", result, err)
-	}
-}
-
-func TestResolveHonorsExplicitModelProfile(t *testing.T) {
-	cfg := testConfiguration()
-	cfg.Runtimes[0].AllowlistedProfileIDs = append(cfg.Runtimes[0].AllowlistedProfileIDs, "codex-alternate")
-	cfg.ModelProfiles = append(cfg.ModelProfiles, ModelProfile{ID: "codex-alternate", RuntimeID: "codex", Model: "alternate-model", Capabilities: []string{"go", "repository-write"}, Complexities: []string{"high"}})
-	observer := &fakeObserver{observations: map[string]Observation{"codex": testObservation("codex", "codex", true), "claude": testObservation("claude", "claude", true)}}
-	result, err := NewResolver(observer).Resolve(context.Background(), cfg, Request{ConfigurationRevision: 7, Role: "implementation", Complexity: "high", Capabilities: []string{"go"}, ModelProfileID: "codex-alternate"})
-	if err != nil || result.Choice == nil || result.Choice.ModelProfileID != "codex-alternate" || result.Choice.Model != "alternate-model" {
-		t.Fatalf("result=%+v err=%v", result, err)
-	}
-	_, err = NewResolver(observer).Resolve(context.Background(), cfg, Request{ConfigurationRevision: 7, Role: "implementation", Complexity: "high", Capabilities: []string{"go"}, ModelProfileID: "missing-profile"})
-	if !errors.Is(err, ErrNoMatch) {
-		t.Fatalf("missing explicit profile err=%v", err)
-	}
-}
 
 func TestConfigurationClosedSchemaAndSecretReferenceSafety(t *testing.T) {
 	cfg := testConfiguration()
@@ -174,10 +45,6 @@ func testConfiguration() Configuration {
 		},
 		Preferences: []Preference{{Role: "implementation", Complexity: "high", ModelProfileID: "codex-high"}},
 	}
-}
-
-func testObservation(runtimeID, adapter string, available bool) Observation {
-	return Observation{RuntimeID: runtimeID, Adapter: adapter, Installed: true, Available: available, Version: "test", Revision: 7, ObservedAt: time.Unix(1, 0).UTC(), CapabilityStatus: map[string]CapabilityStatus{"go": CapabilityProven, "repository-write": CapabilityProven}}
 }
 
 func TestDigestDoesNotMutateCallerPreferences(t *testing.T) {

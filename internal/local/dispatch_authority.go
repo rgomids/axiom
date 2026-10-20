@@ -103,14 +103,14 @@ func (s GraphStore) LoadDispatchAuthority(ctx context.Context, projectID, parent
 	return a, nil
 }
 
-// CommitSingleDispatch preserves Execution3 bytes: the protected receipt binds
+// CommitSingleDispatch preserves Execution 5 bytes: the protected receipt binds
 // the exact ledger generation and first-attempt identity outside its codec.
 func (s WorkflowStore) CommitSingleDispatch(ctx context.Context, state workflow.State, a executiongraph.DispatchAuthority, preview string) error {
 	wire, err := encodeExecution(state)
 	if err != nil {
 		return err
 	}
-	if executiongraph.ValidateDispatchAuthority(a) != nil || a.Scope != "single-first-attempt" || a.PreviewDigest != preview || a.ProjectID != state.ProjectID || a.ParentID != state.ExecutionID || a.Revision != state.Revision || a.SingleStageID != string(state.Stage) || a.SingleStageOrdinal != state.StageOrdinal || a.LedgerDigest != hexDigest(wire) || state.FormatVersion != workflow.ProfileConfiguredFormatVersion || a.RecordedAt.After(state.UpdatedAt) {
+	if executiongraph.ValidateDispatchAuthority(a) != nil || a.Scope != "single-first-attempt" || a.PreviewDigest != preview || a.ProjectID != state.ProjectID || a.ParentID != state.ExecutionID || a.Revision != state.Revision || a.SingleStageID != string(state.Stage) || a.SingleStageOrdinal != state.StageOrdinal || a.LedgerDigest != hexDigest(wire) || state.FormatVersion != workflow.OperationalConfiguredFormatVersion || a.RecordedAt.After(state.UpdatedAt) {
 		return ErrUnsafe
 	}
 	receipt, _ := executiongraph.EncodeDispatchAuthority(a)

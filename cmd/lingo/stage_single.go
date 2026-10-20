@@ -314,16 +314,11 @@ func (productionSupervisorLoader) LoadSingleSupervisor(ctx context.Context, r st
 	if failure != nil || t.single == nil || t.single.ScopeDigest != run.ScopeDigest {
 		return stageexecution.SingleSupervisor{}, stageexecution.ErrAdmission
 	}
-	root := filepath.Dir(filepath.Dir(run.Binding.Workspace))
-	capabilities, err := productionCapabilityService(s.stateRoot, s.runtimes.lookPath, stageOperation{repository: t.repository.Path, workspaceRoot: root, consented: true})
-	if err != nil {
-		return stageexecution.SingleSupervisor{}, err
-	}
 	sources, err := productionEffortInspector(s.stateRoot, t.repository.Path, preview.Children)
 	if err != nil {
 		return stageexecution.SingleSupervisor{}, err
 	}
-	policy, err := s.stageRuntimePolicy(ctx, stores, capabilities)
+	policy, err := s.stageRuntimePolicy(ctx, t.repository.Path, true)
 	if err != nil {
 		return stageexecution.SingleSupervisor{}, err
 	}
@@ -374,13 +369,13 @@ func (l singleAttemptLoader) LoadSingleAttempt(ctx context.Context, run executio
 		return material, err
 	}
 	material.Input = l.preview.Plan.Compilation.Agents[0].Input
-	if material.Input.ResolvedProfile == nil {
+	if material.Input.FrozenProfile == nil {
 		return material, stageexecution.ErrAdmission
 	}
-	frozen := *material.Input.ResolvedProfile
+	frozen := *material.Input.FrozenProfile
 	executable, err := l.s.runtimes.lookPath(frozen.RuntimeID)
 	if err != nil {
-		return material, err
+		return material, runtimeadapter.ErrExecutableUnavailable
 	}
 	axiom, err := os.Executable()
 	if err != nil {
@@ -412,6 +407,6 @@ func (l singleAttemptLoader) LoadSingleAttempt(ctx context.Context, run executio
 	material.Context = cctx
 	material.Ingestor = coordination.Ingestor{Service: coordination.New(canonical, allocateStageID, nil), Reader: canonical, Inbox: inbox, Fence: fence, MaximumAttempts: run.Binding.Controls.MaximumAttempts, ReferenceChildren: []string{execution}}
 	material.Packet = runtimeadapter.PacketContext{AttemptID: id, Inbox: cctx.Inbox, AxiomPath: axiom, AxiomDigest: run.Binding.AxiomDigest}
-	material.Invocation = runtimeadapter.StageInvocationRequest{Profile: runtimeadapter.CommandProfile{RuntimeID: frozen.RuntimeID, ModelProfileID: frozen.ProfileID, Executable: executable, Model: frozen.Model}, Version: frozen.RuntimeVersion, Workspace: cctx.Workspace, Inbox: cctx.Inbox, AxiomPath: axiom, ParentEnvironment: os.Environ(), Correlation: runtimeadapter.AttemptCorrelation{ProjectID: run.Scope.ProjectID, ParentID: execution, ChildID: execution, AttemptID: id}}
+	material.Invocation = runtimeadapter.StageInvocationRequest{Profile: runtimeadapter.CommandProfile{RuntimeID: frozen.RuntimeID, ModelProfileID: frozen.ProfileID, Executable: executable, Model: frozen.Model}, Workspace: cctx.Workspace, Inbox: cctx.Inbox, AxiomPath: axiom, ParentEnvironment: os.Environ(), Correlation: runtimeadapter.AttemptCorrelation{ProjectID: run.Scope.ProjectID, ParentID: execution, ChildID: execution, AttemptID: id}}
 	return material, nil
 }

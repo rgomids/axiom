@@ -31,8 +31,8 @@ func commandTree() commandDefinition {
 		leaf("first-run", "Install Axiom skills for detected Runtimes", firstRunAction),
 		group("skill", "Inspect embedded Runtime skills", leaf("inspect", "Discover skill arguments", skillInspectAction)),
 		group("runtime", "Manage Runtime integrations and profile policy",
-			group("codex", "Codex integration", leaf("install", "Install user-global skills", codexInstallAction), leaf("status", "Inspect integration", codexStatusAction), leaf("auth", "Inspect subscription authentication (read-only)", codexAuthAction), capabilityCommands("codex")),
-			group("claude", "Claude integration", leaf("install", "Install user-global skills", claudeInstallAction), leaf("status", "Inspect integration", claudeStatusAction), leaf("auth", "Inspect subscription authentication (read-only)", claudeAuthAction), capabilityCommands("claude")),
+			group("codex", "Codex integration", leaf("install", "Install user-global skills", codexInstallAction), leaf("status", "Inspect integration", codexStatusAction), leaf("auth", "Inspect subscription authentication (read-only)", codexAuthAction)),
+			group("claude", "Claude integration", leaf("install", "Install user-global skills", claudeInstallAction), leaf("status", "Inspect integration", claudeStatusAction), leaf("auth", "Inspect subscription authentication (read-only)", claudeAuthAction)),
 			group("binding", "Author machine-local Runtime bindings", runtimeAuthoringCommands("binding")...),
 			group("profile", "Inspect and author local Profiles", append([]commandDefinition{leaf("validate", "Validate local configuration", runtimeProfileValidateAction), leaf("preview", "Preview Runtime resolution", runtimeProfilePreviewAction)}, runtimeAuthoringCommands("profile")...)...)),
 		group("project", "Configure and inspect Projects",
@@ -127,8 +127,6 @@ func commandByAction(operation action) (*commandDefinition, []string) {
 
 func commandFlagSet(operation action) *flag.FlagSet {
 	switch {
-	case capabilityOperation(operation):
-		return capabilityFlagSet(operation, &RuntimeCapabilityInput{})
 	case strings.HasPrefix(string(operation), "runtime_authoring_"):
 		return runtimeAuthoringFlagSet(operation, &runtimeapplication.AuthoringRequest{})
 	case strings.HasPrefix(string(operation), "project_workflow_"):

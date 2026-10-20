@@ -73,7 +73,7 @@ func (s lifecycleService) WorkflowStart(ctx context.Context, input cli.WorkflowI
 		return workflowResult(failed, s.provenance)
 	}
 	policyInput := cli.RuntimeProfilePreviewInput{Project: input.Project, Role: input.Role, Complexity: input.Complexity, Capabilities: input.Capabilities, Runtime: input.Runtime}
-	preview, policy, err := s.runtimePolicyPreview(ctx, policyInput)
+	preview, policy, err := s.scopedRuntimePolicyPreview(ctx, policyInput, s.runtimeObservationSources().scoped(target.Repository.Path, input.AuthorizeLocal))
 	if err != nil {
 		return s.runtimeResolutionResult(preview, false)
 	}
@@ -108,7 +108,7 @@ func (s lifecycleService) WorkflowStart(ctx context.Context, input cli.WorkflowI
 	startTarget := workflowTarget(input)
 	startTarget.ReviewedTarget = &target
 	startTarget.RuntimePreview = preview.Digest()
-	startTarget.ResolvedProfile = binding.Choice.ResolvedProfile
+	startTarget.FrozenProfile = binding.Choice.FrozenProfile
 	result := s.workflows.Start(ctx, startTarget)
 	if result.Category == "stale_execution_target" {
 		return s.runtimePolicyFailure("stale_preview")

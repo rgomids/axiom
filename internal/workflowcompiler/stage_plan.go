@@ -14,8 +14,12 @@ import (
 )
 
 const (
-	StagePlanFormatVersion    = 1
-	PlanDocumentFormatVersion = 1
+	StagePlanFormatVersion = 1
+	// OperationalStagePlanVersion and OperationalResultVersion carry the
+	// proof-free frozen tuple (AXM-36 D2); generation 2 is historical.
+	OperationalStagePlanVersion = 3
+	OperationalResultVersion    = 3
+	PlanDocumentFormatVersion   = 1
 	// MaxPlanDocumentBytes bounds the operator-supplied approved stage Plan.
 	MaxPlanDocumentBytes = 256 << 10
 )
@@ -70,19 +74,20 @@ type GateRef struct {
 }
 
 // Resolution is one agent's resolved Runtime/Profile selection. Effective
-// effort is "default" (no override) or the exact capability-proven value.
+// effort is "default" (no override) or the exact Profile-owned value.
 type Resolution struct {
-	ProfileEffort         *runtimeprofile.Effort          `json:"profileEffort,omitempty"`
-	EffortSource          string                          `json:"effortSource,omitempty"`
-	ResolvedProfile       *runtimeprofile.ResolvedProfile `json:"resolvedProfile,omitempty"`
-	AgentID               string                          `json:"agentId"`
-	RuntimeID             string                          `json:"runtimeId"`
-	ModelProfileID        string                          `json:"modelProfileId"`
-	ConfigurationRevision uint64                          `json:"configurationRevision"`
-	ObservationRevision   uint64                          `json:"observationRevision"`
-	RequestedEffort       workflowdefinition.Effort       `json:"requestedEffort"`
-	EffectiveEffort       string                          `json:"effectiveEffort"`
-	CapabilityEvidenceRef string                          `json:"capabilityEvidenceRef"`
+	ProfileEffort         *runtimeprofile.Effort            `json:"profileEffort,omitempty"`
+	EffortSource          string                            `json:"effortSource,omitempty"`
+	ResolvedProfile       *runtimeprofile.ResolvedProfile   `json:"resolvedProfile,omitempty"`
+	FrozenProfile         *runtimeprofile.ResolvedProfileV4 `json:"frozenProfile,omitempty"`
+	AgentID               string                            `json:"agentId"`
+	RuntimeID             string                            `json:"runtimeId"`
+	ModelProfileID        string                            `json:"modelProfileId"`
+	ConfigurationRevision uint64                            `json:"configurationRevision"`
+	ObservationRevision   uint64                            `json:"observationRevision"`
+	RequestedEffort       workflowdefinition.Effort         `json:"requestedEffort"`
+	EffectiveEffort       string                            `json:"effectiveEffort"`
+	CapabilityEvidenceRef string                            `json:"capabilityEvidenceRef,omitempty"`
 }
 
 type StagePlanRequest struct {
@@ -141,7 +146,7 @@ func (c Compiler) planStage(ctx context.Context, request StagePlanRequest, v2 bo
 	stage, _ := validateRequest(request.Compile)
 	plan := StagePlan{FormatVersion: StagePlanFormatVersion, Execution: request.Execution, ProjectID: request.Compile.ProjectID, RepositoryKey: request.Compile.RepositoryKey, Workflow: compiled.Workflow, StageID: compiled.StageID, ExecutionKind: compiled.ExecutionKind, Plan: PlanRef{ID: compiled.PlanRevision, Revision: compiled.PlanRevision, Digest: compiled.PlanDigest}, PlanDocumentDigest: request.PlanDocumentDigest, Resolutions: make([]Resolution, 0, len(compiled.Agents)), ValidatorRefs: []string{}, GateRefs: []GateRef{}, Blockers: []string{}, Compilation: compiled}
 	if v2 {
-		plan.FormatVersion = 2
+		plan.FormatVersion = OperationalStagePlanVersion
 	}
 	if compiled.Proposal != nil {
 		plan.GraphProposal = &GraphProposalRef{PlanRevision: compiled.Proposal.PlanRevision, Digest: compiled.Proposal.Digest}
@@ -158,11 +163,11 @@ func (c Compiler) planStage(ctx context.Context, request StagePlanRequest, v2 bo
 			resolution := &plan.Resolutions[len(plan.Resolutions)-1]
 			resolution.ProfileEffort = agent.Input.ProfileEffort
 			resolution.EffortSource = "local-model-profile"
-			resolution.ResolvedProfile = agent.Input.ResolvedProfile
+			resolution.FrozenProfile = agent.Input.FrozenProfile
 			if resolution.ProfileEffort.Mode == "explicit" {
 				resolution.EffectiveEffort = resolution.ProfileEffort.Value
 			}
-			resolution.CapabilityEvidenceRef = resolution.ResolvedProfile.CapabilityProofReference
+			resolution.CapabilityEvidenceRef = ""
 		}
 		inputRefs = append(inputRefs, agent.InputReference)
 	}
@@ -209,6 +214,10 @@ func ClassifyFailure(err error) Failure {
 	case errors.Is(err, ErrUnsupportedEffort):
 		return Failure{Category: "unsupported_effort"}
 	case errors.Is(err, ErrRuntimeBlocked), errors.Is(err, executiongraph.ErrUnresolvable):
+		var blocker runtimeprofile.Blocker
+		if errors.As(err, &blocker) && OperationalRefusal(blocker.Code) {
+			return Failure{Category: blocker.Code}
+		}
 		return Failure{Category: "runtime_unresolvable"}
 	case errors.Is(err, ErrAuthorityExceeded), errors.Is(err, executiongraph.ErrAuthoritySubset):
 		return Failure{Category: "authority_denied", AuthorityDenied: true}
@@ -216,6 +225,16 @@ func ClassifyFailure(err error) Failure {
 		return Failure{Category: "invalid_stage_topology"}
 	}
 	return Failure{Category: "invalid_stage_plan"}
+}
+
+// OperationalRefusal reports the observation refusals that name their actual
+// boundary instead of a generic unresolvable Runtime.
+func OperationalRefusal(code string) bool {
+	switch code {
+	case "executable_unavailable", "inspection_consent_required", "effort_override_conflict", "configuration_unsafe", "configuration_invalid":
+		return true
+	}
+	return false
 }
 
 func digestOf(wire []byte) string {

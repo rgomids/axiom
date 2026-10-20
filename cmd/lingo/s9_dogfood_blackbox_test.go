@@ -18,9 +18,6 @@ import (
 const fakeGitHubStateVariable = "AXIOM_TEST_FAKE_GH_STATE"
 
 func TestMain(m *testing.M) {
-	if handled, code := probeFakeProcess(); handled {
-		os.Exit(code)
-	}
 	if handled, code := stageFakeProcess(); handled {
 		os.Exit(code)
 	}
@@ -285,11 +282,8 @@ func executableRuntimeJourney(t *testing.T, runtimeID string) {
 		t.Fatalf("other Runtime resolved: %+v", denied.RuntimeResolution)
 	}
 	values["runtime"] = runtimeID
-	// A verified executable and skill integration with canonical v3 intent
-	// still fail closed: the production composition injects no Profile proof
-	// and the embedded version registry is empty (Specification 007 PM-7).
 	runtimePreview := run(1, "validation_failure", previewArgs...)
-	if runtimePreview.RuntimeResolution == nil || runtimePreview.RuntimeResolution.Choice != nil || runtimePreview.RuntimeResolution.Blocker == nil || runtimePreview.RuntimeResolution.Blocker.Code != "effort_unproven" || runtimePreview.PreviewDigest == "" || runtimePreview.Workflow != nil {
+	if runtimePreview.RuntimeResolution == nil || runtimePreview.RuntimeResolution.Choice != nil || runtimePreview.RuntimeResolution.Blocker == nil || runtimePreview.RuntimeResolution.Blocker.Code != "inspection_consent_required" || runtimePreview.PreviewDigest == "" || runtimePreview.Workflow != nil {
 		t.Fatalf("preview = %+v", runtimePreview)
 	}
 	if records, _ := filepath.Glob(executions); len(records) != 0 {
@@ -298,7 +292,7 @@ func executableRuntimeJourney(t *testing.T, runtimeID string) {
 	for _, digest := range []string{strings.Repeat("0", 64), runtimePreview.PreviewDigest} {
 		values["previewDigest"] = digest
 		if refused := run(1, "validation_failure", expandProtocol(t, protocol[1], selector, values)...); refused.RuntimeResolution == nil || refused.RuntimeResolution.Blocker == nil || refused.Workflow != nil {
-			t.Fatalf("unproven public start %+v", refused)
+			t.Fatalf("unconsented public start %+v", refused)
 		}
 	}
 	if records, _ := filepath.Glob(executions); len(records) != 0 {

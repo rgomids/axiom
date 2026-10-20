@@ -16,9 +16,10 @@ Any other operation, such as `delete` or Execution `cancel`, is unsupported:
 report that it is not available and do not run a Lingo command for it. Work
 Items are closed or reopened, never deleted; sequential Executions have no
 cancellation contract (only a dispatched stage has `stage.cancel`), and
-Execution history and Evidence are never edited. Runtime capability `show`,
-`probe` and `invalidate` are not routed here: name the CLI command
-`axiom --json runtime <codex|claude> capability ...` as the next action.
+Execution history and Evidence are never edited. Runtime certification commands
+are retired. Follow inspect → authorize → execute → observe → diagnose/recover;
+use `axiom-runtime` for local Runtime/Profile inspection and configuration.
+Login and successful process exit do not prove successful Stage output.
 
 ## Operation routing
 
@@ -332,7 +333,7 @@ approved Plan file and reviewed validator policy digest; never invent them.
 
 Every mutation is a two-step protocol. Run the command without authority
 first and present the returned preview unchanged: per-child rights,
-capability states, confinement (`os-enforced`, `advisory` or `unknown`),
+frozen Runtime/Profile identity, confinement (`os-enforced`, `advisory` or `unknown`),
 `not_tested` roots, effects and the digest. Only after an explicit human
 decision for that exact preview, repeat the identical inputs with
 `--preview-digest <digest>` and exactly the authority flags in the routing

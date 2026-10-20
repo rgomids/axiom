@@ -9,9 +9,9 @@ import (
 // WorkflowProfileBindingV3 binds one schema-2 agent to the exact Profile
 // intent it references, with the ProfileDigest and DigestV3 it was read from.
 type WorkflowProfileBindingV3 struct {
-	StageID string                         `json:"stageId"`
-	AgentID string                         `json:"agentId"`
-	Profile runtimeprofile.ProfileIntentV3 `json:"profile"`
+	StageID string                       `json:"stageId"`
+	AgentID string                       `json:"agentId"`
+	Profile runtimeprofile.ProfileIntent `json:"profile"`
 }
 
 // ValidateWorkflowProfilesV3 checks a schema-2 Workflow's Profile references
@@ -20,7 +20,7 @@ type WorkflowProfileBindingV3 struct {
 // BLD-001B.3c-2b.2). Effort is Profile-owned (ADR-0024): any agent effort is
 // refused. Schema-1 records are never reinterpreted as Profile configuration.
 // Workflow authoring applies it to every Profile-binding migration.
-func ValidateWorkflowProfilesV3(d workflowdefinition.Definition, consumer runtimeprofile.ConsumerV3, p project.State) ([]WorkflowProfileBindingV3, string) {
+func ValidateWorkflowProfilesV3(d workflowdefinition.Definition, consumer runtimeprofile.ConsumerV4, p project.State) ([]WorkflowProfileBindingV3, string) {
 	if d.SchemaVersion != 2 {
 		return nil, "workflow_migration_required"
 	}

@@ -9,7 +9,6 @@ import (
 
 	"github.com/rgomids/axiom/internal/cli"
 	"github.com/rgomids/axiom/internal/local"
-	"github.com/rgomids/axiom/internal/runtimeadapter"
 	"github.com/rgomids/axiom/internal/runtimeprofile"
 	"github.com/rgomids/axiom/internal/workflow"
 )
@@ -23,19 +22,19 @@ func TestCurrentWorkflowStartFreezesReviewedV2ProfileWithoutModelRun(t *testing.
 	installTestRuntimePolicy(t, env.state, workItemSourceProjectID, "codex")
 	service, _ := testRuntime(t, env.service.(lifecycleService), "codex")
 	service = currentProfileStartFixture(t, service, env.state)
-	input := cli.WorkflowInput{Project: "external", Repository: "main", Number: 7, Role: "implementation", Complexity: "high", Capabilities: []string{runtimeadapter.IntegrationCapability}}
+	input := cli.WorkflowInput{Project: "external", Repository: "main", Number: 7, Role: "implementation", Complexity: "high", Capabilities: []string{"axiom-skills"}}
 	preview := service.WorkflowStart(context.Background(), input)
 	if preview.Completion == nil || preview.Completion.Status() != "success" || preview.Workflow != nil || preview.PreviewDigest == "" {
 		t.Fatalf("current preview %+v", preview)
 	}
 	input.RuntimePreview = preview.PreviewDigest
 	started := service.WorkflowStart(context.Background(), input)
-	if started.Completion == nil || started.Completion.Status() != "success" || started.Workflow == nil || started.Workflow.Binding == nil || started.Workflow.Binding.SchemaVersion != 2 || started.Workflow.Binding.ResolvedProfile == nil {
+	if started.Completion == nil || started.Completion.Status() != "success" || started.Workflow == nil || started.Workflow.Binding == nil || started.Workflow.Binding.SchemaVersion != 2 || started.Workflow.Binding.FrozenProfile == nil {
 		t.Fatalf("current admission %+v", started)
 	}
-	profile := started.Workflow.Binding.ResolvedProfile
-	if runtimeprofile.ValidateResolvedProfile(*profile) != nil || profile.ProfileID != "worker" || profile.Effort.Mode != "runtime-default" || profile.Effort.Value != "default" || profile.EffortSourceDigest == "" {
-		t.Fatalf("lost frozen proof %+v", profile)
+	profile := started.Workflow.Binding.FrozenProfile
+	if runtimeprofile.ValidateResolvedProfileV4(*profile) != nil || profile.ProfileID != "worker" || profile.Effort.Mode != "runtime-default" || profile.Effort.Value != "default" || profile.EffortSourceDigest == "" {
+		t.Fatalf("lost frozen intent %+v", profile)
 	}
 	store, err := local.NewWorkflowStore(env.state)
 	if err != nil {
@@ -43,7 +42,7 @@ func TestCurrentWorkflowStartFreezesReviewedV2ProfileWithoutModelRun(t *testing.
 	}
 	item := started.Workflow.WorkItem
 	saved, err := store.Load(context.Background(), workItemSourceProjectID, "main", workflow.WorkItem{Provider: item.Provider, Resource: item.Resource, ExternalID: item.ExternalID, URL: item.URL, State: item.State})
-	if err != nil || saved.FormatVersion != 3 || saved.Binding == nil || saved.Binding.ResolvedProfile == nil || *saved.Binding.ResolvedProfile != *profile {
+	if err != nil || saved.FormatVersion != workflow.OperationalConfiguredFormatVersion || saved.Binding == nil || saved.Binding.FrozenProfile == nil || *saved.Binding.FrozenProfile != *profile {
 		t.Fatal("protected publication lost snapshot", err)
 	}
 	// Preserve the closed Plan parser assertion at current admission, where it is reachable.
@@ -65,7 +64,7 @@ func TestCurrentWorkflowStartFreezesReviewedV2ProfileWithoutModelRun(t *testing.
 	input.Complexity = ""
 	input.Capabilities = nil
 	inspected := service.WorkflowStatus(context.Background(), input)
-	if inspected.Workflow == nil || inspected.Workflow.Binding == nil || inspected.Workflow.Binding.ResolvedProfile == nil || *inspected.Workflow.Binding.ResolvedProfile != *profile {
+	if inspected.Workflow == nil || inspected.Workflow.Binding == nil || inspected.Workflow.Binding.FrozenProfile == nil || *inspected.Workflow.Binding.FrozenProfile != *profile {
 		t.Fatal("read-back changed frozen tuple")
 	}
 }

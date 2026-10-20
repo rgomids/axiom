@@ -36,15 +36,15 @@ type CompiledSupervisorPreparation struct {
 }
 
 func (p *CompiledSupervisorPreparation) Prepare(ctx context.Context, g executiongraph.SuccessorGraph, c executiongraph.SuccessorChild, id string, epoch uint64) (executiongraph.Invocation, error) {
-	if p == nil || p.Loader == nil || c.Envelope.Resolution.ResolvedProfile == nil {
+	if p == nil || p.Loader == nil || c.Envelope.Resolution.FrozenProfile == nil {
 		return executiongraph.Invocation{}, ErrAdmission
 	}
 	m, e := p.Loader.LoadAttempt(ctx, g, c, id, epoch)
 	if e != nil {
 		return executiongraph.Invocation{}, e
 	}
-	frozen := *c.Envelope.Resolution.ResolvedProfile
-	if !executiongraph.ValidProfileControls(&frozen, c.Envelope.Controls, c.Envelope.Capability) {
+	frozen := *c.Envelope.Resolution.FrozenProfile
+	if !executiongraph.ValidFrozenProfileControls(&frozen, c.Envelope.Controls, c.Envelope.Capability) {
 		return executiongraph.Invocation{}, ErrAdmission
 	}
 	m.Invocation.Process = false
@@ -57,7 +57,7 @@ func (p *CompiledSupervisorPreparation) Prepare(ctx context.Context, g execution
 			m.Invocation.RepositoryWrite = true
 		}
 	}
-	if m.Input.ResolvedProfile == nil || *m.Input.ResolvedProfile != frozen || m.Input.ProjectID != c.Envelope.Scope.ProjectID || m.Input.RepositoryKey != c.Envelope.Scope.RepositoryKey || m.Input.NodeKey != c.NodeKey || !reflect.DeepEqual(m.Input.Scope, c.Envelope.Scope) || !reflect.DeepEqual(m.Input.Effects, c.Envelope.AllowedEffects) || m.Input.Controls != c.Envelope.Controls || m.Invocation.Workspace != c.Envelope.Workspace || m.Context.Workspace != c.Envelope.Workspace || m.Context.Inbox != m.Invocation.Inbox || m.Packet.Inbox != m.Context.Inbox || m.Packet.AxiomPath != m.Invocation.AxiomPath || m.Context.ParentID != g.Parent.ExecutionID || m.Context.GraphRevision != g.Parent.GraphRevision || m.Context.ChildID != c.ExecutionID || m.Context.AttemptID != id || m.Packet.AttemptID != id || m.Context.Epoch != epoch || !coordination.ValidChildContext(m.Context) {
+	if m.Input.FrozenProfile == nil || *m.Input.FrozenProfile != frozen || m.Input.ProjectID != c.Envelope.Scope.ProjectID || m.Input.RepositoryKey != c.Envelope.Scope.RepositoryKey || m.Input.NodeKey != c.NodeKey || !reflect.DeepEqual(m.Input.Scope, c.Envelope.Scope) || !reflect.DeepEqual(m.Input.Effects, c.Envelope.AllowedEffects) || m.Input.Controls != c.Envelope.Controls || m.Invocation.Workspace != c.Envelope.Workspace || m.Context.Workspace != c.Envelope.Workspace || m.Context.Inbox != m.Invocation.Inbox || m.Packet.Inbox != m.Context.Inbox || m.Packet.AxiomPath != m.Invocation.AxiomPath || m.Context.ParentID != g.Parent.ExecutionID || m.Context.GraphRevision != g.Parent.GraphRevision || m.Context.ChildID != c.ExecutionID || m.Context.AttemptID != id || m.Packet.AttemptID != id || m.Context.Epoch != epoch || !coordination.ValidChildContext(m.Context) {
 		return executiongraph.Invocation{}, ErrAdmission
 	}
 	inv, _, e := graphapplication.PrepareFrozenStageInvocation(ctx, m.Invocation, frozen, m.Input.RuntimePreview, p.Checker, p.Sources, p.Auth)

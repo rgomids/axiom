@@ -61,7 +61,7 @@ func (p LocalPublisher) Build(ctx context.Context, preview stageexecution.Dispat
 	if e != nil {
 		return stageexecution.Publication{}, e
 	}
-	g := executiongraph.SuccessorGraph{FormatVersion: 3, Parent: base.Parent, ClassificationPolicy: executiongraph.ClassificationPolicyV1, DispatchAuthorityRef: ref, StageConcurrency: uint32(preview.Plan.Compilation.Concurrency)}
+	g := executiongraph.SuccessorGraph{FormatVersion: executiongraph.OperationalGraphVersion, Parent: base.Parent, ClassificationPolicy: executiongraph.ClassificationPolicyV1, DispatchAuthorityRef: ref, StageConcurrency: uint32(preview.Plan.Compilation.Concurrency)}
 	for _, c := range base.Children {
 		c.Envelope.AuthorityReference = ref
 		g.Children = append(g.Children, executiongraph.SuccessorChild{ExecutionID: c.ExecutionID, ParentID: c.ParentID, GraphRevision: c.GraphRevision, NodeKey: c.NodeKey, Envelope: c.Envelope})
@@ -126,7 +126,7 @@ func SingleScope(state workflow.State) executiongraph.SingleStageScope {
 }
 
 // BuildSingle derives the first-attempt ledger and receipt from the reviewed
-// single preview and the protected Execution3 generation. It is pure.
+// single preview and the protected Execution 5 generation. It is pure.
 func BuildSingle(preview stageexecution.DispatchPreview, state workflow.State, actor string, now time.Time) (stageexecution.SinglePublication, error) {
 	plan := preview.Plan
 	if preview.Publication != nil || plan.ExecutionKind != "single" || len(plan.Compilation.Agents) != 1 || len(preview.Children) != 1 || state.StorageRevision == ([32]byte{}) {
@@ -134,7 +134,7 @@ func BuildSingle(preview stageexecution.DispatchPreview, state workflow.State, a
 	}
 	input := plan.Compilation.Agents[0].Input
 	child := preview.Children[0]
-	if plan.Execution.ExecutionID != state.ExecutionID || plan.Execution.Revision != state.Revision || plan.StageID != string(state.Stage) || plan.ProjectID != state.ProjectID || input.RepositoryKey != state.RepositoryKey || input.ResolvedProfile == nil {
+	if plan.Execution.ExecutionID != state.ExecutionID || plan.Execution.Revision != state.Revision || plan.StageID != string(state.Stage) || plan.ProjectID != state.ProjectID || input.RepositoryKey != state.RepositoryKey || input.FrozenProfile == nil || state.FormatVersion != workflow.OperationalConfiguredFormatVersion {
 		return stageexecution.SinglePublication{}, stageexecution.ErrStalePreview
 	}
 	wire, e := json.Marshal(input)
@@ -147,16 +147,16 @@ func BuildSingle(preview stageexecution.DispatchPreview, state workflow.State, a
 	if e != nil {
 		return stageexecution.SinglePublication{}, e
 	}
-	frozen := input.ResolvedProfile
+	frozen := input.FrozenProfile
 	effects := append([]executiongraph.Effect{}, child.Effects...)
 	generation := hex.EncodeToString(state.StorageRevision[:])
-	binding := executiongraph.SingleStageBinding{ExecutionGeneration: generation, WorkflowRevision: state.Revision, PreviewDigest: preview.Digest, ProposalDigest: plan.Digest, InputDigest: hex.EncodeToString(sum[:]), AxiomDigest: preview.AxiomDigest, Workspace: child.Workspace, Inbox: child.Inbox, Effects: effects, Controls: child.Controls, Resolution: executiongraph.Resolution{ResolvedProfile: frozen, RuntimeID: frozen.RuntimeID, ModelProfileID: frozen.ProfileID, ConfigurationRevision: frozen.ConfigurationRevision, ObservationRevision: frozen.ObservationRevision}}
+	binding := executiongraph.SingleStageBinding{ExecutionGeneration: generation, WorkflowRevision: state.Revision, PreviewDigest: preview.Digest, ProposalDigest: plan.Digest, InputDigest: hex.EncodeToString(sum[:]), AxiomDigest: preview.AxiomDigest, Workspace: child.Workspace, Inbox: child.Inbox, Effects: effects, Controls: child.Controls, Resolution: executiongraph.Resolution{FrozenProfile: frozen, RuntimeID: frozen.RuntimeID, ModelProfileID: frozen.ProfileID, ConfigurationRevision: frozen.ConfigurationRevision, ObservationRevision: frozen.ObservationRevision}}
 	a := executiongraph.SingleStageAuthority{FormatVersion: executiongraph.SingleStageAuthorityVersion, Scope: executiongraph.SingleStageAuthorityScope, ProjectID: scope.ProjectID, ExecutionID: scope.ExecutionID, StageID: scope.StageID, StageOrdinal: scope.StageOrdinal, ScopeDigest: digest, ExecutionGeneration: generation, WorkflowRevision: state.Revision, PreviewDigest: preview.Digest, DispatchDigest: preview.Digest, ProposalDigest: plan.Digest, AttemptNumber: 1, Effects: effects, Disposition: executiongraph.DispositionNotRequired, ActorKind: "human-operator", Actor: actor, RecordedAt: now}
 	ref, e := executiongraph.SingleStageAuthorityDigest(a)
 	if e != nil {
 		return stageexecution.SinglePublication{}, stageexecution.ErrPreview
 	}
-	run := executiongraph.SingleStageRun{Kind: executiongraph.SingleStageRunKind, FormatVersion: executiongraph.SingleStageRunVersion, ScopeDigest: digest, Scope: scope, Binding: binding, CreatedAt: now, Authorities: []string{ref}, Attempts: []executiongraph.SuccessorAttempt{}}
+	run := executiongraph.SingleStageRun{Kind: executiongraph.SingleStageRunKind, FormatVersion: executiongraph.OperationalSingleStageRunVersion, ScopeDigest: digest, Scope: scope, Binding: binding, CreatedAt: now, Authorities: []string{ref}, Attempts: []executiongraph.SuccessorAttempt{}}
 	if executiongraph.ValidateSingleStageBindingAuthority(run, a) != nil {
 		return stageexecution.SinglePublication{}, stageexecution.ErrPreview
 	}

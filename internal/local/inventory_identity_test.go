@@ -277,7 +277,7 @@ func TestEverySupportedRecordLoadsThroughItsCanonicalStore(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if snapshot, err := store.Inspect(ctx); err != nil || snapshot.State != "active-v3" && snapshot.State != "retired" {
+			if snapshot, err := store.Inspect(ctx); err != nil || snapshot.State != "active-v4" && snapshot.State != "retired" {
 				t.Errorf("supported runtime profile %s does not load canonically: %s %v", entry.Relative, snapshot.State, err)
 			}
 		case InventoryOperational:
