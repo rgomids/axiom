@@ -42,16 +42,23 @@ bounded delivery unit. Technical merge does not imply human acceptance or next-T
 [Clarification rev.2](010-installed-operational-documentation/clarify.md#decision-register)
 records Q1–Q6 Accepted. [ADR-0033](../decisions/0033-installation-bound-operational-documentation.md)
 is Accepted by its exact-revision human decision.
-[Plan rev.1](010-installed-operational-documentation/plan.md) is **Proposed**:
-release/corpus/identity/lifecycle/CLI/man integration, producer-consumer matrix,
-incremental slices and OD-01–13 / AC-01–08 qualification. Concrete material
-contracts D1–D4 require human disposition before dependent Tasks.
-[Plan Evidence](010-installed-operational-documentation/evidence-plan.md) separates
-documentary checks from product/native acceptance, all ACs NOT_RUN.
+[Plan rev.1](010-installed-operational-documentation/plan.md) is **Accepted for
+Tasks** at `a966510849d9dda0ab12f01eb4b396d51d7f4390` by the exact
+[human Plan/D1–D4 decision](https://github.com/rgomids/axiom/pull/335#issuecomment-6296942470).
+[Acceptance addendum](010-installed-operational-documentation/acceptance-plan.md)
+records D1/D3/D4 Accepted and D2 Accepted with qualification, preserving the complete
+historical Plan and its Proposed language. P1 must prove native executing-image
+identity and freeze reviewed contracts before dependent production.
+[Tasks rev.1](010-installed-operational-documentation/tasks.md) is **Proposed**:
+16 bounded units across P1–P6, dependency/gate and OD/AC/V1–V9 coverage matrices.
+[Tasks Evidence](010-installed-operational-documentation/evidence-tasks.md)
+separates actual documentary checks from implementation/native tests **NOT_RUN**.
+[Plan Evidence](010-installed-operational-documentation/evidence-plan.md),
 [Specify Evidence](010-installed-operational-documentation/evidence.md) and
 [Clarification Evidence](010-installed-operational-documentation/evidence-clarify.md)
-remain historical. Windows withdrawal is preserved. No Tasks, implementation,
-canonical Execution advancement or product acceptance is inferred.
+remain historical. AC-01–AC-08 NOT_RUN; Windows withdrawal preserved. Tasks review/
+acceptance and new explicit implementation authority remain required. No canonical
+Execution advancement, product acceptance or dependent-card unblocking is inferred.
 
 ## 009 — Guided Project/Runtime configuration with feasibility preflight
 
