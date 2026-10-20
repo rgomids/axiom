@@ -92,7 +92,7 @@ jobs:
               root = pathlib.Path(tmp)
               (root / 'probe.c').write_text(C)
               results['compiler'] = subprocess.check_output(['cc', '--version'], text=True).splitlines()[0]
-              results['filesystem'] = subprocess.check_output(['stat', '-f', '%T' if platform.system() == 'Linux' else '%T', tmp], text=True).strip() if platform.system() == 'Linux' else subprocess.check_output(['diskutil', 'info', subprocess.check_output(['df', tmp], text=True).splitlines()[-1].split()[0]], text=True).split('File System Personality:')[-1].splitlines()[0].strip()
+              results['filesystem'] = subprocess.check_output(['stat', '-f', '-c', '%T', tmp], text=True).strip() if platform.system() == 'Linux' else subprocess.check_output(['diskutil', 'info', subprocess.check_output(['df', tmp], text=True).splitlines()[-1].split()[0]], text=True).split('File System Personality:')[-1].splitlines()[0].strip()
               for tag in ['A', 'B']:
                   subprocess.run(['cc', '-O0', '-DTAG="' + tag + '"', str(root / 'probe.c'), '-o', str(root / tag)], check=True)
               results['binary_sha256'] = {t: digest(root / t) for t in ['A', 'B']}
