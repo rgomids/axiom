@@ -2,7 +2,7 @@
 
 ## Status, authority and boundary
 
-**Proposed — decision pending, revision 1, 2026-10-20.**
+**Reconciled — Q1–Q6 Accepted in direction, revision 2, 2026-10-20.**
 Scope: Clarification only for [AXM-37](https://linear.app/rgomids/issue/AXM-37),
 in the existing [PR #335](https://github.com/rgomids/axiom/pull/335).
 No Plan, Tasks, implementation or product acceptance is delivered here.
@@ -11,28 +11,35 @@ The [Specification rev.1](spec.md) is **Accepted for the next SDD gate** by
 the [human decision](https://github.com/rgomids/axiom/pull/335#issuecomment-6292970482),
 bound to commit `99afe2a93c21bfe3767a61133eec8c374b690abd` and blob
 `ce7e58630eda9a844d13b7422aaff4b9a91c2ee3`. Its historical `Proposed` header
-is preserved. That acceptance explicitly leaves Q1–Q6 undecided. The technical
+is preserved. That initial acceptance left Q1–Q6 undecided; the six later
+question-specific decisions below resolve their directions against Clarification
+rev.1, commit `ab7bee28bd6bca8d161f098cc90f75ebfbea74a5`, blob
+`df4e62ab724a7d2792c25495bea4d47124cf2704`. This revision reconciles those
+external decisions; it does not expand their scope. The technical
 [review](https://github.com/rgomids/axiom/pull/335#pullrequestreview-5586081096)
 was a native COMMENT, not GitHub approval.
 
 The confirmed Linear gate comment `a89e5867-e3ca-4efe-984c-32e7864cbcb2`
-reports `READY_FOR_clarify`; the present human instruction authorizes this
-Clarification execution. Execution identity/revision/gate remain **unknown**.
+reported `READY_FOR_clarify`; the current instruction authorizes documentary
+reconciliation and a Proposed ADR in the same PR. The later
+[consolidation](https://github.com/rgomids/axiom/pull/335#issuecomment-6294090913)
+keeps Plan gated pending reconciliation and independent architectural authority.
+Execution identity/revision/gate remain **unknown**.
 No ledger is reconstructed. Linear status/blocking relations remain untouched.
 
 This document contains public technical synthesis from repository sources;
 no private Provider payload or raw chat history is imported.
 [Clarification Evidence](evidence-clarify.md) records observations and limits.
 
-## Accepted contract versus open choices
+## Accepted contract and reconciled directions
 
-| Accepted Specification obligation | Open choice; not granted by acceptance |
+| Accepted Specification obligation | Later direction accepted separately; details remain open |
 | --- | --- |
-| OD-01–02: minimal operational text, provenance, local links, exclusions | Q1: exact corpus strategy, language and maintenance boundary |
-| OD-03–06: executable-bound, offline read-only resolution; identity and mismatch; help primacy | Q2/Q5: storage, bootstrap locator, public discovery surface and man integration |
-| OD-04,07,11: binary/docs/skills/man identity and verified delivery | Q3: external versus embedded assets; format and migration contract |
-| OD-08–11: logical consistency, truthful effects, recovery and preservation | Q4: commit boundary, retention and supported return to prior installation |
-| OD-12–13 and AC-01–08: man coverage, supported hosts, concrete native Evidence | Q5/Q6: coverage boundary and sufficient observation protocol |
+| OD-01–02: minimal operational text, provenance, local links, exclusions | Q1: dedicated English corpus/generated reference; exact files/generator/quotas deferred |
+| OD-03–06: executable-bound, offline read-only resolution; identity and mismatch; help primacy | Q2/Q5: private namespace and CLI/man direction; concrete binding and interface deferred |
+| OD-04,07,11: binary/docs/skills/man identity and verified delivery | Q3: external verified assets; exact formats and migration matrix deferred |
+| OD-08–11: logical consistency, truthful effects, recovery and preservation | Q4: confirmed binary activation, retention and independent compatible return; mechanics deferred |
+| OD-12–13 and AC-01–08: man coverage, supported hosts, concrete native Evidence | Q5/Q6: man coverage and controlled native proof; host mechanisms remain unverified |
 
 All requirements OD-01–OD-13 and acceptance scenarios AC-01–AC-08 remain in
 force. Nothing below weakens them. Axiom != Lingo; Project != Repository;
@@ -41,18 +48,19 @@ Skill != workflow source of truth; Evidence != chat history.
 
 ## Decision register
 
-`Observed` describes verified sources, not a decision status. `Proposed` marks
-the recommendation; `Pending` marks its human disposition. `Accepted` requires
-a named human decision tied to the exact proposal/revision and scope.
+`Observed` describes source facts. `Accepted` records only the direction and
+limits of the named human decision, all dated 2026-10-20 and bound to rev.1
+above. The six approvals do not accept an ADR, detailed design, implementation
+or functional Evidence. Alternatives below remain decision history.
 
-| Question | Observed basis | Recommendation status | Human disposition |
+| Question | Observed basis | Accepted direction | Human disposition / exact approval |
 | --- | --- | --- | --- |
-| Q1 | Mixed operational/development reference and installation guide | Proposed: dedicated technical corpus plus generated reference, English first | Pending; reversible editorial default, no language preference inferred |
-| Q2 | Independent binary/receipt roots; no installed-doc resolver | Proposed: installation-local assets and locator anchored to actual executable | Pending; material path/discovery contract |
-| Q3 | Strict archive/metadata/receipt readers; skills already embedded | Proposed: external verified assets in release bundle; explicit format evolution | Pending; material packaging/migration decision, ask first |
-| Q4 | Binary publication precedes separate receipt/skill effects; no automatic rollback | Proposed: prevalidated generations, binary effect boundary, fail-closed recovery, explicit retention | Pending; material lifecycle contract |
-| Q5 | Custom Go command/help tree, no Cobra dependency | Proposed: read-only CLI discovery plus passive metadata; skills consume it | Pending; material public interface; syntax deferred |
-| Q6 | Spec demands native source observation; no such trial performed here | Proposed: isolated native sessions plus OS/network observation and negative controls | Pending; proof protocol, feasibility unverified |
+| Q1 | Mixed operational/development reference and installation guide | Dedicated technical corpus plus generated CLI reference, English first, verified local links | Accepted — [Q1 approval](https://github.com/rgomids/axiom/pull/335#issuecomment-6293762526) |
+| Q2 | Independent binary/receipt roots; no installed-doc resolver | Private installation namespace and verifiable executing-binary-to-generation binding | Accepted — [Q2 approval](https://github.com/rgomids/axiom/pull/335#issuecomment-6293597354) |
+| Q3 | Strict archive/metadata/receipt readers; skills already embedded | External docs/man in the verified release bundle; explicit format/compatibility evolution | Accepted — [Q3 approval](https://github.com/rgomids/axiom/pull/335#issuecomment-6293443001) |
+| Q4 | Binary publication precedes separate receipt/skill effects; no automatic rollback | Immutable verified generations; confirmed binary-publication activation; fail closed; explicit compatible independent return; retain generations | Accepted — [Q4 approval](https://github.com/rgomids/axiom/pull/335#issuecomment-6293679722) |
+| Q5 | Custom Go command/help tree, no Cobra dependency | Read-only human/JSON CLI discovery consumed by skills; installation-local man1 and per-session selection | Accepted — [Q5 approval](https://github.com/rgomids/axiom/pull/335#issuecomment-6293722000) |
+| Q6 | Native source observation required; no such trial performed here | AC-01–AC-08 retained; isolated native Codex/Claude, OS/network observation, controls and honest Evidence classification | Accepted — [Q6 approval](https://github.com/rgomids/axiom/pull/335#issuecomment-6293995419); feasibility unverified |
 
 ## Q1 — Minimum corpus and ownership
 
@@ -62,12 +70,13 @@ but installation/development links and headings can change unnoticed.
 reconciliation work. (c) Generated command reference alone: low flag drift,
 insufficient concepts, recovery explanation and troubleshooting.
 
-**Recommendation (Proposed).** Combine (b) with generated reference from the
+**Direction (Accepted; scope bounded by the decision register).**
+Combine (b) with generated reference from the
 actual command/flag contracts. Use one English technical source initially,
 consistent with the installation guide and canonical README language policy;
-CLI tokens remain exact. Portuguese translation would need an explicit
-reconciliation rule; neither the operator's language nor Spec language grants
-that choice. Do not import Notion narrative.
+CLI tokens remain exact. Additional translations still need an explicit
+reconciliation rule; Q1 accepts only the initial English corpus. Do not import
+Notion narrative.
 
 Minimum content units, not prescribed filenames:
 
@@ -92,7 +101,8 @@ under a later authorized design and verified against this minimum.
 **Compatibility / cost / residual risk.** No historical Specifications, ADRs,
 Evidence, maintainer policies, source code, private data or wildcard `docs/`
 distribution. This respects [documentation ownership](../../documentation.md).
-Editorial default is reversible before distribution; released paths/links and
+Initial language/corpus choice is reversible before distribution; released
+paths/links and
 language coverage acquire compatibility cost. No ADR conflict identified;
 sufficiency review and source-to-output reconciliation remain necessary.
 
@@ -113,7 +123,8 @@ installation discriminator and binding to find the right instance.
 and integrity must themselves be bound to the executable; a central registry
 or environment override alone risks selecting another installation.
 
-**Recommendation (Proposed).** Use (a) plus minimal (c): a private owned asset
+**Direction (Accepted; scope bounded by the decision register).**
+Use (a) plus minimal (c): a private owned asset
 namespace and resolutive metadata local to the binary installation, with immutable
 content-identified generations. Illustrative topology only: binary directory →
 owned namespace → generation → text/man/inventory. No pathname/schema is adopted
@@ -164,7 +175,8 @@ Embedding for lazy extraction at discovery conflicts with OD-06; compiling all
 docs remains excluded. Either viable packaging option still needs integrity,
 versioned output identity, man installation and migration.
 
-**Recommendation (Proposed).** External files in the same verified release
+**Direction (Accepted; scope bounded by the decision register).**
+External files in the same verified release
 bundle, with exact inventory and provenance. Extend formats explicitly under a
 new reviewed compatibility contract; do not silently add fields to v1, repurpose
 skill constants or rewrite receipts from published releases. No format version,
@@ -204,14 +216,15 @@ pointer is insufficient when binary, receipt and user-global skills publish
 separately. Automatic destructive rollback/GC would add unsupported authority
 and cannot undo already confirmed effects.
 
-**Recommendation (Proposed).** Prepare and verify complete candidate text/man/
+**Direction (Accepted; scope bounded by the decision register).**
+Prepare and verify complete candidate text/man/
 inventory and executable binding before replacing the active binary. Keep
 previous generations. Readers select by proven executing-binary identity;
 staged candidate availability alone never selects it. Logical activation occurs
 at the confirmed binary-publication effect, consistent with current
 [upgrade publication](../../../internal/install/upgrade.go) and fresh-install
 [binary commit](../../../internal/install/fresh_posix.go), not at a later receipt
-acknowledgment. This is a proposed boundary, not proof that current code already
+acknowledgment. This is the accepted direction, not proof that current code already
 coordinates docs. A later authorized design must demonstrate the binding can be
 ready before publication without exposing an unvalidated generation.
 This boundary concerns the documentary installation path; it does not redefine
@@ -227,8 +240,8 @@ transitions or promise to roll them back. Those protocols remain unchanged.
 | Unknown publication or interrupted marker | Preserve residue; return recovery-required semantics and bounded read-back. No mixed state accepted; no new enum or recovery command asserted |
 | Cleanup failure after commit | Report committed effect plus cleanup failure; retain bytes. Never roll back narration to pre-commit success/failure |
 
-Ordinary downgrade remains refused; there is no automatic rollback. Proposed
-AC-04 route: retain independently installed, verified A while installing B in
+Ordinary downgrade remains refused; there is no automatic rollback. Accepted
+AC-04 direction: retain independently installed, verified A while installing B in
 a separate eligible destination, then explicitly select A and its matching
 Runtime configuration/skills/man after authorized inspection. This is a return
 to an existing compatible installation, not `upgrade B→A`. Shared skill roots
@@ -252,8 +265,9 @@ artifact counts. No privilege escalation, chmod/ownership repair, following
 unvalidated links or editing shell profiles. Preserve ADR-0005 exclusions for
 arbitrary hostile same-UID interleavings, power loss and media durability.
 
-**Contract / cost / residual risk.** Explicit adoption needs lifecycle ADR and
-human acceptance of the AC-04 route/retention choice. No weakening of ADR-0005
+**Contract / cost / residual risk.** Q4 accepts the AC-04 direction and
+retention choice. Material design adoption still needs independent lifecycle
+ADR acceptance; the six decisions do not provide it. No weakening of ADR-0005
 or ADR-0016 is proposed. Disk growth and unprovable live-use cleanup remain
 deliberate costs. Moving the binary commit point or promising filesystem-wide
 transactions would require separate analysis/decision, not this document.
@@ -265,7 +279,8 @@ but adds a supported interface. Passive metadata is readable without execution,
 but cannot by itself prove which binary the shell or process selected. Skill-only
 path rules are inexpensive initially but duplicate resolution and drift.
 
-**Recommendation (Proposed).** One read-only CLI surface for human and canonical
+**Direction (Accepted; scope bounded by the decision register).**
+One read-only CLI surface for human and canonical
 JSON discovery, backed by validated passive metadata. Expose binary/location/
 provenance, doc root/index/generation/inventory identity, component compatibility,
 expected/observed Runtime skills, man locations and absent/invalid/unknown states.
@@ -305,7 +320,7 @@ assume identical locator flags across readers. Without a reader, text/help work.
 
 **Compatibility / cost / residual risk.** Public discovery schema and man
 selection instructions become compatibility contracts; a new interface ADR
-candidate belongs with Q2/Q3. No new CLI or dependency now. Windows remains
+proposal belongs with Q2/Q3 in ADR-0033. No new CLI or dependency now. Windows remains
 withdrawn per [ADR-0021 Status note](../../decisions/0021-windows-server-amd64-native-acceptance.md#status),
 with no acceptance row resurrected. External `man` may still select stale content;
 observable origin/diagnosis and explicit correct selection are required.
@@ -319,7 +334,8 @@ more but tests the accepted claim. Containers are acceptable only where they
 actually host a supported native Runtime/OS combination; a Linux container is
 not macOS acceptance. No vendor sandbox capability is presumed.
 
-**Recommendation (Proposed).** Retain all AC-01–AC-08. Use these minimum Evidence
+**Direction (Accepted; scope bounded by the decision register).**
+Retain all AC-01–AC-08. Use these minimum Evidence
 conditions, subject to demonstrated host controls:
 
 1. Record exact locally verified release archives/checksums, binary/doc/man/skill
@@ -369,19 +385,28 @@ identified for this protocol; broader threat guarantees would require one.
 
 ## Human decisions and next gate
 
-First material decision: **Q3 external verified release assets versus bounded
-embed with authorized installation-time extraction**. Recommend external assets;
-acceptance would approve that direction and explicit format evolution, not a
-schema/library or Q2/Q4/Q5 by implication. After that decision, present Q2,
-Q4, Q5, then remaining Q1/Q6 dispositions individually with exact revision and
-scope. No human choice is recorded as Accepted in this revision.
+Q1–Q6 directions are Accepted; no repeat answers are required. Their exact
+rev.1 proposal remains available in Git. This reconciliation preserves
+alternatives, accepted limits, the original Spec bytes and historical Evidence.
 
-Likely ADR subject: installation-bound documentary identity, packaging/discovery
-and lifecycle, with independent acceptance before adopting material design.
-No new ADR number is reserved and no accepted ADR edited. Any contradiction
-requires a new Proposed ADR and [ADR-0018 governance](../../decisions/0018-adr-evolution-and-supersession-governance.md),
-including later accepted reciprocal supersession where applicable.
+[ADR-0033 — Installation-bound operational documentation](../../decisions/0033-installation-bound-operational-documentation.md)
+consolidates identity/layout, packaging/compatibility, publication/return and
+CLI/skills/man into one **Proposed** architectural decision. These are one
+cross-cutting binary-to-generation contract, rather than independently adopted
+resolvers. The ADR needs its own explicit human acceptance of an exact revision
+before material design adoption. No accepted ADR is edited or superseded;
+any future contradiction follows [ADR-0018](../../decisions/0018-adr-evolution-and-supersession-governance.md).
 
-Stop at **Clarification Proposed / decision pending**. No Plan readiness is
-asserted. Resolve material choices, establish the appropriate next authority/gate
-and preserve native Evidence obligations before Plan can be separately authorized.
+Still open: concrete pathnames and binding algorithm, package/metadata/receipt
+formats and migration matrix, CLI syntax/JSON fields, generator and man filenames,
+numeric bounds, publication/recovery mechanics, and demonstrated host controls
+for Q6. These are future design/verification obligations under separate authority,
+not new defaults inferred here. If Q6 controls cannot support the accepted claim,
+report UNVERIFIED and seek a new human decision before changing any AC.
+
+Gate evaluation: **BLOCKED for declaring READY_FOR_plan**. Documentary
+reconciliation and an architecture proposal do not supply ADR acceptance or
+separate Plan authorization. AC-01–AC-08 remain **NOT_RUN**. After review of this
+reconciliation and independent ADR acceptance, revalidate PR/head/CI and request
+separate authority for Plan. Do not create Plan/Tasks or implement, merge, release,
+close AXM-37 or unblock AXM-39/AXM-12. Execution remains unknown.

@@ -1,5 +1,9 @@
 # AXM-37 — Clarification Evidence and handoff
 
+> Historical Clarification snapshot follows. Its pending decisions and handoff
+> describe rev.1, not current disposition. See the dated
+> [reconciliation](#reconciliation--2026-10-20) for Q1–Q6 acceptance and the Proposed ADR.
+
 ## Scope and authority snapshot
 
 2026-10-20; Clarification only. Existing branch
@@ -103,3 +107,95 @@ Q2/Q3/Q4/Q5 introduce architectural/public compatibility commitments requiring
 explicit human disposition and later ADR acceptance. Existing ADRs are preserved.
 Stop with Clarification pending; do not authorize Plan, Tasks, implementation,
 Execution mutation, merge, release, AXM status/blocker changes or product acceptance.
+
+## Reconciliation — 2026-10-20
+
+### Authority, concurrency and bounded scope
+
+Stage `reconcile`, initial local/remote head
+`ab7bee28bd6bca8d161f098cc90f75ebfbea74a5`; worktree clean, expected branch,
+one open Draft PR #335. Initial Clarification blob
+`df4e62ab724a7d2792c25495bea4d47124cf2704` matched the human approval anchors.
+All six specific approval comments and the
+[consolidation](https://github.com/rgomids/axiom/pull/335#issuecomment-6294090913)
+were read directly through `gh api`; author `rgomids`, scope and exact revision
+were checked. See the [register](clarify.md#decision-register) for the six links.
+No raw Provider payload, personal local records, credentials or chat history
+is imported. Current explicit instruction authorizes documentary reconciliation,
+Proposed ADR, validation and normal delivery on the same branch/PR.
+
+`gh pr view`, exact-head `gh pr list`, `git ls-remote`, clean status and filtered
+`git worktree list --porcelain` confirmed the same branch/head with no duplicate
+PR or local checkout owning that branch. Bounded process/CWD inspection found
+this executor in this checkout; other observed Codex/Claude processes had other
+working directories. That snapshot cannot disprove an unobserved remote worker.
+No start/restart or Runtime operation was issued. Linear issue/comment read-back
+confirmed In Review, no Blocked by, AXM-39/AXM-12 still blocked by AXM-37; the
+reconcile handoff dispatch is a notification receipt, not an Execution result.
+Canonical Project/Execution binding remains unknown; unrelated local state was
+not traversed and no ledger was reconstructed. No Linear mutation performed.
+
+Initial-head CI read-back: PR Checks and delivery-metadata SUCCESS at `ab7bee28`.
+These checks do not validate the changed reconciliation head. Remote head/branch,
+PR state, comments and local scope must be rechecked immediately before push;
+drift requires stopping rather than overwriting. Final delivery SHA and CI
+read-back belong in the PR delivery record after actual push.
+
+### Documentary result and architecture review
+
+- `clarify.md` rev.2 records Q1–Q6 Accepted **in direction**, each with its exact
+  approval link; alternatives and detail boundaries remain. Spec rev.1 and its
+  original Evidence bytes are unchanged; the original Clarification snapshot
+  above is retained and explicitly dated as historical.
+- [ADR-0033](../../decisions/0033-installation-bound-operational-documentation.md)
+  is Proposed, indexed once. Local index and remote main both ended at 0032
+  before choosing the number. Identity/layout, package/compatibility, activation/
+  return and CLI/skills/man share one executing-binary-to-generation invariant;
+  one proposal avoids splitting that contract into independent authorities.
+- Reviewed against ADR-0005 bounded threats/logical publication, ADR-0016
+  candidate proof and separate Claude convergence, ADR-0018 human acceptance/
+  evolution, and ADR-0021's Windows withdrawal. No semantic conflict requiring
+  supersession was identified. Accepted ADR files are untouched. Any later
+  contradiction requires a distinct human decision and ADR-0018 evolution, with
+  reciprocal changes only after acceptance. Structural checks alone cannot
+  establish semantic agreement.
+- No concrete pathname, format version, CLI syntax/JSON schema, generator,
+  commit algorithm or host observer is adopted. Original source inspection was
+  checked against the current builder, strict archive/facade/receipt readers,
+  upgrade/fresh-publication boundary and CLI/help contracts; no product mutation.
+- Security review preserves exact authorized roots, ownership, bounded reads,
+  link/replacement/concurrency checks, trusted acquisition versus local hashes,
+  foreign material, truthful committed effects and read-only discovery. No new
+  capability or stronger same-UID/power-loss guarantee is claimed.
+
+Main session performed all work; no proven strictly lower subagent capability
+was available. Skills: `axiom-sdd`, `axiom-document`,
+`axiom-architecture-decision`. No delegation or native Runtime dispatch.
+
+### Verified checks and limits
+
+| Executed check | Result / limit |
+| --- | --- |
+| `python3 scripts/check-adr-governance.py .` | PASS, 34 ADR files including the new Proposed record; structural validation only |
+| `./scripts/validate-repository.sh .` | PASS, including harness/registry/ADR/sensitive-file checks; native Runtime behavior explicitly SKIP / UNVERIFIED |
+| `gitleaks detect --source . --no-git --redact --no-banner` | PASS, no leaks in the worktree scan |
+| Ephemeral Python local-link/authority/history check via stdin | PASS: 64 local links/anchors, six live approval comments with exact author/revision/blob, accepted Spec blob and historical Evidence/ADR bytes preserved, ADR Proposed, no Plan/Tasks |
+| `git diff --check` | PASS; tracked documentary diff reviewed, new ADR reviewed in full |
+
+Staged security checks and final-head delivery/CI are recorded in the PR
+when completed; no unexecuted check is claimed here.
+No Go build/unit suite was needed for this Markdown-only change; required remote
+CI remains separate. AC-01–AC-08: **NOT_RUN**, including offline install, compatible
+return, man readers, native Codex/Claude confinement and OS/network controls.
+Nothing in these documentary checks is functional acceptance.
+
+### Remaining gate
+
+Reconciliation resolves the stale Pending decision register; it does not accept
+ADR-0033 or authorize Plan. **BLOCKED for declaring READY_FOR_plan** pending
+independent exact-revision ADR acceptance, review/validation of reconciliation
+and separate Plan authority. Q1–Q6 do not need repeat answers. Concrete contract
+encodings/migration/mechanisms and native Q6 feasibility remain future design/
+proof obligations. Infeasible Evidence yields UNVERIFIED and a new human decision
+before weakening any AC. No Plan, Tasks, implementation, merge, release, AXM
+closure, dependency unblocking or acceptance effect follows from this delivery.
