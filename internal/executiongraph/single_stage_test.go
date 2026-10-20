@@ -99,7 +99,7 @@ func TestSingleStageVersionAdmissionFailsClosed(t *testing.T) {
 		b, _ := json.Marshal(m)
 		return b
 	}
-	if _, err := DecodeSingleStageRun(mutate(runWire, "formatVersion", 2)); !errors.Is(err, ErrUnsupportedSingleStageFormat) {
+	if _, err := DecodeSingleStageRun(mutate(runWire, "formatVersion", 3)); !errors.Is(err, ErrUnsupportedSingleStageFormat) {
 		t.Fatalf("newer ledger = %v", err)
 	}
 	if _, err := DecodeSingleStageRun(mutate(runWire, "kind", "execution_graph")); err == nil || errors.Is(err, ErrUnsupportedSingleStageFormat) {

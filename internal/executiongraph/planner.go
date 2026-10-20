@@ -17,11 +17,12 @@ import (
 )
 
 const (
-	ProposalFormatVersion = 1
-	GraphFormatVersion    = 1
-	maxNodes              = 32
-	maxListItems          = 64
-	maxTextBytes          = 512
+	ProposalFormatVersion      = 1
+	OperationalProposalVersion = 3
+	GraphFormatVersion         = 1
+	maxNodes                   = 32
+	maxListItems               = 64
+	maxTextBytes               = 512
 )
 
 var (
@@ -59,18 +60,19 @@ type ExecutionControls struct {
 }
 
 type WorkUnit struct {
-	ResolvedProfile  *runtimeprofile.ResolvedProfile `json:"resolvedProfile,omitempty"`
-	Key              string                          `json:"key"`
-	Capability       CapabilityRequest               `json:"capability"`
-	Dependencies     []string                        `json:"dependencies"`
-	Inputs           []string                        `json:"inputs"`
-	Outputs          []string                        `json:"outputs"`
-	Scope            Scope                           `json:"scope"`
-	Effects          []Effect                        `json:"effects"`
-	ValidationOwner  bool                            `json:"validationOwner"`
-	IntegrationOwner bool                            `json:"integrationOwner"`
-	Optional         bool                            `json:"optional"`
-	Controls         ExecutionControls               `json:"controls"`
+	ResolvedProfile  *runtimeprofile.ResolvedProfile   `json:"resolvedProfile,omitempty"`
+	FrozenProfile    *runtimeprofile.ResolvedProfileV4 `json:"frozenProfile,omitempty"`
+	Key              string                            `json:"key"`
+	Capability       CapabilityRequest                 `json:"capability"`
+	Dependencies     []string                          `json:"dependencies"`
+	Inputs           []string                          `json:"inputs"`
+	Outputs          []string                          `json:"outputs"`
+	Scope            Scope                             `json:"scope"`
+	Effects          []Effect                          `json:"effects"`
+	ValidationOwner  bool                              `json:"validationOwner"`
+	IntegrationOwner bool                              `json:"integrationOwner"`
+	Optional         bool                              `json:"optional"`
+	Controls         ExecutionControls                 `json:"controls"`
 }
 
 type ApprovedPlan struct {
@@ -82,18 +84,19 @@ type ApprovedPlan struct {
 }
 
 type ProposedNode struct {
-	ResolvedProfile  *runtimeprofile.ResolvedProfile `json:"resolvedProfile,omitempty"`
-	Key              string                          `json:"key"`
-	Capability       CapabilityRequest               `json:"capability"`
-	Dependencies     []string                        `json:"dependencies"`
-	Inputs           []string                        `json:"inputs"`
-	Outputs          []string                        `json:"outputs"`
-	Scope            Scope                           `json:"scope"`
-	Effects          []Effect                        `json:"effects"`
-	ValidationOwner  bool                            `json:"validationOwner"`
-	IntegrationOwner bool                            `json:"integrationOwner"`
-	Optional         bool                            `json:"optional"`
-	Controls         ExecutionControls               `json:"controls"`
+	ResolvedProfile  *runtimeprofile.ResolvedProfile   `json:"resolvedProfile,omitempty"`
+	FrozenProfile    *runtimeprofile.ResolvedProfileV4 `json:"frozenProfile,omitempty"`
+	Key              string                            `json:"key"`
+	Capability       CapabilityRequest                 `json:"capability"`
+	Dependencies     []string                          `json:"dependencies"`
+	Inputs           []string                          `json:"inputs"`
+	Outputs          []string                          `json:"outputs"`
+	Scope            Scope                             `json:"scope"`
+	Effects          []Effect                          `json:"effects"`
+	ValidationOwner  bool                              `json:"validationOwner"`
+	IntegrationOwner bool                              `json:"integrationOwner"`
+	Optional         bool                              `json:"optional"`
+	Controls         ExecutionControls                 `json:"controls"`
 }
 
 type Proposal struct {
@@ -123,6 +126,11 @@ func (p Planner) Propose(ctx context.Context, plan ApprovedPlan) (Proposal, erro
 			unit.ResolvedProfile = &frozen
 			proposal.FormatVersion = 2
 		}
+		if unit.FrozenProfile != nil {
+			frozen := *unit.FrozenProfile
+			unit.FrozenProfile = &frozen
+			proposal.FormatVersion = OperationalProposalVersion
+		}
 		proposal.Nodes = append(proposal.Nodes, ProposedNode(unit))
 	}
 	normalizeProposal(&proposal)
@@ -138,11 +146,11 @@ func (p Planner) Propose(ctx context.Context, plan ApprovedPlan) (Proposal, erro
 }
 
 func (p Planner) Validate(ctx context.Context, proposal Proposal, maximumNodes int) error {
-	if proposal.FormatVersion != ProposalFormatVersion && proposal.FormatVersion != 2 {
+	if proposal.FormatVersion != ProposalFormatVersion && proposal.FormatVersion != 2 && proposal.FormatVersion != OperationalProposalVersion {
 		return ErrInvalidGraph
 	}
 	for _, node := range proposal.Nodes {
-		if proposal.FormatVersion == 2 && !ValidProfileControls(node.ResolvedProfile, node.Controls, node.Capability) || proposal.FormatVersion == 1 && node.ResolvedProfile != nil {
+		if !validNodeProfile(proposal.FormatVersion, node.ResolvedProfile, node.FrozenProfile, node.Controls, node.Capability) {
 			return ErrInvalidGraph
 		}
 	}
@@ -405,12 +413,29 @@ func sortedUnique(values []string) []string {
 
 // ValidProfileControls verifies the frozen sole-owner projection without acquiring proof.
 func ValidProfileControls(profile *runtimeprofile.ResolvedProfile, controls ExecutionControls, capability CapabilityRequest) bool {
-	if profile == nil || runtimeprofile.ValidateResolvedProfile(*profile) != nil {
-		return false
+	return profile != nil && runtimeprofile.ValidateResolvedProfile(*profile) == nil && validEffortControls(profile.Effort, controls, capability)
+}
+
+func ValidFrozenProfileControls(profile *runtimeprofile.ResolvedProfileV4, controls ExecutionControls, capability CapabilityRequest) bool {
+	return profile != nil && runtimeprofile.ValidateResolvedProfileV4(*profile) == nil && validEffortControls(profile.Effort, controls, capability)
+}
+
+func validNodeProfile(version int, historical *runtimeprofile.ResolvedProfile, frozen *runtimeprofile.ResolvedProfileV4, controls ExecutionControls, capability CapabilityRequest) bool {
+	switch version {
+	case 1:
+		return historical == nil && frozen == nil
+	case 2:
+		return frozen == nil && ValidProfileControls(historical, controls, capability)
+	case OperationalProposalVersion:
+		return historical == nil && ValidFrozenProfileControls(frozen, controls, capability)
 	}
+	return false
+}
+
+func validEffortControls(effort runtimeprofile.Effort, controls ExecutionControls, capability CapabilityRequest) bool {
 	expected := ""
-	if profile.Effort.Mode == "explicit" {
-		expected = profile.Effort.Value
+	if effort.Mode == "explicit" {
+		expected = effort.Value
 	}
 	if controls.ReasoningEffort != expected {
 		return false

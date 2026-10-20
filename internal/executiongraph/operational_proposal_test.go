@@ -5,14 +5,48 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
+
+	"github.com/rgomids/axiom/internal/strictjson"
 )
 
-func operationalProposalFixture(t *testing.T) OperationalProposal {
+func decodeProposalV3(wire []byte) (Proposal, error) {
+	var p Proposal
+	if strictjson.Decode(wire, &p, MaxGraphBytes) != nil || p.FormatVersion != OperationalProposalVersion || validateProposalV3(p) != nil {
+		return Proposal{}, ErrInvalidGraph
+	}
+	return p, nil
+}
+
+func validateProposalV3(p Proposal) error {
+	digest, err := signProposalV3(p)
+	if err != nil || digest != p.Digest {
+		return ErrInvalidGraph
+	}
+	return nil
+}
+
+func signProposalV3(p Proposal) (string, error) {
+	if p.FormatVersion != OperationalProposalVersion || NewPlanner(&capabilitySpy{}).Validate(context.Background(), p, maxNodes) != nil {
+		return "", ErrInvalidGraph
+	}
+	return proposalDigest(p)
+}
+
+func encodeProposalV3(p Proposal) ([]byte, error) {
+	if validateProposalV3(p) != nil {
+		return nil, errors.New("invalid")
+	}
+	wire, err := json.Marshal(p)
+	return append(wire, '\n'), err
+}
+
+func operationalProposalFixture(t *testing.T) Proposal {
 	t.Helper()
-	p, err := DecodeOperationalProposal(mustRead(t, "testdata/axm36/proposal-v3.json"))
+	p, err := decodeProposalV3(mustRead(t, "testdata/axm36/proposal-v3.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -21,7 +55,7 @@ func operationalProposalFixture(t *testing.T) OperationalProposal {
 
 func TestOperationalProposalGolden(t *testing.T) {
 	p := operationalProposalFixture(t)
-	wire, err := EncodeOperationalProposal(p)
+	wire, err := encodeProposalV3(p)
 	if err != nil || !bytes.Equal(wire, mustRead(t, "testdata/axm36/proposal-v3.json")) {
 		t.Fatal("unstable proposal bytes", err)
 	}
@@ -29,64 +63,62 @@ func TestOperationalProposalGolden(t *testing.T) {
 	if want != string(mustRead(t, "testdata/axm36/proposal-v3.digests")) {
 		t.Fatal("proposal digest changed")
 	}
-	var old Proposal
-	if json.Unmarshal(wire, &old) != nil {
-		t.Fatal("fixture")
-	}
-	if NewPlanner(nil).Validate(context.Background(), old, maxNodes) == nil {
-		t.Fatal("new proposal accepted as historical authority")
-	}
+	old := p
 	old.FormatVersion = 2
-	legacy, _ := json.Marshal(old)
-	if _, err := DecodeOperationalProposal(legacy); err == nil {
-		t.Fatal("historical proposal accepted as current")
+	if NewPlanner(&capabilitySpy{}).Validate(context.Background(), old, maxNodes) == nil {
+		t.Fatal("new tuple accepted as historical Proposal 2")
+	}
+	for _, retired := range []string{"capabilityProofReference", "runtimeVersion", `"resolvedProfile"`} {
+		if bytes.Contains(wire, []byte(retired)) {
+			t.Fatalf("retired field %s", retired)
+		}
 	}
 }
 
 func TestOperationalProposalDigestAndTopology(t *testing.T) {
-	for name, mutate := range map[string]func(*OperationalProposal){
-		"future": func(p *OperationalProposal) { p.FormatVersion++ },
-		"node limit": func(p *OperationalProposal) {
+	for name, mutate := range map[string]func(*Proposal){
+		"future": func(p *Proposal) { p.FormatVersion++ },
+		"node limit": func(p *Proposal) {
 			for len(p.Nodes) <= maxNodes {
 				p.Nodes = append(p.Nodes, p.Nodes[0])
 			}
 		},
-		"duplicate":          func(p *OperationalProposal) { p.Nodes[1].Key = p.Nodes[0].Key },
-		"missing dependency": func(p *OperationalProposal) { p.Nodes[0].Dependencies = []string{"absent"} },
-		"cycle":              func(p *OperationalProposal) { p.Nodes[0].Dependencies = []string{p.Nodes[1].Key} },
-		"integration": func(p *OperationalProposal) {
+		"duplicate":          func(p *Proposal) { p.Nodes[1].Key = p.Nodes[0].Key },
+		"missing dependency": func(p *Proposal) { p.Nodes[0].Dependencies = []string{"absent"} },
+		"cycle":              func(p *Proposal) { p.Nodes[0].Dependencies = []string{p.Nodes[1].Key} },
+		"integration": func(p *Proposal) {
 			for i := range p.Nodes {
 				p.Nodes[i].IntegrationOwner = false
 			}
 		},
-		"validation owner": func(p *OperationalProposal) {
+		"validation owner": func(p *Proposal) {
 			for i := range p.Nodes {
 				p.Nodes[i].ValidationOwner = false
 			}
 		},
-		"unsafe path":   func(p *OperationalProposal) { p.Nodes[0].Scope.Paths = []string{"../escape"} },
-		"effort":        func(p *OperationalProposal) { p.Nodes[0].Controls.ReasoningEffort = "arbitrary" },
-		"invalid tuple": func(p *OperationalProposal) { p.Nodes[0].ResolvedProfile.EffortSourceDigest = "bad" },
+		"unsafe path":   func(p *Proposal) { p.Nodes[0].Scope.Paths = []string{"../escape"} },
+		"effort":        func(p *Proposal) { p.Nodes[0].Controls.ReasoningEffort = "arbitrary" },
+		"invalid tuple": func(p *Proposal) { p.Nodes[0].FrozenProfile.EffortSourceDigest = "bad" },
 	} {
 		t.Run(name, func(t *testing.T) {
 			p := operationalProposalFixture(t)
 			mutate(&p)
-			if _, err := OperationalProposalDigest(p); err == nil {
+			if _, err := signProposalV3(p); err == nil {
 				t.Fatal("unsafe topology can be signed")
 			}
 		})
 	}
 	p := operationalProposalFixture(t)
-	p.Nodes[0].ResolvedProfile.ExecutableDigest = strings.Repeat("f", 64)
-	if _, err := EncodeOperationalProposal(p); err == nil {
+	p.Nodes[0].FrozenProfile.ExecutableDigest = strings.Repeat("f", 64)
+	if _, err := encodeProposalV3(p); err == nil {
 		t.Fatal("stale digest accepted after identity drift")
 	}
-	digest, err := OperationalProposalDigest(p)
+	digest, err := signProposalV3(p)
 	if err != nil || digest == p.Digest {
 		t.Fatal("identity drift did not change digest")
 	}
 	p.Digest = digest
-	if _, err := EncodeOperationalProposal(p); err != nil {
+	if _, err := encodeProposalV3(p); err != nil {
 		t.Fatal("fresh proposal refused", err)
 	}
 }
@@ -101,7 +133,7 @@ func TestOperationalProposalClosedSchema(t *testing.T) {
 		"oversize":  bytes.Repeat([]byte(" "), MaxGraphBytes+1),
 		"truncated": wire[:len(wire)/2],
 	} {
-		if _, err := DecodeOperationalProposal(bad); err == nil {
+		if _, err := decodeProposalV3(bad); err == nil {
 			t.Errorf("admitted %s", name)
 		}
 	}
@@ -112,7 +144,7 @@ func TestOperationalProposalClosedSchema(t *testing.T) {
 	for key, value := range object {
 		delete(object, key)
 		bad, _ := json.Marshal(object)
-		if _, err := DecodeOperationalProposal(bad); err == nil {
+		if _, err := decodeProposalV3(bad); err == nil {
 			t.Errorf("missing %s admitted", key)
 		}
 		object[key] = value

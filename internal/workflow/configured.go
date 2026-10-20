@@ -15,6 +15,7 @@ import (
 )
 
 const ProfileConfiguredFormatVersion = 3
+const OperationalConfiguredFormatVersion = 5
 const ProfileConfiguredWorkflowVersion = "configured-sequential-v2"
 const ConfiguredFormatVersion = 2
 const ConfiguredWorkflowVersion = "configured-sequential-v1"
@@ -23,22 +24,23 @@ func sameStartContract(left, right State) bool {
 	if left.Binding == nil || right.Binding == nil {
 		return left.Binding == nil && right.Binding == nil
 	}
-	return reflect.DeepEqual(left.Binding.ResolvedProfile, right.Binding.ResolvedProfile) && left.Binding.Definition == right.Binding.Definition && left.Binding.ObservationDigest == right.Binding.ObservationDigest && left.Binding.RuntimePreview == right.Binding.RuntimePreview
+	return reflect.DeepEqual(left.Binding.ResolvedProfile, right.Binding.ResolvedProfile) && reflect.DeepEqual(left.Binding.FrozenProfile, right.Binding.FrozenProfile) && left.Binding.Definition == right.Binding.Definition && left.Binding.ObservationDigest == right.Binding.ObservationDigest && left.Binding.RuntimePreview == right.Binding.RuntimePreview
 }
 
 func digestBytes(value []byte) string { sum := sha256.Sum256(value); return hex.EncodeToString(sum[:]) }
 
 type BindingView struct {
-	ResolvedProfile   *runtimeprofile.ResolvedProfile `json:"resolvedProfile,omitempty"`
-	ProjectRevision   string                          `json:"projectRevision"`
-	LocalRevision     string                          `json:"localRevision"`
-	ProjectID         string                          `json:"projectId"`
-	Definition        workflowdefinition.Ref          `json:"definition"`
-	SchemaVersion     int                             `json:"schemaVersion"`
-	SnapshotRef       string                          `json:"snapshotRef"`
-	ObservationDigest string                          `json:"observationDigest"`
-	RuntimePreview    string                          `json:"runtimePreview"`
-	BoundAt           time.Time                       `json:"boundAt"`
+	ResolvedProfile   *runtimeprofile.ResolvedProfile   `json:"resolvedProfile,omitempty"`
+	FrozenProfile     *runtimeprofile.ResolvedProfileV4 `json:"frozenProfile,omitempty"`
+	ProjectRevision   string                            `json:"projectRevision"`
+	LocalRevision     string                            `json:"localRevision"`
+	ProjectID         string                            `json:"projectId"`
+	Definition        workflowdefinition.Ref            `json:"definition"`
+	SchemaVersion     int                               `json:"schemaVersion"`
+	SnapshotRef       string                            `json:"snapshotRef"`
+	ObservationDigest string                            `json:"observationDigest"`
+	RuntimePreview    string                            `json:"runtimePreview"`
+	BoundAt           time.Time                         `json:"boundAt"`
 }
 
 func InspectBinding(state State) *BindingView {
@@ -51,25 +53,31 @@ func InspectBinding(state State) *BindingView {
 		frozen := *b.ResolvedProfile
 		profile = &frozen
 	}
-	return &BindingView{ResolvedProfile: profile, ProjectID: b.ProjectID, Definition: b.Definition, SchemaVersion: b.SchemaVersion, SnapshotRef: b.SnapshotRef, ObservationDigest: b.ObservationDigest, RuntimePreview: b.RuntimePreview, BoundAt: b.BoundAt, ProjectRevision: b.ProjectRevision, LocalRevision: b.LocalRevision}
+	var current *runtimeprofile.ResolvedProfileV4
+	if b.FrozenProfile != nil {
+		frozen := *b.FrozenProfile
+		current = &frozen
+	}
+	return &BindingView{ResolvedProfile: profile, FrozenProfile: current, ProjectID: b.ProjectID, Definition: b.Definition, SchemaVersion: b.SchemaVersion, SnapshotRef: b.SnapshotRef, ObservationDigest: b.ObservationDigest, RuntimePreview: b.RuntimePreview, BoundAt: b.BoundAt, ProjectRevision: b.ProjectRevision, LocalRevision: b.LocalRevision}
 }
 
 // WorkflowBinding retains the complete validated contract in the same protected
 // publication as its Execution. SnapshotRef addresses this record, not mutable
 // Project storage; a single publication avoids a half-published dependency.
 type WorkflowBinding struct {
-	ResolvedProfile   *runtimeprofile.ResolvedProfile `json:"resolvedProfile,omitempty"`
-	ProjectRevision   string                          `json:"projectRevision"`
-	LocalRevision     string                          `json:"localRevision"`
-	Contexts          map[string]ContextObservation   `json:"contexts"`
-	ProjectID         string                          `json:"projectId"`
-	Definition        workflowdefinition.Ref          `json:"definition"`
-	SchemaVersion     int                             `json:"schemaVersion"`
-	SnapshotRef       string                          `json:"snapshotRef"`
-	Snapshot          json.RawMessage                 `json:"snapshot"`
-	ObservationDigest string                          `json:"observationDigest"`
-	RuntimePreview    string                          `json:"runtimePreview"`
-	BoundAt           time.Time                       `json:"boundAt"`
+	ResolvedProfile   *runtimeprofile.ResolvedProfile   `json:"resolvedProfile,omitempty"`
+	FrozenProfile     *runtimeprofile.ResolvedProfileV4 `json:"frozenProfile,omitempty"`
+	ProjectRevision   string                            `json:"projectRevision"`
+	LocalRevision     string                            `json:"localRevision"`
+	Contexts          map[string]ContextObservation     `json:"contexts"`
+	ProjectID         string                            `json:"projectId"`
+	Definition        workflowdefinition.Ref            `json:"definition"`
+	SchemaVersion     int                               `json:"schemaVersion"`
+	SnapshotRef       string                            `json:"snapshotRef"`
+	Snapshot          json.RawMessage                   `json:"snapshot"`
+	ObservationDigest string                            `json:"observationDigest"`
+	RuntimePreview    string                            `json:"runtimePreview"`
+	BoundAt           time.Time                         `json:"boundAt"`
 }
 
 type DefinitionObservation struct {
@@ -156,9 +164,10 @@ func bindingDocument(state State) (workflowdefinition.Document, bool) {
 	if b != nil && (!workflowdefinition.ValidDigest(b.ProjectRevision) || !workflowdefinition.ValidDigest(b.LocalRevision)) {
 		return workflowdefinition.Document{}, false
 	}
-	historical := state.FormatVersion == ConfiguredFormatVersion && state.WorkflowVersion == ConfiguredWorkflowVersion && b != nil && b.SchemaVersion == 1 && b.ResolvedProfile == nil
-	current := state.FormatVersion == ProfileConfiguredFormatVersion && state.WorkflowVersion == ProfileConfiguredWorkflowVersion && b != nil && b.SchemaVersion == 2 && b.ResolvedProfile != nil && runtimeprofile.ValidateResolvedProfile(*b.ResolvedProfile) == nil && b.ResolvedProfile.RuntimeID == state.RuntimeID
-	if b == nil || (!historical && !current) || b.ProjectID != state.ProjectID || !b.Definition.Valid() || b.SnapshotRef != "execution:"+state.ExecutionID+"#/binding/snapshot" || !workflowdefinition.ValidDigest(b.ObservationDigest) || !workflowdefinition.ValidDigest(b.RuntimePreview) || !b.BoundAt.Equal(state.CreatedAt) {
+	historical := state.FormatVersion == ConfiguredFormatVersion && state.WorkflowVersion == ConfiguredWorkflowVersion && b != nil && b.SchemaVersion == 1 && b.ResolvedProfile == nil && b.FrozenProfile == nil
+	qualified := state.FormatVersion == ProfileConfiguredFormatVersion && state.WorkflowVersion == ProfileConfiguredWorkflowVersion && b != nil && b.SchemaVersion == 2 && b.FrozenProfile == nil && b.ResolvedProfile != nil && runtimeprofile.ValidateResolvedProfile(*b.ResolvedProfile) == nil && b.ResolvedProfile.RuntimeID == state.RuntimeID
+	current := state.FormatVersion == OperationalConfiguredFormatVersion && state.WorkflowVersion == ProfileConfiguredWorkflowVersion && b != nil && b.SchemaVersion == 2 && b.ResolvedProfile == nil && b.FrozenProfile != nil && runtimeprofile.ValidateResolvedProfileV4(*b.FrozenProfile) == nil && b.FrozenProfile.RuntimeID == state.RuntimeID
+	if b == nil || (!historical && !qualified && !current) || b.ProjectID != state.ProjectID || !b.Definition.Valid() || b.SnapshotRef != "execution:"+state.ExecutionID+"#/binding/snapshot" || !workflowdefinition.ValidDigest(b.ObservationDigest) || !workflowdefinition.ValidDigest(b.RuntimePreview) || !b.BoundAt.Equal(state.CreatedAt) {
 		return workflowdefinition.Document{}, false
 	}
 	doc, issues := workflowdefinition.Decode(b.Snapshot)

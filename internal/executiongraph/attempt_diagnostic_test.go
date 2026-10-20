@@ -11,7 +11,7 @@ import (
 
 func diagnosticFixture(t *testing.T) AttemptDiagnostic {
 	t.Helper()
-	r, err := DecodeOperationalSingleStageRun(mustRead(t, "testdata/axm36/single-run-v2-unknown.json"))
+	r, err := DecodeSingleStageRun(mustRead(t, "testdata/axm36/single-run-v2-unknown.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -92,18 +92,18 @@ func TestAttemptDiagnosticRejectsRawPayloads(t *testing.T) {
 
 func TestOperationalDiagnosticCannotRewriteAttempt(t *testing.T) {
 	wire := mustRead(t, "testdata/axm36/single-run-v2-unknown.json")
-	for name, mutate := range map[string]func(*OperationalSingleStageRun){
-		"certainty":       func(r *OperationalSingleStageRun) { r.Attempts[0].Diagnostic.EffectCertainty = "none" },
-		"known":           func(r *OperationalSingleStageRun) { r.Attempts[0].Diagnostic.EffectCertainty = "known" },
-		"wrong attempt":   func(r *OperationalSingleStageRun) { r.Attempts[0].Diagnostic.AttemptID = r.Scope.ExecutionID },
-		"wrong operation": func(r *OperationalSingleStageRun) { r.Attempts[0].Diagnostic.Operation = "stage-preview" },
-		"running": func(r *OperationalSingleStageRun) {
+	for name, mutate := range map[string]func(*SingleStageRun){
+		"certainty":       func(r *SingleStageRun) { r.Attempts[0].Diagnostic.EffectCertainty = "none" },
+		"known":           func(r *SingleStageRun) { r.Attempts[0].Diagnostic.EffectCertainty = "known" },
+		"wrong attempt":   func(r *SingleStageRun) { r.Attempts[0].Diagnostic.AttemptID = r.Scope.ExecutionID },
+		"wrong operation": func(r *SingleStageRun) { r.Attempts[0].Diagnostic.Operation = "stage-preview" },
+		"running": func(r *SingleStageRun) {
 			r.Attempts[0].Status = AttemptRunning
 			r.Attempts[0].FinishedAt = nil
 			r.Attempts[0].ClassificationReason = ""
 			r.Attempts[0].AmbiguousEffect = false
 		},
-		"success": func(r *OperationalSingleStageRun) {
+		"success": func(r *SingleStageRun) {
 			r.Attempts[0].Status = AttemptSucceeded
 			r.Attempts[0].ExitCode = 0
 			r.Attempts[0].AmbiguousEffect = false
@@ -112,34 +112,34 @@ func TestOperationalDiagnosticCannotRewriteAttempt(t *testing.T) {
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
-			r, _ := DecodeOperationalSingleStageRun(wire)
+			r, _ := DecodeSingleStageRun(wire)
 			mutate(&r)
-			if _, err := EncodeOperationalSingleStageRun(r); err == nil {
+			if _, err := EncodeSingleStageRun(r); err == nil {
 				t.Fatal("diagnostic contradicts attempt")
 			}
 		})
 	}
-	r, _ := DecodeOperationalSingleStageRun(wire)
-	next, _ := DecodeOperationalSingleStageRun(wire)
+	r, _ := DecodeSingleStageRun(wire)
+	next, _ := DecodeSingleStageRun(wire)
 	next.Attempts[0].Diagnostic.Cause = "permission_denied"
 	next.Attempts[0].Diagnostic.CauseConfidence = "confirmed"
-	if ValidateOperationalSingleStageRun(next) != nil || ValidateOperationalSingleStageUpdate(r, next) == nil {
+	if ValidateSingleStageRun(next) != nil || ValidateSingleStageUpdate(r, next) == nil {
 		t.Fatal("terminal diagnostic rewritten")
 	}
-	next, _ = DecodeOperationalSingleStageRun(wire)
+	next, _ = DecodeSingleStageRun(wire)
 	next.Attempts[0].Diagnostic = nil
-	if ValidateOperationalSingleStageUpdate(r, next) == nil {
+	if ValidateSingleStageUpdate(r, next) == nil {
 		t.Fatal("terminal diagnostic removed")
 	}
-	plain, _ := DecodeOperationalSingleStageRun(mustRead(t, "testdata/axm36/single-run-v2.json"))
+	plain, _ := DecodeSingleStageRun(mustRead(t, "testdata/axm36/single-run-v2.json"))
 	next = plain
-	next.Attempts = append([]OperationalAttempt(nil), plain.Attempts...)
+	next.Attempts = append([]SuccessorAttempt(nil), plain.Attempts...)
 	d := diagnosticFixture(t)
 	next.Attempts[0].Diagnostic = &d
-	if ValidateOperationalSingleStageUpdate(plain, next) == nil {
+	if ValidateSingleStageUpdate(plain, next) == nil {
 		t.Fatal("summary backfilled on a terminal attempt")
 	}
-	encoded, err := EncodeOperationalSingleStageRun(r)
+	encoded, err := EncodeSingleStageRun(r)
 	if err != nil || !bytes.Equal(wire, encoded) {
 		t.Fatal("refused mutations changed original record")
 	}
@@ -148,19 +148,19 @@ func TestOperationalDiagnosticCannotRewriteAttempt(t *testing.T) {
 func TestOperationalDiagnosticUncertaintyRequiresCanonicalUnknown(t *testing.T) {
 	for _, certainty := range []string{"unknown", "partial"} {
 		t.Run(certainty, func(t *testing.T) {
-			r, err := DecodeOperationalSingleStageRun(mustRead(t, "testdata/axm36/single-run-v2.json"))
+			r, err := DecodeSingleStageRun(mustRead(t, "testdata/axm36/single-run-v2.json"))
 			if err != nil {
 				t.Fatal(err)
 			}
 			d := diagnosticFixture(t)
 			d.EffectCertainty = certainty
 			r.Attempts[0].Diagnostic = &d
-			if ValidateOperationalSingleStageRun(r) == nil {
+			if ValidateSingleStageRun(r) == nil {
 				t.Fatal("diagnostic uncertainty could coexist with retry-eligible failed state")
 			}
 			g := operationalGraphVector(t, "process_failed")
 			g.Children[0].Attempts[0].Diagnostic.EffectCertainty = certainty
-			if ValidateOperationalGraph(g) == nil {
+			if ValidateSuccessorGraph(g) == nil {
 				t.Fatal("graph diagnostic uncertainty could coexist with failed state")
 			}
 		})

@@ -527,3 +527,48 @@ at SAVE STATE. Final-head CI must be checked by the next executor.
 Resume worktree `/workspace/wt/axm-36`, branch
 `docs/axm-36-runtime-admission-specify`, same Draft PR #334. T01 remains partial;
 T02/T03 have not started. No new work is started after the stop request.
+
+## r4 (Claude) — unified successor codecs checkpoint
+
+Input `feece82ee3db3963be98b829535976f62a3434e6`; read-back of PR #334, branch,
+handoff and exact-head CI (`PR Checks`, `delivery-metadata` SUCCESS) found no
+concurrent change. Runtime changed to Claude by maintainer decision; same
+authority and prohibitions. No delegation: model controls exist, but the
+work is tightly coupled across owners and has no isolable unit with net gain.
+
+Design decision within D2 (no contract change): each persisted family keeps
+**one in-memory type and one scheduler/store/supervisor path**, with the
+generation gating which frozen tuple is valid. The r3 parallel `Operational*`
+graph/single/proposal types are folded into `SuccessorGraph`,
+`SingleStageRun` and `Proposal`; duplicating the whole ledger machinery for
+a second type family was rejected as unnecessary code and divergence risk.
+
+- `Resolution`, `WorkUnit`/`ProposedNode`, `WorkflowBinding`, compiler
+  `ExecutionInput`/stage `Resolution` and `Choice` gain an optional
+  `frozenProfile` (`ResolvedProfileV4`) beside the untouched historical
+  `resolvedProfile`. Exactly one is valid per generation; mixed tuples refuse.
+- Graph 3 / single run 1 / Proposal 2 / Execution 3 require the historical
+  tuple and refuse `frozenProfile` and `diagnostic`. Graph 4 / single run 2 /
+  Proposal 3 / Execution 5 require `frozenProfile` and refuse the historical
+  tuple; attempt `diagnostic` is admitted only in Graph 4 / single run 2 under
+  the r3 rules (terminal, correlated, no certainty downgrade, immutable).
+- In-memory `Graph` projection 3 mirrors Graph 4 envelopes for the workspace
+  manager and integration preview; `EncodeGraph`/`DecodeGraph` refuse it, so
+  it is never persisted.
+- **Version collision reconciled:** the Execution file header
+  `formatVersion: 4` is already the `execution_link` rework envelope. The
+  configured Execution successor is therefore **Execution 5** (Tasks table
+  said 4). Same fields/semantics; only the number changes.
+- `capabilityEvidenceRef` becomes `omitempty`; historical values are always
+  non-empty, so historical bytes are unchanged.
+- r3 fixtures under `executiongraph/testdata/axm36` change only the tuple key
+  (`resolvedProfile` → `frozenProfile`) and the derived Proposal digest; their
+  digest vectors are regenerated. Historical successor, single-stage and
+  issue306 fixtures are byte-identical. The historical single-run test now
+  uses 3 as the unknown future generation.
+
+Still inactive: no producer writes the new generations; admission still uses
+the historical gate. PASS: `go vet ./...`; `go test` for executiongraph,
+workflow, workflowcompiler, runtimeprofile, local, stageexecution,
+stagepublication and graphapplication; `git diff --check`. Remaining T01:
+DispatchInputs 2/preview content, configuration-4 store state; then T02/T03.

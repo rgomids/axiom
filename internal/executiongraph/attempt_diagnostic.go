@@ -67,10 +67,7 @@ func validDiagnosticCode(code string) bool {
 	return false
 }
 
-func validateOperationalDiagnostic(a OperationalAttempt) error {
-	if a.Diagnostic == nil {
-		return nil
-	}
+func validateDiagnostic(a SuccessorAttempt) error {
 	d := *a.Diagnostic
 	if ValidateAttemptDiagnostic(d) != nil || a.Status == AttemptRunning || a.Status == AttemptSucceeded || d.AttemptID != a.AttemptID || d.Operation != "stage-run" && d.Operation != "stage-retry" {
 		return ErrInvalidGraph

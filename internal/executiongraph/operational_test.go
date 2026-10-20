@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/rgomids/axiom/internal/runtimeprofile"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -19,22 +20,22 @@ func TestOperationalLedgerGoldenAndHistoricalIsolation(t *testing.T) {
 			var encoded []byte
 			var err error
 			if strings.HasPrefix(name, "graph-v4") {
-				g, e := DecodeOperationalGraph(wire)
+				g, e := DecodeSuccessorGraph(wire)
 				if e != nil || g.StorageRevision != sha256.Sum256(wire) {
 					t.Fatalf("decode graph: %v", e)
 				}
-				encoded, err = EncodeOperationalGraph(g)
-				if _, e := DecodeSuccessorGraph(wire); e == nil {
-					t.Fatal("new graph admitted by historical decoder")
+				encoded, err = EncodeSuccessorGraph(g)
+				if g.FormatVersion != OperationalGraphVersion {
+					t.Fatal("new graph decoded as historical generation")
 				}
 			} else {
-				r, e := DecodeOperationalSingleStageRun(wire)
+				r, e := DecodeSingleStageRun(wire)
 				if e != nil || r.StorageRevision != sha256.Sum256(wire) {
 					t.Fatalf("decode single: %v", e)
 				}
-				encoded, err = EncodeOperationalSingleStageRun(r)
-				if _, e := DecodeSingleStageRun(wire); e == nil {
-					t.Fatal("new run admitted by historical decoder")
+				encoded, err = EncodeSingleStageRun(r)
+				if r.FormatVersion != OperationalSingleStageRunVersion {
+					t.Fatal("new run decoded as historical generation")
 				}
 			}
 			if err != nil || !bytes.Equal(wire, encoded) {
@@ -51,11 +52,28 @@ func TestOperationalLedgerGoldenAndHistoricalIsolation(t *testing.T) {
 	if digests.String() != string(mustRead(t, "testdata/axm36/digests.txt")) {
 		t.Fatal("successor digest vectors changed")
 	}
-	if _, err := DecodeOperationalGraph(mustRead(t, "testdata/successor/valid/publication.json")); err == nil {
-		t.Fatal("historical graph accepted as current")
+	historical, err := DecodeSuccessorGraph(mustRead(t, "testdata/successor/valid/publication.json"))
+	if err != nil || historical.FormatVersion != SuccessorGraphVersion || historical.Children[0].Envelope.Resolution.FrozenProfile != nil {
+		t.Fatal("historical graph lost its generation", err)
 	}
-	if _, err := DecodeOperationalSingleStageRun(mustRead(t, "testdata/single-stage/run-v1.json")); err == nil {
-		t.Fatal("historical run accepted as current")
+	run, err := DecodeSingleStageRun(mustRead(t, "testdata/single-stage/run-v1.json"))
+	if err != nil || run.FormatVersion != SingleStageRunVersion || run.Binding.Resolution.FrozenProfile != nil {
+		t.Fatal("historical run lost its generation", err)
+	}
+	for _, name := range []string{"graph-v4.json", "single-run-v2.json"} {
+		wire := mustRead(t, "testdata/axm36/"+name)
+		for _, older := range [][2]string{{`"formatVersion":4`, `"formatVersion":3`}, {`"formatVersion":2`, `"formatVersion":1`}} {
+			downgraded := bytes.Replace(wire, []byte(older[0]), []byte(older[1]), 1)
+			if bytes.Equal(downgraded, wire) {
+				continue
+			}
+			if _, err := DecodeSuccessorGraph(downgraded); err == nil {
+				t.Fatalf("%s: proof-free tuple accepted under historical generation", name)
+			}
+			if _, err := DecodeSingleStageRun(downgraded); err == nil {
+				t.Fatalf("%s: proof-free tuple accepted under historical generation", name)
+			}
+		}
 	}
 }
 
@@ -69,10 +87,10 @@ func TestOperationalLedgerStrictShape(t *testing.T) {
 			}
 			decode := func(b []byte) error {
 				if strings.HasPrefix(name, "graph-v4") {
-					_, err := DecodeOperationalGraph(b)
+					_, err := DecodeSuccessorGraph(b)
 					return err
 				}
-				_, err := DecodeOperationalSingleStageRun(b)
+				_, err := DecodeSingleStageRun(b)
 				return err
 			}
 			if decode(wire) != nil {
@@ -123,31 +141,36 @@ func TestOperationalLedgerStrictShape(t *testing.T) {
 	}
 }
 
-func TestOperationalResolutionAndControls(t *testing.T) {
-	g, err := DecodeOperationalGraph(mustRead(t, "testdata/axm36/graph-v4.json"))
+func TestResolutionAndControls(t *testing.T) {
+	g, err := DecodeSuccessorGraph(mustRead(t, "testdata/axm36/graph-v4.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	for _, c := range g.Children {
 		r := c.Envelope.Resolution
-		for name, mutate := range map[string]func(*OperationalResolution){
-			"runtime":       func(r *OperationalResolution) { r.RuntimeID = "other" },
-			"profile":       func(r *OperationalResolution) { r.ModelProfileID = "other" },
-			"configuration": func(r *OperationalResolution) { r.ConfigurationRevision++ },
-			"observation":   func(r *OperationalResolution) { r.ObservationRevision++ },
-			"digest":        func(r *OperationalResolution) { r.ResolvedProfile.ExecutableDigest = "bad" },
+		for name, mutate := range map[string]func(*Resolution){
+			"runtime":       func(r *Resolution) { r.RuntimeID = "other" },
+			"profile":       func(r *Resolution) { r.ModelProfileID = "other" },
+			"configuration": func(r *Resolution) { r.ConfigurationRevision++ },
+			"observation":   func(r *Resolution) { r.ObservationRevision++ },
+			"digest": func(r *Resolution) {
+				frozen := *r.FrozenProfile
+				frozen.ExecutableDigest = "bad"
+				r.FrozenProfile = &frozen
+			},
+			"historical": func(r *Resolution) { r.ResolvedProfile = &runtimeprofile.ResolvedProfile{} },
 		} {
 			t.Run(r.RuntimeID+"/"+name, func(t *testing.T) {
 				bad := r
 				mutate(&bad)
-				if ValidateOperationalResolution(bad) == nil {
+				if validResolution(bad) {
 					t.Fatal("mismatched tuple accepted")
 				}
 			})
 		}
 		controls := c.Envelope.Controls
 		controls.ReasoningEffort = "other"
-		if ValidOperationalProfileControls(r.ResolvedProfile, controls, c.Envelope.Capability) {
+		if ValidFrozenProfileControls(r.FrozenProfile, controls, c.Envelope.Capability) {
 			t.Fatal("competing controls accepted")
 		}
 	}
@@ -155,27 +178,27 @@ func TestOperationalResolutionAndControls(t *testing.T) {
 
 func TestOperationalGraphRetainsSafetyChecks(t *testing.T) {
 	wire := mustRead(t, "testdata/axm36/graph-v4.json")
-	for name, mutate := range map[string]func(*OperationalGraph){
-		"authority digest": func(g *OperationalGraph) { g.Parent.AuthorityDigest = strings.Repeat("f", 64) },
-		"effect ceiling": func(g *OperationalGraph) {
+	for name, mutate := range map[string]func(*SuccessorGraph){
+		"authority digest": func(g *SuccessorGraph) { g.Parent.AuthorityDigest = strings.Repeat("f", 64) },
+		"effect ceiling": func(g *SuccessorGraph) {
 			g.Children[0].Envelope.AllowedEffects = []Effect{{Kind: "repository-write", Target: "src"}}
 		},
-		"cycle":           func(g *OperationalGraph) { g.Children[0].Envelope.Dependencies = []string{g.Children[1].ExecutionID} },
-		"duplicate child": func(g *OperationalGraph) { g.Children[0].ExecutionID = g.Children[1].ExecutionID },
-		"profile drift":   func(g *OperationalGraph) { g.Children[0].Envelope.Resolution.ResolvedProfile.ProfileID = "other" },
-		"concurrency":     func(g *OperationalGraph) { g.StageConcurrency = 0 },
-		"integration":     func(g *OperationalGraph) { g.Parent.IntegrationChild = g.Children[0].ExecutionID },
-		"cancel authority": func(g *OperationalGraph) {
+		"cycle":           func(g *SuccessorGraph) { g.Children[0].Envelope.Dependencies = []string{g.Children[1].ExecutionID} },
+		"duplicate child": func(g *SuccessorGraph) { g.Children[0].ExecutionID = g.Children[1].ExecutionID },
+		"profile drift":   func(g *SuccessorGraph) { g.Children[0].Envelope.Resolution.FrozenProfile.ProfileID = "other" },
+		"concurrency":     func(g *SuccessorGraph) { g.StageConcurrency = 0 },
+		"integration":     func(g *SuccessorGraph) { g.Parent.IntegrationChild = g.Children[0].ExecutionID },
+		"cancel authority": func(g *SuccessorGraph) {
 			g.CancelRequest = &CancelRequest{RequestID: "00000000-0000-4000-8000-000000000099", ParentID: g.Parent.ExecutionID, GraphRevision: g.Parent.GraphRevision, ActorKind: "agent", Actor: "synthetic", RequestedAt: g.Parent.CreatedAt, AuthorityRef: g.DispatchAuthorityRef}
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
-			g, err := DecodeOperationalGraph(wire)
+			g, err := DecodeSuccessorGraph(wire)
 			if err != nil {
 				t.Fatal(err)
 			}
 			mutate(&g)
-			if _, err := EncodeOperationalGraph(g); err == nil {
+			if _, err := EncodeSuccessorGraph(g); err == nil {
 				t.Fatal("unsafe graph accepted")
 			}
 		})
@@ -184,33 +207,33 @@ func TestOperationalGraphRetainsSafetyChecks(t *testing.T) {
 
 func TestOperationalSingleRetainsSafetyChecks(t *testing.T) {
 	wire := mustRead(t, "testdata/axm36/single-run-v2.json")
-	for name, mutate := range map[string]func(*OperationalSingleStageRun){
-		"epoch":               func(r *OperationalSingleStageRun) { r.RunEpoch = 0 },
-		"authority":           func(r *OperationalSingleStageRun) { r.Authorities = nil },
-		"duplicate authority": func(r *OperationalSingleStageRun) { r.Authorities = append(r.Authorities, r.Authorities[0]) },
-		"scope":               func(r *OperationalSingleStageRun) { r.Scope.StageID = "other" },
-		"paths":               func(r *OperationalSingleStageRun) { r.Binding.Inbox = r.Binding.Workspace },
-		"attempt limit":       func(r *OperationalSingleStageRun) { r.Binding.Controls.MaximumAttempts = 0 },
-		"timeout":             func(r *OperationalSingleStageRun) { r.Binding.Controls.Timeout = 25 * time.Hour },
-		"effort":              func(r *OperationalSingleStageRun) { r.Binding.Controls.ReasoningEffort = "high" },
-		"historical version":  func(r *OperationalSingleStageRun) { r.FormatVersion = 1 },
+	for name, mutate := range map[string]func(*SingleStageRun){
+		"epoch":               func(r *SingleStageRun) { r.RunEpoch = 0 },
+		"authority":           func(r *SingleStageRun) { r.Authorities = nil },
+		"duplicate authority": func(r *SingleStageRun) { r.Authorities = append(r.Authorities, r.Authorities[0]) },
+		"scope":               func(r *SingleStageRun) { r.Scope.StageID = "other" },
+		"paths":               func(r *SingleStageRun) { r.Binding.Inbox = r.Binding.Workspace },
+		"attempt limit":       func(r *SingleStageRun) { r.Binding.Controls.MaximumAttempts = 0 },
+		"timeout":             func(r *SingleStageRun) { r.Binding.Controls.Timeout = 25 * time.Hour },
+		"effort":              func(r *SingleStageRun) { r.Binding.Controls.ReasoningEffort = "high" },
+		"historical version":  func(r *SingleStageRun) { r.FormatVersion = 1 },
 	} {
 		t.Run(name, func(t *testing.T) {
-			r, err := DecodeOperationalSingleStageRun(wire)
+			r, err := DecodeSingleStageRun(wire)
 			if err != nil {
 				t.Fatal(err)
 			}
 			mutate(&r)
-			if _, err := EncodeOperationalSingleStageRun(r); err == nil {
+			if _, err := EncodeSingleStageRun(r); err == nil {
 				t.Fatal("unsafe run accepted")
 			}
 		})
 	}
 }
 
-func operationalGraphVector(t *testing.T, name string) OperationalGraph {
+func operationalGraphVector(t *testing.T, name string) SuccessorGraph {
 	t.Helper()
-	g, err := DecodeOperationalGraph(mustRead(t, "testdata/axm36/graph-v4-"+name+".json"))
+	g, err := DecodeSuccessorGraph(mustRead(t, "testdata/axm36/graph-v4-"+name+".json"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -220,40 +243,40 @@ func operationalGraphVector(t *testing.T, name string) OperationalGraph {
 func TestOperationalGraphTerminalPublicationAndReconciliation(t *testing.T) {
 	running := operationalGraphVector(t, "running")
 	finished := operationalGraphVector(t, "process_failed")
-	if ValidateOperationalGraphUpdate(running, finished) != nil {
+	if ValidateSuccessorUpdate(running, finished) != nil {
 		t.Fatal("atomic terminal state and diagnostic publication refused")
 	}
 	old := operationalGraphVector(t, "process_outcome_unknown")
 	next := operationalGraphVector(t, "reconciliation")
-	if ValidateOperationalGraphUpdate(old, next) != nil {
+	if ValidateSuccessorUpdate(old, next) != nil {
 		t.Fatal("append-only reconciliation refused")
 	}
-	for name, mutate := range map[string]func(*OperationalGraph){
-		"remove diagnostic": func(g *OperationalGraph) { g.Children[0].Attempts[0].Diagnostic = nil },
-		"rewrite diagnostic": func(g *OperationalGraph) {
+	for name, mutate := range map[string]func(*SuccessorGraph){
+		"remove diagnostic": func(g *SuccessorGraph) { g.Children[0].Attempts[0].Diagnostic = nil },
+		"rewrite diagnostic": func(g *SuccessorGraph) {
 			g.Children[0].Attempts[0].Diagnostic.Cause = "authentication_unavailable"
 			g.Children[0].Attempts[0].Diagnostic.CauseConfidence = "confirmed"
 		},
-		"rewrite fact": func(g *OperationalGraph) {
+		"rewrite fact": func(g *SuccessorGraph) {
 			g.Children[0].Attempts[0].ReconciliationFacts[0].ObservationsDigest = strings.Repeat("f", 64)
 		},
-		"remove fact": func(g *OperationalGraph) { g.Children[0].Attempts[0].ReconciliationFacts = nil },
-		"rewrite binding": func(g *OperationalGraph) {
-			g.Children[0].Envelope.Resolution.ResolvedProfile.ExecutableDigest = strings.Repeat("f", 64)
+		"remove fact": func(g *SuccessorGraph) { g.Children[0].Attempts[0].ReconciliationFacts = nil },
+		"rewrite binding": func(g *SuccessorGraph) {
+			g.Children[0].Envelope.Resolution.FrozenProfile.ExecutableDigest = strings.Repeat("f", 64)
 		},
-		"rewrite exit": func(g *OperationalGraph) { g.Children[0].Attempts[0].ExitCode++ },
+		"rewrite exit": func(g *SuccessorGraph) { g.Children[0].Attempts[0].ExitCode++ },
 	} {
 		t.Run(name, func(t *testing.T) {
 			bad := operationalGraphVector(t, "reconciliation")
 			mutate(&bad)
-			if ValidateOperationalGraphUpdate(next, bad) == nil {
+			if ValidateSuccessorUpdate(next, bad) == nil {
 				t.Fatal("immutable publication rewritten")
 			}
 		})
 	}
 	withoutDiagnostic := operationalGraphVector(t, "process_failed")
 	withoutDiagnostic.Children[0].Attempts[0].Diagnostic = nil
-	if ValidateOperationalGraphUpdate(withoutDiagnostic, finished) == nil {
+	if ValidateSuccessorUpdate(withoutDiagnostic, finished) == nil {
 		t.Fatal("historical cause backfilled")
 	}
 }
@@ -262,24 +285,24 @@ func TestOperationalSingleBothAdaptersAndIntent(t *testing.T) {
 	for _, runtimeID := range []string{"codex", "claude"} {
 		for _, effort := range []runtimeprofile.Effort{{Mode: "runtime-default", Value: "default"}, {Mode: "explicit", Value: "new-safe-token"}} {
 			t.Run(runtimeID+"/"+effort.Mode, func(t *testing.T) {
-				r, err := DecodeOperationalSingleStageRun(mustRead(t, "testdata/axm36/single-run-v2.json"))
+				r, err := DecodeSingleStageRun(mustRead(t, "testdata/axm36/single-run-v2.json"))
 				if err != nil {
 					t.Fatal(err)
 				}
 				resolution := &r.Binding.Resolution
 				resolution.RuntimeID = runtimeID
-				resolution.ResolvedProfile.RuntimeID = runtimeID
-				resolution.ResolvedProfile.Model = "new-safe-model"
-				resolution.ResolvedProfile.Effort = effort
+				resolution.FrozenProfile.RuntimeID = runtimeID
+				resolution.FrozenProfile.Model = "new-safe-model"
+				resolution.FrozenProfile.Effort = effort
 				if effort.Mode == "explicit" {
 					r.Binding.Controls.ReasoningEffort = effort.Value
 				}
-				wire, err := EncodeOperationalSingleStageRun(r)
+				wire, err := EncodeSingleStageRun(r)
 				if err != nil {
 					t.Fatal("safe new intent rejected", err)
 				}
-				roundtrip, err := DecodeOperationalSingleStageRun(wire)
-				if err != nil || roundtrip.Binding.Resolution != r.Binding.Resolution {
+				roundtrip, err := DecodeSingleStageRun(wire)
+				if err != nil || !reflect.DeepEqual(roundtrip.Binding.Resolution, r.Binding.Resolution) {
 					t.Fatal("intent lost", err)
 				}
 			})

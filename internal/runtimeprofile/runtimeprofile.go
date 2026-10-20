@@ -101,16 +101,17 @@ type Request struct {
 }
 
 type Choice struct {
-	ResolvedProfile       *ResolvedProfile `json:"resolvedProfile,omitempty"`
-	RuntimeID             string           `json:"runtimeId"`
-	Adapter               string           `json:"adapter"`
-	ModelProfileID        string           `json:"modelProfileId"`
-	Model                 string           `json:"model"`
-	Capabilities          []string         `json:"capabilities"`
-	RuntimeVersion        string           `json:"runtimeVersion,omitempty"`
-	ExecutableDigest      string           `json:"executableDigest,omitempty"`
-	ConfigurationRevision uint64           `json:"configurationRevision"`
-	ObservationRevision   uint64           `json:"observationRevision"`
+	ResolvedProfile       *ResolvedProfile   `json:"resolvedProfile,omitempty"`
+	FrozenProfile         *ResolvedProfileV4 `json:"frozenProfile,omitempty"`
+	RuntimeID             string             `json:"runtimeId"`
+	Adapter               string             `json:"adapter"`
+	ModelProfileID        string             `json:"modelProfileId"`
+	Model                 string             `json:"model"`
+	Capabilities          []string           `json:"capabilities"`
+	RuntimeVersion        string             `json:"runtimeVersion,omitempty"`
+	ExecutableDigest      string             `json:"executableDigest,omitempty"`
+	ConfigurationRevision uint64             `json:"configurationRevision"`
+	ObservationRevision   uint64             `json:"observationRevision"`
 }
 
 type Blocker struct {

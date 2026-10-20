@@ -11,6 +11,7 @@ import (
 )
 
 const SuccessorGraphVersion = 3
+const OperationalGraphVersion = 4
 const ClassificationPolicyV1 = "stage-attempt-v1"
 const MaxStageConcurrency = 64
 const MaxReconciliationFacts = 64
@@ -53,6 +54,7 @@ type SuccessorAttempt struct {
 	Process              *ProcessCorrelation  `json:"process,omitempty"`
 	PacketDigest         string               `json:"packetDigest"`
 	ReconciliationFacts  []ReconciliationFact `json:"reconciliationFacts"`
+	Diagnostic           *AttemptDiagnostic   `json:"diagnostic,omitempty"`
 }
 
 type ProcessCorrelation struct {
@@ -92,11 +94,11 @@ func boundedIdentity(s string) bool { return validTarget(s) && len(s) <= 512 }
 // ValidateSuccessorGraph validates domain state without serializing. References
 // are digests; resolving authority and canonical records belongs to consumers.
 func ValidateSuccessorGraph(g SuccessorGraph) error {
-	if g.FormatVersion != SuccessorGraphVersion || g.ClassificationPolicy != ClassificationPolicyV1 || !successorDigest(g.DispatchAuthorityRef) || g.StageConcurrency == 0 || g.StageConcurrency > MaxStageConcurrency || !utc(g.Parent.CreatedAt) {
+	if g.FormatVersion != SuccessorGraphVersion && g.FormatVersion != OperationalGraphVersion || g.ClassificationPolicy != ClassificationPolicyV1 || !successorDigest(g.DispatchAuthorityRef) || g.StageConcurrency == 0 || g.StageConcurrency > MaxStageConcurrency || !utc(g.Parent.CreatedAt) {
 		return ErrInvalidGraph
 	}
-	// Reuse immutable Graph2 envelope/topology checks, without converting state.
-	base := Graph{FormatVersion: 2, Parent: g.Parent}
+	// Reuse immutable Graph2/3 envelope/topology checks, without converting state.
+	base := Graph{FormatVersion: g.projectionVersion(), Parent: g.Parent}
 	for _, c := range g.Children {
 		base.Children = append(base.Children, ChildExecution{ExecutionID: c.ExecutionID, ParentID: c.ParentID, GraphRevision: c.GraphRevision, NodeKey: c.NodeKey, Envelope: c.Envelope})
 	}
@@ -114,7 +116,7 @@ func ValidateSuccessorGraph(g SuccessorGraph) error {
 	}
 	facts := map[string]bool{}
 	for _, c := range g.Children {
-		if err := validateAttemptSequence(c.Attempts, attemptScope{created: g.Parent.CreatedAt, cancel: g.CancelRequest, parentID: g.Parent.ExecutionID, childID: c.ExecutionID, revision: g.Parent.GraphRevision, maximum: c.Envelope.Controls.MaximumAttempts, integration: c.Envelope.IntegrationOwner, authority: map[string]bool{g.DispatchAuthorityRef: true}}, ids, facts); err != nil {
+		if err := validateAttemptSequence(c.Attempts, attemptScope{diagnostics: g.FormatVersion == OperationalGraphVersion, created: g.Parent.CreatedAt, cancel: g.CancelRequest, parentID: g.Parent.ExecutionID, childID: c.ExecutionID, revision: g.Parent.GraphRevision, maximum: c.Envelope.Controls.MaximumAttempts, integration: c.Envelope.IntegrationOwner, authority: map[string]bool{g.DispatchAuthorityRef: true}}, ids, facts); err != nil {
 			return err
 		}
 	}
@@ -130,6 +132,7 @@ func ValidateSuccessorGraph(g SuccessorGraph) error {
 }
 
 type attemptScope struct {
+	diagnostics       bool
 	created           time.Time
 	cancel            *CancelRequest
 	parentID, childID string
@@ -149,7 +152,7 @@ func validateAttemptSequence(attempts []SuccessorAttempt, scope attemptScope, id
 		if !validOpaqueID(a.AttemptID) || ids[a.AttemptID] || a.Number != uint32(i+1) || a.LeaseEpoch == 0 || a.LeaseEpoch < epoch || !successorDigest(a.PacketDigest) || a.StartedAt == nil || !utc(*a.StartedAt) || a.StartedAt.Before(scope.created) || len(a.ReconciliationFacts) > MaxReconciliationFacts {
 			return ErrInvalidGraph
 		}
-		if previousFinish != nil && a.StartedAt.Before(*previousFinish) || a.AmbiguousEffect && a.Status != AttemptUnknown {
+		if previousFinish != nil && a.StartedAt.Before(*previousFinish) || a.AmbiguousEffect && a.Status != AttemptUnknown || a.Diagnostic != nil && (!scope.diagnostics || validateDiagnostic(a) != nil) {
 			return ErrInvalidGraph
 		}
 		if a.CancellationSeen && scope.cancel == nil {
@@ -345,7 +348,7 @@ func DecodeGraphDocument(wire []byte) (GraphDocument, error) {
 			return GraphDocument{}, err
 		}
 		return GraphDocument{Historical: &g}, nil
-	case SuccessorGraphVersion:
+	case SuccessorGraphVersion, OperationalGraphVersion:
 		g, err := DecodeSuccessorGraph(wire)
 		if err != nil {
 			return GraphDocument{}, err
@@ -363,4 +366,13 @@ func EncodeGraphDocument(d GraphDocument) ([]byte, error) {
 		return EncodeSuccessorGraph(*d.Successor)
 	}
 	return nil, ErrInvalidGraph
+}
+
+// projectionVersion is the in-memory Graph generation whose envelope profile
+// rules match this ledger: Graph 2 for successor 3, projection-only 3 for 4.
+func (g SuccessorGraph) projectionVersion() int {
+	if g.FormatVersion == OperationalGraphVersion {
+		return OperationalProposalVersion
+	}
+	return 2
 }

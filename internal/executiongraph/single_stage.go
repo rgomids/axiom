@@ -14,13 +14,14 @@ import (
 )
 
 const (
-	SingleStageRunKind          = "single_stage_run"
-	SingleStageRunVersion       = 1
-	SingleStageAuthorityVersion = 2
-	SingleStageAuthorityScope   = "single-stage-attempt"
-	MaxSingleStageRunBytes      = 1 << 20
-	MaxSingleStageAttempts      = 10
-	MaxSingleStageAttemptTime   = 24 * time.Hour
+	SingleStageRunKind               = "single_stage_run"
+	SingleStageRunVersion            = 1
+	OperationalSingleStageRunVersion = 2
+	SingleStageAuthorityVersion      = 2
+	SingleStageAuthorityScope        = "single-stage-attempt"
+	MaxSingleStageRunBytes           = 1 << 20
+	MaxSingleStageAttempts           = 10
+	MaxSingleStageAttemptTime        = 24 * time.Hour
 )
 
 var ErrUnsupportedSingleStageFormat = errors.New("unsupported_single_stage_format")
@@ -111,20 +112,31 @@ func validSingleScope(s SingleStageScope) bool {
 	return validToken(s.ProjectID) && validToken(s.RepositoryKey) && validTarget(s.WorkItem) && validOpaqueID(s.ExecutionID) && validToken(s.StageID) && s.StageOrdinal >= 0
 }
 
-func validSingleBinding(b SingleStageBinding) bool {
+func validSingleBinding(version int, b SingleStageBinding) bool {
 	if !successorDigest(b.ExecutionGeneration) || b.WorkflowRevision == 0 || !successorDigest(b.PreviewDigest) || !successorDigest(b.ProposalDigest) || !successorDigest(b.InputDigest) || !successorDigest(b.AxiomDigest) || !validTarget(b.Workspace) || !validTarget(b.Inbox) || b.Workspace == b.Inbox || !validDispatchEffects(b.Effects) {
 		return false
 	}
 	if b.Controls.MaximumAttempts < 1 || b.Controls.MaximumAttempts > MaxSingleStageAttempts || b.Controls.Timeout <= 0 || b.Controls.Timeout > MaxSingleStageAttemptTime {
 		return false
 	}
+	if version == OperationalSingleStageRunVersion {
+		p := b.Resolution.FrozenProfile
+		return p != nil && b.Resolution.ResolvedProfile == nil && validResolution(b.Resolution) && validEffortControls(p.Effort, b.Controls, CapabilityRequest{Capabilities: effortCapability(p.Effort)})
+	}
 	p := b.Resolution.ResolvedProfile
-	return p != nil && runtimeprofile.ValidateResolvedProfile(*p) == nil && b.Resolution.RuntimeID == p.RuntimeID && b.Resolution.ModelProfileID == p.ProfileID
+	return p != nil && b.Resolution.FrozenProfile == nil && runtimeprofile.ValidateResolvedProfile(*p) == nil && b.Resolution.RuntimeID == p.RuntimeID && b.Resolution.ModelProfileID == p.ProfileID
+}
+
+func effortCapability(e runtimeprofile.Effort) []string {
+	if e.Mode == runtimeprofile.EffortExplicit {
+		return []string{"reasoning-effort-" + e.Value}
+	}
+	return nil
 }
 
 func ValidateSingleStageRun(r SingleStageRun) error {
 	digest, err := SingleStageScopeDigest(r.Scope)
-	if r.Kind != SingleStageRunKind || r.FormatVersion != SingleStageRunVersion || err != nil || digest != r.ScopeDigest || !validSingleBinding(r.Binding) || !utc(r.CreatedAt) {
+	if r.Kind != SingleStageRunKind || r.FormatVersion != SingleStageRunVersion && r.FormatVersion != OperationalSingleStageRunVersion || err != nil || digest != r.ScopeDigest || !validSingleBinding(r.FormatVersion, r.Binding) || !utc(r.CreatedAt) {
 		return ErrInvalidGraph
 	}
 	if len(r.Authorities) == 0 || len(r.Authorities) > MaxSingleStageAttempts || len(r.Attempts) > len(r.Authorities) || len(r.Authorities) > len(r.Attempts)+1 {
@@ -144,7 +156,7 @@ func ValidateSingleStageRun(r SingleStageRun) error {
 	}
 	ids := map[string]bool{r.Scope.ExecutionID: true}
 	facts := map[string]bool{}
-	scope := attemptScope{created: r.CreatedAt, cancel: r.CancelRequest, parentID: r.Scope.ExecutionID, childID: r.Scope.ExecutionID, revision: r.Binding.WorkflowRevision, maximum: r.Binding.Controls.MaximumAttempts, authority: refs}
+	scope := attemptScope{diagnostics: r.FormatVersion == OperationalSingleStageRunVersion, created: r.CreatedAt, cancel: r.CancelRequest, parentID: r.Scope.ExecutionID, childID: r.Scope.ExecutionID, revision: r.Binding.WorkflowRevision, maximum: r.Binding.Controls.MaximumAttempts, authority: refs}
 	if err := validateAttemptSequence(r.Attempts, scope, ids, facts); err != nil {
 		return err
 	}
@@ -180,7 +192,7 @@ func DecodeSingleStageRun(wire []byte) (SingleStageRun, error) {
 	if len(wire) > MaxSingleStageRunBytes || json.Unmarshal(wire, &header) != nil || header.Kind != SingleStageRunKind {
 		return SingleStageRun{}, ErrInvalidGraph
 	}
-	if header.FormatVersion != SingleStageRunVersion {
+	if header.FormatVersion != SingleStageRunVersion && header.FormatVersion != OperationalSingleStageRunVersion {
 		return SingleStageRun{}, ErrUnsupportedSingleStageFormat
 	}
 	var r SingleStageRun

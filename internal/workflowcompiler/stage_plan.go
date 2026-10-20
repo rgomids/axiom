@@ -72,17 +72,18 @@ type GateRef struct {
 // Resolution is one agent's resolved Runtime/Profile selection. Effective
 // effort is "default" (no override) or the exact capability-proven value.
 type Resolution struct {
-	ProfileEffort         *runtimeprofile.Effort          `json:"profileEffort,omitempty"`
-	EffortSource          string                          `json:"effortSource,omitempty"`
-	ResolvedProfile       *runtimeprofile.ResolvedProfile `json:"resolvedProfile,omitempty"`
-	AgentID               string                          `json:"agentId"`
-	RuntimeID             string                          `json:"runtimeId"`
-	ModelProfileID        string                          `json:"modelProfileId"`
-	ConfigurationRevision uint64                          `json:"configurationRevision"`
-	ObservationRevision   uint64                          `json:"observationRevision"`
-	RequestedEffort       workflowdefinition.Effort       `json:"requestedEffort"`
-	EffectiveEffort       string                          `json:"effectiveEffort"`
-	CapabilityEvidenceRef string                          `json:"capabilityEvidenceRef"`
+	ProfileEffort         *runtimeprofile.Effort            `json:"profileEffort,omitempty"`
+	EffortSource          string                            `json:"effortSource,omitempty"`
+	ResolvedProfile       *runtimeprofile.ResolvedProfile   `json:"resolvedProfile,omitempty"`
+	FrozenProfile         *runtimeprofile.ResolvedProfileV4 `json:"frozenProfile,omitempty"`
+	AgentID               string                            `json:"agentId"`
+	RuntimeID             string                            `json:"runtimeId"`
+	ModelProfileID        string                            `json:"modelProfileId"`
+	ConfigurationRevision uint64                            `json:"configurationRevision"`
+	ObservationRevision   uint64                            `json:"observationRevision"`
+	RequestedEffort       workflowdefinition.Effort         `json:"requestedEffort"`
+	EffectiveEffort       string                            `json:"effectiveEffort"`
+	CapabilityEvidenceRef string                            `json:"capabilityEvidenceRef,omitempty"`
 }
 
 type StagePlanRequest struct {

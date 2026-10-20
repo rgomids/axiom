@@ -445,7 +445,7 @@ func (c SuccessorConsumer) IntegrationPreview(observation IntegrationObservation
 	}
 	// Reuse only envelope/topology preview assembly. Attempt eligibility and
 	// qualification have already been enforced against successor persisted state.
-	historical := Graph{FormatVersion: 2, Parent: c.graph.Parent}
+	historical := Graph{FormatVersion: c.graph.projectionVersion(), Parent: c.graph.Parent}
 	for _, child := range c.graph.Children {
 		h := ChildExecution{ExecutionID: child.ExecutionID, ParentID: child.ParentID, GraphRevision: child.GraphRevision, NodeKey: child.NodeKey, Envelope: child.Envelope}
 		if !child.Envelope.IntegrationOwner && len(child.Attempts) > 0 {

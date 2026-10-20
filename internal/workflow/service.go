@@ -1100,7 +1100,7 @@ func equivalentStart(state State, projectID, repositoryKey string, item WorkItem
 }
 
 func ValidState(state State) bool {
-	if state.FormatVersion == ConfiguredFormatVersion || state.FormatVersion == ProfileConfiguredFormatVersion {
+	if state.FormatVersion == ConfiguredFormatVersion || state.FormatVersion == ProfileConfiguredFormatVersion || state.FormatVersion == OperationalConfiguredFormatVersion {
 		return validConfiguredState(state)
 	}
 	if state.Binding != nil || state.StageOrdinal != 0 {
@@ -1524,6 +1524,10 @@ func cloneState(state State) State {
 		if b.ResolvedProfile != nil {
 			frozen := *b.ResolvedProfile
 			b.ResolvedProfile = &frozen
+		}
+		if b.FrozenProfile != nil {
+			frozen := *b.FrozenProfile
+			b.FrozenProfile = &frozen
 		}
 		b.Snapshot = append([]byte(nil), b.Snapshot...)
 		b.Contexts = make(map[string]ContextObservation, len(state.Binding.Contexts))
