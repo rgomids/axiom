@@ -10,6 +10,7 @@ import (
 )
 
 const MaxDispatchInputsBytes = MaxGraphBytes
+const OperationalDispatchInputsVersion = 2
 
 // DispatchInputs retains the exact reviewed dispatch preview bytes so a
 // detached supervisor can build each child's task packet without receiving
@@ -26,7 +27,7 @@ type DispatchInputs struct {
 
 func ValidateDispatchInputs(d DispatchInputs) error {
 	trimmed := bytes.TrimSpace(d.Preview)
-	if d.FormatVersion != 1 || !validToken(d.ProjectID) || !validOpaqueID(d.ParentID) || !successorDigest(d.PreviewDigest) || len(trimmed) < 2 || trimmed[0] != '{' || !json.Valid(trimmed) {
+	if d.FormatVersion != 1 && d.FormatVersion != OperationalDispatchInputsVersion || !validToken(d.ProjectID) || !validOpaqueID(d.ParentID) || !successorDigest(d.PreviewDigest) || len(trimmed) < 2 || trimmed[0] != '{' || !json.Valid(trimmed) {
 		return ErrInvalidGraph
 	}
 	return nil

@@ -24,7 +24,9 @@ type RuntimeProfileSnapshot struct {
 	// Runtime/Profile configuration.
 	Legacy runtimeprofile.Configuration
 	// V3 is the strictly decoded canonical record of an active-v3 snapshot.
-	V3    *runtimeprofile.ConfigurationV3
+	V3 *runtimeprofile.ConfigurationV3
+	// V4 is the strictly decoded proof-free record of an active-v4 snapshot.
+	V4    *runtimeprofile.ConfigurationV4
 	Token string
 	wire  []byte
 	// epoch is the committed authorization epoch bound into Token (PM-6).
@@ -191,18 +193,24 @@ func (s RuntimeProfileStore) inspectLocked() (RuntimeProfileSnapshot, error) {
 	} else if errors.Is(cfgErr, runtimeprofile.ErrUnsupportedConfigurationFormat) {
 		// Format 3 is strictly decoded by its own codec, never read as v2.
 		v, err := runtimeprofile.DecodeVersioned(wire)
-		if err != nil || v.FormatVersion != runtimeprofile.FormatVersionV3 || v.V3 == nil {
+		switch {
+		case err == nil && v.FormatVersion == runtimeprofile.FormatVersionV3 && v.V3 != nil:
+			snapshot.V3 = v.V3
+			snapshot.Revision = v.V3.Revision
+			snapshot.State = "active-v3"
+		case err == nil && v.FormatVersion == runtimeprofile.FormatVersionV4 && v.V4 != nil:
+			snapshot.V4 = v.V4
+			snapshot.Revision = v.V4.Revision
+			snapshot.State = "active-v4"
+		default:
 			return snapshot, fmt.Errorf("%w: %w", ErrUnsafe, runtimeprofile.ErrUnsupportedConfigurationFormat)
 		}
-		snapshot.V3 = v.V3
-		snapshot.Revision = v.V3.Revision
-		snapshot.State = "active-v3"
 	} else {
 		return snapshot, ErrUnsafe
 	}
 	// Every canonical v3 record is published after an epoch advance, so its
 	// absence is a missing or deleted record, never an initial state.
-	if snapshot.State == "active-v3" && !epochPresent {
+	if (snapshot.State == "active-v3" || snapshot.State == "active-v4") && !epochPresent {
 		return RuntimeProfileSnapshot{State: "unsafe"}, ErrUnsafe
 	}
 	after, err := s.runtimeProfileFacts()
@@ -270,14 +278,30 @@ func (s RuntimeProfileStore) Publish(ctx context.Context, expectedToken string, 
 		return prior, runtimeprofile.ErrUnsupportedConfigurationFormat
 	case errors.Is(cfgErr, runtimeprofile.ErrUnsupportedConfigurationFormat):
 		v, err := runtimeprofile.DecodeVersioned(next)
-		if err != nil || v.FormatVersion != runtimeprofile.FormatVersionV3 || v.V3 == nil {
+		switch {
+		case err == nil && v.FormatVersion == runtimeprofile.FormatVersionV3 && v.V3 != nil:
+			// Format 3 never replaces a v1/v2/v4 record, pending or unsafe state.
+			if prior.State != "fresh" && prior.State != "retired" && prior.State != "active-v3" {
+				return prior, runtimeprofile.ErrUnsupportedConfigurationFormat
+			}
+			if canonical, err := runtimeprofile.EncodeV3(*v.V3); err != nil || !bytes.Equal(canonical, next) || v.V3.Revision != prior.Revision+1 {
+				return prior, ErrConflict
+			}
+		case err == nil && v.FormatVersion == runtimeprofile.FormatVersionV4 && v.V4 != nil:
+			// Format 4 starts only from fresh or retired state, or replaces format 4:
+			// an active historical record is retired explicitly, never converted.
+			if prior.State != "fresh" && prior.State != "retired" && prior.State != "active-v4" {
+				return prior, runtimeprofile.ErrUnsupportedConfigurationFormat
+			}
+			if canonical, err := runtimeprofile.EncodeV4(*v.V4); err != nil || !bytes.Equal(canonical, next) || v.V4.Revision != prior.Revision+1 {
+				return prior, ErrConflict
+			}
+		default:
 			return prior, runtimeprofile.ErrUnsupportedConfigurationFormat
 		}
-		// Format 3 never replaces a v1/v2 record, pending or unsafe state.
-		if prior.State != "fresh" && prior.State != "retired" && prior.State != "active-v3" {
-			return prior, runtimeprofile.ErrUnsupportedConfigurationFormat
-		}
-		if canonical, err := runtimeprofile.EncodeV3(*v.V3); err != nil || !bytes.Equal(canonical, next) || v.V3.Revision != prior.Revision+1 {
+	case tombErr == nil && prior.State == "active-v4" && prior.V4 != nil:
+		digest, err := runtimeprofile.DigestV4(*prior.V4)
+		if err != nil || tombstone.Revision != prior.Revision+1 || tombstone.PriorConfigurationDigest != digest {
 			return prior, ErrConflict
 		}
 	case tombErr == nil && prior.State == "active-v3" && prior.V3 != nil:
