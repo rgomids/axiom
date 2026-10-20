@@ -22,7 +22,10 @@ run refused valid fixture because it expected 16 binding keys instead of accepte
 directories for controlled faults. Second run passed 20 cases; final expanded
 local run passed 22. These are harness revisions, not hidden product failures.
 
-Linux native amd64/arm64 runs pending. Temporary branch-only read-token workflow
+Linux native amd64/arm64 passed the same 22 cases plus fresh B at
+`fa599696db5a85b2a7abead971eca3a6ce5a0fd8`, run 39503787947.
+[Sanitized per-host results](probe-results-resume-3.json) preserve exact hashes,
+barriers, refusals and consumed content digests. Temporary branch-only read-token workflow
 is authorized solely for these bounded experiments and will be removed with its
 registry entry after collection. Source hashes and sanitized outcomes will be
 retained. No cross-build, Docker/emulation or missing job counts as native proof.
@@ -39,3 +42,26 @@ No delegation: runtime exposes overrides but no demonstrable strictly inferior
 model ordering, so main Orchestrator performs integration/probes. This is not an
 independent review. Next: collect both native jobs, assess failures, then T03/T04
 or exact blocked checkpoint. Human G1 approval remains mandatory before T05+.
+
+## E03 — transition fixture model in progress
+
+After both native E02 jobs completed, a separate scratch Python model exercised
+installation-derived persistent flock, different receipt roots, stale expected
+binary/lock revisions and read-back barriers. Local macOS passed 21 transition
+rows, three foreign/link lock refusals, lock replacement and process-concurrency
+checks. Two child processes exited 0; same-installation contender was busy while
+another installation acquired independently. No production lock is implemented.
+
+Early harness failures: multiprocessing startup needed a main guard; new lock
+content needed descriptor rewind and private directory creation. A substantive
+macOS EACCES rejected moving an already-0500 generation across parents; revised
+model stages within `generations/` and renames within that same parent. No
+permission repair of existing material is proposed. Errors and their corrected
+source revision remain distinct from production fault qualification.
+
+Linux E03 native jobs pending. Stage-write/space/quota/permission/sync and rename/
+post-commit errors are **deterministic injected outcomes**, not physical storage
+failures. Binary rename/read-back and retained complete-generation checks are
+actual filesystem operations. Runtime receipt/ack placeholders are model effects,
+not candidate proof or Runtime convergence. Material algorithm adoption awaits T04
+and human G1 disposition; no automatic SDD review or T05+.

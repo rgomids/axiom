@@ -1,0 +1,1482 @@
+{
+  "classification": "Public sanitized bounded P1 experiments; no production codec or AC acceptance",
+  "sourceCommit": "fa599696db5a85b2a7abead971eca3a6ce5a0fd8",
+  "sourceWorkflow": ".github/workflows/axm37-p1-experiment.yml",
+  "runUrl": "https://github.com/rgomids/axiom/actions/runs/39503787947",
+  "rows": [
+    {
+      "jobUrl": null,
+      "binaries": {
+        "A": "9fcef759b9a354456f5d2d45f043cbe68db1107147cffbd0b88072f9d8e02fd3",
+        "B": "94236a504bbc2667fe8aca4a47c6c9fb2ebbfb289069a5993e792a1f4153edd9"
+      },
+      "cases": [
+        {
+          "barriers": [
+            "image",
+            "ready",
+            "inventory",
+            "snapshot",
+            "result"
+          ],
+          "case": "stable",
+          "expected": "pinned",
+          "observed": {
+            "binarySha256": "9fcef759b9a354456f5d2d45f043cbe68db1107147cffbd0b88072f9d8e02fd3",
+            "bytes": 54,
+            "files": 3,
+            "generation": "37660041b6f307cc63d70331a3a97549334a4c4165711b27e73efab6c6a911be",
+            "hashes": {
+              "docs/man/man1/axiom.1": "3d6ab38cce8d59cfa0830598468bf6d9e99667312f914540b7355c5a56994198",
+              "docs/text/concepts.md": "7067e315ed819f0ad77623f72f187f75f4b46906ebe7f21e9d861a923abd5211",
+              "docs/text/index.md": "4ef4b133adebf0d56958903b46315c188ac2dedca231611237ad6151119016a1"
+            },
+            "label": "same-fixture-label",
+            "outcome": "pinned",
+            "phase": "result",
+            "tag": "A"
+          },
+          "pathnameOnlyOracleRejected": false
+        },
+        {
+          "barriers": [
+            "image",
+            "result"
+          ],
+          "case": "unsafe-parent",
+          "expected": "refused",
+          "observed": {
+            "outcome": "refused",
+            "phase": "result",
+            "reason": "unsafe_parent",
+            "tag": "A"
+          },
+          "pathnameOnlyOracleRejected": false
+        },
+        {
+          "barriers": [
+            "image",
+            "ready",
+            "inventory",
+            "result"
+          ],
+          "case": "namespace-ancestor-symlink",
+          "expected": "refused",
+          "observed": {
+            "outcome": "refused",
+            "phase": "result",
+            "reason": "ancestor_changed",
+            "tag": "A"
+          },
+          "pathnameOnlyOracleRejected": false
+        },
+        {
+          "barriers": [
+            "image",
+            "ready",
+            "inventory",
+            "snapshot",
+            "result"
+          ],
+          "case": "replace-A-with-B",
+          "expected": "pinned",
+          "observed": {
+            "binarySha256": "9fcef759b9a354456f5d2d45f043cbe68db1107147cffbd0b88072f9d8e02fd3",
+            "bytes": 54,
+            "files": 3,
+            "generation": "37660041b6f307cc63d70331a3a97549334a4c4165711b27e73efab6c6a911be",
+            "hashes": {
+              "docs/man/man1/axiom.1": "3d6ab38cce8d59cfa0830598468bf6d9e99667312f914540b7355c5a56994198",
+              "docs/text/concepts.md": "7067e315ed819f0ad77623f72f187f75f4b46906ebe7f21e9d861a923abd5211",
+              "docs/text/index.md": "4ef4b133adebf0d56958903b46315c188ac2dedca231611237ad6151119016a1"
+            },
+            "label": "same-fixture-label",
+            "outcome": "pinned",
+            "phase": "result",
+            "tag": "A"
+          },
+          "pathnameOnlyOracleRejected": true
+        },
+        {
+          "barriers": [
+            "image",
+            "ready",
+            "inventory",
+            "snapshot",
+            "result"
+          ],
+          "case": "same-label-different-bytes",
+          "expected": "pinned",
+          "observed": {
+            "binarySha256": "9fcef759b9a354456f5d2d45f043cbe68db1107147cffbd0b88072f9d8e02fd3",
+            "bytes": 54,
+            "files": 3,
+            "generation": "37660041b6f307cc63d70331a3a97549334a4c4165711b27e73efab6c6a911be",
+            "hashes": {
+              "docs/man/man1/axiom.1": "3d6ab38cce8d59cfa0830598468bf6d9e99667312f914540b7355c5a56994198",
+              "docs/text/concepts.md": "7067e315ed819f0ad77623f72f187f75f4b46906ebe7f21e9d861a923abd5211",
+              "docs/text/index.md": "4ef4b133adebf0d56958903b46315c188ac2dedca231611237ad6151119016a1"
+            },
+            "label": "same-fixture-label",
+            "outcome": "pinned",
+            "phase": "result",
+            "tag": "A"
+          },
+          "pathnameOnlyOracleRejected": true
+        },
+        {
+          "barriers": [
+            "image",
+            "ready",
+            "inventory",
+            "snapshot",
+            "result"
+          ],
+          "case": "safe-symlink-spaces",
+          "expected": "pinned",
+          "observed": {
+            "binarySha256": "9fcef759b9a354456f5d2d45f043cbe68db1107147cffbd0b88072f9d8e02fd3",
+            "bytes": 54,
+            "files": 3,
+            "generation": "37660041b6f307cc63d70331a3a97549334a4c4165711b27e73efab6c6a911be",
+            "hashes": {
+              "docs/man/man1/axiom.1": "3d6ab38cce8d59cfa0830598468bf6d9e99667312f914540b7355c5a56994198",
+              "docs/text/concepts.md": "7067e315ed819f0ad77623f72f187f75f4b46906ebe7f21e9d861a923abd5211",
+              "docs/text/index.md": "4ef4b133adebf0d56958903b46315c188ac2dedca231611237ad6151119016a1"
+            },
+            "label": "same-fixture-label",
+            "outcome": "pinned",
+            "phase": "result",
+            "tag": "A"
+          },
+          "pathnameOnlyOracleRejected": true
+        },
+        {
+          "barriers": [
+            "image",
+            "ready",
+            "inventory",
+            "snapshot",
+            "result"
+          ],
+          "case": "PATH-A-to-B-after-launch",
+          "expected": "pinned",
+          "observed": {
+            "binarySha256": "9fcef759b9a354456f5d2d45f043cbe68db1107147cffbd0b88072f9d8e02fd3",
+            "bytes": 54,
+            "files": 3,
+            "generation": "37660041b6f307cc63d70331a3a97549334a4c4165711b27e73efab6c6a911be",
+            "hashes": {
+              "docs/man/man1/axiom.1": "3d6ab38cce8d59cfa0830598468bf6d9e99667312f914540b7355c5a56994198",
+              "docs/text/concepts.md": "7067e315ed819f0ad77623f72f187f75f4b46906ebe7f21e9d861a923abd5211",
+              "docs/text/index.md": "4ef4b133adebf0d56958903b46315c188ac2dedca231611237ad6151119016a1"
+            },
+            "label": "same-fixture-label",
+            "outcome": "pinned",
+            "phase": "result",
+            "tag": "A"
+          },
+          "pathnameOnlyOracleRejected": false
+        },
+        {
+          "barriers": [
+            "image",
+            "ready",
+            "inventory",
+            "snapshot",
+            "result"
+          ],
+          "case": "unlink",
+          "expected": "pinned",
+          "observed": {
+            "binarySha256": "9fcef759b9a354456f5d2d45f043cbe68db1107147cffbd0b88072f9d8e02fd3",
+            "bytes": 54,
+            "files": 3,
+            "generation": "37660041b6f307cc63d70331a3a97549334a4c4165711b27e73efab6c6a911be",
+            "hashes": {
+              "docs/man/man1/axiom.1": "3d6ab38cce8d59cfa0830598468bf6d9e99667312f914540b7355c5a56994198",
+              "docs/text/concepts.md": "7067e315ed819f0ad77623f72f187f75f4b46906ebe7f21e9d861a923abd5211",
+              "docs/text/index.md": "4ef4b133adebf0d56958903b46315c188ac2dedca231611237ad6151119016a1"
+            },
+            "label": "same-fixture-label",
+            "outcome": "pinned",
+            "phase": "result",
+            "tag": "A"
+          },
+          "pathnameOnlyOracleRejected": false
+        },
+        {
+          "barriers": [
+            "image",
+            "ready",
+            "result"
+          ],
+          "case": "changed-ancestry",
+          "expected": "refused",
+          "observed": {
+            "outcome": "refused",
+            "phase": "result",
+            "reason": "parent_changed",
+            "tag": "A"
+          },
+          "pathnameOnlyOracleRejected": false
+        },
+        {
+          "barriers": [
+            "image",
+            "result"
+          ],
+          "case": "hardlink",
+          "expected": "refused",
+          "observed": {
+            "outcome": "refused",
+            "phase": "result",
+            "reason": "unsafe_binary",
+            "tag": "A"
+          },
+          "pathnameOnlyOracleRejected": false
+        },
+        {
+          "barriers": [
+            "image",
+            "ready",
+            "result"
+          ],
+          "case": "relocated",
+          "expected": "refused",
+          "observed": {
+            "outcome": "refused",
+            "phase": "result",
+            "reason": "binding_identity_mismatch",
+            "tag": "A"
+          },
+          "pathnameOnlyOracleRejected": false
+        },
+        {
+          "barriers": [
+            "image",
+            "ready",
+            "result"
+          ],
+          "case": "copied",
+          "expected": "refused",
+          "observed": {
+            "outcome": "refused",
+            "phase": "result",
+            "reason": "binding_identity_mismatch",
+            "tag": "A"
+          },
+          "pathnameOnlyOracleRejected": false
+        },
+        {
+          "barriers": [
+            "image",
+            "ready",
+            "result"
+          ],
+          "case": "unsafe-generation-symlink",
+          "expected": "refused",
+          "observed": {
+            "outcome": "refused",
+            "phase": "result",
+            "reason": "unsafe_directory",
+            "tag": "A"
+          },
+          "pathnameOnlyOracleRejected": false
+        },
+        {
+          "barriers": [
+            "image",
+            "result"
+          ],
+          "case": "image-to-pin-TOCTOU",
+          "expected": "refused",
+          "observed": {
+            "outcome": "refused",
+            "phase": "result",
+            "reason": "image_mismatch",
+            "tag": "A"
+          },
+          "pathnameOnlyOracleRejected": true
+        },
+        {
+          "barriers": [
+            "image",
+            "ready",
+            "inventory",
+            "result"
+          ],
+          "case": "content-replaced-before-open",
+          "expected": "refused",
+          "observed": {
+            "outcome": "refused",
+            "phase": "result",
+            "reason": "content_hash",
+            "tag": "A"
+          },
+          "pathnameOnlyOracleRejected": false
+        },
+        {
+          "barriers": [
+            "image",
+            "ready",
+            "inventory",
+            "result"
+          ],
+          "case": "content-in-place-before-open",
+          "expected": "refused",
+          "observed": {
+            "outcome": "refused",
+            "phase": "result",
+            "reason": "content_hash",
+            "tag": "A"
+          },
+          "pathnameOnlyOracleRejected": false
+        },
+        {
+          "barriers": [
+            "image",
+            "ready",
+            "inventory",
+            "result"
+          ],
+          "case": "content-symlink-outside",
+          "expected": "refused",
+          "observed": {
+            "outcome": "refused",
+            "phase": "result",
+            "reason": "unsafe_file",
+            "tag": "A"
+          },
+          "pathnameOnlyOracleRejected": false
+        },
+        {
+          "barriers": [
+            "image",
+            "ready",
+            "inventory",
+            "snapshot",
+            "result"
+          ],
+          "case": "inventory-replaced-after-validation",
+          "expected": "pinned",
+          "observed": {
+            "binarySha256": "9fcef759b9a354456f5d2d45f043cbe68db1107147cffbd0b88072f9d8e02fd3",
+            "bytes": 54,
+            "files": 3,
+            "generation": "37660041b6f307cc63d70331a3a97549334a4c4165711b27e73efab6c6a911be",
+            "hashes": {
+              "docs/man/man1/axiom.1": "3d6ab38cce8d59cfa0830598468bf6d9e99667312f914540b7355c5a56994198",
+              "docs/text/concepts.md": "7067e315ed819f0ad77623f72f187f75f4b46906ebe7f21e9d861a923abd5211",
+              "docs/text/index.md": "4ef4b133adebf0d56958903b46315c188ac2dedca231611237ad6151119016a1"
+            },
+            "label": "same-fixture-label",
+            "outcome": "pinned",
+            "phase": "result",
+            "tag": "A"
+          },
+          "pathnameOnlyOracleRejected": false
+        },
+        {
+          "barriers": [
+            "image",
+            "ready",
+            "inventory",
+            "result"
+          ],
+          "case": "generation-swapped",
+          "expected": "refused",
+          "observed": {
+            "outcome": "refused",
+            "phase": "result",
+            "reason": "generation_changed",
+            "tag": "A"
+          },
+          "pathnameOnlyOracleRejected": false
+        },
+        {
+          "barriers": [
+            "image",
+            "ready",
+            "inventory",
+            "result"
+          ],
+          "case": "content-ancestor-swapped",
+          "expected": "refused",
+          "observed": {
+            "outcome": "refused",
+            "phase": "result",
+            "reason": "unsafe_ancestor",
+            "tag": "A"
+          },
+          "pathnameOnlyOracleRejected": false
+        },
+        {
+          "barriers": [
+            "image",
+            "ready",
+            "inventory",
+            "snapshot",
+            "result"
+          ],
+          "case": "content-replaced-after-snapshot",
+          "expected": "pinned",
+          "observed": {
+            "binarySha256": "9fcef759b9a354456f5d2d45f043cbe68db1107147cffbd0b88072f9d8e02fd3",
+            "bytes": 54,
+            "files": 3,
+            "generation": "37660041b6f307cc63d70331a3a97549334a4c4165711b27e73efab6c6a911be",
+            "hashes": {
+              "docs/man/man1/axiom.1": "3d6ab38cce8d59cfa0830598468bf6d9e99667312f914540b7355c5a56994198",
+              "docs/text/concepts.md": "7067e315ed819f0ad77623f72f187f75f4b46906ebe7f21e9d861a923abd5211",
+              "docs/text/index.md": "4ef4b133adebf0d56958903b46315c188ac2dedca231611237ad6151119016a1"
+            },
+            "label": "same-fixture-label",
+            "outcome": "pinned",
+            "phase": "result",
+            "tag": "A"
+          },
+          "pathnameOnlyOracleRejected": false
+        },
+        {
+          "barriers": [
+            "image",
+            "ready",
+            "inventory",
+            "snapshot",
+            "result"
+          ],
+          "case": "content-mutated-after-snapshot",
+          "expected": "pinned",
+          "observed": {
+            "binarySha256": "9fcef759b9a354456f5d2d45f043cbe68db1107147cffbd0b88072f9d8e02fd3",
+            "bytes": 54,
+            "files": 3,
+            "generation": "37660041b6f307cc63d70331a3a97549334a4c4165711b27e73efab6c6a911be",
+            "hashes": {
+              "docs/man/man1/axiom.1": "3d6ab38cce8d59cfa0830598468bf6d9e99667312f914540b7355c5a56994198",
+              "docs/text/concepts.md": "7067e315ed819f0ad77623f72f187f75f4b46906ebe7f21e9d861a923abd5211",
+              "docs/text/index.md": "4ef4b133adebf0d56958903b46315c188ac2dedca231611237ad6151119016a1"
+            },
+            "label": "same-fixture-label",
+            "outcome": "pinned",
+            "phase": "result",
+            "tag": "A"
+          },
+          "pathnameOnlyOracleRejected": false
+        }
+      ],
+      "classification": "Bounded synthetic P1 mechanism experiment; no AC or production codec acceptance",
+      "compiler": "Apple clang version 21.0.0 (clang-2100.3.34.2)",
+      "exitCode": 0,
+      "filesystem": "APFS",
+      "freshB": {
+        "binarySha256": "94236a504bbc2667fe8aca4a47c6c9fb2ebbfb289069a5993e792a1f4153edd9",
+        "bytes": 54,
+        "files": 3,
+        "generation": "13dd97619533b2c2ef485d15e94bc78e077d9842394c62f200a6d8875f5c6775",
+        "hashes": {
+          "docs/man/man1/axiom.1": "21b807d5107ff10230b4ac30cb8da33b45372f776c2856261b7755813e4f3a12",
+          "docs/text/concepts.md": "fffe0604d7b4b233b06968c3c286c853eaa46b1da79f436eaf501430e3c8993a",
+          "docs/text/index.md": "cace9f11a9b7217a2fb65bfec4c7a97969e572a92f744cb01c63d1c535d2f555"
+        },
+        "label": "same-fixture-label",
+        "outcome": "pinned",
+        "phase": "result",
+        "tag": "B"
+      },
+      "go": "go version go1.26.1 darwin/arm64",
+      "harnessSha256": "fad7362345d101fa05d48b42260c8c6c843d428f5c5f28614492cdcae9b7399c",
+      "kernel": "27.0.0",
+      "machine": "arm64",
+      "os": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+      "runner": "local",
+      "sourceSha": "790b1a2e648146700a63b42c70e18669861f0c8c+scratch",
+      "sourceSha256": "a9bc57ab024feab6b8369fa5093e61514b28154b5e0fcf1c573f393fb01d27e2",
+      "status": "PASS"
+    },
+    {
+      "jobUrl": "https://github.com/rgomids/axiom/actions/runs/39503787947/job/118907519539",
+      "binaries": {
+        "A": "6128860da20cf729296f3dcd4f5bba5779c9188f068803a8f7b695cbe41c3f5c",
+        "B": "a938ddfb7817ef4c00a78d0e847ab4053db4663e64ece474765231334abfcd0c"
+      },
+      "cases": [
+        {
+          "barriers": [
+            "image",
+            "ready",
+            "inventory",
+            "snapshot",
+            "result"
+          ],
+          "case": "stable",
+          "expected": "pinned",
+          "observed": {
+            "binarySha256": "6128860da20cf729296f3dcd4f5bba5779c9188f068803a8f7b695cbe41c3f5c",
+            "bytes": 54,
+            "files": 3,
+            "generation": "37660041b6f307cc63d70331a3a97549334a4c4165711b27e73efab6c6a911be",
+            "hashes": {
+              "docs/man/man1/axiom.1": "3d6ab38cce8d59cfa0830598468bf6d9e99667312f914540b7355c5a56994198",
+              "docs/text/concepts.md": "7067e315ed819f0ad77623f72f187f75f4b46906ebe7f21e9d861a923abd5211",
+              "docs/text/index.md": "4ef4b133adebf0d56958903b46315c188ac2dedca231611237ad6151119016a1"
+            },
+            "label": "same-fixture-label",
+            "outcome": "pinned",
+            "phase": "result",
+            "tag": "A"
+          },
+          "pathnameOnlyOracleRejected": false
+        },
+        {
+          "barriers": [
+            "image",
+            "result"
+          ],
+          "case": "unsafe-parent",
+          "expected": "refused",
+          "observed": {
+            "outcome": "refused",
+            "phase": "result",
+            "reason": "unsafe_parent",
+            "tag": "A"
+          },
+          "pathnameOnlyOracleRejected": false
+        },
+        {
+          "barriers": [
+            "image",
+            "ready",
+            "inventory",
+            "result"
+          ],
+          "case": "namespace-ancestor-symlink",
+          "expected": "refused",
+          "observed": {
+            "outcome": "refused",
+            "phase": "result",
+            "reason": "ancestor_changed",
+            "tag": "A"
+          },
+          "pathnameOnlyOracleRejected": false
+        },
+        {
+          "barriers": [
+            "image",
+            "ready",
+            "inventory",
+            "snapshot",
+            "result"
+          ],
+          "case": "replace-A-with-B",
+          "expected": "pinned",
+          "observed": {
+            "binarySha256": "6128860da20cf729296f3dcd4f5bba5779c9188f068803a8f7b695cbe41c3f5c",
+            "bytes": 54,
+            "files": 3,
+            "generation": "37660041b6f307cc63d70331a3a97549334a4c4165711b27e73efab6c6a911be",
+            "hashes": {
+              "docs/man/man1/axiom.1": "3d6ab38cce8d59cfa0830598468bf6d9e99667312f914540b7355c5a56994198",
+              "docs/text/concepts.md": "7067e315ed819f0ad77623f72f187f75f4b46906ebe7f21e9d861a923abd5211",
+              "docs/text/index.md": "4ef4b133adebf0d56958903b46315c188ac2dedca231611237ad6151119016a1"
+            },
+            "label": "same-fixture-label",
+            "outcome": "pinned",
+            "phase": "result",
+            "tag": "A"
+          },
+          "pathnameOnlyOracleRejected": true
+        },
+        {
+          "barriers": [
+            "image",
+            "ready",
+            "inventory",
+            "snapshot",
+            "result"
+          ],
+          "case": "same-label-different-bytes",
+          "expected": "pinned",
+          "observed": {
+            "binarySha256": "6128860da20cf729296f3dcd4f5bba5779c9188f068803a8f7b695cbe41c3f5c",
+            "bytes": 54,
+            "files": 3,
+            "generation": "37660041b6f307cc63d70331a3a97549334a4c4165711b27e73efab6c6a911be",
+            "hashes": {
+              "docs/man/man1/axiom.1": "3d6ab38cce8d59cfa0830598468bf6d9e99667312f914540b7355c5a56994198",
+              "docs/text/concepts.md": "7067e315ed819f0ad77623f72f187f75f4b46906ebe7f21e9d861a923abd5211",
+              "docs/text/index.md": "4ef4b133adebf0d56958903b46315c188ac2dedca231611237ad6151119016a1"
+            },
+            "label": "same-fixture-label",
+            "outcome": "pinned",
+            "phase": "result",
+            "tag": "A"
+          },
+          "pathnameOnlyOracleRejected": true
+        },
+        {
+          "barriers": [
+            "image",
+            "ready",
+            "inventory",
+            "snapshot",
+            "result"
+          ],
+          "case": "safe-symlink-spaces",
+          "expected": "pinned",
+          "observed": {
+            "binarySha256": "6128860da20cf729296f3dcd4f5bba5779c9188f068803a8f7b695cbe41c3f5c",
+            "bytes": 54,
+            "files": 3,
+            "generation": "37660041b6f307cc63d70331a3a97549334a4c4165711b27e73efab6c6a911be",
+            "hashes": {
+              "docs/man/man1/axiom.1": "3d6ab38cce8d59cfa0830598468bf6d9e99667312f914540b7355c5a56994198",
+              "docs/text/concepts.md": "7067e315ed819f0ad77623f72f187f75f4b46906ebe7f21e9d861a923abd5211",
+              "docs/text/index.md": "4ef4b133adebf0d56958903b46315c188ac2dedca231611237ad6151119016a1"
+            },
+            "label": "same-fixture-label",
+            "outcome": "pinned",
+            "phase": "result",
+            "tag": "A"
+          },
+          "pathnameOnlyOracleRejected": true
+        },
+        {
+          "barriers": [
+            "image",
+            "ready",
+            "inventory",
+            "snapshot",
+            "result"
+          ],
+          "case": "PATH-A-to-B-after-launch",
+          "expected": "pinned",
+          "observed": {
+            "binarySha256": "6128860da20cf729296f3dcd4f5bba5779c9188f068803a8f7b695cbe41c3f5c",
+            "bytes": 54,
+            "files": 3,
+            "generation": "37660041b6f307cc63d70331a3a97549334a4c4165711b27e73efab6c6a911be",
+            "hashes": {
+              "docs/man/man1/axiom.1": "3d6ab38cce8d59cfa0830598468bf6d9e99667312f914540b7355c5a56994198",
+              "docs/text/concepts.md": "7067e315ed819f0ad77623f72f187f75f4b46906ebe7f21e9d861a923abd5211",
+              "docs/text/index.md": "4ef4b133adebf0d56958903b46315c188ac2dedca231611237ad6151119016a1"
+            },
+            "label": "same-fixture-label",
+            "outcome": "pinned",
+            "phase": "result",
+            "tag": "A"
+          },
+          "pathnameOnlyOracleRejected": false
+        },
+        {
+          "barriers": [
+            "image",
+            "ready",
+            "inventory",
+            "snapshot",
+            "result"
+          ],
+          "case": "unlink",
+          "expected": "pinned",
+          "observed": {
+            "binarySha256": "6128860da20cf729296f3dcd4f5bba5779c9188f068803a8f7b695cbe41c3f5c",
+            "bytes": 54,
+            "files": 3,
+            "generation": "37660041b6f307cc63d70331a3a97549334a4c4165711b27e73efab6c6a911be",
+            "hashes": {
+              "docs/man/man1/axiom.1": "3d6ab38cce8d59cfa0830598468bf6d9e99667312f914540b7355c5a56994198",
+              "docs/text/concepts.md": "7067e315ed819f0ad77623f72f187f75f4b46906ebe7f21e9d861a923abd5211",
+              "docs/text/index.md": "4ef4b133adebf0d56958903b46315c188ac2dedca231611237ad6151119016a1"
+            },
+            "label": "same-fixture-label",
+            "outcome": "pinned",
+            "phase": "result",
+            "tag": "A"
+          },
+          "pathnameOnlyOracleRejected": false
+        },
+        {
+          "barriers": [
+            "image",
+            "ready",
+            "result"
+          ],
+          "case": "changed-ancestry",
+          "expected": "refused",
+          "observed": {
+            "outcome": "refused",
+            "phase": "result",
+            "reason": "parent_changed",
+            "tag": "A"
+          },
+          "pathnameOnlyOracleRejected": false
+        },
+        {
+          "barriers": [
+            "image",
+            "result"
+          ],
+          "case": "hardlink",
+          "expected": "refused",
+          "observed": {
+            "outcome": "refused",
+            "phase": "result",
+            "reason": "unsafe_binary",
+            "tag": "A"
+          },
+          "pathnameOnlyOracleRejected": false
+        },
+        {
+          "barriers": [
+            "image",
+            "ready",
+            "result"
+          ],
+          "case": "relocated",
+          "expected": "refused",
+          "observed": {
+            "outcome": "refused",
+            "phase": "result",
+            "reason": "binding_identity_mismatch",
+            "tag": "A"
+          },
+          "pathnameOnlyOracleRejected": false
+        },
+        {
+          "barriers": [
+            "image",
+            "ready",
+            "result"
+          ],
+          "case": "copied",
+          "expected": "refused",
+          "observed": {
+            "outcome": "refused",
+            "phase": "result",
+            "reason": "binding_identity_mismatch",
+            "tag": "A"
+          },
+          "pathnameOnlyOracleRejected": false
+        },
+        {
+          "barriers": [
+            "image",
+            "ready",
+            "result"
+          ],
+          "case": "unsafe-generation-symlink",
+          "expected": "refused",
+          "observed": {
+            "outcome": "refused",
+            "phase": "result",
+            "reason": "unsafe_directory",
+            "tag": "A"
+          },
+          "pathnameOnlyOracleRejected": false
+        },
+        {
+          "barriers": [
+            "image",
+            "result"
+          ],
+          "case": "image-to-pin-TOCTOU",
+          "expected": "refused",
+          "observed": {
+            "outcome": "refused",
+            "phase": "result",
+            "reason": "image_mismatch",
+            "tag": "A"
+          },
+          "pathnameOnlyOracleRejected": true
+        },
+        {
+          "barriers": [
+            "image",
+            "ready",
+            "inventory",
+            "result"
+          ],
+          "case": "content-replaced-before-open",
+          "expected": "refused",
+          "observed": {
+            "outcome": "refused",
+            "phase": "result",
+            "reason": "content_hash",
+            "tag": "A"
+          },
+          "pathnameOnlyOracleRejected": false
+        },
+        {
+          "barriers": [
+            "image",
+            "ready",
+            "inventory",
+            "result"
+          ],
+          "case": "content-in-place-before-open",
+          "expected": "refused",
+          "observed": {
+            "outcome": "refused",
+            "phase": "result",
+            "reason": "content_hash",
+            "tag": "A"
+          },
+          "pathnameOnlyOracleRejected": false
+        },
+        {
+          "barriers": [
+            "image",
+            "ready",
+            "inventory",
+            "result"
+          ],
+          "case": "content-symlink-outside",
+          "expected": "refused",
+          "observed": {
+            "outcome": "refused",
+            "phase": "result",
+            "reason": "unsafe_file",
+            "tag": "A"
+          },
+          "pathnameOnlyOracleRejected": false
+        },
+        {
+          "barriers": [
+            "image",
+            "ready",
+            "inventory",
+            "snapshot",
+            "result"
+          ],
+          "case": "inventory-replaced-after-validation",
+          "expected": "pinned",
+          "observed": {
+            "binarySha256": "6128860da20cf729296f3dcd4f5bba5779c9188f068803a8f7b695cbe41c3f5c",
+            "bytes": 54,
+            "files": 3,
+            "generation": "37660041b6f307cc63d70331a3a97549334a4c4165711b27e73efab6c6a911be",
+            "hashes": {
+              "docs/man/man1/axiom.1": "3d6ab38cce8d59cfa0830598468bf6d9e99667312f914540b7355c5a56994198",
+              "docs/text/concepts.md": "7067e315ed819f0ad77623f72f187f75f4b46906ebe7f21e9d861a923abd5211",
+              "docs/text/index.md": "4ef4b133adebf0d56958903b46315c188ac2dedca231611237ad6151119016a1"
+            },
+            "label": "same-fixture-label",
+            "outcome": "pinned",
+            "phase": "result",
+            "tag": "A"
+          },
+          "pathnameOnlyOracleRejected": false
+        },
+        {
+          "barriers": [
+            "image",
+            "ready",
+            "inventory",
+            "result"
+          ],
+          "case": "generation-swapped",
+          "expected": "refused",
+          "observed": {
+            "outcome": "refused",
+            "phase": "result",
+            "reason": "generation_changed",
+            "tag": "A"
+          },
+          "pathnameOnlyOracleRejected": false
+        },
+        {
+          "barriers": [
+            "image",
+            "ready",
+            "inventory",
+            "result"
+          ],
+          "case": "content-ancestor-swapped",
+          "expected": "refused",
+          "observed": {
+            "outcome": "refused",
+            "phase": "result",
+            "reason": "unsafe_ancestor",
+            "tag": "A"
+          },
+          "pathnameOnlyOracleRejected": false
+        },
+        {
+          "barriers": [
+            "image",
+            "ready",
+            "inventory",
+            "snapshot",
+            "result"
+          ],
+          "case": "content-replaced-after-snapshot",
+          "expected": "pinned",
+          "observed": {
+            "binarySha256": "6128860da20cf729296f3dcd4f5bba5779c9188f068803a8f7b695cbe41c3f5c",
+            "bytes": 54,
+            "files": 3,
+            "generation": "37660041b6f307cc63d70331a3a97549334a4c4165711b27e73efab6c6a911be",
+            "hashes": {
+              "docs/man/man1/axiom.1": "3d6ab38cce8d59cfa0830598468bf6d9e99667312f914540b7355c5a56994198",
+              "docs/text/concepts.md": "7067e315ed819f0ad77623f72f187f75f4b46906ebe7f21e9d861a923abd5211",
+              "docs/text/index.md": "4ef4b133adebf0d56958903b46315c188ac2dedca231611237ad6151119016a1"
+            },
+            "label": "same-fixture-label",
+            "outcome": "pinned",
+            "phase": "result",
+            "tag": "A"
+          },
+          "pathnameOnlyOracleRejected": false
+        },
+        {
+          "barriers": [
+            "image",
+            "ready",
+            "inventory",
+            "snapshot",
+            "result"
+          ],
+          "case": "content-mutated-after-snapshot",
+          "expected": "pinned",
+          "observed": {
+            "binarySha256": "6128860da20cf729296f3dcd4f5bba5779c9188f068803a8f7b695cbe41c3f5c",
+            "bytes": 54,
+            "files": 3,
+            "generation": "37660041b6f307cc63d70331a3a97549334a4c4165711b27e73efab6c6a911be",
+            "hashes": {
+              "docs/man/man1/axiom.1": "3d6ab38cce8d59cfa0830598468bf6d9e99667312f914540b7355c5a56994198",
+              "docs/text/concepts.md": "7067e315ed819f0ad77623f72f187f75f4b46906ebe7f21e9d861a923abd5211",
+              "docs/text/index.md": "4ef4b133adebf0d56958903b46315c188ac2dedca231611237ad6151119016a1"
+            },
+            "label": "same-fixture-label",
+            "outcome": "pinned",
+            "phase": "result",
+            "tag": "A"
+          },
+          "pathnameOnlyOracleRejected": false
+        }
+      ],
+      "classification": "Bounded synthetic P1 mechanism experiment; no AC or production codec acceptance",
+      "compiler": "cc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0",
+      "exitCode": 0,
+      "filesystem": "ext2/ext3",
+      "freshB": {
+        "binarySha256": "a938ddfb7817ef4c00a78d0e847ab4053db4663e64ece474765231334abfcd0c",
+        "bytes": 54,
+        "files": 3,
+        "generation": "13dd97619533b2c2ef485d15e94bc78e077d9842394c62f200a6d8875f5c6775",
+        "hashes": {
+          "docs/man/man1/axiom.1": "21b807d5107ff10230b4ac30cb8da33b45372f776c2856261b7755813e4f3a12",
+          "docs/text/concepts.md": "fffe0604d7b4b233b06968c3c286c853eaa46b1da79f436eaf501430e3c8993a",
+          "docs/text/index.md": "cace9f11a9b7217a2fb65bfec4c7a97969e572a92f744cb01c63d1c535d2f555"
+        },
+        "label": "same-fixture-label",
+        "outcome": "pinned",
+        "phase": "result",
+        "tag": "B"
+      },
+      "go": "go version go1.26.0 linux/amd64",
+      "harnessSha256": "fad7362345d101fa05d48b42260c8c6c843d428f5c5f28614492cdcae9b7399c",
+      "kernel": "7.0.0-1017-azure",
+      "machine": "x86_64",
+      "os": "Linux-7.0.0-1017-azure-x86_64-with-glibc2.39",
+      "runner": "ubuntu-24.04",
+      "sourceSha": "fa599696db5a85b2a7abead971eca3a6ce5a0fd8",
+      "sourceSha256": "a9bc57ab024feab6b8369fa5093e61514b28154b5e0fcf1c573f393fb01d27e2",
+      "status": "PASS"
+    },
+    {
+      "jobUrl": "https://github.com/rgomids/axiom/actions/runs/39503787947/job/118907519768",
+      "binaries": {
+        "A": "ea132aad918b9622648b76239d99a4982676cd4f3fddcee2ffd101c9e50f1f34",
+        "B": "0a37c0a21f1a5c2f41e478b30f5c2abf1389648fafb03becaad1a5a23adad14b"
+      },
+      "cases": [
+        {
+          "barriers": [
+            "image",
+            "ready",
+            "inventory",
+            "snapshot",
+            "result"
+          ],
+          "case": "stable",
+          "expected": "pinned",
+          "observed": {
+            "binarySha256": "ea132aad918b9622648b76239d99a4982676cd4f3fddcee2ffd101c9e50f1f34",
+            "bytes": 54,
+            "files": 3,
+            "generation": "37660041b6f307cc63d70331a3a97549334a4c4165711b27e73efab6c6a911be",
+            "hashes": {
+              "docs/man/man1/axiom.1": "3d6ab38cce8d59cfa0830598468bf6d9e99667312f914540b7355c5a56994198",
+              "docs/text/concepts.md": "7067e315ed819f0ad77623f72f187f75f4b46906ebe7f21e9d861a923abd5211",
+              "docs/text/index.md": "4ef4b133adebf0d56958903b46315c188ac2dedca231611237ad6151119016a1"
+            },
+            "label": "same-fixture-label",
+            "outcome": "pinned",
+            "phase": "result",
+            "tag": "A"
+          },
+          "pathnameOnlyOracleRejected": false
+        },
+        {
+          "barriers": [
+            "image",
+            "result"
+          ],
+          "case": "unsafe-parent",
+          "expected": "refused",
+          "observed": {
+            "outcome": "refused",
+            "phase": "result",
+            "reason": "unsafe_parent",
+            "tag": "A"
+          },
+          "pathnameOnlyOracleRejected": false
+        },
+        {
+          "barriers": [
+            "image",
+            "ready",
+            "inventory",
+            "result"
+          ],
+          "case": "namespace-ancestor-symlink",
+          "expected": "refused",
+          "observed": {
+            "outcome": "refused",
+            "phase": "result",
+            "reason": "ancestor_changed",
+            "tag": "A"
+          },
+          "pathnameOnlyOracleRejected": false
+        },
+        {
+          "barriers": [
+            "image",
+            "ready",
+            "inventory",
+            "snapshot",
+            "result"
+          ],
+          "case": "replace-A-with-B",
+          "expected": "pinned",
+          "observed": {
+            "binarySha256": "ea132aad918b9622648b76239d99a4982676cd4f3fddcee2ffd101c9e50f1f34",
+            "bytes": 54,
+            "files": 3,
+            "generation": "37660041b6f307cc63d70331a3a97549334a4c4165711b27e73efab6c6a911be",
+            "hashes": {
+              "docs/man/man1/axiom.1": "3d6ab38cce8d59cfa0830598468bf6d9e99667312f914540b7355c5a56994198",
+              "docs/text/concepts.md": "7067e315ed819f0ad77623f72f187f75f4b46906ebe7f21e9d861a923abd5211",
+              "docs/text/index.md": "4ef4b133adebf0d56958903b46315c188ac2dedca231611237ad6151119016a1"
+            },
+            "label": "same-fixture-label",
+            "outcome": "pinned",
+            "phase": "result",
+            "tag": "A"
+          },
+          "pathnameOnlyOracleRejected": true
+        },
+        {
+          "barriers": [
+            "image",
+            "ready",
+            "inventory",
+            "snapshot",
+            "result"
+          ],
+          "case": "same-label-different-bytes",
+          "expected": "pinned",
+          "observed": {
+            "binarySha256": "ea132aad918b9622648b76239d99a4982676cd4f3fddcee2ffd101c9e50f1f34",
+            "bytes": 54,
+            "files": 3,
+            "generation": "37660041b6f307cc63d70331a3a97549334a4c4165711b27e73efab6c6a911be",
+            "hashes": {
+              "docs/man/man1/axiom.1": "3d6ab38cce8d59cfa0830598468bf6d9e99667312f914540b7355c5a56994198",
+              "docs/text/concepts.md": "7067e315ed819f0ad77623f72f187f75f4b46906ebe7f21e9d861a923abd5211",
+              "docs/text/index.md": "4ef4b133adebf0d56958903b46315c188ac2dedca231611237ad6151119016a1"
+            },
+            "label": "same-fixture-label",
+            "outcome": "pinned",
+            "phase": "result",
+            "tag": "A"
+          },
+          "pathnameOnlyOracleRejected": true
+        },
+        {
+          "barriers": [
+            "image",
+            "ready",
+            "inventory",
+            "snapshot",
+            "result"
+          ],
+          "case": "safe-symlink-spaces",
+          "expected": "pinned",
+          "observed": {
+            "binarySha256": "ea132aad918b9622648b76239d99a4982676cd4f3fddcee2ffd101c9e50f1f34",
+            "bytes": 54,
+            "files": 3,
+            "generation": "37660041b6f307cc63d70331a3a97549334a4c4165711b27e73efab6c6a911be",
+            "hashes": {
+              "docs/man/man1/axiom.1": "3d6ab38cce8d59cfa0830598468bf6d9e99667312f914540b7355c5a56994198",
+              "docs/text/concepts.md": "7067e315ed819f0ad77623f72f187f75f4b46906ebe7f21e9d861a923abd5211",
+              "docs/text/index.md": "4ef4b133adebf0d56958903b46315c188ac2dedca231611237ad6151119016a1"
+            },
+            "label": "same-fixture-label",
+            "outcome": "pinned",
+            "phase": "result",
+            "tag": "A"
+          },
+          "pathnameOnlyOracleRejected": true
+        },
+        {
+          "barriers": [
+            "image",
+            "ready",
+            "inventory",
+            "snapshot",
+            "result"
+          ],
+          "case": "PATH-A-to-B-after-launch",
+          "expected": "pinned",
+          "observed": {
+            "binarySha256": "ea132aad918b9622648b76239d99a4982676cd4f3fddcee2ffd101c9e50f1f34",
+            "bytes": 54,
+            "files": 3,
+            "generation": "37660041b6f307cc63d70331a3a97549334a4c4165711b27e73efab6c6a911be",
+            "hashes": {
+              "docs/man/man1/axiom.1": "3d6ab38cce8d59cfa0830598468bf6d9e99667312f914540b7355c5a56994198",
+              "docs/text/concepts.md": "7067e315ed819f0ad77623f72f187f75f4b46906ebe7f21e9d861a923abd5211",
+              "docs/text/index.md": "4ef4b133adebf0d56958903b46315c188ac2dedca231611237ad6151119016a1"
+            },
+            "label": "same-fixture-label",
+            "outcome": "pinned",
+            "phase": "result",
+            "tag": "A"
+          },
+          "pathnameOnlyOracleRejected": false
+        },
+        {
+          "barriers": [
+            "image",
+            "ready",
+            "inventory",
+            "snapshot",
+            "result"
+          ],
+          "case": "unlink",
+          "expected": "pinned",
+          "observed": {
+            "binarySha256": "ea132aad918b9622648b76239d99a4982676cd4f3fddcee2ffd101c9e50f1f34",
+            "bytes": 54,
+            "files": 3,
+            "generation": "37660041b6f307cc63d70331a3a97549334a4c4165711b27e73efab6c6a911be",
+            "hashes": {
+              "docs/man/man1/axiom.1": "3d6ab38cce8d59cfa0830598468bf6d9e99667312f914540b7355c5a56994198",
+              "docs/text/concepts.md": "7067e315ed819f0ad77623f72f187f75f4b46906ebe7f21e9d861a923abd5211",
+              "docs/text/index.md": "4ef4b133adebf0d56958903b46315c188ac2dedca231611237ad6151119016a1"
+            },
+            "label": "same-fixture-label",
+            "outcome": "pinned",
+            "phase": "result",
+            "tag": "A"
+          },
+          "pathnameOnlyOracleRejected": false
+        },
+        {
+          "barriers": [
+            "image",
+            "ready",
+            "result"
+          ],
+          "case": "changed-ancestry",
+          "expected": "refused",
+          "observed": {
+            "outcome": "refused",
+            "phase": "result",
+            "reason": "parent_changed",
+            "tag": "A"
+          },
+          "pathnameOnlyOracleRejected": false
+        },
+        {
+          "barriers": [
+            "image",
+            "result"
+          ],
+          "case": "hardlink",
+          "expected": "refused",
+          "observed": {
+            "outcome": "refused",
+            "phase": "result",
+            "reason": "unsafe_binary",
+            "tag": "A"
+          },
+          "pathnameOnlyOracleRejected": false
+        },
+        {
+          "barriers": [
+            "image",
+            "ready",
+            "result"
+          ],
+          "case": "relocated",
+          "expected": "refused",
+          "observed": {
+            "outcome": "refused",
+            "phase": "result",
+            "reason": "binding_identity_mismatch",
+            "tag": "A"
+          },
+          "pathnameOnlyOracleRejected": false
+        },
+        {
+          "barriers": [
+            "image",
+            "ready",
+            "result"
+          ],
+          "case": "copied",
+          "expected": "refused",
+          "observed": {
+            "outcome": "refused",
+            "phase": "result",
+            "reason": "binding_identity_mismatch",
+            "tag": "A"
+          },
+          "pathnameOnlyOracleRejected": false
+        },
+        {
+          "barriers": [
+            "image",
+            "ready",
+            "result"
+          ],
+          "case": "unsafe-generation-symlink",
+          "expected": "refused",
+          "observed": {
+            "outcome": "refused",
+            "phase": "result",
+            "reason": "unsafe_directory",
+            "tag": "A"
+          },
+          "pathnameOnlyOracleRejected": false
+        },
+        {
+          "barriers": [
+            "image",
+            "result"
+          ],
+          "case": "image-to-pin-TOCTOU",
+          "expected": "refused",
+          "observed": {
+            "outcome": "refused",
+            "phase": "result",
+            "reason": "image_mismatch",
+            "tag": "A"
+          },
+          "pathnameOnlyOracleRejected": true
+        },
+        {
+          "barriers": [
+            "image",
+            "ready",
+            "inventory",
+            "result"
+          ],
+          "case": "content-replaced-before-open",
+          "expected": "refused",
+          "observed": {
+            "outcome": "refused",
+            "phase": "result",
+            "reason": "content_hash",
+            "tag": "A"
+          },
+          "pathnameOnlyOracleRejected": false
+        },
+        {
+          "barriers": [
+            "image",
+            "ready",
+            "inventory",
+            "result"
+          ],
+          "case": "content-in-place-before-open",
+          "expected": "refused",
+          "observed": {
+            "outcome": "refused",
+            "phase": "result",
+            "reason": "content_hash",
+            "tag": "A"
+          },
+          "pathnameOnlyOracleRejected": false
+        },
+        {
+          "barriers": [
+            "image",
+            "ready",
+            "inventory",
+            "result"
+          ],
+          "case": "content-symlink-outside",
+          "expected": "refused",
+          "observed": {
+            "outcome": "refused",
+            "phase": "result",
+            "reason": "unsafe_file",
+            "tag": "A"
+          },
+          "pathnameOnlyOracleRejected": false
+        },
+        {
+          "barriers": [
+            "image",
+            "ready",
+            "inventory",
+            "snapshot",
+            "result"
+          ],
+          "case": "inventory-replaced-after-validation",
+          "expected": "pinned",
+          "observed": {
+            "binarySha256": "ea132aad918b9622648b76239d99a4982676cd4f3fddcee2ffd101c9e50f1f34",
+            "bytes": 54,
+            "files": 3,
+            "generation": "37660041b6f307cc63d70331a3a97549334a4c4165711b27e73efab6c6a911be",
+            "hashes": {
+              "docs/man/man1/axiom.1": "3d6ab38cce8d59cfa0830598468bf6d9e99667312f914540b7355c5a56994198",
+              "docs/text/concepts.md": "7067e315ed819f0ad77623f72f187f75f4b46906ebe7f21e9d861a923abd5211",
+              "docs/text/index.md": "4ef4b133adebf0d56958903b46315c188ac2dedca231611237ad6151119016a1"
+            },
+            "label": "same-fixture-label",
+            "outcome": "pinned",
+            "phase": "result",
+            "tag": "A"
+          },
+          "pathnameOnlyOracleRejected": false
+        },
+        {
+          "barriers": [
+            "image",
+            "ready",
+            "inventory",
+            "result"
+          ],
+          "case": "generation-swapped",
+          "expected": "refused",
+          "observed": {
+            "outcome": "refused",
+            "phase": "result",
+            "reason": "generation_changed",
+            "tag": "A"
+          },
+          "pathnameOnlyOracleRejected": false
+        },
+        {
+          "barriers": [
+            "image",
+            "ready",
+            "inventory",
+            "result"
+          ],
+          "case": "content-ancestor-swapped",
+          "expected": "refused",
+          "observed": {
+            "outcome": "refused",
+            "phase": "result",
+            "reason": "unsafe_ancestor",
+            "tag": "A"
+          },
+          "pathnameOnlyOracleRejected": false
+        },
+        {
+          "barriers": [
+            "image",
+            "ready",
+            "inventory",
+            "snapshot",
+            "result"
+          ],
+          "case": "content-replaced-after-snapshot",
+          "expected": "pinned",
+          "observed": {
+            "binarySha256": "ea132aad918b9622648b76239d99a4982676cd4f3fddcee2ffd101c9e50f1f34",
+            "bytes": 54,
+            "files": 3,
+            "generation": "37660041b6f307cc63d70331a3a97549334a4c4165711b27e73efab6c6a911be",
+            "hashes": {
+              "docs/man/man1/axiom.1": "3d6ab38cce8d59cfa0830598468bf6d9e99667312f914540b7355c5a56994198",
+              "docs/text/concepts.md": "7067e315ed819f0ad77623f72f187f75f4b46906ebe7f21e9d861a923abd5211",
+              "docs/text/index.md": "4ef4b133adebf0d56958903b46315c188ac2dedca231611237ad6151119016a1"
+            },
+            "label": "same-fixture-label",
+            "outcome": "pinned",
+            "phase": "result",
+            "tag": "A"
+          },
+          "pathnameOnlyOracleRejected": false
+        },
+        {
+          "barriers": [
+            "image",
+            "ready",
+            "inventory",
+            "snapshot",
+            "result"
+          ],
+          "case": "content-mutated-after-snapshot",
+          "expected": "pinned",
+          "observed": {
+            "binarySha256": "ea132aad918b9622648b76239d99a4982676cd4f3fddcee2ffd101c9e50f1f34",
+            "bytes": 54,
+            "files": 3,
+            "generation": "37660041b6f307cc63d70331a3a97549334a4c4165711b27e73efab6c6a911be",
+            "hashes": {
+              "docs/man/man1/axiom.1": "3d6ab38cce8d59cfa0830598468bf6d9e99667312f914540b7355c5a56994198",
+              "docs/text/concepts.md": "7067e315ed819f0ad77623f72f187f75f4b46906ebe7f21e9d861a923abd5211",
+              "docs/text/index.md": "4ef4b133adebf0d56958903b46315c188ac2dedca231611237ad6151119016a1"
+            },
+            "label": "same-fixture-label",
+            "outcome": "pinned",
+            "phase": "result",
+            "tag": "A"
+          },
+          "pathnameOnlyOracleRejected": false
+        }
+      ],
+      "classification": "Bounded synthetic P1 mechanism experiment; no AC or production codec acceptance",
+      "compiler": "cc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0",
+      "exitCode": 0,
+      "filesystem": "ext2/ext3",
+      "freshB": {
+        "binarySha256": "0a37c0a21f1a5c2f41e478b30f5c2abf1389648fafb03becaad1a5a23adad14b",
+        "bytes": 54,
+        "files": 3,
+        "generation": "13dd97619533b2c2ef485d15e94bc78e077d9842394c62f200a6d8875f5c6775",
+        "hashes": {
+          "docs/man/man1/axiom.1": "21b807d5107ff10230b4ac30cb8da33b45372f776c2856261b7755813e4f3a12",
+          "docs/text/concepts.md": "fffe0604d7b4b233b06968c3c286c853eaa46b1da79f436eaf501430e3c8993a",
+          "docs/text/index.md": "cace9f11a9b7217a2fb65bfec4c7a97969e572a92f744cb01c63d1c535d2f555"
+        },
+        "label": "same-fixture-label",
+        "outcome": "pinned",
+        "phase": "result",
+        "tag": "B"
+      },
+      "go": "go version go1.26.0 linux/arm64",
+      "harnessSha256": "fad7362345d101fa05d48b42260c8c6c843d428f5c5f28614492cdcae9b7399c",
+      "kernel": "6.17.0-1022-azure",
+      "machine": "aarch64",
+      "os": "Linux-6.17.0-1022-azure-aarch64-with-glibc2.39",
+      "runner": "ubuntu-24.04-arm",
+      "sourceSha": "fa599696db5a85b2a7abead971eca3a6ce5a0fd8",
+      "sourceSha256": "a9bc57ab024feab6b8369fa5093e61514b28154b5e0fcf1c573f393fb01d27e2",
+      "status": "PASS"
+    }
+  ],
+  "historicalDocker": "No rerun. Docker arm64 primitive PASS complementary; Docker amd64 emulated image oracle FAIL in probe-results-resume-1.json."
+}
