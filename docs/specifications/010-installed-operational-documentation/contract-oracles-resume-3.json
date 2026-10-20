@@ -424,5 +424,41 @@
     "textOutputs": 11,
     "finalCorpus": "NOT_RUN"
   },
-  "quotaBoundaryRule": "Inclusive limits; within quota is not record acceptance; all independent invariants still apply; rejected inputs execute candidate zero times."
+  "quotaBoundaryRule": "Inclusive limits; within quota is not record acceptance; all independent invariants still apply; rejected inputs execute candidate zero times.",
+  "executedPinnedV1Dispatch": {
+    "shell": [
+      {
+        "fixture": "v2-record",
+        "archiveSha256": "8a79a58a5c7a000acac267668d1b7eea7a4b47a84dcc37bed3ee8b5b4935414b",
+        "metadataSha256": "5f43c35a6d153cb599de2fdd4ce4eb0a8b024446591ca89541525cd88223c09b",
+        "consumer": "pinned v1 shell facade",
+        "exitCode": 1,
+        "diagnostic": "install_error: release metadata schema mismatch",
+        "candidateCalls": 0,
+        "sentinelAbsent": true
+      },
+      {
+        "fixture": "unknown-version",
+        "archiveSha256": "2ecfbbec951efb5e50c6cf2e0a2ae888926e15b6de5f5bc0aa5f306fcd8d29a4",
+        "metadataSha256": "f8f569fc5800d00f151a18963ae4bdf330daf56622107d64497582368a9f3857",
+        "consumer": "pinned v1 shell facade",
+        "exitCode": 1,
+        "diagnostic": "install_error: unsupported release metadata",
+        "candidateCalls": 0,
+        "sentinelAbsent": true
+      }
+    ],
+    "go": {
+      "command": "go test ./internal/install -run '^TestAXM37PinnedV1RecordDispatch$' -count=1 -v",
+      "exitCode": 0,
+      "cases": {
+        "v1": "accepted",
+        "v2-record": "rejected",
+        "unknown-version": "rejected"
+      },
+      "candidateExecution": "LoadCandidate is passive; no candidate execution",
+      "fixtureScope": "Synthetic old-layout archives carrying exact proposed v2 record or unknown version; not valid complete v2 archives"
+    },
+    "temporaryGoTestRemoved": true
+  }
 }

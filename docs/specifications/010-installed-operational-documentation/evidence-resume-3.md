@@ -65,3 +65,26 @@ failures. Binary rename/read-back and retained complete-generation checks are
 actual filesystem operations. Runtime receipt/ack placeholders are model effects,
 not candidate proof or Runtime convergence. Material algorithm adoption awaits T04
 and human G1 disposition; no automatic SDD review or T05+.
+
+## E02 follow-up — release-compatible build experiment
+
+Inspection found the current builder forces CGO_ENABLED=0 and prepares all archives
+on Ubuntu. Before asking for a build change, a bounded alternative experiment kept
+that setting: stdlib Syscall6 on Darwin, `/proc/self/exe` descriptor on Linux.
+Local native macOS arm64/APFS passed **24 cases plus fresh B**, including an actual
+API-error-path control (invalid read-only region-info flavor) and a deliberately
+closed binary descriptor. `go version -m` confirmed CGO_ENABLED=0/darwin/arm64.
+Linux native repeats pending; no release adapter or ABI support claim adopted.
+
+Local Apple SDK C offsetof/sizeof measurements returned 1272-byte region record,
+96-byte device offset and 104-byte inode offset. Primary Apple XNU libproc source
+and proc_info_private header corroborate the read-only query selector, but direct
+syscall/ABI stability is a material review question, not proven by source lookup.
+No Apple implementation is copied into product code; no dependency/build/workflow
+publication change follows. This preserves the earlier cgo positives separately.
+
+Pinned v1 shell/Go dispatch checks also passed: v1 passive Go load accepted;
+proposed exact v2 record and unknown metadata version rejected. Shell invalid-input
+sentinels remained absent (exit 1), temporary Go test removed. These old-layout
+fixtures do not prove complete v2 archives or future v2 consumers. Existing facade
+fixture suite exit 0, failures=0; four affected Go packages passed.

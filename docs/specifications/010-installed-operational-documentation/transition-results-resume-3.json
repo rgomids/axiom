@@ -1,0 +1,2990 @@
+{
+  "classification": "Sanitized P1 model fixtures; injected storage faults, no production locks or Runtime receipt acceptance",
+  "sourceCommit": "5c8b4a0afa318bcde6abb3a5b1dd39ea2cdf6753",
+  "sourceWorkflow": ".github/workflows/axm37-p1-experiment.yml",
+  "runUrl": "https://github.com/rgomids/axiom/actions/runs/39504536442",
+  "rows": [
+    {
+      "jobUrl": null,
+      "cases": [
+        {
+          "ACompleteGenerationRetained": true,
+          "actualBinary": "A",
+          "classification": "injected_failure",
+          "effects": {
+            "ack": "not_run",
+            "binary": "not_run",
+            "binding": "not_run",
+            "generation": "not_run",
+            "receipt": "not_run",
+            "skills": "not_run",
+            "stageRemoval": "not_run"
+          },
+          "exception": "OSError",
+          "expectedBinaryRevision": [
+            16777229,
+            118332918,
+            "06f961b802bc46ee168555f066d28f4f0e9afdf3f88174c1ee6f9de004fc30a0"
+          ],
+          "fault": "stage-short-write",
+          "faultInjection": "deterministic syscall-result seam; not physical disk/permission exhaustion",
+          "foreignSentinelPreserved": true,
+          "previewSha256": "5ef6afe23a7382b85f22bbfa485b0a2873c3dc510d54d34eba03e3d72904a5cb",
+          "readerBarriers": [],
+          "recovery": {
+            "action": "inspect only; mutation requires fresh exact authority",
+            "automaticRollback": false,
+            "blindRetry": false,
+            "lockDeleted": false,
+            "observedBinary": "A",
+            "originalEffectClassification": "not_run",
+            "retainedGenerations": 1
+          }
+        },
+        {
+          "ACompleteGenerationRetained": true,
+          "actualBinary": "A",
+          "classification": "injected_failure",
+          "effects": {
+            "ack": "not_run",
+            "binary": "not_run",
+            "binding": "not_run",
+            "generation": "not_run",
+            "receipt": "not_run",
+            "skills": "not_run",
+            "stageRemoval": "not_run"
+          },
+          "exception": "OSError",
+          "expectedBinaryRevision": [
+            16777229,
+            118332941,
+            "06f961b802bc46ee168555f066d28f4f0e9afdf3f88174c1ee6f9de004fc30a0"
+          ],
+          "fault": "stage-disk-full",
+          "faultInjection": "deterministic syscall-result seam; not physical disk/permission exhaustion",
+          "foreignSentinelPreserved": true,
+          "previewSha256": "c246a0cf0459b35bc533eaa8b2d5174e895355b464fe5623e4977b568adf0df0",
+          "readerBarriers": [],
+          "recovery": {
+            "action": "inspect only; mutation requires fresh exact authority",
+            "automaticRollback": false,
+            "blindRetry": false,
+            "lockDeleted": false,
+            "observedBinary": "A",
+            "originalEffectClassification": "not_run",
+            "retainedGenerations": 1
+          }
+        },
+        {
+          "ACompleteGenerationRetained": true,
+          "actualBinary": "A",
+          "classification": "injected_failure",
+          "effects": {
+            "ack": "not_run",
+            "binary": "not_run",
+            "binding": "not_run",
+            "generation": "not_run",
+            "receipt": "not_run",
+            "skills": "not_run",
+            "stageRemoval": "not_run"
+          },
+          "exception": "OSError",
+          "expectedBinaryRevision": [
+            16777229,
+            118332964,
+            "06f961b802bc46ee168555f066d28f4f0e9afdf3f88174c1ee6f9de004fc30a0"
+          ],
+          "fault": "stage-quota",
+          "faultInjection": "deterministic syscall-result seam; not physical disk/permission exhaustion",
+          "foreignSentinelPreserved": true,
+          "previewSha256": "8bf183cc08b878b9046a3db68ee160d35b791e0f045564b518784fe496a3c73c",
+          "readerBarriers": [],
+          "recovery": {
+            "action": "inspect only; mutation requires fresh exact authority",
+            "automaticRollback": false,
+            "blindRetry": false,
+            "lockDeleted": false,
+            "observedBinary": "A",
+            "originalEffectClassification": "not_run",
+            "retainedGenerations": 1
+          }
+        },
+        {
+          "ACompleteGenerationRetained": true,
+          "actualBinary": "A",
+          "classification": "injected_failure",
+          "effects": {
+            "ack": "not_run",
+            "binary": "not_run",
+            "binding": "not_run",
+            "generation": "not_run",
+            "receipt": "not_run",
+            "skills": "not_run",
+            "stageRemoval": "not_run"
+          },
+          "exception": "PermissionError",
+          "expectedBinaryRevision": [
+            16777229,
+            118332987,
+            "06f961b802bc46ee168555f066d28f4f0e9afdf3f88174c1ee6f9de004fc30a0"
+          ],
+          "fault": "stage-permission",
+          "faultInjection": "deterministic syscall-result seam; not physical disk/permission exhaustion",
+          "foreignSentinelPreserved": true,
+          "previewSha256": "e0581f7d626d3b2bdc7bdbc6c9e2801ff8712e19b208ba5c95061e5bae63d361",
+          "readerBarriers": [],
+          "recovery": {
+            "action": "inspect only; mutation requires fresh exact authority",
+            "automaticRollback": false,
+            "blindRetry": false,
+            "lockDeleted": false,
+            "observedBinary": "A",
+            "originalEffectClassification": "not_run",
+            "retainedGenerations": 1
+          }
+        },
+        {
+          "ACompleteGenerationRetained": true,
+          "actualBinary": "A",
+          "classification": "injected_failure",
+          "effects": {
+            "ack": "not_run",
+            "binary": "not_run",
+            "binding": "not_run",
+            "generation": "not_run",
+            "receipt": "not_run",
+            "skills": "not_run",
+            "stageRemoval": "not_run"
+          },
+          "exception": "OSError",
+          "expectedBinaryRevision": [
+            16777229,
+            118333010,
+            "06f961b802bc46ee168555f066d28f4f0e9afdf3f88174c1ee6f9de004fc30a0"
+          ],
+          "fault": "stage-sync",
+          "faultInjection": "deterministic syscall-result seam; not physical disk/permission exhaustion",
+          "foreignSentinelPreserved": true,
+          "previewSha256": "072d6f571569235d89d6742317b640675e6b5af6028611cfbff1d6f3f0489bf7",
+          "readerBarriers": [],
+          "recovery": {
+            "action": "inspect only; mutation requires fresh exact authority",
+            "automaticRollback": false,
+            "blindRetry": false,
+            "lockDeleted": false,
+            "observedBinary": "A",
+            "originalEffectClassification": "not_run",
+            "retainedGenerations": 1
+          }
+        },
+        {
+          "ACompleteGenerationRetained": true,
+          "actualBinary": "A",
+          "classification": "injected_failure",
+          "effects": {
+            "ack": "not_run",
+            "binary": "not_run",
+            "binding": "not_run",
+            "generation": "not_run",
+            "receipt": "not_run",
+            "skills": "not_run",
+            "stageRemoval": "not_run"
+          },
+          "exception": "OSError",
+          "expectedBinaryRevision": [
+            16777229,
+            118333033,
+            "06f961b802bc46ee168555f066d28f4f0e9afdf3f88174c1ee6f9de004fc30a0"
+          ],
+          "fault": "before-generation",
+          "faultInjection": "deterministic syscall-result seam; not physical disk/permission exhaustion",
+          "foreignSentinelPreserved": true,
+          "previewSha256": "6f816bf49d88f6c5c5d0460ff91d4b62dad045523b995be83c615307163e8498",
+          "readerBarriers": [
+            {
+              "phase": "stage-validated",
+              "reader": "A"
+            }
+          ],
+          "recovery": {
+            "action": "inspect only; mutation requires fresh exact authority",
+            "automaticRollback": false,
+            "blindRetry": false,
+            "lockDeleted": false,
+            "observedBinary": "A",
+            "originalEffectClassification": "not_run",
+            "retainedGenerations": 1
+          }
+        },
+        {
+          "ACompleteGenerationRetained": true,
+          "actualBinary": "A",
+          "classification": "injected_failure",
+          "effects": {
+            "ack": "not_run",
+            "binary": "not_run",
+            "binding": "not_run",
+            "generation": "not_run",
+            "receipt": "not_run",
+            "skills": "not_run",
+            "stageRemoval": "not_run"
+          },
+          "exception": "ValueError",
+          "expectedBinaryRevision": [
+            16777229,
+            118333056,
+            "06f961b802bc46ee168555f066d28f4f0e9afdf3f88174c1ee6f9de004fc30a0"
+          ],
+          "fault": "conflicting-generation",
+          "faultInjection": "deterministic syscall-result seam; not physical disk/permission exhaustion",
+          "foreignSentinelPreserved": true,
+          "previewSha256": "7af3245f7cad4999eb2cc62e4b18f344cad508f3efce71a6339cf6929a4a7138",
+          "readerBarriers": [
+            {
+              "phase": "stage-validated",
+              "reader": "A"
+            }
+          ],
+          "recovery": {
+            "action": "inspect only; mutation requires fresh exact authority",
+            "automaticRollback": false,
+            "blindRetry": false,
+            "lockDeleted": false,
+            "observedBinary": "A",
+            "originalEffectClassification": "not_run",
+            "retainedGenerations": 2
+          }
+        },
+        {
+          "ACompleteGenerationRetained": true,
+          "actualBinary": "A",
+          "classification": "injected_failure",
+          "effects": {
+            "ack": "not_run",
+            "binary": "not_run",
+            "binding": "not_run",
+            "generation": "confirmed",
+            "receipt": "not_run",
+            "skills": "not_run",
+            "stageRemoval": "not_run"
+          },
+          "exception": "OSError",
+          "expectedBinaryRevision": [
+            16777229,
+            118333083,
+            "06f961b802bc46ee168555f066d28f4f0e9afdf3f88174c1ee6f9de004fc30a0"
+          ],
+          "fault": "after-generation",
+          "faultInjection": "deterministic syscall-result seam; not physical disk/permission exhaustion",
+          "foreignSentinelPreserved": true,
+          "previewSha256": "a64eb4cd03c88ab4508e2cb03b09a8dab9078561a8fce926a9af31173162c40c",
+          "readerBarriers": [
+            {
+              "phase": "stage-validated",
+              "reader": "A"
+            },
+            {
+              "phase": "generation-published",
+              "reader": "A"
+            }
+          ],
+          "recovery": {
+            "action": "inspect only; mutation requires fresh exact authority",
+            "automaticRollback": false,
+            "blindRetry": false,
+            "lockDeleted": false,
+            "observedBinary": "A",
+            "originalEffectClassification": "not_run",
+            "retainedGenerations": 2
+          }
+        },
+        {
+          "ACompleteGenerationRetained": true,
+          "actualBinary": "A",
+          "classification": "injected_failure",
+          "effects": {
+            "ack": "not_run",
+            "binary": "not_run",
+            "binding": "confirmed",
+            "generation": "confirmed",
+            "receipt": "not_run",
+            "skills": "not_run",
+            "stageRemoval": "not_run"
+          },
+          "exception": "OSError",
+          "expectedBinaryRevision": [
+            16777229,
+            118333117,
+            "06f961b802bc46ee168555f066d28f4f0e9afdf3f88174c1ee6f9de004fc30a0"
+          ],
+          "fault": "after-binding",
+          "faultInjection": "deterministic syscall-result seam; not physical disk/permission exhaustion",
+          "foreignSentinelPreserved": true,
+          "previewSha256": "525c8f6e1ef67e8dfb13eef78c10674acf5cad3be210e834078ee042ab68cc80",
+          "readerBarriers": [
+            {
+              "phase": "stage-validated",
+              "reader": "A"
+            },
+            {
+              "phase": "generation-published",
+              "reader": "A"
+            },
+            {
+              "phase": "binding-published",
+              "reader": "A"
+            }
+          ],
+          "recovery": {
+            "action": "inspect only; mutation requires fresh exact authority",
+            "automaticRollback": false,
+            "blindRetry": false,
+            "lockDeleted": false,
+            "observedBinary": "A",
+            "originalEffectClassification": "not_run",
+            "retainedGenerations": 2
+          }
+        },
+        {
+          "ACompleteGenerationRetained": true,
+          "actualBinary": "A",
+          "classification": "injected_failure",
+          "effects": {
+            "ack": "not_run",
+            "binary": "not_run",
+            "binding": "confirmed",
+            "generation": "confirmed",
+            "receipt": "not_run",
+            "skills": "not_run",
+            "stageRemoval": "not_run"
+          },
+          "exception": "OSError",
+          "expectedBinaryRevision": [
+            16777229,
+            118333153,
+            "06f961b802bc46ee168555f066d28f4f0e9afdf3f88174c1ee6f9de004fc30a0"
+          ],
+          "fault": "before-rename",
+          "faultInjection": "deterministic syscall-result seam; not physical disk/permission exhaustion",
+          "foreignSentinelPreserved": true,
+          "previewSha256": "d6468b3f43d764702d40b66943c1269042be946b592a0112d6d9c7955202b6b5",
+          "readerBarriers": [
+            {
+              "phase": "stage-validated",
+              "reader": "A"
+            },
+            {
+              "phase": "generation-published",
+              "reader": "A"
+            },
+            {
+              "phase": "binding-published",
+              "reader": "A"
+            }
+          ],
+          "recovery": {
+            "action": "inspect only; mutation requires fresh exact authority",
+            "automaticRollback": false,
+            "blindRetry": false,
+            "lockDeleted": false,
+            "observedBinary": "A",
+            "originalEffectClassification": "not_run",
+            "retainedGenerations": 2
+          }
+        },
+        {
+          "ACompleteGenerationRetained": true,
+          "actualBinary": "A",
+          "classification": "recovery_required",
+          "effects": {
+            "ack": "not_run",
+            "binary": "unknown",
+            "binding": "confirmed",
+            "generation": "confirmed",
+            "receipt": "not_run",
+            "skills": "not_run",
+            "stageRemoval": "not_run"
+          },
+          "exception": "OSError",
+          "expectedBinaryRevision": [
+            16777229,
+            118333189,
+            "06f961b802bc46ee168555f066d28f4f0e9afdf3f88174c1ee6f9de004fc30a0"
+          ],
+          "fault": "ambiguous-marker",
+          "faultInjection": "deterministic syscall-result seam; not physical disk/permission exhaustion",
+          "foreignSentinelPreserved": true,
+          "previewSha256": "ddc97ca9fcde4b95044468cab5639e6517fc379084dfabc4213c7fa292cebc0a",
+          "readerBarriers": [
+            {
+              "phase": "stage-validated",
+              "reader": "A"
+            },
+            {
+              "phase": "generation-published",
+              "reader": "A"
+            },
+            {
+              "phase": "binding-published",
+              "reader": "A"
+            }
+          ],
+          "recovery": {
+            "action": "inspect only; mutation requires fresh exact authority",
+            "automaticRollback": false,
+            "blindRetry": false,
+            "lockDeleted": false,
+            "observedBinary": "A",
+            "originalEffectClassification": "unknown",
+            "retainedGenerations": 2
+          }
+        },
+        {
+          "ACompleteGenerationRetained": true,
+          "actualBinary": "foreign-binary",
+          "classification": "injected_failure",
+          "effects": {
+            "ack": "not_run",
+            "binary": "not_run",
+            "binding": "confirmed",
+            "generation": "confirmed",
+            "receipt": "not_run",
+            "skills": "not_run",
+            "stageRemoval": "not_run"
+          },
+          "exception": "AssertionError",
+          "expectedBinaryRevision": [
+            16777229,
+            118333226,
+            "06f961b802bc46ee168555f066d28f4f0e9afdf3f88174c1ee6f9de004fc30a0"
+          ],
+          "fault": "target-swap",
+          "faultInjection": "deterministic syscall-result seam; not physical disk/permission exhaustion",
+          "foreignSentinelPreserved": true,
+          "previewSha256": "6e102ba0ac499e9b53ff250ae567bf6e455d98f85d3a521bab06422d10692ff6",
+          "readerBarriers": [
+            {
+              "phase": "stage-validated",
+              "reader": "A"
+            },
+            {
+              "phase": "generation-published",
+              "reader": "A"
+            },
+            {
+              "phase": "binding-published",
+              "reader": "A"
+            }
+          ],
+          "recovery": {
+            "action": "inspect only; mutation requires fresh exact authority",
+            "automaticRollback": false,
+            "blindRetry": false,
+            "lockDeleted": false,
+            "observedBinary": "foreign-binary",
+            "originalEffectClassification": "not_run",
+            "retainedGenerations": 2
+          }
+        },
+        {
+          "ACompleteGenerationRetained": true,
+          "actualBinary": "A",
+          "classification": "injected_failure",
+          "effects": {
+            "ack": "not_run",
+            "binary": "not_run",
+            "binding": "confirmed",
+            "generation": "confirmed",
+            "receipt": "not_run",
+            "skills": "not_run",
+            "stageRemoval": "not_run"
+          },
+          "exception": "OSError",
+          "expectedBinaryRevision": [
+            16777229,
+            118333263,
+            "06f961b802bc46ee168555f066d28f4f0e9afdf3f88174c1ee6f9de004fc30a0"
+          ],
+          "fault": "rename-error",
+          "faultInjection": "deterministic syscall-result seam; not physical disk/permission exhaustion",
+          "foreignSentinelPreserved": true,
+          "previewSha256": "85d5a387b91e143ea8e29d585e3851e76ff2ac838a7c4b813a91e4e78c2fd5b5",
+          "readerBarriers": [
+            {
+              "phase": "stage-validated",
+              "reader": "A"
+            },
+            {
+              "phase": "generation-published",
+              "reader": "A"
+            },
+            {
+              "phase": "binding-published",
+              "reader": "A"
+            }
+          ],
+          "recovery": {
+            "action": "inspect only; mutation requires fresh exact authority",
+            "automaticRollback": false,
+            "blindRetry": false,
+            "lockDeleted": false,
+            "observedBinary": "A",
+            "originalEffectClassification": "not_run",
+            "retainedGenerations": 2
+          }
+        },
+        {
+          "ACompleteGenerationRetained": true,
+          "actualBinary": "A",
+          "classification": "recovery_required",
+          "effects": {
+            "ack": "not_run",
+            "binary": "unknown",
+            "binding": "confirmed",
+            "generation": "confirmed",
+            "receipt": "not_run",
+            "skills": "not_run",
+            "stageRemoval": "not_run"
+          },
+          "exception": "OSError",
+          "expectedBinaryRevision": [
+            16777229,
+            118333299,
+            "06f961b802bc46ee168555f066d28f4f0e9afdf3f88174c1ee6f9de004fc30a0"
+          ],
+          "fault": "rename-uncertain-no-effect",
+          "faultInjection": "deterministic syscall-result seam; not physical disk/permission exhaustion",
+          "foreignSentinelPreserved": true,
+          "previewSha256": "e01ea4e97b85e0dc25f1007453f888eecef4bbe3257eab64116f052cfc3e1d46",
+          "readerBarriers": [
+            {
+              "phase": "stage-validated",
+              "reader": "A"
+            },
+            {
+              "phase": "generation-published",
+              "reader": "A"
+            },
+            {
+              "phase": "binding-published",
+              "reader": "A"
+            }
+          ],
+          "recovery": {
+            "action": "inspect only; mutation requires fresh exact authority",
+            "automaticRollback": false,
+            "blindRetry": false,
+            "lockDeleted": false,
+            "observedBinary": "A",
+            "originalEffectClassification": "unknown",
+            "retainedGenerations": 2
+          }
+        },
+        {
+          "ACompleteGenerationRetained": true,
+          "actualBinary": "B",
+          "classification": "recovery_required",
+          "effects": {
+            "ack": "not_run",
+            "binary": "unknown",
+            "binding": "confirmed",
+            "generation": "confirmed",
+            "receipt": "not_run",
+            "skills": "not_run",
+            "stageRemoval": "not_run"
+          },
+          "exception": "OSError",
+          "expectedBinaryRevision": [
+            16777229,
+            118333335,
+            "06f961b802bc46ee168555f066d28f4f0e9afdf3f88174c1ee6f9de004fc30a0"
+          ],
+          "fault": "rename-uncertain-with-effect",
+          "faultInjection": "deterministic syscall-result seam; not physical disk/permission exhaustion",
+          "foreignSentinelPreserved": true,
+          "previewSha256": "b7e91e1be8767e9c22e4347bea4f792061e782e79e5823092483b5cbdb9df82d",
+          "readerBarriers": [
+            {
+              "phase": "stage-validated",
+              "reader": "A"
+            },
+            {
+              "phase": "generation-published",
+              "reader": "A"
+            },
+            {
+              "phase": "binding-published",
+              "reader": "A"
+            }
+          ],
+          "recovery": {
+            "action": "inspect only; mutation requires fresh exact authority",
+            "automaticRollback": false,
+            "blindRetry": false,
+            "lockDeleted": false,
+            "observedBinary": "B",
+            "originalEffectClassification": "unknown",
+            "retainedGenerations": 2
+          }
+        },
+        {
+          "ACompleteGenerationRetained": true,
+          "actualBinary": "B",
+          "classification": "injected_failure",
+          "effects": {
+            "ack": "not_run",
+            "binary": "confirmed",
+            "binding": "confirmed",
+            "generation": "confirmed",
+            "receipt": "not_run",
+            "skills": "not_run",
+            "stageRemoval": "not_run"
+          },
+          "exception": "OSError",
+          "expectedBinaryRevision": [
+            16777229,
+            118333371,
+            "06f961b802bc46ee168555f066d28f4f0e9afdf3f88174c1ee6f9de004fc30a0"
+          ],
+          "fault": "post-binary-sync",
+          "faultInjection": "deterministic syscall-result seam; not physical disk/permission exhaustion",
+          "foreignSentinelPreserved": true,
+          "previewSha256": "a11d01d11b7cc1b052943d639d1230f212c9397cea2efeade77e84b7a7a5ca41",
+          "readerBarriers": [
+            {
+              "phase": "stage-validated",
+              "reader": "A"
+            },
+            {
+              "phase": "generation-published",
+              "reader": "A"
+            },
+            {
+              "phase": "binding-published",
+              "reader": "A"
+            },
+            {
+              "phase": "binary-confirmed",
+              "reader": "B"
+            }
+          ],
+          "recovery": {
+            "action": "inspect only; mutation requires fresh exact authority",
+            "automaticRollback": false,
+            "blindRetry": false,
+            "lockDeleted": false,
+            "observedBinary": "B",
+            "originalEffectClassification": "confirmed",
+            "retainedGenerations": 2
+          }
+        },
+        {
+          "ACompleteGenerationRetained": true,
+          "actualBinary": "B",
+          "classification": "injected_failure",
+          "effects": {
+            "ack": "not_run",
+            "binary": "confirmed",
+            "binding": "confirmed",
+            "generation": "confirmed",
+            "receipt": "not_run",
+            "skills": "not_run",
+            "stageRemoval": "not_run"
+          },
+          "exception": "PermissionError",
+          "expectedBinaryRevision": [
+            16777229,
+            118333407,
+            "06f961b802bc46ee168555f066d28f4f0e9afdf3f88174c1ee6f9de004fc30a0"
+          ],
+          "fault": "receipt-failure",
+          "faultInjection": "deterministic syscall-result seam; not physical disk/permission exhaustion",
+          "foreignSentinelPreserved": true,
+          "previewSha256": "8c146da19046738cfb415faa430fe4bf529a32385c5e0b52254e70532b196312",
+          "readerBarriers": [
+            {
+              "phase": "stage-validated",
+              "reader": "A"
+            },
+            {
+              "phase": "generation-published",
+              "reader": "A"
+            },
+            {
+              "phase": "binding-published",
+              "reader": "A"
+            },
+            {
+              "phase": "binary-confirmed",
+              "reader": "B"
+            }
+          ],
+          "recovery": {
+            "action": "inspect only; mutation requires fresh exact authority",
+            "automaticRollback": false,
+            "blindRetry": false,
+            "lockDeleted": false,
+            "observedBinary": "B",
+            "originalEffectClassification": "confirmed",
+            "retainedGenerations": 2
+          }
+        },
+        {
+          "ACompleteGenerationRetained": true,
+          "actualBinary": "B",
+          "classification": "injected_failure",
+          "effects": {
+            "ack": "not_run",
+            "binary": "confirmed",
+            "binding": "confirmed",
+            "generation": "confirmed",
+            "receipt": "confirmed",
+            "skills": "not_run",
+            "stageRemoval": "not_run"
+          },
+          "exception": "PermissionError",
+          "expectedBinaryRevision": [
+            16777229,
+            118333443,
+            "06f961b802bc46ee168555f066d28f4f0e9afdf3f88174c1ee6f9de004fc30a0"
+          ],
+          "fault": "skills-failure",
+          "faultInjection": "deterministic syscall-result seam; not physical disk/permission exhaustion",
+          "foreignSentinelPreserved": true,
+          "previewSha256": "f3d1e0825bdf93d39672b3330abcfd75778199df96ee02d0339ced4d6f20837a",
+          "readerBarriers": [
+            {
+              "phase": "stage-validated",
+              "reader": "A"
+            },
+            {
+              "phase": "generation-published",
+              "reader": "A"
+            },
+            {
+              "phase": "binding-published",
+              "reader": "A"
+            },
+            {
+              "phase": "binary-confirmed",
+              "reader": "B"
+            },
+            {
+              "phase": "receipt-confirmed",
+              "reader": "B"
+            }
+          ],
+          "recovery": {
+            "action": "inspect only; mutation requires fresh exact authority",
+            "automaticRollback": false,
+            "blindRetry": false,
+            "lockDeleted": false,
+            "observedBinary": "B",
+            "originalEffectClassification": "confirmed",
+            "retainedGenerations": 2
+          }
+        },
+        {
+          "ACompleteGenerationRetained": true,
+          "actualBinary": "B",
+          "classification": "injected_failure",
+          "effects": {
+            "ack": "not_run",
+            "binary": "confirmed",
+            "binding": "confirmed",
+            "generation": "confirmed",
+            "receipt": "confirmed",
+            "skills": "confirmed",
+            "stageRemoval": "not_run"
+          },
+          "exception": "OSError",
+          "expectedBinaryRevision": [
+            16777229,
+            118333480,
+            "06f961b802bc46ee168555f066d28f4f0e9afdf3f88174c1ee6f9de004fc30a0"
+          ],
+          "fault": "ack-failure",
+          "faultInjection": "deterministic syscall-result seam; not physical disk/permission exhaustion",
+          "foreignSentinelPreserved": true,
+          "previewSha256": "7132459d2d8525c3cac8052198d5858de64c4300b898ff161782520388529f78",
+          "readerBarriers": [
+            {
+              "phase": "stage-validated",
+              "reader": "A"
+            },
+            {
+              "phase": "generation-published",
+              "reader": "A"
+            },
+            {
+              "phase": "binding-published",
+              "reader": "A"
+            },
+            {
+              "phase": "binary-confirmed",
+              "reader": "B"
+            },
+            {
+              "phase": "receipt-confirmed",
+              "reader": "B"
+            }
+          ],
+          "recovery": {
+            "action": "inspect only; mutation requires fresh exact authority",
+            "automaticRollback": false,
+            "blindRetry": false,
+            "lockDeleted": false,
+            "observedBinary": "B",
+            "originalEffectClassification": "confirmed",
+            "retainedGenerations": 2
+          }
+        },
+        {
+          "ACompleteGenerationRetained": true,
+          "actualBinary": "B",
+          "classification": "injected_failure",
+          "effects": {
+            "ack": "confirmed",
+            "binary": "confirmed",
+            "binding": "confirmed",
+            "generation": "confirmed",
+            "receipt": "confirmed",
+            "skills": "confirmed",
+            "stageRemoval": "not_run"
+          },
+          "exception": "PermissionError",
+          "expectedBinaryRevision": [
+            16777229,
+            118333518,
+            "06f961b802bc46ee168555f066d28f4f0e9afdf3f88174c1ee6f9de004fc30a0"
+          ],
+          "fault": "stage-removal-failure",
+          "faultInjection": "deterministic syscall-result seam; not physical disk/permission exhaustion",
+          "foreignSentinelPreserved": true,
+          "previewSha256": "62a4447f3efe2f1d7914233a516ce190ddd8916f60820b73b96dc289f52d6ef5",
+          "readerBarriers": [
+            {
+              "phase": "stage-validated",
+              "reader": "A"
+            },
+            {
+              "phase": "generation-published",
+              "reader": "A"
+            },
+            {
+              "phase": "binding-published",
+              "reader": "A"
+            },
+            {
+              "phase": "binary-confirmed",
+              "reader": "B"
+            },
+            {
+              "phase": "receipt-confirmed",
+              "reader": "B"
+            }
+          ],
+          "recovery": {
+            "action": "inspect only; mutation requires fresh exact authority",
+            "automaticRollback": false,
+            "blindRetry": false,
+            "lockDeleted": false,
+            "observedBinary": "B",
+            "originalEffectClassification": "confirmed",
+            "retainedGenerations": 2
+          }
+        },
+        {
+          "ACompleteGenerationRetained": true,
+          "actualBinary": "B",
+          "classification": "success",
+          "effects": {
+            "ack": "confirmed",
+            "binary": "confirmed",
+            "binding": "confirmed",
+            "generation": "confirmed",
+            "receipt": "confirmed",
+            "skills": "confirmed",
+            "stageRemoval": "confirmed"
+          },
+          "exception": null,
+          "expectedBinaryRevision": [
+            16777229,
+            118333556,
+            "06f961b802bc46ee168555f066d28f4f0e9afdf3f88174c1ee6f9de004fc30a0"
+          ],
+          "fault": "success",
+          "faultInjection": "deterministic syscall-result seam; not physical disk/permission exhaustion",
+          "foreignSentinelPreserved": true,
+          "previewSha256": "2098ab232b072c1ed88bdf79adc47ba8063203655e5ff99914b898c5a1e08a2f",
+          "readerBarriers": [
+            {
+              "phase": "stage-validated",
+              "reader": "A"
+            },
+            {
+              "phase": "generation-published",
+              "reader": "A"
+            },
+            {
+              "phase": "binding-published",
+              "reader": "A"
+            },
+            {
+              "phase": "binary-confirmed",
+              "reader": "B"
+            },
+            {
+              "phase": "receipt-confirmed",
+              "reader": "B"
+            }
+          ],
+          "recovery": {
+            "action": "inspect only; mutation requires fresh exact authority",
+            "automaticRollback": false,
+            "blindRetry": false,
+            "lockDeleted": false,
+            "observedBinary": "B",
+            "originalEffectClassification": "confirmed",
+            "retainedGenerations": 2
+          }
+        }
+      ],
+      "classification": "T03 bounded transition and lock fixture model; no production lock, real candidate receipt or AC acceptance",
+      "concurrency": {
+        "aliasDerivedIdentity": "same physical identity; no alias write authority",
+        "busyErrno": 35,
+        "distinctInstallations": "independent lock",
+        "persistentLockRetained": true,
+        "processExitCodes": [
+          0,
+          0
+        ],
+        "sameBinaryDifferentReceiptRoots": "second busy",
+        "staleExpectedRevisionAfterLock": "refused"
+      },
+      "exitCode": 0,
+      "filesystem": "APFS",
+      "harnessSha256": "05f9a1c36a82a6d962b114d614a075bc8ea817db740d5ddbfb0375c6b88cbe66",
+      "kernel": "27.0.0",
+      "lockNegatives": [
+        {
+          "case": "foreign-lock",
+          "preserved": true,
+          "result": "refused"
+        },
+        {
+          "case": "lock-symlink",
+          "preserved": true,
+          "result": "refused"
+        },
+        {
+          "case": "lock-hardlink",
+          "preserved": true,
+          "result": "refused"
+        }
+      ],
+      "lockReplacement": {
+        "binaryUnchanged": true,
+        "bothLockObjectsRetained": true,
+        "case": "lock-path-replaced-while-held",
+        "newLock": "OS lock succeeds; stale preview refused by lock-revision comparison",
+        "oldHolder": "refuses at authority recheck"
+      },
+      "machine": "arm64",
+      "os": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+      "python": "3.14.4",
+      "runner": "local",
+      "sourceSha": "local-scratch",
+      "status": "PASS"
+    },
+    {
+      "jobUrl": "https://github.com/rgomids/axiom/actions/runs/39504536442/job/118910050066",
+      "cases": [
+        {
+          "ACompleteGenerationRetained": true,
+          "actualBinary": "A",
+          "classification": "injected_failure",
+          "effects": {
+            "ack": "not_run",
+            "binary": "not_run",
+            "binding": "not_run",
+            "generation": "not_run",
+            "receipt": "not_run",
+            "skills": "not_run",
+            "stageRemoval": "not_run"
+          },
+          "exception": "OSError",
+          "expectedBinaryRevision": [
+            66305,
+            4719817,
+            "06f961b802bc46ee168555f066d28f4f0e9afdf3f88174c1ee6f9de004fc30a0"
+          ],
+          "fault": "stage-short-write",
+          "faultInjection": "deterministic syscall-result seam; not physical disk/permission exhaustion",
+          "foreignSentinelPreserved": true,
+          "previewSha256": "c11ac83f962251d384d2795ee2f882c1f5feddaf898aa624930de88b9b7767a5",
+          "readerBarriers": [],
+          "recovery": {
+            "action": "inspect only; mutation requires fresh exact authority",
+            "automaticRollback": false,
+            "blindRetry": false,
+            "lockDeleted": false,
+            "observedBinary": "A",
+            "originalEffectClassification": "not_run",
+            "retainedGenerations": 1
+          }
+        },
+        {
+          "ACompleteGenerationRetained": true,
+          "actualBinary": "A",
+          "classification": "injected_failure",
+          "effects": {
+            "ack": "not_run",
+            "binary": "not_run",
+            "binding": "not_run",
+            "generation": "not_run",
+            "receipt": "not_run",
+            "skills": "not_run",
+            "stageRemoval": "not_run"
+          },
+          "exception": "OSError",
+          "expectedBinaryRevision": [
+            66305,
+            4719870,
+            "06f961b802bc46ee168555f066d28f4f0e9afdf3f88174c1ee6f9de004fc30a0"
+          ],
+          "fault": "stage-disk-full",
+          "faultInjection": "deterministic syscall-result seam; not physical disk/permission exhaustion",
+          "foreignSentinelPreserved": true,
+          "previewSha256": "d83b13ddb1aa344ca12f449ee1036469235ffb3ef27781ec2055d0efbf77179a",
+          "readerBarriers": [],
+          "recovery": {
+            "action": "inspect only; mutation requires fresh exact authority",
+            "automaticRollback": false,
+            "blindRetry": false,
+            "lockDeleted": false,
+            "observedBinary": "A",
+            "originalEffectClassification": "not_run",
+            "retainedGenerations": 1
+          }
+        },
+        {
+          "ACompleteGenerationRetained": true,
+          "actualBinary": "A",
+          "classification": "injected_failure",
+          "effects": {
+            "ack": "not_run",
+            "binary": "not_run",
+            "binding": "not_run",
+            "generation": "not_run",
+            "receipt": "not_run",
+            "skills": "not_run",
+            "stageRemoval": "not_run"
+          },
+          "exception": "OSError",
+          "expectedBinaryRevision": [
+            66305,
+            4719923,
+            "06f961b802bc46ee168555f066d28f4f0e9afdf3f88174c1ee6f9de004fc30a0"
+          ],
+          "fault": "stage-quota",
+          "faultInjection": "deterministic syscall-result seam; not physical disk/permission exhaustion",
+          "foreignSentinelPreserved": true,
+          "previewSha256": "ea4e0a321a4adb5dd44a9e77aae5f1a7b1e8601115a0811ee689dafae3c58304",
+          "readerBarriers": [],
+          "recovery": {
+            "action": "inspect only; mutation requires fresh exact authority",
+            "automaticRollback": false,
+            "blindRetry": false,
+            "lockDeleted": false,
+            "observedBinary": "A",
+            "originalEffectClassification": "not_run",
+            "retainedGenerations": 1
+          }
+        },
+        {
+          "ACompleteGenerationRetained": true,
+          "actualBinary": "A",
+          "classification": "injected_failure",
+          "effects": {
+            "ack": "not_run",
+            "binary": "not_run",
+            "binding": "not_run",
+            "generation": "not_run",
+            "receipt": "not_run",
+            "skills": "not_run",
+            "stageRemoval": "not_run"
+          },
+          "exception": "PermissionError",
+          "expectedBinaryRevision": [
+            66305,
+            4719983,
+            "06f961b802bc46ee168555f066d28f4f0e9afdf3f88174c1ee6f9de004fc30a0"
+          ],
+          "fault": "stage-permission",
+          "faultInjection": "deterministic syscall-result seam; not physical disk/permission exhaustion",
+          "foreignSentinelPreserved": true,
+          "previewSha256": "63716bf149fc4f72fc48f61964a2550cdfc2e678e3a1ce3db4619414f2d991ba",
+          "readerBarriers": [],
+          "recovery": {
+            "action": "inspect only; mutation requires fresh exact authority",
+            "automaticRollback": false,
+            "blindRetry": false,
+            "lockDeleted": false,
+            "observedBinary": "A",
+            "originalEffectClassification": "not_run",
+            "retainedGenerations": 1
+          }
+        },
+        {
+          "ACompleteGenerationRetained": true,
+          "actualBinary": "A",
+          "classification": "injected_failure",
+          "effects": {
+            "ack": "not_run",
+            "binary": "not_run",
+            "binding": "not_run",
+            "generation": "not_run",
+            "receipt": "not_run",
+            "skills": "not_run",
+            "stageRemoval": "not_run"
+          },
+          "exception": "OSError",
+          "expectedBinaryRevision": [
+            66305,
+            4720029,
+            "06f961b802bc46ee168555f066d28f4f0e9afdf3f88174c1ee6f9de004fc30a0"
+          ],
+          "fault": "stage-sync",
+          "faultInjection": "deterministic syscall-result seam; not physical disk/permission exhaustion",
+          "foreignSentinelPreserved": true,
+          "previewSha256": "d5e32af068c0af377a6ccda3e6a7fcb9cd9699ca7972eada8c708f60640c9d76",
+          "readerBarriers": [],
+          "recovery": {
+            "action": "inspect only; mutation requires fresh exact authority",
+            "automaticRollback": false,
+            "blindRetry": false,
+            "lockDeleted": false,
+            "observedBinary": "A",
+            "originalEffectClassification": "not_run",
+            "retainedGenerations": 1
+          }
+        },
+        {
+          "ACompleteGenerationRetained": true,
+          "actualBinary": "A",
+          "classification": "injected_failure",
+          "effects": {
+            "ack": "not_run",
+            "binary": "not_run",
+            "binding": "not_run",
+            "generation": "not_run",
+            "receipt": "not_run",
+            "skills": "not_run",
+            "stageRemoval": "not_run"
+          },
+          "exception": "OSError",
+          "expectedBinaryRevision": [
+            66305,
+            4720065,
+            "06f961b802bc46ee168555f066d28f4f0e9afdf3f88174c1ee6f9de004fc30a0"
+          ],
+          "fault": "before-generation",
+          "faultInjection": "deterministic syscall-result seam; not physical disk/permission exhaustion",
+          "foreignSentinelPreserved": true,
+          "previewSha256": "b76764cac40bd10ae72e042d18ada08fa5b36a0615637b999d23c90a1afa3da6",
+          "readerBarriers": [
+            {
+              "phase": "stage-validated",
+              "reader": "A"
+            }
+          ],
+          "recovery": {
+            "action": "inspect only; mutation requires fresh exact authority",
+            "automaticRollback": false,
+            "blindRetry": false,
+            "lockDeleted": false,
+            "observedBinary": "A",
+            "originalEffectClassification": "not_run",
+            "retainedGenerations": 1
+          }
+        },
+        {
+          "ACompleteGenerationRetained": true,
+          "actualBinary": "A",
+          "classification": "injected_failure",
+          "effects": {
+            "ack": "not_run",
+            "binary": "not_run",
+            "binding": "not_run",
+            "generation": "not_run",
+            "receipt": "not_run",
+            "skills": "not_run",
+            "stageRemoval": "not_run"
+          },
+          "exception": "ValueError",
+          "expectedBinaryRevision": [
+            66305,
+            4720119,
+            "06f961b802bc46ee168555f066d28f4f0e9afdf3f88174c1ee6f9de004fc30a0"
+          ],
+          "fault": "conflicting-generation",
+          "faultInjection": "deterministic syscall-result seam; not physical disk/permission exhaustion",
+          "foreignSentinelPreserved": true,
+          "previewSha256": "f3a34610d6bf3a15c274a1c0068a2e3f7d5588b1b2da83e40a8df50ec448d811",
+          "readerBarriers": [
+            {
+              "phase": "stage-validated",
+              "reader": "A"
+            }
+          ],
+          "recovery": {
+            "action": "inspect only; mutation requires fresh exact authority",
+            "automaticRollback": false,
+            "blindRetry": false,
+            "lockDeleted": false,
+            "observedBinary": "A",
+            "originalEffectClassification": "not_run",
+            "retainedGenerations": 2
+          }
+        },
+        {
+          "ACompleteGenerationRetained": true,
+          "actualBinary": "A",
+          "classification": "injected_failure",
+          "effects": {
+            "ack": "not_run",
+            "binary": "not_run",
+            "binding": "not_run",
+            "generation": "confirmed",
+            "receipt": "not_run",
+            "skills": "not_run",
+            "stageRemoval": "not_run"
+          },
+          "exception": "OSError",
+          "expectedBinaryRevision": [
+            66305,
+            4720185,
+            "06f961b802bc46ee168555f066d28f4f0e9afdf3f88174c1ee6f9de004fc30a0"
+          ],
+          "fault": "after-generation",
+          "faultInjection": "deterministic syscall-result seam; not physical disk/permission exhaustion",
+          "foreignSentinelPreserved": true,
+          "previewSha256": "ce5eff1317367b0b60c234db973f3474b5ed4622e39edf20d7572ea8716e6822",
+          "readerBarriers": [
+            {
+              "phase": "stage-validated",
+              "reader": "A"
+            },
+            {
+              "phase": "generation-published",
+              "reader": "A"
+            }
+          ],
+          "recovery": {
+            "action": "inspect only; mutation requires fresh exact authority",
+            "automaticRollback": false,
+            "blindRetry": false,
+            "lockDeleted": false,
+            "observedBinary": "A",
+            "originalEffectClassification": "not_run",
+            "retainedGenerations": 2
+          }
+        },
+        {
+          "ACompleteGenerationRetained": true,
+          "actualBinary": "A",
+          "classification": "injected_failure",
+          "effects": {
+            "ack": "not_run",
+            "binary": "not_run",
+            "binding": "confirmed",
+            "generation": "confirmed",
+            "receipt": "not_run",
+            "skills": "not_run",
+            "stageRemoval": "not_run"
+          },
+          "exception": "OSError",
+          "expectedBinaryRevision": [
+            66305,
+            4720270,
+            "06f961b802bc46ee168555f066d28f4f0e9afdf3f88174c1ee6f9de004fc30a0"
+          ],
+          "fault": "after-binding",
+          "faultInjection": "deterministic syscall-result seam; not physical disk/permission exhaustion",
+          "foreignSentinelPreserved": true,
+          "previewSha256": "a4cc9d8c7bed21f8efd6e51892610598d0693ca9e6c4052e8042837778436624",
+          "readerBarriers": [
+            {
+              "phase": "stage-validated",
+              "reader": "A"
+            },
+            {
+              "phase": "generation-published",
+              "reader": "A"
+            },
+            {
+              "phase": "binding-published",
+              "reader": "A"
+            }
+          ],
+          "recovery": {
+            "action": "inspect only; mutation requires fresh exact authority",
+            "automaticRollback": false,
+            "blindRetry": false,
+            "lockDeleted": false,
+            "observedBinary": "A",
+            "originalEffectClassification": "not_run",
+            "retainedGenerations": 2
+          }
+        },
+        {
+          "ACompleteGenerationRetained": true,
+          "actualBinary": "A",
+          "classification": "injected_failure",
+          "effects": {
+            "ack": "not_run",
+            "binary": "not_run",
+            "binding": "confirmed",
+            "generation": "confirmed",
+            "receipt": "not_run",
+            "skills": "not_run",
+            "stageRemoval": "not_run"
+          },
+          "exception": "OSError",
+          "expectedBinaryRevision": [
+            66305,
+            4720337,
+            "06f961b802bc46ee168555f066d28f4f0e9afdf3f88174c1ee6f9de004fc30a0"
+          ],
+          "fault": "before-rename",
+          "faultInjection": "deterministic syscall-result seam; not physical disk/permission exhaustion",
+          "foreignSentinelPreserved": true,
+          "previewSha256": "67e5eef6a8c277edd255b37e58f586ef3ad21de6c277546c98d3b296d7f77d03",
+          "readerBarriers": [
+            {
+              "phase": "stage-validated",
+              "reader": "A"
+            },
+            {
+              "phase": "generation-published",
+              "reader": "A"
+            },
+            {
+              "phase": "binding-published",
+              "reader": "A"
+            }
+          ],
+          "recovery": {
+            "action": "inspect only; mutation requires fresh exact authority",
+            "automaticRollback": false,
+            "blindRetry": false,
+            "lockDeleted": false,
+            "observedBinary": "A",
+            "originalEffectClassification": "not_run",
+            "retainedGenerations": 2
+          }
+        },
+        {
+          "ACompleteGenerationRetained": true,
+          "actualBinary": "A",
+          "classification": "recovery_required",
+          "effects": {
+            "ack": "not_run",
+            "binary": "unknown",
+            "binding": "confirmed",
+            "generation": "confirmed",
+            "receipt": "not_run",
+            "skills": "not_run",
+            "stageRemoval": "not_run"
+          },
+          "exception": "OSError",
+          "expectedBinaryRevision": [
+            66305,
+            4720419,
+            "06f961b802bc46ee168555f066d28f4f0e9afdf3f88174c1ee6f9de004fc30a0"
+          ],
+          "fault": "ambiguous-marker",
+          "faultInjection": "deterministic syscall-result seam; not physical disk/permission exhaustion",
+          "foreignSentinelPreserved": true,
+          "previewSha256": "fc49cf515600e7b124598fcdb58d552ece3e96792986eda0609ebc7310566a53",
+          "readerBarriers": [
+            {
+              "phase": "stage-validated",
+              "reader": "A"
+            },
+            {
+              "phase": "generation-published",
+              "reader": "A"
+            },
+            {
+              "phase": "binding-published",
+              "reader": "A"
+            }
+          ],
+          "recovery": {
+            "action": "inspect only; mutation requires fresh exact authority",
+            "automaticRollback": false,
+            "blindRetry": false,
+            "lockDeleted": false,
+            "observedBinary": "A",
+            "originalEffectClassification": "unknown",
+            "retainedGenerations": 2
+          }
+        },
+        {
+          "ACompleteGenerationRetained": true,
+          "actualBinary": "foreign-binary",
+          "classification": "injected_failure",
+          "effects": {
+            "ack": "not_run",
+            "binary": "not_run",
+            "binding": "confirmed",
+            "generation": "confirmed",
+            "receipt": "not_run",
+            "skills": "not_run",
+            "stageRemoval": "not_run"
+          },
+          "exception": "AssertionError",
+          "expectedBinaryRevision": [
+            66305,
+            4720496,
+            "06f961b802bc46ee168555f066d28f4f0e9afdf3f88174c1ee6f9de004fc30a0"
+          ],
+          "fault": "target-swap",
+          "faultInjection": "deterministic syscall-result seam; not physical disk/permission exhaustion",
+          "foreignSentinelPreserved": true,
+          "previewSha256": "36182cf44c80b2bcc897ab6f6ba0ba3b3ffa81a17d2c703cb563ff2a6d05309c",
+          "readerBarriers": [
+            {
+              "phase": "stage-validated",
+              "reader": "A"
+            },
+            {
+              "phase": "generation-published",
+              "reader": "A"
+            },
+            {
+              "phase": "binding-published",
+              "reader": "A"
+            }
+          ],
+          "recovery": {
+            "action": "inspect only; mutation requires fresh exact authority",
+            "automaticRollback": false,
+            "blindRetry": false,
+            "lockDeleted": false,
+            "observedBinary": "foreign-binary",
+            "originalEffectClassification": "not_run",
+            "retainedGenerations": 2
+          }
+        },
+        {
+          "ACompleteGenerationRetained": true,
+          "actualBinary": "A",
+          "classification": "injected_failure",
+          "effects": {
+            "ack": "not_run",
+            "binary": "not_run",
+            "binding": "confirmed",
+            "generation": "confirmed",
+            "receipt": "not_run",
+            "skills": "not_run",
+            "stageRemoval": "not_run"
+          },
+          "exception": "OSError",
+          "expectedBinaryRevision": [
+            66305,
+            4720582,
+            "06f961b802bc46ee168555f066d28f4f0e9afdf3f88174c1ee6f9de004fc30a0"
+          ],
+          "fault": "rename-error",
+          "faultInjection": "deterministic syscall-result seam; not physical disk/permission exhaustion",
+          "foreignSentinelPreserved": true,
+          "previewSha256": "56a31891b472cf1d60708fe7c971ee90bf930d408158b36a81d5303bfadf2841",
+          "readerBarriers": [
+            {
+              "phase": "stage-validated",
+              "reader": "A"
+            },
+            {
+              "phase": "generation-published",
+              "reader": "A"
+            },
+            {
+              "phase": "binding-published",
+              "reader": "A"
+            }
+          ],
+          "recovery": {
+            "action": "inspect only; mutation requires fresh exact authority",
+            "automaticRollback": false,
+            "blindRetry": false,
+            "lockDeleted": false,
+            "observedBinary": "A",
+            "originalEffectClassification": "not_run",
+            "retainedGenerations": 2
+          }
+        },
+        {
+          "ACompleteGenerationRetained": true,
+          "actualBinary": "A",
+          "classification": "recovery_required",
+          "effects": {
+            "ack": "not_run",
+            "binary": "unknown",
+            "binding": "confirmed",
+            "generation": "confirmed",
+            "receipt": "not_run",
+            "skills": "not_run",
+            "stageRemoval": "not_run"
+          },
+          "exception": "OSError",
+          "expectedBinaryRevision": [
+            66305,
+            4720620,
+            "06f961b802bc46ee168555f066d28f4f0e9afdf3f88174c1ee6f9de004fc30a0"
+          ],
+          "fault": "rename-uncertain-no-effect",
+          "faultInjection": "deterministic syscall-result seam; not physical disk/permission exhaustion",
+          "foreignSentinelPreserved": true,
+          "previewSha256": "f4e79236501b0ffaee23375cffbfc80fded1bf44ea6b328814fdf5db61ce164f",
+          "readerBarriers": [
+            {
+              "phase": "stage-validated",
+              "reader": "A"
+            },
+            {
+              "phase": "generation-published",
+              "reader": "A"
+            },
+            {
+              "phase": "binding-published",
+              "reader": "A"
+            }
+          ],
+          "recovery": {
+            "action": "inspect only; mutation requires fresh exact authority",
+            "automaticRollback": false,
+            "blindRetry": false,
+            "lockDeleted": false,
+            "observedBinary": "A",
+            "originalEffectClassification": "unknown",
+            "retainedGenerations": 2
+          }
+        },
+        {
+          "ACompleteGenerationRetained": true,
+          "actualBinary": "B",
+          "classification": "recovery_required",
+          "effects": {
+            "ack": "not_run",
+            "binary": "unknown",
+            "binding": "confirmed",
+            "generation": "confirmed",
+            "receipt": "not_run",
+            "skills": "not_run",
+            "stageRemoval": "not_run"
+          },
+          "exception": "OSError",
+          "expectedBinaryRevision": [
+            66305,
+            4720656,
+            "06f961b802bc46ee168555f066d28f4f0e9afdf3f88174c1ee6f9de004fc30a0"
+          ],
+          "fault": "rename-uncertain-with-effect",
+          "faultInjection": "deterministic syscall-result seam; not physical disk/permission exhaustion",
+          "foreignSentinelPreserved": true,
+          "previewSha256": "dece8027190a23c6ec3a76d8d4b6e2c35988c4d0ea21230c3c64ee106ba73d0c",
+          "readerBarriers": [
+            {
+              "phase": "stage-validated",
+              "reader": "A"
+            },
+            {
+              "phase": "generation-published",
+              "reader": "A"
+            },
+            {
+              "phase": "binding-published",
+              "reader": "A"
+            }
+          ],
+          "recovery": {
+            "action": "inspect only; mutation requires fresh exact authority",
+            "automaticRollback": false,
+            "blindRetry": false,
+            "lockDeleted": false,
+            "observedBinary": "B",
+            "originalEffectClassification": "unknown",
+            "retainedGenerations": 2
+          }
+        },
+        {
+          "ACompleteGenerationRetained": true,
+          "actualBinary": "B",
+          "classification": "injected_failure",
+          "effects": {
+            "ack": "not_run",
+            "binary": "confirmed",
+            "binding": "confirmed",
+            "generation": "confirmed",
+            "receipt": "not_run",
+            "skills": "not_run",
+            "stageRemoval": "not_run"
+          },
+          "exception": "OSError",
+          "expectedBinaryRevision": [
+            66305,
+            4720691,
+            "06f961b802bc46ee168555f066d28f4f0e9afdf3f88174c1ee6f9de004fc30a0"
+          ],
+          "fault": "post-binary-sync",
+          "faultInjection": "deterministic syscall-result seam; not physical disk/permission exhaustion",
+          "foreignSentinelPreserved": true,
+          "previewSha256": "a3824e20108a1e6ef7a905e89aa7c2b92ee6b6953e2c1df47dd101cc71f0aa7a",
+          "readerBarriers": [
+            {
+              "phase": "stage-validated",
+              "reader": "A"
+            },
+            {
+              "phase": "generation-published",
+              "reader": "A"
+            },
+            {
+              "phase": "binding-published",
+              "reader": "A"
+            },
+            {
+              "phase": "binary-confirmed",
+              "reader": "B"
+            }
+          ],
+          "recovery": {
+            "action": "inspect only; mutation requires fresh exact authority",
+            "automaticRollback": false,
+            "blindRetry": false,
+            "lockDeleted": false,
+            "observedBinary": "B",
+            "originalEffectClassification": "confirmed",
+            "retainedGenerations": 2
+          }
+        },
+        {
+          "ACompleteGenerationRetained": true,
+          "actualBinary": "B",
+          "classification": "injected_failure",
+          "effects": {
+            "ack": "not_run",
+            "binary": "confirmed",
+            "binding": "confirmed",
+            "generation": "confirmed",
+            "receipt": "not_run",
+            "skills": "not_run",
+            "stageRemoval": "not_run"
+          },
+          "exception": "PermissionError",
+          "expectedBinaryRevision": [
+            66305,
+            4720726,
+            "06f961b802bc46ee168555f066d28f4f0e9afdf3f88174c1ee6f9de004fc30a0"
+          ],
+          "fault": "receipt-failure",
+          "faultInjection": "deterministic syscall-result seam; not physical disk/permission exhaustion",
+          "foreignSentinelPreserved": true,
+          "previewSha256": "70f913e7de03691ada5bda261eb3f6cea1f9e55d614f73fb3377ec831373b2aa",
+          "readerBarriers": [
+            {
+              "phase": "stage-validated",
+              "reader": "A"
+            },
+            {
+              "phase": "generation-published",
+              "reader": "A"
+            },
+            {
+              "phase": "binding-published",
+              "reader": "A"
+            },
+            {
+              "phase": "binary-confirmed",
+              "reader": "B"
+            }
+          ],
+          "recovery": {
+            "action": "inspect only; mutation requires fresh exact authority",
+            "automaticRollback": false,
+            "blindRetry": false,
+            "lockDeleted": false,
+            "observedBinary": "B",
+            "originalEffectClassification": "confirmed",
+            "retainedGenerations": 2
+          }
+        },
+        {
+          "ACompleteGenerationRetained": true,
+          "actualBinary": "B",
+          "classification": "injected_failure",
+          "effects": {
+            "ack": "not_run",
+            "binary": "confirmed",
+            "binding": "confirmed",
+            "generation": "confirmed",
+            "receipt": "confirmed",
+            "skills": "not_run",
+            "stageRemoval": "not_run"
+          },
+          "exception": "PermissionError",
+          "expectedBinaryRevision": [
+            66305,
+            4720761,
+            "06f961b802bc46ee168555f066d28f4f0e9afdf3f88174c1ee6f9de004fc30a0"
+          ],
+          "fault": "skills-failure",
+          "faultInjection": "deterministic syscall-result seam; not physical disk/permission exhaustion",
+          "foreignSentinelPreserved": true,
+          "previewSha256": "82678e2eaefbeadc07741be5fa075a10c57ae08d7d6614890f08bffd94e6c2e9",
+          "readerBarriers": [
+            {
+              "phase": "stage-validated",
+              "reader": "A"
+            },
+            {
+              "phase": "generation-published",
+              "reader": "A"
+            },
+            {
+              "phase": "binding-published",
+              "reader": "A"
+            },
+            {
+              "phase": "binary-confirmed",
+              "reader": "B"
+            },
+            {
+              "phase": "receipt-confirmed",
+              "reader": "B"
+            }
+          ],
+          "recovery": {
+            "action": "inspect only; mutation requires fresh exact authority",
+            "automaticRollback": false,
+            "blindRetry": false,
+            "lockDeleted": false,
+            "observedBinary": "B",
+            "originalEffectClassification": "confirmed",
+            "retainedGenerations": 2
+          }
+        },
+        {
+          "ACompleteGenerationRetained": true,
+          "actualBinary": "B",
+          "classification": "injected_failure",
+          "effects": {
+            "ack": "not_run",
+            "binary": "confirmed",
+            "binding": "confirmed",
+            "generation": "confirmed",
+            "receipt": "confirmed",
+            "skills": "confirmed",
+            "stageRemoval": "not_run"
+          },
+          "exception": "OSError",
+          "expectedBinaryRevision": [
+            66305,
+            4720797,
+            "06f961b802bc46ee168555f066d28f4f0e9afdf3f88174c1ee6f9de004fc30a0"
+          ],
+          "fault": "ack-failure",
+          "faultInjection": "deterministic syscall-result seam; not physical disk/permission exhaustion",
+          "foreignSentinelPreserved": true,
+          "previewSha256": "ac17057516414d604be75d526eedf2d69b34c43f27c17bd1cff10d191bfae674",
+          "readerBarriers": [
+            {
+              "phase": "stage-validated",
+              "reader": "A"
+            },
+            {
+              "phase": "generation-published",
+              "reader": "A"
+            },
+            {
+              "phase": "binding-published",
+              "reader": "A"
+            },
+            {
+              "phase": "binary-confirmed",
+              "reader": "B"
+            },
+            {
+              "phase": "receipt-confirmed",
+              "reader": "B"
+            }
+          ],
+          "recovery": {
+            "action": "inspect only; mutation requires fresh exact authority",
+            "automaticRollback": false,
+            "blindRetry": false,
+            "lockDeleted": false,
+            "observedBinary": "B",
+            "originalEffectClassification": "confirmed",
+            "retainedGenerations": 2
+          }
+        },
+        {
+          "ACompleteGenerationRetained": true,
+          "actualBinary": "B",
+          "classification": "injected_failure",
+          "effects": {
+            "ack": "confirmed",
+            "binary": "confirmed",
+            "binding": "confirmed",
+            "generation": "confirmed",
+            "receipt": "confirmed",
+            "skills": "confirmed",
+            "stageRemoval": "not_run"
+          },
+          "exception": "PermissionError",
+          "expectedBinaryRevision": [
+            66305,
+            4720834,
+            "06f961b802bc46ee168555f066d28f4f0e9afdf3f88174c1ee6f9de004fc30a0"
+          ],
+          "fault": "stage-removal-failure",
+          "faultInjection": "deterministic syscall-result seam; not physical disk/permission exhaustion",
+          "foreignSentinelPreserved": true,
+          "previewSha256": "72d0590e17d2a849404a77963a954d2d13e459d94a872a82c6d688b295f33127",
+          "readerBarriers": [
+            {
+              "phase": "stage-validated",
+              "reader": "A"
+            },
+            {
+              "phase": "generation-published",
+              "reader": "A"
+            },
+            {
+              "phase": "binding-published",
+              "reader": "A"
+            },
+            {
+              "phase": "binary-confirmed",
+              "reader": "B"
+            },
+            {
+              "phase": "receipt-confirmed",
+              "reader": "B"
+            }
+          ],
+          "recovery": {
+            "action": "inspect only; mutation requires fresh exact authority",
+            "automaticRollback": false,
+            "blindRetry": false,
+            "lockDeleted": false,
+            "observedBinary": "B",
+            "originalEffectClassification": "confirmed",
+            "retainedGenerations": 2
+          }
+        },
+        {
+          "ACompleteGenerationRetained": true,
+          "actualBinary": "B",
+          "classification": "success",
+          "effects": {
+            "ack": "confirmed",
+            "binary": "confirmed",
+            "binding": "confirmed",
+            "generation": "confirmed",
+            "receipt": "confirmed",
+            "skills": "confirmed",
+            "stageRemoval": "confirmed"
+          },
+          "exception": null,
+          "expectedBinaryRevision": [
+            66305,
+            4720871,
+            "06f961b802bc46ee168555f066d28f4f0e9afdf3f88174c1ee6f9de004fc30a0"
+          ],
+          "fault": "success",
+          "faultInjection": "deterministic syscall-result seam; not physical disk/permission exhaustion",
+          "foreignSentinelPreserved": true,
+          "previewSha256": "dc67c7872362676e612397a02e2d76518605fd0cd57e7489757ddd838bb7fa80",
+          "readerBarriers": [
+            {
+              "phase": "stage-validated",
+              "reader": "A"
+            },
+            {
+              "phase": "generation-published",
+              "reader": "A"
+            },
+            {
+              "phase": "binding-published",
+              "reader": "A"
+            },
+            {
+              "phase": "binary-confirmed",
+              "reader": "B"
+            },
+            {
+              "phase": "receipt-confirmed",
+              "reader": "B"
+            }
+          ],
+          "recovery": {
+            "action": "inspect only; mutation requires fresh exact authority",
+            "automaticRollback": false,
+            "blindRetry": false,
+            "lockDeleted": false,
+            "observedBinary": "B",
+            "originalEffectClassification": "confirmed",
+            "retainedGenerations": 2
+          }
+        }
+      ],
+      "classification": "T03 bounded transition and lock fixture model; no production lock, real candidate receipt or AC acceptance",
+      "concurrency": {
+        "aliasDerivedIdentity": "same physical identity; no alias write authority",
+        "busyErrno": 11,
+        "distinctInstallations": "independent lock",
+        "persistentLockRetained": true,
+        "processExitCodes": [
+          0,
+          0
+        ],
+        "sameBinaryDifferentReceiptRoots": "second busy",
+        "staleExpectedRevisionAfterLock": "refused"
+      },
+      "exitCode": 0,
+      "filesystem": "ext2/ext3",
+      "harnessSha256": "05f9a1c36a82a6d962b114d614a075bc8ea817db740d5ddbfb0375c6b88cbe66",
+      "kernel": "7.0.0-1017-azure",
+      "lockNegatives": [
+        {
+          "case": "foreign-lock",
+          "preserved": true,
+          "result": "refused"
+        },
+        {
+          "case": "lock-symlink",
+          "preserved": true,
+          "result": "refused"
+        },
+        {
+          "case": "lock-hardlink",
+          "preserved": true,
+          "result": "refused"
+        }
+      ],
+      "lockReplacement": {
+        "binaryUnchanged": true,
+        "bothLockObjectsRetained": true,
+        "case": "lock-path-replaced-while-held",
+        "newLock": "OS lock succeeds; stale preview refused by lock-revision comparison",
+        "oldHolder": "refuses at authority recheck"
+      },
+      "machine": "x86_64",
+      "os": "Linux-7.0.0-1017-azure-x86_64-with-glibc2.39",
+      "python": "3.12.3",
+      "runner": "ubuntu-24.04",
+      "sourceSha": "5c8b4a0afa318bcde6abb3a5b1dd39ea2cdf6753",
+      "status": "PASS"
+    },
+    {
+      "jobUrl": "https://github.com/rgomids/axiom/actions/runs/39504536442/job/118910050691",
+      "cases": [
+        {
+          "ACompleteGenerationRetained": true,
+          "actualBinary": "A",
+          "classification": "injected_failure",
+          "effects": {
+            "ack": "not_run",
+            "binary": "not_run",
+            "binding": "not_run",
+            "generation": "not_run",
+            "receipt": "not_run",
+            "skills": "not_run",
+            "stageRemoval": "not_run"
+          },
+          "exception": "OSError",
+          "expectedBinaryRevision": [
+            66305,
+            6339824,
+            "06f961b802bc46ee168555f066d28f4f0e9afdf3f88174c1ee6f9de004fc30a0"
+          ],
+          "fault": "stage-short-write",
+          "faultInjection": "deterministic syscall-result seam; not physical disk/permission exhaustion",
+          "foreignSentinelPreserved": true,
+          "previewSha256": "f016fd99ab6a4bee4c00111cea33f251f0bdcae7953ca76df55b3a20b8ce8474",
+          "readerBarriers": [],
+          "recovery": {
+            "action": "inspect only; mutation requires fresh exact authority",
+            "automaticRollback": false,
+            "blindRetry": false,
+            "lockDeleted": false,
+            "observedBinary": "A",
+            "originalEffectClassification": "not_run",
+            "retainedGenerations": 1
+          }
+        },
+        {
+          "ACompleteGenerationRetained": true,
+          "actualBinary": "A",
+          "classification": "injected_failure",
+          "effects": {
+            "ack": "not_run",
+            "binary": "not_run",
+            "binding": "not_run",
+            "generation": "not_run",
+            "receipt": "not_run",
+            "skills": "not_run",
+            "stageRemoval": "not_run"
+          },
+          "exception": "OSError",
+          "expectedBinaryRevision": [
+            66305,
+            6339882,
+            "06f961b802bc46ee168555f066d28f4f0e9afdf3f88174c1ee6f9de004fc30a0"
+          ],
+          "fault": "stage-disk-full",
+          "faultInjection": "deterministic syscall-result seam; not physical disk/permission exhaustion",
+          "foreignSentinelPreserved": true,
+          "previewSha256": "f73591058c102b269f0b1dc5d26028fe9dfc287e403eb5a4b9b855d1956ab458",
+          "readerBarriers": [],
+          "recovery": {
+            "action": "inspect only; mutation requires fresh exact authority",
+            "automaticRollback": false,
+            "blindRetry": false,
+            "lockDeleted": false,
+            "observedBinary": "A",
+            "originalEffectClassification": "not_run",
+            "retainedGenerations": 1
+          }
+        },
+        {
+          "ACompleteGenerationRetained": true,
+          "actualBinary": "A",
+          "classification": "injected_failure",
+          "effects": {
+            "ack": "not_run",
+            "binary": "not_run",
+            "binding": "not_run",
+            "generation": "not_run",
+            "receipt": "not_run",
+            "skills": "not_run",
+            "stageRemoval": "not_run"
+          },
+          "exception": "OSError",
+          "expectedBinaryRevision": [
+            66305,
+            6339942,
+            "06f961b802bc46ee168555f066d28f4f0e9afdf3f88174c1ee6f9de004fc30a0"
+          ],
+          "fault": "stage-quota",
+          "faultInjection": "deterministic syscall-result seam; not physical disk/permission exhaustion",
+          "foreignSentinelPreserved": true,
+          "previewSha256": "aea846a005fe9c405a14732ec0b50c43e48a0352cdab0f5412b54dd07276c722",
+          "readerBarriers": [],
+          "recovery": {
+            "action": "inspect only; mutation requires fresh exact authority",
+            "automaticRollback": false,
+            "blindRetry": false,
+            "lockDeleted": false,
+            "observedBinary": "A",
+            "originalEffectClassification": "not_run",
+            "retainedGenerations": 1
+          }
+        },
+        {
+          "ACompleteGenerationRetained": true,
+          "actualBinary": "A",
+          "classification": "injected_failure",
+          "effects": {
+            "ack": "not_run",
+            "binary": "not_run",
+            "binding": "not_run",
+            "generation": "not_run",
+            "receipt": "not_run",
+            "skills": "not_run",
+            "stageRemoval": "not_run"
+          },
+          "exception": "PermissionError",
+          "expectedBinaryRevision": [
+            66305,
+            6339992,
+            "06f961b802bc46ee168555f066d28f4f0e9afdf3f88174c1ee6f9de004fc30a0"
+          ],
+          "fault": "stage-permission",
+          "faultInjection": "deterministic syscall-result seam; not physical disk/permission exhaustion",
+          "foreignSentinelPreserved": true,
+          "previewSha256": "ba1e277dcf9b6176e306f2825ac8b4a3ff6bba7e2ba7e70ab4ee38afa178f10e",
+          "readerBarriers": [],
+          "recovery": {
+            "action": "inspect only; mutation requires fresh exact authority",
+            "automaticRollback": false,
+            "blindRetry": false,
+            "lockDeleted": false,
+            "observedBinary": "A",
+            "originalEffectClassification": "not_run",
+            "retainedGenerations": 1
+          }
+        },
+        {
+          "ACompleteGenerationRetained": true,
+          "actualBinary": "A",
+          "classification": "injected_failure",
+          "effects": {
+            "ack": "not_run",
+            "binary": "not_run",
+            "binding": "not_run",
+            "generation": "not_run",
+            "receipt": "not_run",
+            "skills": "not_run",
+            "stageRemoval": "not_run"
+          },
+          "exception": "OSError",
+          "expectedBinaryRevision": [
+            66305,
+            6340039,
+            "06f961b802bc46ee168555f066d28f4f0e9afdf3f88174c1ee6f9de004fc30a0"
+          ],
+          "fault": "stage-sync",
+          "faultInjection": "deterministic syscall-result seam; not physical disk/permission exhaustion",
+          "foreignSentinelPreserved": true,
+          "previewSha256": "59615ef782e17349e71524276e552e4bee884e03789da5a843ff92565c224e30",
+          "readerBarriers": [],
+          "recovery": {
+            "action": "inspect only; mutation requires fresh exact authority",
+            "automaticRollback": false,
+            "blindRetry": false,
+            "lockDeleted": false,
+            "observedBinary": "A",
+            "originalEffectClassification": "not_run",
+            "retainedGenerations": 1
+          }
+        },
+        {
+          "ACompleteGenerationRetained": true,
+          "actualBinary": "A",
+          "classification": "injected_failure",
+          "effects": {
+            "ack": "not_run",
+            "binary": "not_run",
+            "binding": "not_run",
+            "generation": "not_run",
+            "receipt": "not_run",
+            "skills": "not_run",
+            "stageRemoval": "not_run"
+          },
+          "exception": "OSError",
+          "expectedBinaryRevision": [
+            66305,
+            6340082,
+            "06f961b802bc46ee168555f066d28f4f0e9afdf3f88174c1ee6f9de004fc30a0"
+          ],
+          "fault": "before-generation",
+          "faultInjection": "deterministic syscall-result seam; not physical disk/permission exhaustion",
+          "foreignSentinelPreserved": true,
+          "previewSha256": "61a3a470701394b8ffa74cd8eb7144ce4171ffa7cacab1e54d714b9bd3174463",
+          "readerBarriers": [
+            {
+              "phase": "stage-validated",
+              "reader": "A"
+            }
+          ],
+          "recovery": {
+            "action": "inspect only; mutation requires fresh exact authority",
+            "automaticRollback": false,
+            "blindRetry": false,
+            "lockDeleted": false,
+            "observedBinary": "A",
+            "originalEffectClassification": "not_run",
+            "retainedGenerations": 1
+          }
+        },
+        {
+          "ACompleteGenerationRetained": true,
+          "actualBinary": "A",
+          "classification": "injected_failure",
+          "effects": {
+            "ack": "not_run",
+            "binary": "not_run",
+            "binding": "not_run",
+            "generation": "not_run",
+            "receipt": "not_run",
+            "skills": "not_run",
+            "stageRemoval": "not_run"
+          },
+          "exception": "ValueError",
+          "expectedBinaryRevision": [
+            66305,
+            6340141,
+            "06f961b802bc46ee168555f066d28f4f0e9afdf3f88174c1ee6f9de004fc30a0"
+          ],
+          "fault": "conflicting-generation",
+          "faultInjection": "deterministic syscall-result seam; not physical disk/permission exhaustion",
+          "foreignSentinelPreserved": true,
+          "previewSha256": "127602dccd415420ee037660078e727f87e438b2f6c4a5be0e713a3a87708ed6",
+          "readerBarriers": [
+            {
+              "phase": "stage-validated",
+              "reader": "A"
+            }
+          ],
+          "recovery": {
+            "action": "inspect only; mutation requires fresh exact authority",
+            "automaticRollback": false,
+            "blindRetry": false,
+            "lockDeleted": false,
+            "observedBinary": "A",
+            "originalEffectClassification": "not_run",
+            "retainedGenerations": 2
+          }
+        },
+        {
+          "ACompleteGenerationRetained": true,
+          "actualBinary": "A",
+          "classification": "injected_failure",
+          "effects": {
+            "ack": "not_run",
+            "binary": "not_run",
+            "binding": "not_run",
+            "generation": "confirmed",
+            "receipt": "not_run",
+            "skills": "not_run",
+            "stageRemoval": "not_run"
+          },
+          "exception": "OSError",
+          "expectedBinaryRevision": [
+            66305,
+            6340207,
+            "06f961b802bc46ee168555f066d28f4f0e9afdf3f88174c1ee6f9de004fc30a0"
+          ],
+          "fault": "after-generation",
+          "faultInjection": "deterministic syscall-result seam; not physical disk/permission exhaustion",
+          "foreignSentinelPreserved": true,
+          "previewSha256": "a40f852ed2c17f82ff22d1e9a38080ce053703b9ea3311a05c9d75a2f7bf5685",
+          "readerBarriers": [
+            {
+              "phase": "stage-validated",
+              "reader": "A"
+            },
+            {
+              "phase": "generation-published",
+              "reader": "A"
+            }
+          ],
+          "recovery": {
+            "action": "inspect only; mutation requires fresh exact authority",
+            "automaticRollback": false,
+            "blindRetry": false,
+            "lockDeleted": false,
+            "observedBinary": "A",
+            "originalEffectClassification": "not_run",
+            "retainedGenerations": 2
+          }
+        },
+        {
+          "ACompleteGenerationRetained": true,
+          "actualBinary": "A",
+          "classification": "injected_failure",
+          "effects": {
+            "ack": "not_run",
+            "binary": "not_run",
+            "binding": "confirmed",
+            "generation": "confirmed",
+            "receipt": "not_run",
+            "skills": "not_run",
+            "stageRemoval": "not_run"
+          },
+          "exception": "OSError",
+          "expectedBinaryRevision": [
+            66305,
+            6340275,
+            "06f961b802bc46ee168555f066d28f4f0e9afdf3f88174c1ee6f9de004fc30a0"
+          ],
+          "fault": "after-binding",
+          "faultInjection": "deterministic syscall-result seam; not physical disk/permission exhaustion",
+          "foreignSentinelPreserved": true,
+          "previewSha256": "2446b39195a69aa544c90a656badcd73827a7a5a4f206fa1da4146aef2c21ee4",
+          "readerBarriers": [
+            {
+              "phase": "stage-validated",
+              "reader": "A"
+            },
+            {
+              "phase": "generation-published",
+              "reader": "A"
+            },
+            {
+              "phase": "binding-published",
+              "reader": "A"
+            }
+          ],
+          "recovery": {
+            "action": "inspect only; mutation requires fresh exact authority",
+            "automaticRollback": false,
+            "blindRetry": false,
+            "lockDeleted": false,
+            "observedBinary": "A",
+            "originalEffectClassification": "not_run",
+            "retainedGenerations": 2
+          }
+        },
+        {
+          "ACompleteGenerationRetained": true,
+          "actualBinary": "A",
+          "classification": "injected_failure",
+          "effects": {
+            "ack": "not_run",
+            "binary": "not_run",
+            "binding": "confirmed",
+            "generation": "confirmed",
+            "receipt": "not_run",
+            "skills": "not_run",
+            "stageRemoval": "not_run"
+          },
+          "exception": "OSError",
+          "expectedBinaryRevision": [
+            66305,
+            6340363,
+            "06f961b802bc46ee168555f066d28f4f0e9afdf3f88174c1ee6f9de004fc30a0"
+          ],
+          "fault": "before-rename",
+          "faultInjection": "deterministic syscall-result seam; not physical disk/permission exhaustion",
+          "foreignSentinelPreserved": true,
+          "previewSha256": "79805d07577e23b9c0b05c97705efa9b1e23acf36e4115be12ea03b56ac0b8b7",
+          "readerBarriers": [
+            {
+              "phase": "stage-validated",
+              "reader": "A"
+            },
+            {
+              "phase": "generation-published",
+              "reader": "A"
+            },
+            {
+              "phase": "binding-published",
+              "reader": "A"
+            }
+          ],
+          "recovery": {
+            "action": "inspect only; mutation requires fresh exact authority",
+            "automaticRollback": false,
+            "blindRetry": false,
+            "lockDeleted": false,
+            "observedBinary": "A",
+            "originalEffectClassification": "not_run",
+            "retainedGenerations": 2
+          }
+        },
+        {
+          "ACompleteGenerationRetained": true,
+          "actualBinary": "A",
+          "classification": "recovery_required",
+          "effects": {
+            "ack": "not_run",
+            "binary": "unknown",
+            "binding": "confirmed",
+            "generation": "confirmed",
+            "receipt": "not_run",
+            "skills": "not_run",
+            "stageRemoval": "not_run"
+          },
+          "exception": "OSError",
+          "expectedBinaryRevision": [
+            66305,
+            6340449,
+            "06f961b802bc46ee168555f066d28f4f0e9afdf3f88174c1ee6f9de004fc30a0"
+          ],
+          "fault": "ambiguous-marker",
+          "faultInjection": "deterministic syscall-result seam; not physical disk/permission exhaustion",
+          "foreignSentinelPreserved": true,
+          "previewSha256": "45cdc16fda019652520a182b5d0dc74eab0fb7fe9f6462d84376930841afe762",
+          "readerBarriers": [
+            {
+              "phase": "stage-validated",
+              "reader": "A"
+            },
+            {
+              "phase": "generation-published",
+              "reader": "A"
+            },
+            {
+              "phase": "binding-published",
+              "reader": "A"
+            }
+          ],
+          "recovery": {
+            "action": "inspect only; mutation requires fresh exact authority",
+            "automaticRollback": false,
+            "blindRetry": false,
+            "lockDeleted": false,
+            "observedBinary": "A",
+            "originalEffectClassification": "unknown",
+            "retainedGenerations": 2
+          }
+        },
+        {
+          "ACompleteGenerationRetained": true,
+          "actualBinary": "foreign-binary",
+          "classification": "injected_failure",
+          "effects": {
+            "ack": "not_run",
+            "binary": "not_run",
+            "binding": "confirmed",
+            "generation": "confirmed",
+            "receipt": "not_run",
+            "skills": "not_run",
+            "stageRemoval": "not_run"
+          },
+          "exception": "AssertionError",
+          "expectedBinaryRevision": [
+            66305,
+            6340527,
+            "06f961b802bc46ee168555f066d28f4f0e9afdf3f88174c1ee6f9de004fc30a0"
+          ],
+          "fault": "target-swap",
+          "faultInjection": "deterministic syscall-result seam; not physical disk/permission exhaustion",
+          "foreignSentinelPreserved": true,
+          "previewSha256": "b010a0af61297836a9523c7dbb4588903cf62759644ff28820a15bb0c522488a",
+          "readerBarriers": [
+            {
+              "phase": "stage-validated",
+              "reader": "A"
+            },
+            {
+              "phase": "generation-published",
+              "reader": "A"
+            },
+            {
+              "phase": "binding-published",
+              "reader": "A"
+            }
+          ],
+          "recovery": {
+            "action": "inspect only; mutation requires fresh exact authority",
+            "automaticRollback": false,
+            "blindRetry": false,
+            "lockDeleted": false,
+            "observedBinary": "foreign-binary",
+            "originalEffectClassification": "not_run",
+            "retainedGenerations": 2
+          }
+        },
+        {
+          "ACompleteGenerationRetained": true,
+          "actualBinary": "A",
+          "classification": "injected_failure",
+          "effects": {
+            "ack": "not_run",
+            "binary": "not_run",
+            "binding": "confirmed",
+            "generation": "confirmed",
+            "receipt": "not_run",
+            "skills": "not_run",
+            "stageRemoval": "not_run"
+          },
+          "exception": "OSError",
+          "expectedBinaryRevision": [
+            66305,
+            6340580,
+            "06f961b802bc46ee168555f066d28f4f0e9afdf3f88174c1ee6f9de004fc30a0"
+          ],
+          "fault": "rename-error",
+          "faultInjection": "deterministic syscall-result seam; not physical disk/permission exhaustion",
+          "foreignSentinelPreserved": true,
+          "previewSha256": "62b702311f7370758f288da588d46b3b3e760336d9319b2a40b3ea2ee223909f",
+          "readerBarriers": [
+            {
+              "phase": "stage-validated",
+              "reader": "A"
+            },
+            {
+              "phase": "generation-published",
+              "reader": "A"
+            },
+            {
+              "phase": "binding-published",
+              "reader": "A"
+            }
+          ],
+          "recovery": {
+            "action": "inspect only; mutation requires fresh exact authority",
+            "automaticRollback": false,
+            "blindRetry": false,
+            "lockDeleted": false,
+            "observedBinary": "A",
+            "originalEffectClassification": "not_run",
+            "retainedGenerations": 2
+          }
+        },
+        {
+          "ACompleteGenerationRetained": true,
+          "actualBinary": "A",
+          "classification": "recovery_required",
+          "effects": {
+            "ack": "not_run",
+            "binary": "unknown",
+            "binding": "confirmed",
+            "generation": "confirmed",
+            "receipt": "not_run",
+            "skills": "not_run",
+            "stageRemoval": "not_run"
+          },
+          "exception": "OSError",
+          "expectedBinaryRevision": [
+            66305,
+            6340615,
+            "06f961b802bc46ee168555f066d28f4f0e9afdf3f88174c1ee6f9de004fc30a0"
+          ],
+          "fault": "rename-uncertain-no-effect",
+          "faultInjection": "deterministic syscall-result seam; not physical disk/permission exhaustion",
+          "foreignSentinelPreserved": true,
+          "previewSha256": "80ed3d85aff7fdd9f45e36f2b7e56347e177ca2e631a39edd9608be0bed1894a",
+          "readerBarriers": [
+            {
+              "phase": "stage-validated",
+              "reader": "A"
+            },
+            {
+              "phase": "generation-published",
+              "reader": "A"
+            },
+            {
+              "phase": "binding-published",
+              "reader": "A"
+            }
+          ],
+          "recovery": {
+            "action": "inspect only; mutation requires fresh exact authority",
+            "automaticRollback": false,
+            "blindRetry": false,
+            "lockDeleted": false,
+            "observedBinary": "A",
+            "originalEffectClassification": "unknown",
+            "retainedGenerations": 2
+          }
+        },
+        {
+          "ACompleteGenerationRetained": true,
+          "actualBinary": "B",
+          "classification": "recovery_required",
+          "effects": {
+            "ack": "not_run",
+            "binary": "unknown",
+            "binding": "confirmed",
+            "generation": "confirmed",
+            "receipt": "not_run",
+            "skills": "not_run",
+            "stageRemoval": "not_run"
+          },
+          "exception": "OSError",
+          "expectedBinaryRevision": [
+            66305,
+            6340651,
+            "06f961b802bc46ee168555f066d28f4f0e9afdf3f88174c1ee6f9de004fc30a0"
+          ],
+          "fault": "rename-uncertain-with-effect",
+          "faultInjection": "deterministic syscall-result seam; not physical disk/permission exhaustion",
+          "foreignSentinelPreserved": true,
+          "previewSha256": "5d66355e749f4d39633d56a0580655c8d5fdd92c944e2f30d087cec1dc7cb5b3",
+          "readerBarriers": [
+            {
+              "phase": "stage-validated",
+              "reader": "A"
+            },
+            {
+              "phase": "generation-published",
+              "reader": "A"
+            },
+            {
+              "phase": "binding-published",
+              "reader": "A"
+            }
+          ],
+          "recovery": {
+            "action": "inspect only; mutation requires fresh exact authority",
+            "automaticRollback": false,
+            "blindRetry": false,
+            "lockDeleted": false,
+            "observedBinary": "B",
+            "originalEffectClassification": "unknown",
+            "retainedGenerations": 2
+          }
+        },
+        {
+          "ACompleteGenerationRetained": true,
+          "actualBinary": "B",
+          "classification": "injected_failure",
+          "effects": {
+            "ack": "not_run",
+            "binary": "confirmed",
+            "binding": "confirmed",
+            "generation": "confirmed",
+            "receipt": "not_run",
+            "skills": "not_run",
+            "stageRemoval": "not_run"
+          },
+          "exception": "OSError",
+          "expectedBinaryRevision": [
+            66305,
+            6340686,
+            "06f961b802bc46ee168555f066d28f4f0e9afdf3f88174c1ee6f9de004fc30a0"
+          ],
+          "fault": "post-binary-sync",
+          "faultInjection": "deterministic syscall-result seam; not physical disk/permission exhaustion",
+          "foreignSentinelPreserved": true,
+          "previewSha256": "a4f9c5141a7194844f3aaa839ddf501d8366a31acb9825821a572b1d83a877d2",
+          "readerBarriers": [
+            {
+              "phase": "stage-validated",
+              "reader": "A"
+            },
+            {
+              "phase": "generation-published",
+              "reader": "A"
+            },
+            {
+              "phase": "binding-published",
+              "reader": "A"
+            },
+            {
+              "phase": "binary-confirmed",
+              "reader": "B"
+            }
+          ],
+          "recovery": {
+            "action": "inspect only; mutation requires fresh exact authority",
+            "automaticRollback": false,
+            "blindRetry": false,
+            "lockDeleted": false,
+            "observedBinary": "B",
+            "originalEffectClassification": "confirmed",
+            "retainedGenerations": 2
+          }
+        },
+        {
+          "ACompleteGenerationRetained": true,
+          "actualBinary": "B",
+          "classification": "injected_failure",
+          "effects": {
+            "ack": "not_run",
+            "binary": "confirmed",
+            "binding": "confirmed",
+            "generation": "confirmed",
+            "receipt": "not_run",
+            "skills": "not_run",
+            "stageRemoval": "not_run"
+          },
+          "exception": "PermissionError",
+          "expectedBinaryRevision": [
+            66305,
+            6340721,
+            "06f961b802bc46ee168555f066d28f4f0e9afdf3f88174c1ee6f9de004fc30a0"
+          ],
+          "fault": "receipt-failure",
+          "faultInjection": "deterministic syscall-result seam; not physical disk/permission exhaustion",
+          "foreignSentinelPreserved": true,
+          "previewSha256": "47dd4cd06aab1090b7d1a0be3bd346b2ac759deebe34a21abec640a30b480328",
+          "readerBarriers": [
+            {
+              "phase": "stage-validated",
+              "reader": "A"
+            },
+            {
+              "phase": "generation-published",
+              "reader": "A"
+            },
+            {
+              "phase": "binding-published",
+              "reader": "A"
+            },
+            {
+              "phase": "binary-confirmed",
+              "reader": "B"
+            }
+          ],
+          "recovery": {
+            "action": "inspect only; mutation requires fresh exact authority",
+            "automaticRollback": false,
+            "blindRetry": false,
+            "lockDeleted": false,
+            "observedBinary": "B",
+            "originalEffectClassification": "confirmed",
+            "retainedGenerations": 2
+          }
+        },
+        {
+          "ACompleteGenerationRetained": true,
+          "actualBinary": "B",
+          "classification": "injected_failure",
+          "effects": {
+            "ack": "not_run",
+            "binary": "confirmed",
+            "binding": "confirmed",
+            "generation": "confirmed",
+            "receipt": "confirmed",
+            "skills": "not_run",
+            "stageRemoval": "not_run"
+          },
+          "exception": "PermissionError",
+          "expectedBinaryRevision": [
+            66305,
+            6340756,
+            "06f961b802bc46ee168555f066d28f4f0e9afdf3f88174c1ee6f9de004fc30a0"
+          ],
+          "fault": "skills-failure",
+          "faultInjection": "deterministic syscall-result seam; not physical disk/permission exhaustion",
+          "foreignSentinelPreserved": true,
+          "previewSha256": "da407a5e02013c7a13fbb9498dc7f0cd039016359e0eaf0d6e72aa1ba333645c",
+          "readerBarriers": [
+            {
+              "phase": "stage-validated",
+              "reader": "A"
+            },
+            {
+              "phase": "generation-published",
+              "reader": "A"
+            },
+            {
+              "phase": "binding-published",
+              "reader": "A"
+            },
+            {
+              "phase": "binary-confirmed",
+              "reader": "B"
+            },
+            {
+              "phase": "receipt-confirmed",
+              "reader": "B"
+            }
+          ],
+          "recovery": {
+            "action": "inspect only; mutation requires fresh exact authority",
+            "automaticRollback": false,
+            "blindRetry": false,
+            "lockDeleted": false,
+            "observedBinary": "B",
+            "originalEffectClassification": "confirmed",
+            "retainedGenerations": 2
+          }
+        },
+        {
+          "ACompleteGenerationRetained": true,
+          "actualBinary": "B",
+          "classification": "injected_failure",
+          "effects": {
+            "ack": "not_run",
+            "binary": "confirmed",
+            "binding": "confirmed",
+            "generation": "confirmed",
+            "receipt": "confirmed",
+            "skills": "confirmed",
+            "stageRemoval": "not_run"
+          },
+          "exception": "OSError",
+          "expectedBinaryRevision": [
+            66305,
+            6340792,
+            "06f961b802bc46ee168555f066d28f4f0e9afdf3f88174c1ee6f9de004fc30a0"
+          ],
+          "fault": "ack-failure",
+          "faultInjection": "deterministic syscall-result seam; not physical disk/permission exhaustion",
+          "foreignSentinelPreserved": true,
+          "previewSha256": "518e97b97c87b7c496197d77292b5219a200fa411334a7aab23f5211fd8f8290",
+          "readerBarriers": [
+            {
+              "phase": "stage-validated",
+              "reader": "A"
+            },
+            {
+              "phase": "generation-published",
+              "reader": "A"
+            },
+            {
+              "phase": "binding-published",
+              "reader": "A"
+            },
+            {
+              "phase": "binary-confirmed",
+              "reader": "B"
+            },
+            {
+              "phase": "receipt-confirmed",
+              "reader": "B"
+            }
+          ],
+          "recovery": {
+            "action": "inspect only; mutation requires fresh exact authority",
+            "automaticRollback": false,
+            "blindRetry": false,
+            "lockDeleted": false,
+            "observedBinary": "B",
+            "originalEffectClassification": "confirmed",
+            "retainedGenerations": 2
+          }
+        },
+        {
+          "ACompleteGenerationRetained": true,
+          "actualBinary": "B",
+          "classification": "injected_failure",
+          "effects": {
+            "ack": "confirmed",
+            "binary": "confirmed",
+            "binding": "confirmed",
+            "generation": "confirmed",
+            "receipt": "confirmed",
+            "skills": "confirmed",
+            "stageRemoval": "not_run"
+          },
+          "exception": "PermissionError",
+          "expectedBinaryRevision": [
+            66305,
+            6340829,
+            "06f961b802bc46ee168555f066d28f4f0e9afdf3f88174c1ee6f9de004fc30a0"
+          ],
+          "fault": "stage-removal-failure",
+          "faultInjection": "deterministic syscall-result seam; not physical disk/permission exhaustion",
+          "foreignSentinelPreserved": true,
+          "previewSha256": "4b8fe5f935735d2417d19f45c2c693e929de55722d0f2b2ab00729fb9f74e698",
+          "readerBarriers": [
+            {
+              "phase": "stage-validated",
+              "reader": "A"
+            },
+            {
+              "phase": "generation-published",
+              "reader": "A"
+            },
+            {
+              "phase": "binding-published",
+              "reader": "A"
+            },
+            {
+              "phase": "binary-confirmed",
+              "reader": "B"
+            },
+            {
+              "phase": "receipt-confirmed",
+              "reader": "B"
+            }
+          ],
+          "recovery": {
+            "action": "inspect only; mutation requires fresh exact authority",
+            "automaticRollback": false,
+            "blindRetry": false,
+            "lockDeleted": false,
+            "observedBinary": "B",
+            "originalEffectClassification": "confirmed",
+            "retainedGenerations": 2
+          }
+        },
+        {
+          "ACompleteGenerationRetained": true,
+          "actualBinary": "B",
+          "classification": "success",
+          "effects": {
+            "ack": "confirmed",
+            "binary": "confirmed",
+            "binding": "confirmed",
+            "generation": "confirmed",
+            "receipt": "confirmed",
+            "skills": "confirmed",
+            "stageRemoval": "confirmed"
+          },
+          "exception": null,
+          "expectedBinaryRevision": [
+            66305,
+            6340866,
+            "06f961b802bc46ee168555f066d28f4f0e9afdf3f88174c1ee6f9de004fc30a0"
+          ],
+          "fault": "success",
+          "faultInjection": "deterministic syscall-result seam; not physical disk/permission exhaustion",
+          "foreignSentinelPreserved": true,
+          "previewSha256": "d63434ac3ac07d786626abec0fa1bf92259a90e691119fd8c1a8befbfd7de3d1",
+          "readerBarriers": [
+            {
+              "phase": "stage-validated",
+              "reader": "A"
+            },
+            {
+              "phase": "generation-published",
+              "reader": "A"
+            },
+            {
+              "phase": "binding-published",
+              "reader": "A"
+            },
+            {
+              "phase": "binary-confirmed",
+              "reader": "B"
+            },
+            {
+              "phase": "receipt-confirmed",
+              "reader": "B"
+            }
+          ],
+          "recovery": {
+            "action": "inspect only; mutation requires fresh exact authority",
+            "automaticRollback": false,
+            "blindRetry": false,
+            "lockDeleted": false,
+            "observedBinary": "B",
+            "originalEffectClassification": "confirmed",
+            "retainedGenerations": 2
+          }
+        }
+      ],
+      "classification": "T03 bounded transition and lock fixture model; no production lock, real candidate receipt or AC acceptance",
+      "concurrency": {
+        "aliasDerivedIdentity": "same physical identity; no alias write authority",
+        "busyErrno": 11,
+        "distinctInstallations": "independent lock",
+        "persistentLockRetained": true,
+        "processExitCodes": [
+          0,
+          0
+        ],
+        "sameBinaryDifferentReceiptRoots": "second busy",
+        "staleExpectedRevisionAfterLock": "refused"
+      },
+      "exitCode": 0,
+      "filesystem": "ext2/ext3",
+      "harnessSha256": "05f9a1c36a82a6d962b114d614a075bc8ea817db740d5ddbfb0375c6b88cbe66",
+      "kernel": "7.0.0-1017-azure",
+      "lockNegatives": [
+        {
+          "case": "foreign-lock",
+          "preserved": true,
+          "result": "refused"
+        },
+        {
+          "case": "lock-symlink",
+          "preserved": true,
+          "result": "refused"
+        },
+        {
+          "case": "lock-hardlink",
+          "preserved": true,
+          "result": "refused"
+        }
+      ],
+      "lockReplacement": {
+        "binaryUnchanged": true,
+        "bothLockObjectsRetained": true,
+        "case": "lock-path-replaced-while-held",
+        "newLock": "OS lock succeeds; stale preview refused by lock-revision comparison",
+        "oldHolder": "refuses at authority recheck"
+      },
+      "machine": "aarch64",
+      "os": "Linux-7.0.0-1017-azure-aarch64-with-glibc2.39",
+      "python": "3.12.3",
+      "runner": "ubuntu-24.04-arm",
+      "sourceSha": "5c8b4a0afa318bcde6abb3a5b1dd39ea2cdf6753",
+      "status": "PASS"
+    }
+  ]
+}
