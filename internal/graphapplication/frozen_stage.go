@@ -41,7 +41,7 @@ func PrepareFrozenStageInvocation(ctx context.Context, request runtimeadapter.St
 	if binding.CredentialReference != "" || request.Profile.CredentialReference != "" || auth == nil {
 		return executiongraph.Invocation{}, report, executiongraph.ErrAuthenticationBlocked
 	}
-	inv, err := runtimeadapter.BuildFrozenStageInvocationV4(request, frozen)
+	inv, err := runtimeadapter.BuildFrozenStageInvocation(request, frozen)
 	if err != nil {
 		if errors.Is(err, runtimeadapter.ErrInvalidAdapterConfiguration) {
 			return executiongraph.Invocation{}, report, runtimeapplication.ErrStale

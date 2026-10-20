@@ -1,4 +1,6 @@
-// Package capabilityproof describes redacted, variant-bound capability evidence.
+// Package capabilityproof keeps only the read-only codec of retired, historical
+// capability Evidence records so local state inventory can classify them
+// (ADR-0032). Nothing here admits, selects or dispatches.
 package capabilityproof
 
 import (
@@ -12,7 +14,6 @@ import (
 	"time"
 
 	"github.com/rgomids/axiom/internal/portableconfig"
-	"github.com/rgomids/axiom/internal/runtimeprofile"
 	"github.com/rgomids/axiom/internal/workflowdefinition"
 )
 
@@ -209,33 +210,4 @@ func Digest(e Evidence) (string, error) {
 	}
 	d := sha256.Sum256(w)
 	return hex.EncodeToString(d[:]), nil
-}
-
-// Evaluate never creates proof; it selects previously verified fresh facts.
-func Evaluate(e Evidence, b Binding, m *ModelBinding, c string, now time.Time) (State, string) {
-	if !ValidEvidence(e) {
-		return Unknown, "capability_unknown"
-	}
-	if e.Binding != b || (e.Model == nil) != (m == nil) || e.Model != nil && *e.Model != *m {
-		return Unknown, "capability_stale"
-	}
-	if now.Before(e.ObservedAt) || now.Sub(e.ObservedAt) > MaxAge {
-		return Unknown, "capability_stale"
-	}
-	if e.InvalidatedReason != "" {
-		return Unknown, "capability_unknown"
-	}
-	r, ok := e.Capabilities[c]
-	if !ok || r.State == Unknown {
-		return Unknown, "capability_unknown"
-	}
-	if r.State == Unsupported {
-		return Unsupported, "capability_unsupported"
-	}
-	return Proven, ""
-}
-
-// ModelFromResolvedProfile copies the accepted #306 tuple without changing its format.
-func ModelFromResolvedProfile(p runtimeprofile.ResolvedProfile) ModelBinding {
-	return ModelBinding{p.ProfileID, p.ProfileDigest, p.Model, p.Effort.Mode, p.Effort.Value, p.ConfigurationRevision, p.EffortSourceDigest}
 }

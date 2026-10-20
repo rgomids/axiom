@@ -15,7 +15,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/rgomids/axiom/internal/capabilityproof"
+	"github.com/rgomids/axiom/internal/runtimeprofile"
 	"github.com/rgomids/axiom/internal/cli"
 	"github.com/rgomids/axiom/internal/completion"
 	"github.com/rgomids/axiom/internal/coordination"
@@ -354,8 +354,7 @@ func (s lifecycleService) stageError(err error, payload any) cli.WorkflowStageRe
 		{executiongraph.ErrMissingOwner, completion.ValidationFailure, "invalid_stage_topology", "Review stage dependencies, ownership and overlapping effects before a fresh preview"},
 		{executiongraph.ErrInvalidPlan, completion.ValidationFailure, "invalid_stage_plan", "Review the bounded stage Plan and its execution controls before a fresh preview"},
 		{workflowcompiler.ErrInvalidRequest, completion.ValidationFailure, "invalid_stage_plan", "Review the bounded stage Plan and its execution controls before a fresh preview"},
-		{workflowcompiler.ErrRuntimeBlocked, completion.ValidationFailure, "runtime_unresolvable", "Inspect the Project Runtime policy, Profiles and current capability Evidence"},
-		{capabilityproof.ErrBlocked, completion.ValidationFailure, "capability_unknown", "Inspect capability Evidence and producer support; a probe needs its own supported observation, envelope and authority"},
+		{workflowcompiler.ErrRuntimeBlocked, completion.ValidationFailure, "runtime_unresolvable", "Inspect the Project Runtime policy and local Profiles, then request a fresh preview"},
 		{stageexecution.ErrReconcileLeaseHeld, completion.ValidationFailure, "reconcile_lease_held", "Wait for the supervisor to finish or cancel the stage"},
 		{stageexecution.ErrReconcileOrphanAlive, completion.ValidationFailure, "stop_orphan_then_reconcile", "Inspect recorded process identity and liveness; wait or hand off a separately authorized stop before reconciliation"},
 		{stageexecution.ErrReconcileIneligible, completion.ValidationFailure, "reconcile_not_required", "Only stale or unknown latest attempts are reconciled"},
@@ -380,6 +379,10 @@ func (s lifecycleService) stageError(err error, payload any) cli.WorkflowStageRe
 		{local.ErrConflict, completion.RetryableFailure, "temporarily_unavailable", "A concurrent stage operation holds the lease; retry the read first"},
 		{local.ErrRecoveryRequired, completion.Failure, "recovery_required", "Run recovery inspect and apply the reviewed plan"},
 		{executiongraph.ErrInvalidGraph, completion.Failure, "recovery_required", "Inspect stage status and recovery state"},
+	}
+	var blocker runtimeprofile.Blocker
+	if errors.As(err, &blocker) && workflowcompiler.OperationalRefusal(blocker.Code) {
+		return s.stageFailure(completion.ValidationFailure, blocker.Code, "Stage operation refused", operationalNext(blocker.Code), payload)
 	}
 	for _, r := range rules {
 		if errors.Is(err, r.target) {

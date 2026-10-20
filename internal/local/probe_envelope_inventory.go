@@ -21,7 +21,7 @@ func walkProbeEnvelopes(w *inventoryWalk, root *os.Root) error {
 			if !probeName(probeID) {
 				return w.add(relative, InventoryUnknown, nil)
 			}
-			intent, err := readEnvelopeIntent(EnvelopePolicy{StateRoot: root.Name()}, probeID)
+			intent, err := readEnvelopeIntent(root.Name(), probeID)
 			if err != nil || intent == nil {
 				return w.add(relative, InventoryUnsafe, nil)
 			}
@@ -55,7 +55,7 @@ func walkProbeEnvelopes(w *inventoryWalk, root *os.Root) error {
 					}
 					observed, err := envelopeIdentity(filepath.Join(probe.Name(), owned))
 					if os.IsNotExist(err) && owned != "." {
-						intent, intentErr := readEnvelopeIntent(EnvelopePolicy{StateRoot: root.Name()}, id)
+						intent, intentErr := readEnvelopeIntent(root.Name(), id)
 						if intentErr == nil && intent != nil && intent.Digest == digestEnvelope(wire) {
 							continue
 						}

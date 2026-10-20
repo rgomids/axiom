@@ -101,7 +101,7 @@ func (s OperationalSource) ObserveOperational(ctx context.Context, runtimeID, pr
 }
 
 func effortInvocation(runtimeID, executable string, profile runtimeprofile.ModelProfile, environment []string) (executiongraph.Invocation, error) {
-	inv, err := BuildOperationalStageInvocation(StageInvocationRequest{Profile: CommandProfile{RuntimeID: runtimeID, ModelProfileID: profile.ID, Executable: executable, Model: profile.Model}, Workspace: effortRoleWorkspace, Inbox: effortRoleInbox, AxiomPath: effortRoleAxiom, RepositoryWrite: true, ParentEnvironment: environment})
+	inv, err := BuildStageInvocation(StageInvocationRequest{Profile: CommandProfile{RuntimeID: runtimeID, ModelProfileID: profile.ID, Executable: executable, Model: profile.Model}, Workspace: effortRoleWorkspace, Inbox: effortRoleInbox, AxiomPath: effortRoleAxiom, RepositoryWrite: true, ParentEnvironment: environment})
 	if err != nil {
 		return executiongraph.Invocation{}, err
 	}

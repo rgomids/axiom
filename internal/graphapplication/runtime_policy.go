@@ -285,14 +285,14 @@ func (g policyInvocations) checkEffortSources(ctx context.Context, child executi
 		return invocation, nil
 	} // historical composition; new admission owns legacy refusal
 	if !executiongraph.ValidFrozenProfileControls(profile, child.Envelope.Controls, child.Envelope.Capability) || g.effortSources == nil {
-		return executiongraph.Invocation{}, ErrEffortConfigurationUnproven
+		return executiongraph.Invocation{}, runtimeadapter.ErrEffortConfigurationUnsafe
 	}
 	sourceDigest, err := g.effortSources.CheckEffortSources(ctx, *profile, invocation)
 	if err != nil {
 		if errors.Is(err, ErrEffortOverrideConflict) || errors.Is(err, runtimeadapter.ErrEffortOverrideConflict) {
 			return executiongraph.Invocation{}, ErrEffortOverrideConflict
 		}
-		return executiongraph.Invocation{}, ErrEffortConfigurationUnproven
+		return executiongraph.Invocation{}, runtimeadapter.ErrEffortConfigurationUnsafe
 	}
 	if sourceDigest != profile.EffortSourceDigest {
 		return executiongraph.Invocation{}, runtimeapplication.ErrStale
@@ -300,7 +300,6 @@ func (g policyInvocations) checkEffortSources(ctx context.Context, child executi
 	return invocation, nil
 }
 
-var ErrEffortConfigurationUnproven = errors.New("effort_configuration_unproven")
 var ErrEffortOverrideConflict = errors.New("effort_override_conflict")
 
 func authoredCapabilities(values []string, profile *runtimeprofile.ResolvedProfileV4) []string {

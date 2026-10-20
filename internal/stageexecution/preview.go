@@ -163,12 +163,3 @@ func (s PreviewService) Preview(ctx context.Context, ref workflowcompiler.Execut
 	p.Digest, e = previewDigest(p)
 	return p, e
 }
-func uniqueStrings(v []string) []string {
-	out := v[:0]
-	for _, s := range v {
-		if len(out) == 0 || out[len(out)-1] != s {
-			out = append(out, s)
-		}
-	}
-	return out
-}

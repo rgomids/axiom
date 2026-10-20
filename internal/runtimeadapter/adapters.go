@@ -9,49 +9,9 @@ import (
 	"strings"
 
 	"github.com/rgomids/axiom/internal/executiongraph"
-	"github.com/rgomids/axiom/internal/runtimeprofile"
 )
 
 var ErrInvalidAdapterConfiguration = errors.New("invalid runtime adapter configuration")
-
-type Inventory struct {
-	observations map[string]runtimeprofile.Observation
-}
-
-func NewInventory(observations []runtimeprofile.Observation) (Inventory, error) {
-	result := Inventory{observations: make(map[string]runtimeprofile.Observation, len(observations))}
-	for _, observation := range observations {
-		if observation.RuntimeID != "codex" && observation.RuntimeID != "claude" || observation.Adapter != observation.RuntimeID || observation.Revision == 0 || observation.ObservedAt.IsZero() {
-			return Inventory{}, ErrInvalidAdapterConfiguration
-		}
-		if _, exists := result.observations[observation.RuntimeID]; exists {
-			return Inventory{}, ErrInvalidAdapterConfiguration
-		}
-		copyObservation := observation
-		copyObservation.CapabilityStatus = make(map[string]runtimeprofile.CapabilityStatus, len(observation.CapabilityStatus))
-		for capability, status := range observation.CapabilityStatus {
-			copyObservation.CapabilityStatus[capability] = status
-		}
-		copyObservation.NonInteractiveModelCapabilities = make(map[string]map[string]runtimeprofile.CapabilityStatus, len(observation.NonInteractiveModelCapabilities))
-		for model, capabilities := range observation.NonInteractiveModelCapabilities {
-			copyCapabilities := make(map[string]runtimeprofile.CapabilityStatus, len(capabilities))
-			for capability, status := range capabilities {
-				copyCapabilities[capability] = status
-			}
-			copyObservation.NonInteractiveModelCapabilities[model] = copyCapabilities
-		}
-		result.observations[observation.RuntimeID] = copyObservation
-	}
-	return result, nil
-}
-
-func (i Inventory) Observe(_ context.Context, runtimeID string) (runtimeprofile.Observation, error) {
-	observation, exists := i.observations[runtimeID]
-	if !exists {
-		return runtimeprofile.Observation{}, ErrInvalidAdapterConfiguration
-	}
-	return observation, nil
-}
 
 type CommandProfile struct {
 	RuntimeID, ModelProfileID string

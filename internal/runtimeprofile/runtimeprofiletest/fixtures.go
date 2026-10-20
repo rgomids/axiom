@@ -147,26 +147,6 @@ func mapRuntime(c runtimeprofile.ConfigurationV3, runtimeID string, edit func(*r
 	return c
 }
 
-// CodexApplicability is the synthetic observed identity CodexDeclaration
-// applies to; it is an input for lookups, not an observation.
-func CodexApplicability() runtimeprofile.EffortApplicability {
-	return runtimeprofile.EffortApplicability{RuntimeID: CodexRuntimeID, RuntimeVersion: CodexRuntimeVersion, ExecutableDigest: CodexExecutableDigest, InvocationMode: InvocationMode}
-}
-
-func ClaudeApplicability() runtimeprofile.EffortApplicability {
-	return runtimeprofile.EffortApplicability{RuntimeID: ClaudeRuntimeID, RuntimeVersion: ClaudeRuntimeVersion, ExecutableDigest: ClaudeExecutableDigest, InvocationMode: InvocationMode}
-}
-
-// Consumer builds the canonical v3 consumer for an active record c.
-func Consumer(tb testing.TB, c runtimeprofile.ConfigurationV3) runtimeprofile.ConsumerV3 {
-	tb.Helper()
-	consumer, err := runtimeprofile.NewConsumerV3(runtimeprofile.RecordActiveV3, &c)
-	if err != nil {
-		tb.Fatalf("synthetic v3 consumer: %v", err)
-	}
-	return consumer
-}
-
 func Encode(tb testing.TB, c runtimeprofile.ConfigurationV3) []byte {
 	tb.Helper()
 	wire, err := runtimeprofile.EncodeV3(c)

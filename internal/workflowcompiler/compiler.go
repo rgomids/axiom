@@ -377,6 +377,9 @@ func (c Compiler) resolveAgent(ctx context.Context, request Request, stage workf
 			selection.RuntimeID = agent.RuntimeConstraints[0]
 		}
 		preview, err := c.runtimes.Preview(ctx, request.ProjectID, selection)
+		if err != nil && preview.Blocker != nil {
+			return runtimeapplication.Preview{}, fmt.Errorf("%w: %w", ErrRuntimeBlocked, *preview.Blocker)
+		}
 		if err != nil || !previewMatchesV2(preview, request.ProjectID, selection) || len(agent.RuntimeConstraints) > 0 && !contains(agent.RuntimeConstraints, preview.Choice.RuntimeID) {
 			return runtimeapplication.Preview{}, ErrRuntimeBlocked
 		}

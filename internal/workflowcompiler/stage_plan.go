@@ -214,6 +214,10 @@ func ClassifyFailure(err error) Failure {
 	case errors.Is(err, ErrUnsupportedEffort):
 		return Failure{Category: "unsupported_effort"}
 	case errors.Is(err, ErrRuntimeBlocked), errors.Is(err, executiongraph.ErrUnresolvable):
+		var blocker runtimeprofile.Blocker
+		if errors.As(err, &blocker) && OperationalRefusal(blocker.Code) {
+			return Failure{Category: blocker.Code}
+		}
 		return Failure{Category: "runtime_unresolvable"}
 	case errors.Is(err, ErrAuthorityExceeded), errors.Is(err, executiongraph.ErrAuthoritySubset):
 		return Failure{Category: "authority_denied", AuthorityDenied: true}
@@ -221,6 +225,16 @@ func ClassifyFailure(err error) Failure {
 		return Failure{Category: "invalid_stage_topology"}
 	}
 	return Failure{Category: "invalid_stage_plan"}
+}
+
+// OperationalRefusal reports the observation refusals that name their actual
+// boundary instead of a generic unresolvable Runtime.
+func OperationalRefusal(code string) bool {
+	switch code {
+	case "executable_unavailable", "inspection_consent_required", "effort_override_conflict", "configuration_unsafe":
+		return true
+	}
+	return false
 }
 
 func digestOf(wire []byte) string {

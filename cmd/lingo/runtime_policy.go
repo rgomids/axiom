@@ -140,8 +140,12 @@ func (s lifecycleService) runtimeResolutionResult(preview runtimeapplication.Pre
 			next = "Use axiom-runtime to inspect and prepare explicit local setup; request a fresh preview afterwards"
 		case "unsupported_configuration_format":
 			next = "Pre-stable local configuration is not used: retire it explicitly with axiom-runtime (binding remove --runtime <id> --cascade), create canonical configuration, then request a fresh preview"
-		case "configuration_recovery_required", "configuration_unsafe":
+		case "configuration_recovery_required":
 			next = "Use axiom-runtime scoped recovery; preserve the current state and review exact recovery authority"
+		default:
+			if action := operationalNext(preview.Blocker.Code); action != "" {
+				next = action
+			}
 		}
 	}
 	response := canonicalCompletion(completion.Facts{ValidationFailed: !ready, Completed: ready}, "Project Runtime policy resolution blocked", nil, next, s.provenance)
@@ -155,4 +159,20 @@ func (s lifecycleService) runtimeResolutionResult(preview runtimeapplication.Pre
 
 func (s lifecycleService) runtimePolicyFailure(code string) cli.Result {
 	return s.runtimeResolutionResult(runtimeapplication.Preview{Blocker: &runtimeprofile.Blocker{Code: code}}, false)
+}
+
+// operationalNext is the recovery action of an observation refusal. Each
+// names the boundary that refused; none requests certification or repair.
+func operationalNext(code string) string {
+	switch code {
+	case "executable_unavailable":
+		return "Install the Runtime CLI or expose it on PATH under its own name, then request a fresh preview"
+	case "inspection_consent_required":
+		return "Repeat with --authorize-local to consent to read-only inspection of the repository's Runtime effort sources"
+	case "effort_override_conflict":
+		return "Remove the competing effort setting (argument, environment or settings file) so the Profile alone owns effort, then request a fresh preview"
+	case "configuration_unsafe":
+		return "Inspect local Runtime configuration: an unsafe Axiom Runtime configuration store needs axiom-runtime scoped recovery; Runtime effort sources must not be relocated (CODEX_HOME, CLAUDE_CONFIG_DIR), symlinked, foreign-owned or malformed. Then request a fresh preview"
+	}
+	return ""
 }

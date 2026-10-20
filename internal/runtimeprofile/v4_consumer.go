@@ -6,6 +6,17 @@ import (
 	"time"
 )
 
+// Consumer refusals. ErrInvalidConfiguration and
+// ErrUnsupportedConfigurationFormat remain the invalid and historical-format
+// refusals.
+var (
+	ErrRuntimeAbsent          = errors.New("runtime_absent")
+	ErrRuntimeDisabled        = errors.New("runtime_disabled")
+	ErrProfileMissing         = errors.New("profile_missing")
+	ErrProfileRuntimeMismatch = errors.New("profile_runtime_mismatch")
+	ErrProfileNotAllowlisted  = errors.New("profile_not_allowlisted")
+)
+
 // Operational observation refusals shared by the adapter observer and policy
 // resolution. Each names its actual boundary; none requests certification.
 var (

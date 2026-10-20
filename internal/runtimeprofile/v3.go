@@ -3,10 +3,8 @@ package runtimeprofile
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
-	"math"
 	"path"
 	"sort"
 	"strings"
@@ -43,10 +41,6 @@ const (
 // consumer does not read (D8). It remains an ErrInvalidConfiguration so
 // existing v2-only handling is unchanged.
 var ErrUnsupportedConfigurationFormat = fmt.Errorf("%w: unsupported_configuration_format", ErrInvalidConfiguration)
-
-// ErrEffortDeclarationUnproven carries the existing effort_configuration_unproven
-// code: no applicable declaration, including every historical v1/v2 record (D3).
-var ErrEffortDeclarationUnproven = errors.New("effort_configuration_unproven")
 
 type ConfigurationV3 struct {
 	FormatVersion int            `json:"formatVersion"`
@@ -89,12 +83,6 @@ type EffortSourceDeclaration struct {
 	Directory bool   `json:"directory"`
 }
 
-// ProofReference is the declaration's value for the existing
-// runtimeadapter.EffortDeclaration.ProofReference (D7, 1:1 identity mapping).
-// It names the configured declaration bound into the effort-source digest; it
-// is never an EvidenceRef and never proves a capability.
-func (d EffortDeclaration) ProofReference() string { return d.DeclarationID }
-
 // VersionedConfiguration is the version-dispatched read result. Formats 1 and
 // 2 are decoded by Decode with unchanged semantics and gain no declaration.
 type VersionedConfiguration struct {
@@ -102,12 +90,6 @@ type VersionedConfiguration struct {
 	Configuration *Configuration
 	V3            *ConfigurationV3
 	V4            *ConfigurationV4
-}
-
-// EffortApplicability is the independently observed identity a declaration
-// must match; decoding a declaration never claims this observation.
-type EffortApplicability struct {
-	RuntimeID, RuntimeVersion, ExecutableDigest, InvocationMode string
 }
 
 func DecodeVersioned(wire []byte) (VersionedConfiguration, error) {
@@ -134,26 +116,6 @@ func DecodeVersioned(wire []byte) (VersionedConfiguration, error) {
 		return VersionedConfiguration{}, ErrUnsupportedConfigurationFormat
 	}
 	return VersionedConfiguration{}, ErrInvalidConfiguration
-}
-
-// ApplicableEffortDeclaration fails closed: historical records, missing,
-// inapplicable or unversioned declarations are effort_configuration_unproven.
-// A Runtime version alone never selects or creates a declaration.
-func ApplicableEffortDeclaration(v VersionedConfiguration, a EffortApplicability) (EffortDeclaration, error) {
-	if v.FormatVersion != FormatVersionV3 || v.V3 == nil || ValidateV3(*v.V3) != nil || !validToken(a.RuntimeID) || !SafeRuntimeVersion(a.RuntimeVersion) || !validDigest(a.ExecutableDigest) || a.InvocationMode == "" {
-		return EffortDeclaration{}, ErrEffortDeclarationUnproven
-	}
-	for _, r := range v.V3.Runtimes {
-		if r.ID != a.RuntimeID {
-			continue
-		}
-		for _, d := range r.EffortDeclarations {
-			if d.RuntimeVersion == a.RuntimeVersion && d.ExecutableDigest == a.ExecutableDigest && d.InvocationMode == a.InvocationMode {
-				return cloneDeclaration(d), nil
-			}
-		}
-	}
-	return EffortDeclaration{}, ErrEffortDeclarationUnproven
 }
 
 func ValidateV3(c ConfigurationV3) error {
@@ -454,66 +416,4 @@ func closedEffortDeclaration(v []byte) bool {
 	return requiredObject(v, []string{"declarationId", "declarationVersion", "runtimeVersion", "executableDigest", "invocationMode", "precedenceEstablished", "jsonKeys", "environmentKeys", "sources"}, map[string]func([]byte) bool{
 		"jsonKeys": list, "environmentKeys": list, "sources": func(v []byte) bool { return closedArray(v, source) },
 	})
-}
-
-// DecodeEffortDeclaration strictly decodes one authored declaration for the
-// enclosing Runtime runtimeID (BI-3.1). Nothing is defaulted, completed or
-// derived from a vendor version; decoding claims no applicability.
-func DecodeEffortDeclaration(wire []byte, runtimeID string) (EffortDeclaration, error) {
-	if len(wire) == 0 || len(wire) > MaxConfigurationBytes || !uniqueJSON(wire) || !closedEffortDeclaration(wire) {
-		return EffortDeclaration{}, ErrInvalidConfiguration
-	}
-	d := json.NewDecoder(bytes.NewReader(wire))
-	d.DisallowUnknownFields()
-	var declaration EffortDeclaration
-	if d.Decode(&declaration) != nil || d.Decode(&struct{}{}) != io.EOF || !validEffortDeclaration(runtimeID, declaration) {
-		return EffortDeclaration{}, ErrInvalidConfiguration
-	}
-	return cloneDeclaration(declaration), nil
-}
-
-// WithEffortDeclaration adds d to Runtime runtimeID or replaces the declaration
-// with the same declarationId there, with revision+1 (BI-3.1). Another
-// declarationId for the same applicability tuple is ambiguous and refused, as
-// is an identity owned by another Runtime. Removal is not provided.
-func WithEffortDeclaration(c ConfigurationV3, runtimeID string, d EffortDeclaration) (ConfigurationV3, bool, error) {
-	if ValidateV3(c) != nil || c.Revision == math.MaxUint64 {
-		return ConfigurationV3{}, false, ErrInvalidConfiguration
-	}
-	next := c
-	next.Revision = c.Revision + 1
-	next.Runtimes = make([]RuntimeV3, len(c.Runtimes))
-	found, replaced := false, false
-	for i, r := range c.Runtimes {
-		declarations := make([]EffortDeclaration, 0, len(r.EffortDeclarations)+1)
-		for _, existing := range r.EffortDeclarations {
-			sameTuple := existing.RuntimeVersion == d.RuntimeVersion && existing.ExecutableDigest == d.ExecutableDigest && existing.InvocationMode == d.InvocationMode
-			switch {
-			case existing.DeclarationID == d.DeclarationID && r.ID != runtimeID:
-				return ConfigurationV3{}, false, ErrInvalidConfiguration
-			case existing.DeclarationID == d.DeclarationID:
-				replaced = true
-				continue
-			case r.ID == runtimeID && sameTuple:
-				return ConfigurationV3{}, false, ErrInvalidConfiguration
-			}
-			declarations = append(declarations, cloneDeclaration(existing))
-		}
-		if r.ID == runtimeID {
-			declarations = append(declarations, cloneDeclaration(d))
-			found = true
-		}
-		if len(declarations) == 0 {
-			declarations = nil
-		}
-		r.AllowlistedProfileIDs = append([]string(nil), r.AllowlistedProfileIDs...)
-		r.EffortDeclarations = declarations
-		next.Runtimes[i] = r
-	}
-	next.ModelProfiles = append([]ModelProfile(nil), c.ModelProfiles...)
-	next.Preferences = append([]Preference(nil), c.Preferences...)
-	if !found || ValidateV3(next) != nil {
-		return ConfigurationV3{}, false, ErrInvalidConfiguration
-	}
-	return next, replaced, nil
 }
