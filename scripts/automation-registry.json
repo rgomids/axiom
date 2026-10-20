@@ -41,6 +41,36 @@
   ],
   "entries": [
     {
+      "path": ".github/workflows/axm37-p1-experiment.yml",
+      "kind": "workflow",
+      "owner": "maintainer-acceptance",
+      "purpose": "Bounded native AXM-37 P1 image and pinned-reader experiments only.",
+      "lifecycle": "historical-replay",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "github-actions",
+        "bash",
+        "python3",
+        "go"
+      ],
+      "scope": [
+        "test"
+      ],
+      "trigger": null,
+      "replay_reason": "Exact native P1 mechanism Evidence under AXM-37 explicit resumption-3 authority.",
+      "callers": [],
+      "inputs": "Branch source SHA; isolated synthetic fixtures; native runner OS and toolchain.",
+      "outputs": "Sanitized bounded JSON outcomes in job logs.",
+      "local_effects": "none",
+      "network_effects": "Pinned GitHub Actions checkout and Go toolchain setup only.",
+      "authority": "Explicit AXM-37 resumption-3 native-runner authority; no publication or installation.",
+      "tests": [],
+      "evidence": "docs/specifications/010-installed-operational-documentation/evidence-resume-3.md",
+      "compatibility": [],
+      "removal_condition": "Remove workflow and registry entry after collecting this bounded experiment; retain source commit and sanitized Evidence."
+    },
+    {
       "path": ".github/workflows/ci.yml",
       "kind": "workflow",
       "owner": "ci",

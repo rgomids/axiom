@@ -323,3 +323,22 @@ complete OD/AC mapping; accepted material contracts or named narrower blocked wo
 unchanged accepted history; current documentary checks/CI and no unresolved authority
 drift. No outstanding Q1–Q6 question needs another answer. Plan approval alone does
 not run Tasks/implementation or accept native/product behavior. Stop at this proposal.
+
+## Resumption 3 addendum — human C1, 2026-10-20 18:40 BRT
+
+This addendum changes only the quota-freeze ordering in the historical revision
+above. Rafael's explicit decision in the resumption-3 instruction is recorded
+literally in [C1 acceptance](acceptance-resume-3.md). G1 may use the exact accepted
+initial quotas as development/security budgets. Public final quotas remain
+conditional on integral corpus/reference measurement and coverage validation in
+T05/T06. **T07/packaging is blocked** if any limit is exceeded or coverage is
+incomplete. Do not reduce coverage or change a material limit without a comparative
+proposal and explicit human disposition. All other G1 requirements remain intact.
+**Human approval of G1 is required before T05+**; C1 does not approve G1.
+
+T01's coverage-based final quota freeze and T04's quota reconciliation are read
+with this bounded amendment. Task IDs, DAG, historical dispositions, D1-e's
+unqualified v0.1.0 objective, G2/G3 and AC-01–AC-08 remain unchanged. T11's historical
+suffix notation is governed by accepted D3-a: `axiom --json docs inspect` and
+`axiom --human docs inspect`. Current execution/Evidence status belongs to the
+[resumption-3 checkpoint](evidence-resume-3.md), not historical NOT_RUN headers.

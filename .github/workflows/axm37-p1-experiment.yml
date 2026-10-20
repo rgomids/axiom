@@ -1,0 +1,534 @@
+name: AXM-37 temporary P1 experiment
+on:
+  push:
+    branches: [docs/axm-37-offline-operational-documentation]
+permissions:
+  contents: read
+jobs:
+  p1:
+    if: github.ref == 'refs/heads/docs/axm-37-offline-operational-documentation'
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: Native P1 image and complete reader experiment
+        shell: bash
+        env:
+          EXPERIMENT_SHA: ${{ github.sha }}
+          EXPERIMENT_RUNNER: ${{ matrix.runner }}
+        run: |
+          set -euo pipefail
+          probe_dir="$(mktemp -d)"
+          cat > "$probe_dir/main.go" <<'GOPROBE'
+          package main
+
+          /*
+          #include <unistd.h>
+          #include <sys/stat.h>
+          #include <fcntl.h>
+          #include <stdint.h>
+          #ifdef __APPLE__
+          #include <libproc.h>
+          #endif
+          static int image_identity(uint64_t *dev, uint64_t *ino) {
+          #ifdef __APPLE__
+           struct proc_regionwithpathinfo r;
+           if (proc_pidinfo(getpid(), PROC_PIDREGIONPATHINFO, (uint64_t)(uintptr_t)&image_identity, &r, sizeof r) != sizeof r) return -1;
+           *dev=r.prp_vip.vip_vi.vi_stat.vst_dev; *ino=r.prp_vip.vip_vi.vi_stat.vst_ino;
+          #else
+           struct stat s; int fd=open("/proc/self/exe", O_RDONLY|O_CLOEXEC);
+           if(fd<0) return -1;
+           int result=fstat(fd,&s); close(fd); if(result) return -1;
+           *dev=s.st_dev; *ino=s.st_ino;
+          #endif
+           return 0;
+          }
+          */
+          import "C"
+
+          import (
+            "bufio"
+            "bytes"
+            "crypto/sha256"
+            "encoding/hex"
+            "encoding/json"
+            "fmt"
+            "io"
+            "io/fs"
+            "os"
+            "path/filepath"
+            "sort"
+            "strconv"
+            "strings"
+            "syscall"
+          )
+
+          var input = bufio.NewScanner(os.Stdin)
+          var emitter = json.NewEncoder(os.Stdout)
+          var tag = "A"
+
+          func emit(v any) {
+            if emitter.Encode(v) != nil {
+                os.Exit(8)
+            }
+          }
+          func pause() {
+            if !input.Scan() {
+                os.Exit(9)
+            }
+            if strings.HasPrefix(input.Text(), "PATH=") {
+                os.Setenv("PATH", strings.TrimPrefix(input.Text(), "PATH="))
+                os.Chdir("/")
+            }
+          }
+          func refuse(reason string) {
+            emit(map[string]any{"phase": "result", "outcome": "refused", "reason": reason, "tag": tag})
+            os.Exit(0)
+          }
+          func hash(b []byte) string { v := sha256.Sum256(b); return hex.EncodeToString(v[:]) }
+          func identity(i fs.FileInfo) (uint64, uint64) {
+            s := i.Sys().(*syscall.Stat_t)
+            return uint64(s.Dev), uint64(s.Ino)
+          }
+          func image() (uint64, uint64) {
+            var d, i C.uint64_t
+            if C.image_identity(&d, &i) != 0 {
+                refuse("image_proof_unavailable")
+            }
+            return uint64(d), uint64(i)
+          }
+          func safe(i fs.FileInfo, dir bool) bool {
+            s := i.Sys().(*syscall.Stat_t)
+            if s.Uid != uint32(os.Getuid()) || i.Mode().Perm()&0077 != 0 {
+                return false
+            }
+            if dir {
+                return i.IsDir() && i.Mode()&os.ModeSymlink == 0
+            }
+            return i.Mode().IsRegular() && s.Nlink == 1
+          }
+          func bounded(f *os.File, n int64) []byte {
+            b, e := io.ReadAll(io.LimitReader(f, n+1))
+            if e != nil || int64(len(b)) > n {
+                refuse("quota_or_io")
+            }
+            return b
+          }
+          func anchored(path string) *os.Root {
+            i, e := os.Lstat(path)
+            if e != nil || !safe(i, true) {
+                refuse("unsafe_directory")
+            }
+            r, e := os.OpenRoot(path)
+            if e != nil {
+                refuse("root_unavailable")
+            }
+            j, e := r.Stat(".")
+            if e != nil || !os.SameFile(i, j) {
+                refuse("directory_changed")
+            }
+            return r
+          }
+          func parents(r *os.Root, path string) map[string]fs.FileInfo {
+            out := map[string]fs.FileInfo{}
+            parts := strings.Split(path, "/")
+            for n := 1; n < len(parts); n++ {
+                p := strings.Join(parts[:n], "/")
+                i, e := r.Lstat(p)
+                if e != nil || !safe(i, true) {
+                    refuse("unsafe_ancestor")
+                }
+                out[p] = i
+            }
+            return out
+          }
+          func recheck(r *os.Root, entries map[string]fs.FileInfo) {
+            for p, i := range entries {
+                j, e := r.Lstat(p)
+                if e != nil || !os.SameFile(i, j) || !safe(j, true) {
+                    refuse("ancestor_changed")
+                }
+            }
+          }
+          func read(r *os.Root, p string, limit int64) []byte {
+            if filepath.IsAbs(p) || filepath.Clean(p) != p || strings.Contains(p, "\\") || strings.HasPrefix(p, "..") {
+                refuse("unsafe_path")
+            }
+            ps := parents(r, p)
+            i, e := r.Lstat(p)
+            if e != nil || !safe(i, false) {
+                refuse("unsafe_file")
+            }
+            f, e := r.OpenFile(p, os.O_RDONLY|syscall.O_NOFOLLOW, 0)
+            if e != nil {
+                refuse("open_refused")
+            }
+            defer f.Close()
+            j, e := f.Stat()
+            if e != nil || !os.SameFile(i, j) {
+                refuse("file_changed")
+            }
+            b := bounded(f, limit)
+            j, e = r.Lstat(p)
+            if e != nil || !os.SameFile(i, j) || !safe(j, false) {
+                refuse("file_changed")
+            }
+            recheck(r, ps)
+            return b
+          }
+          func fields(b []byte, header string, n int) [][]string {
+            if !bytes.HasSuffix(b, []byte("\n")) || bytes.ContainsAny(b, "\r\x00") {
+                refuse("malformed_control")
+            }
+            lines := strings.Split(strings.TrimSuffix(string(b), "\n"), "\n")
+            if len(lines) < 2 || lines[0] != "formatVersion=1" || lines[1] != header {
+                refuse("malformed_control")
+            }
+            out := [][]string{}
+            last := ""
+            for _, line := range lines[2:] {
+                f := strings.Split(line, "\t")
+                if len(f) != n || line <= last {
+                    refuse("malformed_control")
+                }
+                last = line
+                out = append(out, f)
+            }
+            return out
+          }
+          func num(v any) uint64 {
+            f, ok := v.(float64)
+            if !ok || f < 0 || f > 9007199254740991 || float64(uint64(f)) != f {
+                refuse("malformed_binding")
+            }
+            return uint64(f)
+          }
+          func main() {
+            exe, e := os.Executable()
+            if e != nil {
+                refuse("no_executable")
+            }
+            exe, e = filepath.EvalSymlinks(exe)
+            if e != nil {
+                refuse("no_physical_path")
+            }
+            exe, e = filepath.Abs(exe)
+            if e != nil {
+                refuse("no_absolute_path")
+            }
+            idev, iino := image()
+            emit(map[string]any{"phase": "image", "tag": tag, "imageDevice": idev, "imageInode": iino, "label": "same-fixture-label"})
+            pause()
+            info, e := os.Lstat(exe)
+            if e != nil || !safe(info, false) {
+                refuse("unsafe_binary")
+            }
+            pin, e := os.OpenFile(exe, os.O_RDONLY|syscall.O_NOFOLLOW, 0)
+            if e != nil {
+                refuse("pin_unavailable")
+            }
+            defer pin.Close()
+            pi, e := pin.Stat()
+            if e != nil || !os.SameFile(info, pi) {
+                refuse("binary_changed")
+            }
+            dev, ino := identity(pi)
+            if dev != idev || ino != iino {
+                refuse("image_mismatch")
+            }
+            binaryHash := hash(bounded(pin, 32<<20))
+            parent := filepath.Dir(exe)
+            parentInfo, e := os.Lstat(parent)
+            if e != nil || !safe(parentInfo, true) {
+                refuse("unsafe_parent")
+            }
+            pd, pino := identity(parentInfo)
+            emit(map[string]any{"phase": "ready", "tag": tag, "binarySha256": binaryHash, "imageDevice": idev, "imageInode": iino})
+            pause()
+            d, i := image()
+            if d != idev || i != iino {
+                refuse("image_changed")
+            }
+            now, e := os.Lstat(parent)
+            if e != nil || !os.SameFile(parentInfo, now) {
+                refuse("parent_changed")
+            }
+            parentRoot := anchored(parent)
+            defer parentRoot.Close()
+            namespaceParents := parents(parentRoot, ".axiom-docs/axiom/placeholder")
+            base := filepath.Join(parent, ".axiom-docs", "axiom")
+            root := anchored(base)
+            defer root.Close()
+            baseInfo, e := root.Stat(".")
+            if e != nil {
+                refuse("root_unavailable")
+            }
+            bindingDir := "bindings/" + binaryHash
+            ps := parents(root, bindingDir+"/placeholder")
+            list, e := fs.ReadDir(root.FS(), bindingDir)
+            if e != nil || len(list) == 0 || len(list) > 64 {
+                refuse("binding_absent_or_quota")
+            }
+            recheck(root, ps)
+            var selected map[string]any
+            for _, ent := range list {
+                b := read(root, bindingDir+"/"+ent.Name(), 16<<10)
+                if ent.Name() != hash(b)+".json" {
+                    refuse("binding_hash")
+                }
+                var m map[string]any
+                if json.Unmarshal(b, &m) != nil || len(m) != 15 {
+                    refuse("binding_format")
+                }
+                if m["binarySha256"] == binaryHash && m["binaryPath"] == exe && num(m["parentDevice"]) == pd && num(m["parentInode"]) == pino && num(m["binaryDevice"]) == dev && num(m["binaryInode"]) == ino {
+                    if selected != nil {
+                        refuse("binding_conflict")
+                    }
+                    selected = m
+                }
+            }
+            if selected == nil {
+                refuse("binding_identity_mismatch")
+            }
+            gen, ok := selected["generation"].(string)
+            if !ok || len(gen) != 64 || strings.Trim(gen, "0123456789abcdef") != "" {
+                refuse("generation_format")
+            }
+            prefix := "generations/" + gen + "/"
+            generationPath := filepath.Join(base, "generations", gen)
+            generationRoot := anchored(generationPath)
+            defer generationRoot.Close()
+            generationInfo, e := generationRoot.Stat(".")
+            if e != nil {
+                refuse("generation_missing")
+            }
+            inv := read(root, prefix+"docs/inventory.tsv", 256<<10)
+            prov := read(root, prefix+"docs/provenance.tsv", 256<<10)
+            man := read(root, prefix+"docs/man-map.tsv", 256<<10)
+            if hash(prov) != selected["provenanceSha256"] || hash(man) != selected["manMapSha256"] || hash([]byte("axiom-docs-generation-v1\n"+hash(inv)+"\n"+hash(prov)+"\n"+hash(man)+"\n")) != gen {
+                refuse("control_hash")
+            }
+            inventory := fields(inv, "path\tkind\tbytes\tsha256", 4)
+            if len(inventory) == 0 || len(inventory) > 64 {
+                refuse("inventory_quota")
+            }
+            pr := fields(prov, "output\tsource\tsourceCommit\tsourceSha256\ttransform", 5)
+            mr := fields(man, "command\tpage\tanchor", 3)
+            if len(pr) > 1024 || len(mr) > 256 {
+                refuse("control_quota")
+            }
+            emit(map[string]any{"phase": "inventory", "tag": tag, "generation": gen, "inventorySha256": hash(inv)})
+            pause()
+            contents := map[string]string{}
+            allowed := map[string]bool{"docs/inventory.tsv": true, "docs/provenance.tsv": true, "docs/man-map.tsv": true}
+            total := 0
+            for _, row := range inventory {
+                p := row[0]
+                if !strings.HasPrefix(p, "docs/text/") && !strings.HasPrefix(p, "docs/man/man1/") {
+                    refuse("inventory_path")
+                }
+                if allowed[p] {
+                    refuse("duplicate_inventory")
+                }
+                allowed[p] = true
+                n, e := strconv.Atoi(row[2])
+                if e != nil || n <= 0 || n > 1<<20 {
+                    refuse("content_quota")
+                }
+                b := read(generationRoot, p, 1<<20)
+                if len(b) != n || hash(b) != row[3] {
+                    refuse("content_hash")
+                }
+                total += len(b)
+                if total > 8<<20 {
+                    refuse("content_quota")
+                }
+                contents[p] = string(b)
+            }
+            count := 0
+            err := fs.WalkDir(generationRoot.FS(), ".", func(p string, entry fs.DirEntry, err error) error {
+                if err != nil {
+                    return err
+                }
+                count++
+                if count > 192 {
+                    return fmt.Errorf("quota")
+                }
+                if p == "." || entry.IsDir() {
+                    return nil
+                }
+                if !allowed[p] {
+                    return fmt.Errorf("extra")
+                }
+                return nil
+            })
+            if err != nil {
+                refuse("inventory_closure")
+            }
+            for _, row := range pr {
+                if !allowed[row[0]] {
+                    refuse("provenance_closure")
+                }
+            }
+            for _, row := range mr {
+                if !allowed[row[1]] {
+                    refuse("man_closure")
+                }
+            }
+            recheck(parentRoot, namespaceParents)
+            now, e = os.Lstat(base)
+            if e != nil || !os.SameFile(baseInfo, now) {
+                refuse("namespace_changed")
+            }
+            now, e = os.Lstat(generationPath)
+            if e != nil || !os.SameFile(generationInfo, now) {
+                refuse("generation_changed")
+            }
+            now, e = os.Lstat(parent)
+            if e != nil || !os.SameFile(parentInfo, now) {
+                refuse("parent_changed")
+            }
+            d, i = image()
+            if d != idev || i != iino {
+                refuse("image_changed")
+            }
+            hashes := map[string]string{}
+            for p, b := range contents {
+                hashes[p] = hash([]byte(b))
+            }
+            emit(map[string]any{"phase": "snapshot", "tag": tag, "hashes": hashes, "files": len(contents), "bytes": total})
+            pause()
+            paths := make([]string, 0, len(contents))
+            for p := range contents {
+                paths = append(paths, p)
+            }
+            sort.Strings(paths)
+            consumed := map[string]string{}
+            for _, p := range paths {
+                consumed[p] = hash([]byte(contents[p]))
+            }
+            emit(map[string]any{"phase": "result", "outcome": "pinned", "tag": tag, "generation": gen, "hashes": consumed, "files": len(contents), "bytes": total, "binarySha256": binaryHash, "label": "same-fixture-label"})
+          }
+          GOPROBE
+          cat > "$probe_dir/run.py" <<'PYPROBE'
+          import hashlib,json,os,pathlib,platform,select,shutil,subprocess,sys,tempfile
+          S=pathlib.Path(__file__).resolve().parent
+          h=lambda b:hashlib.sha256(b).hexdigest()
+          hf=lambda p:h(pathlib.Path(p).read_bytes())
+
+          def fixture(parent,tag):
+           parent.mkdir(parents=True,exist_ok=True);parent.chmod(0o700)
+           target=parent/'axiom';shutil.copy2(S/tag,target);target.chmod(0o700)
+           base=parent/'.axiom-docs'/'axiom';base.mkdir(parents=True,exist_ok=True)
+           outputs={'docs/text/index.md':f'# Index {tag}\n','docs/text/concepts.md':f'# Concepts {tag}\n','docs/man/man1/axiom.1':f'.TH AXIOM 1\n.SH NAME\nfixture {tag}\n'}
+           inv='formatVersion=1\npath\tkind\tbytes\tsha256\n'+''.join(f'{p}\t'+('man1' if '/man/' in p else 'markdown')+f'\t{len(b.encode())}\t{h(b.encode())}\n' for p,b in sorted(outputs.items()))
+           prov='formatVersion=1\noutput\tsource\tsourceCommit\tsourceSha256\ttransform\n'+''.join(f'{p}\tdocs/operational/{pathlib.Path(p).name}\t'+('0'*40)+f'\t{h(b.encode())}\tcopy-v1\n' for p,b in sorted(outputs.items()))
+           man='formatVersion=1\ncommand\tpage\tanchor\naxiom\tdocs/man/man1/axiom.1\tNAME\n'
+           gen=h(f'axiom-docs-generation-v1\n{h(inv.encode())}\n{h(prov.encode())}\n{h(man.encode())}\n'.encode())
+           g=base/'generations'/gen
+           for p,b in {**outputs,'docs/inventory.tsv':inv,'docs/provenance.tsv':prov,'docs/man-map.tsv':man}.items():
+            f=g/p;f.parent.mkdir(parents=True,exist_ok=True);f.write_text(b);f.chmod(0o400)
+           st=target.stat();ps=parent.stat();digest=hf(target)
+           binding={'schemaVersion':1,'binaryPath':str(target),'parentDevice':ps.st_dev,'parentInode':ps.st_ino,'binaryDevice':st.st_dev,'binaryInode':st.st_ino,'binarySha256':digest,'sourceCommit':'0'*40,'version':'0.0.0-fixture','archiveSha256':h(b'inert experimental archive placeholder'),'metadataSha256':h(b'inert experimental metadata placeholder'),'generation':gen,'provenanceSha256':h(prov.encode()),'manMapSha256':h(man.encode()),'skillManifestSha256':h(b'inert experimental skill manifest placeholder')}
+           wire=(json.dumps(binding,separators=(',',':'))+'\n').encode();bp=base/'bindings'/digest/(h(wire)+'.json');bp.parent.mkdir(parents=True);bp.write_bytes(wire);bp.chmod(0o400)
+           for p in sorted(base.rglob('*'),reverse=True):
+            if p.is_dir():p.chmod(0o500 if p==g or g in p.parents else 0o700)
+           for p in [base,base.parent]:p.chmod(0o700)
+           return {'target':target,'base':base,'gen':g,'hashes':{p:h(b.encode()) for p,b in outputs.items()},'binary':digest,'generation':gen}
+
+          def recv(p):
+           assert select.select([p.stdout],[],[],15)[0],'probe timed out'
+           line=p.stdout.readline();assert line,(p.poll(),p.stderr.read().decode())
+           return json.loads(line)
+          def send(p,text='continue'):
+           p.stdin.write((text+'\n').encode());p.stdin.flush()
+          def replace(path,b):
+           path.parent.chmod(0o700);q=path.with_name(path.name+'.new');q.write_bytes(b);q.chmod(0o400);os.replace(q,path);path.parent.chmod(0o500)
+          def run_case(root,name):
+           a=fixture(root/name/'A space','A');b=fixture(root/name/'B space','B');t=a['target'];launch=str(t);env=os.environ.copy();env['PATH']=str(t.parent)+os.pathsep+env['PATH'];expected='pinned';mutation=None
+           if name=='safe-symlink-spaces':
+            alias=t.parent/'alias';alias.symlink_to('axiom');launch=str(alias)
+           if name=='PATH-A-to-B-after-launch':launch='axiom'
+           if name=='unsafe-parent':t.parent.chmod(0o777);expected='refused'
+           if name=='hardlink':os.link(t,t.parent/'hard');expected='refused'
+           if name in ['relocated','copied']:
+            moved=t.with_name('moved');shutil.copy2(t,moved) if name=='copied' else t.rename(moved);launch=str(moved);expected='refused'
+           if name=='unsafe-generation-symlink':
+            g=a['gen'];g.parent.chmod(0o700);g.rename(g.with_name(g.name+'.old'));g.symlink_to(g.with_name(g.name+'.old'),target_is_directory=True);expected='refused'
+           p=subprocess.Popen([launch],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE,env=env)
+           phases=[];first=recv(p);phases.append(first)
+           if name=='image-to-pin-TOCTOU':
+            candidate=t.with_name('candidate');shutil.copy2(S/'B',candidate);candidate.chmod(0o700);os.replace(candidate,t);expected='refused'
+           send(p);row=recv(p);phases.append(row)
+           if row['phase']!='result':
+            assert row['phase']=='ready'
+            if name in ['replace-A-with-B','same-label-different-bytes','safe-symlink-spaces']:
+             candidate=t.with_name('candidate');shutil.copy2(S/'B',candidate);candidate.chmod(0o700);os.replace(candidate,t)
+            if name=='unlink':t.unlink()
+            if name=='changed-ancestry':
+             old=t.parent.with_name('old-A');t.parent.rename(old);t.parent.mkdir(mode=0o700);shutil.copy2(S/'B',t);expected='refused'
+            send(p,'PATH='+str(b['target'].parent) if name=='PATH-A-to-B-after-launch' else 'continue')
+            row=recv(p);phases.append(row)
+           if row['phase']!='result':
+            assert row['phase']=='inventory'
+            if name in ['content-replaced-before-open','content-in-place-before-open','content-symlink-outside']:
+             f=a['gen']/'docs/text/index.md'
+             if name=='content-replaced-before-open':replace(f,b'# Replacement B\n')
+             elif name=='content-in-place-before-open':f.chmod(0o600);f.write_text('# Mutation B\n');f.chmod(0o400)
+             else:
+              outside=root/name/'outside';outside.write_text('foreign sentinel\n');f.parent.chmod(0o700);f.unlink();f.symlink_to(outside);f.parent.chmod(0o500)
+             expected='refused'
+            if name=='namespace-ancestor-symlink':
+             d=a['base'].parent;d.rename(d.with_name('.axiom-docs.old'));d.symlink_to(d.with_name('.axiom-docs.old'),target_is_directory=True);expected='refused'
+            if name=='inventory-replaced-after-validation':replace(a['gen']/'docs/inventory.tsv',b'bad replacement inventory\n')
+            if name=='generation-swapped':
+             g=a['gen'];g.parent.chmod(0o700);g.rename(g.with_name(g.name+'.old'));g.mkdir(mode=0o700);expected='refused'
+            if name=='content-ancestor-swapped':
+             d=a['gen']/'docs/text';d.parent.chmod(0o700);d.rename(d.with_name('text.old'));d.symlink_to(b['gen']/'docs/text',target_is_directory=True);expected='refused'
+            send(p);row=recv(p);phases.append(row)
+           if row['phase']!='result':
+            assert row['phase']=='snapshot'
+            if name=='content-replaced-after-snapshot':replace(a['gen']/'docs/text/index.md',b'# Late B\n')
+            if name=='content-mutated-after-snapshot':
+             f=a['gen']/'docs/text/index.md';f.chmod(0o600);f.write_text('# Late B\n');f.chmod(0o400)
+            send(p);row=recv(p);phases.append(row)
+           assert row['phase']=='result' and row['outcome']==expected,(name,expected,row)
+           if expected=='pinned':assert row['tag']=='A' and row['hashes']==a['hashes'] and row['generation']==a['generation'],(name,row)
+           assert p.wait(timeout=10)==0
+           if name=='content-symlink-outside':assert (root/name/'outside').read_text()=='foreign sentinel\n'
+           naive_rejected=False
+           if name in ['replace-A-with-B','same-label-different-bytes','safe-symlink-spaces','image-to-pin-TOCTOU']:
+            assert hf(t)==b['binary']!=a['binary'];naive_rejected=True
+           return {'case':name,'expected':expected,'observed':row,'barriers':[v['phase'] for v in phases],'pathnameOnlyOracleRejected':naive_rejected}
+
+          result={'classification':'Bounded synthetic P1 mechanism experiment; no AC or production codec acceptance','sourceSha':os.environ.get('EXPERIMENT_SHA','790b1a2e648146700a63b42c70e18669861f0c8c+scratch'),'runner':os.environ.get('EXPERIMENT_RUNNER','local'),'os':platform.platform(),'machine':platform.machine(),'kernel':platform.release(),'go':subprocess.check_output(['go','version'],text=True).strip(),'compiler':subprocess.check_output(['cc','--version'],text=True).splitlines()[0],'sourceSha256':hf(S/'main.go'),'harnessSha256':hf(S/'run.py'),'binaries':{tag:hf(S/tag) for tag in ['A','B']},'cases':[]}
+          try:
+           with tempfile.TemporaryDirectory(prefix='axm37-r3-') as tmp:
+            root=pathlib.Path(tmp).resolve();root.chmod(0o700)
+            result['filesystem']=subprocess.check_output(['stat','-f','-c','%T',str(root)],text=True).strip() if platform.system()=='Linux' else subprocess.check_output(['diskutil','info',subprocess.check_output(['df',str(root)],text=True).splitlines()[-1].split()[0]],text=True).split('File System Personality:')[-1].splitlines()[0].strip()
+            for name in ['stable','unsafe-parent','namespace-ancestor-symlink','replace-A-with-B','same-label-different-bytes','safe-symlink-spaces','PATH-A-to-B-after-launch','unlink','changed-ancestry','hardlink','relocated','copied','unsafe-generation-symlink','image-to-pin-TOCTOU','content-replaced-before-open','content-in-place-before-open','content-symlink-outside','inventory-replaced-after-validation','generation-swapped','content-ancestor-swapped','content-replaced-after-snapshot','content-mutated-after-snapshot']:
+             result['cases'].append(run_case(root,name))
+            fresh=fixture(root/'fresh-B','B');p=subprocess.Popen([str(fresh['target'])],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+            row=recv(p)
+            while row['phase']!='result':send(p);row=recv(p)
+            assert row['outcome']=='pinned' and row['tag']=='B' and row['hashes']==fresh['hashes'];assert p.wait(timeout=10)==0
+            result['freshB']=row
+           result['status']='PASS';result['exitCode']=0
+          except Exception as e:
+           result['status']='FAIL';result['exitCode']=1;result['failure']=str(e)
+          print(json.dumps(result,sort_keys=True))
+          sys.exit(result['exitCode'])
+          PYPROBE
+          go build -o "$probe_dir/A" -ldflags '-X main.tag=A' "$probe_dir/main.go"
+          go build -o "$probe_dir/B" -ldflags '-X main.tag=B' "$probe_dir/main.go"
+          python3 "$probe_dir/run.py"

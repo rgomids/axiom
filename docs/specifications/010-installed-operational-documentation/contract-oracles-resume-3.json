@@ -1,0 +1,428 @@
+{
+  "classification": "T01 documentary oracle closure; no production codecs or public quota freeze",
+  "sourceHead": "790b1a2e648146700a63b42c70e18669861f0c8c",
+  "approvedContracts": {
+    "commit": "f96d5dfb8efb4b4d6018b7a523e89532734c006f",
+    "path": "docs/specifications/010-installed-operational-documentation/contracts-proposed.md",
+    "sha256": "4bcbe597cc7e5e00bf85591da73cea6bfa72a1946bae43dc1945a693b8236840"
+  },
+  "inputs": {
+    "contract-vectors-proposed.json": "ba9dc73f2eefc336f0e87b8b91510e198c34c31b5637980a863e6b0fb270adf0",
+    "cli-coverage-proposed.json": "dba3dfee3751dd694690c3c449206f862e327647cce49a63f7f7e58efe536f53",
+    "measurements-resume-2.json": "f97872fdb1227a4a5222b2cba94571b26d2fda82220225e3b1a254637f7ebc03"
+  },
+  "recordModels": {
+    "metadataV2": {
+      "orderedKeys": [
+        "formatVersion",
+        "product",
+        "version",
+        "revision",
+        "sourceState",
+        "release",
+        "platform",
+        "goos",
+        "architecture",
+        "skillSetVersion",
+        "sourceCommit",
+        "archiveGeneration",
+        "docsInventorySha256",
+        "docsProvenanceSha256",
+        "docsManMapSha256",
+        "binarySha256"
+      ],
+      "positiveUtf8Sha256": "5f43c35a6d153cb599de2fdd4ce4eb0a8b024446591ca89541525cd88223c09b",
+      "perKeyMutationKinds": [
+        "remove",
+        "duplicate",
+        "exchange-adjacent-distinct-key",
+        "unknown-key-replacement"
+      ],
+      "eachMutationExpected": "reject",
+      "candidateCallsOnReject": 0
+    },
+    "receiptV2": {
+      "orderedKeys": [
+        "formatVersion",
+        "destination",
+        "sha256",
+        "product",
+        "version",
+        "revision",
+        "sourceState",
+        "release",
+        "platform",
+        "goos",
+        "architecture",
+        "skillSetVersion",
+        "archiveSha256",
+        "skillManifestSha256",
+        "installedAt",
+        "sourceCommit",
+        "docsGeneration",
+        "docsBindingSha256",
+        "docsInventorySha256",
+        "docsProvenanceSha256",
+        "docsManMapSha256"
+      ],
+      "positiveUtf8Sha256": "d1fdd492a5eb0cbee5c6e45b3d6c23f2d038defbf5637ccd3a7fb8a8c9d53470",
+      "perKeyMutationKinds": [
+        "remove",
+        "duplicate",
+        "exchange-adjacent-distinct-key",
+        "unknown-key-replacement"
+      ],
+      "eachMutationExpected": "reject",
+      "candidateCallsOnReject": 0
+    }
+  },
+  "quotaBoundaryOracles": [
+    {
+      "surface": "compressedArchiveBytes",
+      "limit": 268435456,
+      "cases": {
+        "268435455": "within",
+        "268435456": "within",
+        "268435457": "reject"
+      }
+    },
+    {
+      "surface": "binaryBytes",
+      "limit": 268435456,
+      "cases": {
+        "268435455": "within",
+        "268435456": "within",
+        "268435457": "reject"
+      }
+    },
+    {
+      "surface": "tarStreamBytes",
+      "limit": 301989888,
+      "cases": {
+        "301989887": "within",
+        "301989888": "within",
+        "301989889": "reject"
+      }
+    },
+    {
+      "surface": "payloadBytes",
+      "limit": 293601280,
+      "cases": {
+        "293601279": "within",
+        "293601280": "within",
+        "293601281": "reject"
+      }
+    },
+    {
+      "surface": "tarHeaders",
+      "limit": 192,
+      "cases": {
+        "191": "within",
+        "192": "within",
+        "193": "reject"
+      }
+    },
+    {
+      "surface": "regularFiles",
+      "limit": 77,
+      "cases": {
+        "76": "within",
+        "77": "within",
+        "78": "reject"
+      }
+    },
+    {
+      "surface": "docsOutputs",
+      "limit": 64,
+      "cases": {
+        "63": "within",
+        "64": "within",
+        "65": "reject"
+      }
+    },
+    {
+      "surface": "docBytes",
+      "limit": 1048576,
+      "cases": {
+        "1048575": "within",
+        "1048576": "within",
+        "1048577": "reject"
+      }
+    },
+    {
+      "surface": "docsContentBytes",
+      "limit": 8388608,
+      "cases": {
+        "8388607": "within",
+        "8388608": "within",
+        "8388609": "reject"
+      }
+    },
+    {
+      "surface": "controlBytes",
+      "limit": 262144,
+      "cases": {
+        "262143": "within",
+        "262144": "within",
+        "262145": "reject"
+      }
+    },
+    {
+      "surface": "controlsBytes",
+      "limit": 786432,
+      "cases": {
+        "786431": "within",
+        "786432": "within",
+        "786433": "reject"
+      }
+    },
+    {
+      "surface": "metadataBytes",
+      "limit": 16384,
+      "cases": {
+        "16383": "within",
+        "16384": "within",
+        "16385": "reject"
+      }
+    },
+    {
+      "surface": "manifestBytes",
+      "limit": 65536,
+      "cases": {
+        "65535": "within",
+        "65536": "within",
+        "65537": "reject"
+      }
+    },
+    {
+      "surface": "skillsManifestBytes",
+      "limit": 16384,
+      "cases": {
+        "16383": "within",
+        "16384": "within",
+        "16385": "reject"
+      }
+    },
+    {
+      "surface": "licenseBytes",
+      "limit": 1048576,
+      "cases": {
+        "1048575": "within",
+        "1048576": "within",
+        "1048577": "reject"
+      }
+    },
+    {
+      "surface": "installerBytes",
+      "limit": 1048576,
+      "cases": {
+        "1048575": "within",
+        "1048576": "within",
+        "1048577": "reject"
+      }
+    },
+    {
+      "surface": "skillBytes",
+      "limit": 1048576,
+      "cases": {
+        "1048575": "within",
+        "1048576": "within",
+        "1048577": "reject"
+      }
+    },
+    {
+      "surface": "provenanceRows",
+      "limit": 1024,
+      "cases": {
+        "1023": "within",
+        "1024": "within",
+        "1025": "reject"
+      }
+    },
+    {
+      "surface": "manMapRows",
+      "limit": 256,
+      "cases": {
+        "255": "within",
+        "256": "within",
+        "257": "reject"
+      }
+    },
+    {
+      "surface": "receiptBytes",
+      "limit": 65536,
+      "cases": {
+        "65535": "within",
+        "65536": "within",
+        "65537": "reject"
+      }
+    },
+    {
+      "surface": "bindingBytes",
+      "limit": 16384,
+      "cases": {
+        "16383": "within",
+        "16384": "within",
+        "16385": "reject"
+      }
+    },
+    {
+      "surface": "aliasHops",
+      "limit": 16,
+      "cases": {
+        "15": "within",
+        "16": "within",
+        "17": "reject"
+      }
+    },
+    {
+      "surface": "pathBytes",
+      "limit": 4096,
+      "cases": {
+        "4095": "within",
+        "4096": "within",
+        "4097": "reject"
+      }
+    },
+    {
+      "surface": "jsonBytes",
+      "limit": 65536,
+      "cases": {
+        "65535": "within",
+        "65536": "within",
+        "65537": "reject"
+      }
+    },
+    {
+      "surface": "diagnostics",
+      "limit": 8,
+      "cases": {
+        "7": "within",
+        "8": "within",
+        "9": "reject"
+      }
+    },
+    {
+      "surface": "diagnosticBytes",
+      "limit": 512,
+      "cases": {
+        "511": "within",
+        "512": "within",
+        "513": "reject"
+      }
+    },
+    {
+      "surface": "bindingRecords",
+      "limit": 64,
+      "cases": {
+        "63": "within",
+        "64": "within",
+        "65": "reject"
+      }
+    }
+  ],
+  "compatibilityMatrix": [
+    {
+      "producer": "pinned v1",
+      "consumer": "pinned v1 shell/Go",
+      "passiveOutcome": "existing v1 positive oracle",
+      "candidateExecution": "only after full validation",
+      "executionStatus": "existing regression tests; not native migration"
+    },
+    {
+      "producer": "v2",
+      "consumer": "pinned v1 shell/Go",
+      "passiveOutcome": "reject",
+      "candidateExecution": "zero",
+      "executionStatus": "NOT_RUN until fixture archive replay"
+    },
+    {
+      "producer": "v1",
+      "consumer": "future v2 shell/Go",
+      "passiveOutcome": "preserve exact v1 semantics",
+      "candidateExecution": "only after full validation",
+      "executionStatus": "NOT_RUN; T07"
+    },
+    {
+      "producer": "v2",
+      "consumer": "future v2 shell/Go",
+      "passiveOutcome": "accept identical valid sets, normalized identity",
+      "candidateExecution": "only after full validation",
+      "executionStatus": "NOT_RUN; T07"
+    },
+    {
+      "producer": "invalid v1/v2",
+      "consumer": "any applicable shell/Go",
+      "passiveOutcome": "reject",
+      "candidateExecution": "zero, sentinel untouched",
+      "executionStatus": "NOT_RUN for future v2 consumers; T07"
+    },
+    {
+      "producer": "historical v0.1.0..v0.20.0",
+      "consumer": "future v2 migration",
+      "passiveOutcome": "variant-specific positive proof required",
+      "candidateExecution": "ADR-0016 candidate proof unchanged",
+      "executionStatus": "UNVERIFIED; historical inventory in measurements-resume-2.json"
+    },
+    {
+      "producer": "equivalent v2",
+      "consumer": "future v2 reinstall",
+      "passiveOutcome": "no-op only exact verified bytes/effects",
+      "candidateExecution": "existing candidate-proof rule",
+      "executionStatus": "NOT_RUN; T09"
+    },
+    {
+      "producer": "v2 A to B",
+      "consumer": "future v2 upgrade",
+      "passiveOutcome": "ordered immutable objects/binding then binary, separate receipts",
+      "candidateExecution": "existing candidate-proof rule",
+      "executionStatus": "NOT_RUN; T09"
+    },
+    {
+      "producer": "copied/relocated/source/downgrade",
+      "consumer": "future consumer",
+      "passiveOutcome": "unqualified/rebind/refuse as applicable",
+      "candidateExecution": "no implicit migration",
+      "executionStatus": "NOT_RUN; T09/T10/T13"
+    }
+  ],
+  "modelConsistencyChecks": [
+    "pinned-v1:internal/install/archive.go",
+    "pinned-v1:scripts/build-release-archives.sh",
+    "pinned-v1:scripts/install-release.sh",
+    "pinned-v1:internal/install/upgrade.go",
+    "control:inventory",
+    "control:provenance",
+    "control:manMap",
+    "binding-exact-bytes",
+    "metadata-exact-bytes",
+    "generation-dag",
+    "inventory-content",
+    "105-leaves-549-flags",
+    "15-page-map",
+    "four-discovery-states"
+  ],
+  "modelConsistencyResult": "PASS",
+  "modelConsistencyExit": 0,
+  "modelConsistencyCommand": "python3 <scratch>/t01.py",
+  "productionCodecTests": "NOT_RUN; T07",
+  "nativeMigrationQualification": "UNVERIFIED",
+  "initialQuotaDisposition": "C1 development budget only; final public freeze at T05/T06 before T07",
+  "coverage": {
+    "leaves": 105,
+    "flagRegistrations": 549,
+    "futureLeaf": {
+      "path": [
+        "axiom",
+        "docs",
+        "inspect"
+      ],
+      "proposedPage": "docs/man/man1/axiom-docs.1",
+      "proposedSection": "DOCS_INSPECT"
+    },
+    "manPages": 15,
+    "textOutputs": 11,
+    "finalCorpus": "NOT_RUN"
+  },
+  "quotaBoundaryRule": "Inclusive limits; within quota is not record acceptance; all independent invariants still apply; rejected inputs execute candidate zero times."
+}
