@@ -36,7 +36,7 @@ func TestOperationalAuthVersionIsOnlyDiagnosticMetadata(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				report := preflight.CheckOperational(context.Background(), fixture.target(runtimeID))
+				report := preflight.Check(context.Background(), fixture.target(runtimeID))
 				if report.Status != AuthSubscriptionObserved || !report.DispatchAllowed() || report.Usability != UsabilityUnproven || len(runner.calls) != 2 {
 					t.Fatalf("auth depended on version: %+v calls=%d", report, len(runner.calls))
 				}
@@ -128,7 +128,7 @@ func TestOperationalAuthPreservesConcreteFailureBoundaries(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				report := preflight.CheckOperational(ctx, target)
+				report := preflight.Check(ctx, target)
 				if report.DispatchAllowed() || report.Reason == "" || calls != wantCalls {
 					t.Fatalf("boundary failure: %+v calls=%d want=%d", report, calls, wantCalls)
 				}
@@ -143,7 +143,7 @@ func TestOperationalAuthDoesNotExposeStatusOrVersionPayloads(t *testing.T) {
 		payload := "private-transcript /private/host/path account@example.invalid synthetic-sensitive-value"
 		runner := &fakeStatus{version: exit(2, payload), status: ok(payload)}
 		preflight, _ := NewAuthPreflight(runner, ManagedConfiguration{})
-		report := preflight.CheckOperational(context.Background(), fixture.target(runtimeID))
+		report := preflight.Check(context.Background(), fixture.target(runtimeID))
 		wire, err := json.Marshal(report)
 		if err != nil || report.DispatchAllowed() {
 			t.Fatal(report, err)

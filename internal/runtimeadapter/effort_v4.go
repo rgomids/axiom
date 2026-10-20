@@ -12,7 +12,7 @@ import (
 	"github.com/rgomids/axiom/internal/runtimeprofile"
 )
 
-var ErrEffortConfigurationUnsafe = errors.New("configuration_unsafe")
+var ErrEffortConfigurationUnsafe = runtimeprofile.ErrConfigurationUnsafe
 
 type EffortSourceRequestV4 struct {
 	Consented        bool

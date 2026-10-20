@@ -72,7 +72,7 @@ func (s lifecycleService) WorkflowStagePlan(ctx context.Context, input cli.Workf
 		return response
 	}
 	execution := workflowcompiler.ExecutionRef{ExecutionID: planning.ExecutionID, Revision: planning.ExecutionRevision}
-	if planning.Binding.SchemaVersion != 2 || planning.Binding.ResolvedProfile == nil {
+	if planning.Binding.SchemaVersion != 2 || planning.Binding.FrozenProfile == nil {
 		return s.stagePlanFailure(completion.ValidationFailure, "legacy_execution_contract", []string{"Reconcile the retained Execution through its lifecycle owner before new stage compilation; no snapshot is synthesized"}, &execution)
 	}
 	document, documentDigest, err := readPlanDocument(input.PlanFile)
@@ -81,7 +81,13 @@ func (s lifecycleService) WorkflowStagePlan(ctx context.Context, input cli.Workf
 	}
 	source := s.RuntimePolicySource
 	if source == nil {
-		source = runtimePolicySource{installation: s.installation, portable: s.portable, stateRoot: s.stateRoot, runtimes: s.runtimeObservationSources()}
+		unbound := target
+		unbound.ExecutionID = ""
+		resolved, failed := s.workflows.ValidateTarget(ctx, unbound)
+		if failed.Category != "" {
+			return s.stagePlanFailure(failed.Status, failed.Category, nil, &execution)
+		}
+		source = runtimePolicySource{installation: s.installation, portable: s.portable, stateRoot: s.stateRoot, runtimes: s.runtimeObservationSources().scoped(resolved.Repository.Path, input.AuthorizeLocal)}
 	}
 	policy := runtimeapplication.New(source)
 	bindings := make([]workflowcompiler.InputBinding, 0, len(planning.Inputs))
@@ -133,7 +139,7 @@ func (s lifecycleService) stagePlanFailure(status completion.Status, category st
 	case "recovery_required":
 		next = "Inspect the Execution through recovery inspect; no stage plan is available until its binding is recovered"
 	case "runtime_unresolvable", "unsupported_effort":
-		next = "Correct the Project Runtime policy or local Runtime/Profile observations, then request a fresh plan"
+		next = "Correct the Project Runtime policy or local Runtime/Profile configuration; effort sources are inspected only with --authorize-local; then request a fresh plan"
 	case "workflow_cancelled":
 		message, next = "Stage planning was cancelled", "Retry the read-only plan request"
 	}

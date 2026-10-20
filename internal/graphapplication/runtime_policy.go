@@ -80,9 +80,9 @@ func newPolicyInvocations(cfg LocalConfiguration, invocations executiongraph.Inv
 		preview.ObservationRevisions = maps.Clone(preview.ObservationRevisions)
 		choice := *preview.Choice
 		choice.Capabilities = slices.Clone(choice.Capabilities)
-		if choice.ResolvedProfile != nil {
-			frozen := *choice.ResolvedProfile
-			choice.ResolvedProfile = &frozen
+		if choice.FrozenProfile != nil {
+			frozen := *choice.FrozenProfile
+			choice.FrozenProfile = &frozen
 		}
 		preview.Choice = &choice
 		guard.previews[child.ExecutionID] = preview
@@ -137,7 +137,7 @@ func (g policyInvocations) subscriptionInvocation(ctx context.Context, child exe
 	if len(invocation.Argv) < 4 || invocation.RuntimeID != binding.Choice.RuntimeID || binding.Choice.ExecutableDigest == "" || !subscriptionSafeArguments(child, invocation.Argv[4:]) {
 		return executiongraph.Invocation{}, ErrInvalidComposition
 	}
-	if child.Envelope.Resolution.ResolvedProfile != nil {
+	if child.Envelope.Resolution.FrozenProfile != nil {
 		if _, e := g.checkEffortSources(ctx, child, invocation); e != nil {
 			return executiongraph.Invocation{}, e
 		}
@@ -181,14 +181,18 @@ func matchesChild(preview runtimeapplication.Preview, child executiongraph.Child
 	choice := preview.Choice
 	capability := child.Envelope.Capability
 	resolution := child.Envelope.Resolution
+	// A historical proof-bound tuple is inspectable only; it never dispatches.
 	if resolution.ResolvedProfile != nil {
-		if choice == nil || choice.ResolvedProfile == nil || *choice.ResolvedProfile != *resolution.ResolvedProfile || !executiongraph.ValidProfileControls(resolution.ResolvedProfile, child.Envelope.Controls, capability) {
+		return false
+	}
+	if resolution.FrozenProfile != nil {
+		if choice == nil || choice.FrozenProfile == nil || *choice.FrozenProfile != *resolution.FrozenProfile || !executiongraph.ValidFrozenProfileControls(resolution.FrozenProfile, child.Envelope.Controls, capability) {
 			return false
 		}
 	}
 	return choice != nil && preview.Blocker == nil && preview.ProjectID == child.Envelope.Scope.ProjectID &&
 		preview.Request.Role == capability.Role && preview.Request.Complexity == capability.Complexity &&
-		sameCapabilities(preview.Request.Capabilities, authoredCapabilities(capability.Capabilities, resolution.ResolvedProfile)) &&
+		sameCapabilities(preview.Request.Capabilities, authoredCapabilities(capability.Capabilities, resolution.FrozenProfile)) &&
 		(preview.Request.RuntimeID == "" || preview.Request.RuntimeID == resolution.RuntimeID) &&
 		choice.RuntimeID == resolution.RuntimeID && choice.ModelProfileID == resolution.ModelProfileID &&
 		choice.ConfigurationRevision == resolution.ConfigurationRevision && choice.ObservationRevision == resolution.ObservationRevision
@@ -268,19 +272,19 @@ func subscriptionSafeArguments(child executiongraph.ChildExecution, arguments []
 	return selectionSafeArguments(runtimeID, arguments)
 }
 
-// EffortSourceInspector consumes the separately authorized exact-version proof
-// seam. It returns a safe canonical source digest, never source content/paths.
-// Unknown/unreadable sources must return an error; hashing them is not proof.
+// EffortSourceInspector re-reads the effort sources of the exact invocation.
+// It returns a safe canonical source digest, never source content/paths.
+// Unknown/unreadable sources must return an error.
 type EffortSourceInspector interface {
-	CheckEffortSources(context.Context, runtimeprofile.ResolvedProfile, executiongraph.Invocation) (string, error)
+	CheckEffortSources(context.Context, runtimeprofile.ResolvedProfileV4, executiongraph.Invocation) (string, error)
 }
 
 func (g policyInvocations) checkEffortSources(ctx context.Context, child executiongraph.ChildExecution, invocation executiongraph.Invocation) (executiongraph.Invocation, error) {
-	profile := child.Envelope.Resolution.ResolvedProfile
+	profile := child.Envelope.Resolution.FrozenProfile
 	if profile == nil {
 		return invocation, nil
 	} // historical composition; new admission owns legacy refusal
-	if !executiongraph.ValidProfileControls(profile, child.Envelope.Controls, child.Envelope.Capability) || g.effortSources == nil {
+	if !executiongraph.ValidFrozenProfileControls(profile, child.Envelope.Controls, child.Envelope.Capability) || g.effortSources == nil {
 		return executiongraph.Invocation{}, ErrEffortConfigurationUnproven
 	}
 	sourceDigest, err := g.effortSources.CheckEffortSources(ctx, *profile, invocation)
@@ -299,7 +303,7 @@ func (g policyInvocations) checkEffortSources(ctx context.Context, child executi
 var ErrEffortConfigurationUnproven = errors.New("effort_configuration_unproven")
 var ErrEffortOverrideConflict = errors.New("effort_override_conflict")
 
-func authoredCapabilities(values []string, profile *runtimeprofile.ResolvedProfile) []string {
+func authoredCapabilities(values []string, profile *runtimeprofile.ResolvedProfileV4) []string {
 	if profile == nil {
 		return values
 	}

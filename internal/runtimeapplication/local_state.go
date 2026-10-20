@@ -18,9 +18,9 @@ func localStateCategory(err error) string {
 			return "configuration_recovery_required"
 		case "unsafe":
 			return "configuration_unsafe"
-		case "active-v1", "active-v2":
-			// Recognized pre-stable records are refused, never upgraded
-			// (Specification 007 PM-11, B1).
+		case "active-v1", "active-v2", "active-v3":
+			// Recognized historical records are refused, never upgraded
+			// (Specification 007 PM-11, B1; AXM-36 D2).
 			return "unsupported_configuration_format"
 		}
 	}

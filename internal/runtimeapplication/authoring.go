@@ -22,8 +22,11 @@ type LocalSnapshot struct {
 	// Legacy is a recognized pre-stable active-v1/active-v2 record. It is read
 	// only to bind its explicit retirement (Specification 007 PM-11, A1).
 	Legacy runtimeprofile.Configuration
-	// V3 is the strictly decoded record of an active-v3 snapshot.
-	V3    *runtimeprofile.ConfigurationV3
+	// V3 is a historical active-v3 record, read only to bind its explicit
+	// retirement; it is never current configuration (AXM-36 D2).
+	V3 *runtimeprofile.ConfigurationV3
+	// V4 is the strictly decoded current record of an active-v4 snapshot.
+	V4    *runtimeprofile.ConfigurationV4
 	Token string
 }
 type AuthoringRecovery interface {
@@ -39,11 +42,8 @@ type AuthoringRequest struct {
 	Capabilities, Complexities                   []string
 	Enabled                                      *bool
 	Cascade                                      bool
-	// EffortDeclaration is the host path of one declaration file; it is read
-	// once per attempt and never persisted or reported.
-	EffortDeclaration               string
-	ExpectedRevision, PreviewDigest string
-	AuthorizeLocal                  bool
+	ExpectedRevision, PreviewDigest              string
+	AuthorizeLocal                               bool
 }
 type ProfileView struct {
 	ID        string                `json:"id"`
@@ -80,12 +80,6 @@ type Authoring struct {
 	Installed func(string) bool
 	Impacts   func(context.Context) ([]LocalImpact, string)
 	Passive   func(context.Context) []DetectedRuntime
-	// ReadDeclaration performs the single bounded, non-symlinked read of a
-	// declaration file inside the trusted filesystem boundary.
-	ReadDeclaration func(string) ([]byte, error)
-	// Applicability passively observes the Runtime executable identity and
-	// version a declaration must match; it never probes or proves capability.
-	Applicability func(context.Context, string) (runtimeprofile.EffortApplicability, error)
 }
 type LocalImpact struct {
 	ProjectID string `json:"projectId"`
@@ -102,7 +96,7 @@ var ErrAuthoring = errors.New("local runtime authoring blocked")
 const newerFormatNext = "Local configuration format is newer than this authoring path supports; it is preserved unchanged, with no downgrade or migration"
 
 func (s Authoring) Run(ctx context.Context, req AuthoringRequest) (AuthoringReport, error) {
-	report := AuthoringReport{ImpactInventory: "incomplete: project references not evaluated", Authentication: "unknown", ModelSupport: "unproven", EffortSupport: "unproven"}
+	report := AuthoringReport{ImpactInventory: "incomplete: project references not evaluated", Authentication: "unknown", ModelSupport: "unconfirmed", EffortSupport: "unconfirmed"}
 	deny := func(code string) (AuthoringReport, error) { report.Category = code; return report, ErrAuthoring }
 	if s.Store == nil || !safeAuthoring(req) {
 		return deny("invalid_input")
@@ -144,24 +138,21 @@ func (s Authoring) Run(ctx context.Context, req AuthoringRequest) (AuthoringRepo
 	if req.AuthorizeLocal && req.ExpectedRevision != snapshot.Token {
 		return deny("stale_preview")
 	}
-	if snapshot.State == "active-v1" || snapshot.State == "active-v2" {
+	if snapshot.State == "active-v1" || snapshot.State == "active-v2" || snapshot.State == "active-v3" {
 		return s.retireLegacy(ctx, req, snapshot, report)
 	}
-	if req.EffortDeclaration != "" {
-		return s.authorDeclaration(ctx, req, snapshot, report)
-	}
-	if snapshot.State == "active-v3" && snapshot.V3 == nil || snapshot.State != "active-v3" && snapshot.State != "fresh" && snapshot.State != "retired" {
+	if snapshot.State == "active-v4" && snapshot.V4 == nil || snapshot.State != "active-v4" && snapshot.State != "fresh" && snapshot.State != "retired" {
 		return deny("configuration_unavailable")
 	}
-	prior := runtimeprofile.ConfigurationV3{FormatVersion: runtimeprofile.FormatVersionV3, Revision: snapshot.Revision}
-	if snapshot.State == "active-v3" {
-		prior = *snapshot.V3
+	prior := runtimeprofile.ConfigurationV4{FormatVersion: runtimeprofile.FormatVersionV4, Revision: snapshot.Revision}
+	if snapshot.State == "active-v4" {
+		prior = *snapshot.V4
 	}
 	if req.Operation == "list" || req.Operation == "show" {
 		if req.AuthorizeLocal || req.ExpectedRevision != "" || req.PreviewDigest != "" {
 			return deny("invalid_authority")
 		}
-		projectLocal(&report, v3Runtimes(prior), prior.ModelProfiles, req)
+		projectLocal(&report, v4Runtimes(prior), prior.ModelProfiles, req)
 		report.Category = "inspected"
 		if snapshot.State == "fresh" || snapshot.State == "retired" {
 			report.Next = "Use axiom-runtime to prepare explicit local configuration"
@@ -171,9 +162,9 @@ func (s Authoring) Run(ctx context.Context, req AuthoringRequest) (AuthoringRepo
 	if snapshot.Revision == math.MaxUint64 {
 		return deny("revision_overflow")
 	}
-	// Fresh and retired state start an explicit new canonical v3 record; a
+	// Fresh and retired state start an explicit new canonical v4 record; a
 	// retired record is never resurrected (Specification 007 PM-11).
-	cfg, err := cloneV3(prior)
+	cfg, err := cloneV4(prior)
 	if err != nil {
 		return deny("configuration_invalid")
 	}
@@ -200,20 +191,20 @@ func (s Authoring) Run(ctx context.Context, req AuthoringRequest) (AuthoringRepo
 	effects := []string{req.Kind + " " + req.Operation}
 	if len(cfg.Runtimes) != 0 {
 		cfg.Revision = snapshot.Revision + 1
-		if runtimeprofile.ValidateV3(cfg) != nil {
+		if runtimeprofile.ValidateV4(cfg) != nil {
 			return deny("candidate_invalid")
 		}
 	}
 	if req.Operation == "validate-candidate" || req.Operation == "validate" {
 		report.Category = "candidate_valid"
-		projectLocal(&report, v3Runtimes(cfg), cfg.ModelProfiles, req)
+		projectLocal(&report, v4Runtimes(cfg), cfg.ModelProfiles, req)
 		return report, nil
 	}
-	if snapshot.State == "active-v3" && len(cfg.Runtimes) != 0 {
+	if snapshot.State == "active-v4" && len(cfg.Runtimes) != 0 {
 		unchanged := cfg
 		unchanged.Revision = prior.Revision
-		before, beforeErr := runtimeprofile.EncodeV3(prior)
-		after, afterErr := runtimeprofile.EncodeV3(unchanged)
+		before, beforeErr := runtimeprofile.EncodeV4(prior)
+		after, afterErr := runtimeprofile.EncodeV4(unchanged)
 		if beforeErr == nil && afterErr == nil && bytes.Equal(before, after) {
 			report.Category = "unchanged"
 			if req.AuthorizeLocal {
@@ -225,46 +216,77 @@ func (s Authoring) Run(ctx context.Context, req AuthoringRequest) (AuthoringRepo
 	var wire []byte
 	if len(cfg.Runtimes) == 0 {
 		// Removing the final Runtime retires the canonical record explicitly;
-		// no empty v3 configuration exists.
-		if snapshot.State != "active-v3" {
+		// no empty v4 configuration exists.
+		if snapshot.State != "active-v4" {
 			return deny("configuration_required")
 		}
-		priorDigest, e := runtimeprofile.DigestV3(prior)
+		priorDigest, e := runtimeprofile.DigestV4(prior)
 		if e != nil {
 			return deny("configuration_invalid")
 		}
 		wire, err = runtimeprofile.EncodeTombstone(runtimeprofile.Tombstone{Kind: runtimeprofile.TombstoneKind, FormatVersion: 1, Revision: snapshot.Revision + 1, PriorConfigurationDigest: priorDigest})
 		effects = append(effects, "retire canonical configuration; preserve directories and vendor state", "tombstone binds prior configuration digest "+priorDigest)
 	} else {
-		wire, err = runtimeprofile.EncodeV3(cfg)
+		wire, err = runtimeprofile.EncodeV4(cfg)
 	}
 	if err != nil {
 		return deny("candidate_invalid")
 	}
 	report.CandidateDigest = digest(wire)
-	report.Effects = append(effects, candidateEffects(prior.ModelProfiles, prior.Preferences, v3Runtimes(cfg), cfg.ModelProfiles)...)
+	report.Effects = append(effects, candidateEffects(prior.ModelProfiles, prior.Preferences, v4Runtimes(cfg), cfg.ModelProfiles)...)
 	report.Category = "preview"
-	projectLocal(&report, v3Runtimes(cfg), cfg.ModelProfiles, req)
+	projectLocal(&report, v4Runtimes(cfg), cfg.ModelProfiles, req)
 	return s.confirm(ctx, req, snapshot.Token, wire, report, nil)
 }
 
-const legacyNext = "Pre-stable local configuration is not used and is never migrated; retire it explicitly with `axiom runtime binding remove --runtime <id> --cascade`, then create canonical configuration"
+const legacyNext = "Historical local configuration is not used and is never migrated; retire it explicitly with `axiom runtime binding remove --runtime <id> --cascade`, then create canonical configuration"
 
-// retireLegacy is the only operation over a recognized pre-stable
-// active-v1/active-v2 record (Specification 007 PM-11, A1): `binding remove
-// --runtime <id> --cascade` retires the ENTIRE record through the existing
-// tombstone, bound to the historical Digest of the exact prior record. The
-// named Runtime must exist in it. Nothing is migrated, partially edited,
+// historicalRecord is the retirement view of a recognized historical record.
+type historicalRecord struct {
+	formatVersion int
+	revision      uint64
+	digest        string
+	runtimes      []localRuntime
+	profiles      []runtimeprofile.ModelProfile
+	preferences   []runtimeprofile.Preference
+}
+
+func historicalSnapshot(snapshot LocalSnapshot) (historicalRecord, bool) {
+	if snapshot.State == "active-v3" {
+		if snapshot.V3 == nil || runtimeprofile.ValidateV3(*snapshot.V3) != nil || snapshot.V3.Revision != snapshot.Revision {
+			return historicalRecord{}, false
+		}
+		d, err := runtimeprofile.DigestV3(*snapshot.V3)
+		runtimes := make([]localRuntime, 0, len(snapshot.V3.Runtimes))
+		for _, r := range snapshot.V3.Runtimes {
+			runtimes = append(runtimes, localRuntime{ID: r.ID, Adapter: r.Adapter, Enabled: r.Enabled, Allowlisted: r.AllowlistedProfileIDs})
+		}
+		return historicalRecord{runtimeprofile.FormatVersionV3, snapshot.V3.Revision, d, runtimes, snapshot.V3.ModelProfiles, snapshot.V3.Preferences}, err == nil
+	}
+	legacy := snapshot.Legacy
+	if runtimeprofile.Validate(legacy) != nil || legacy.Revision != snapshot.Revision {
+		return historicalRecord{}, false
+	}
+	d, err := runtimeprofile.Digest(legacy)
+	runtimes := make([]localRuntime, 0, len(legacy.Runtimes))
+	for _, r := range legacy.Runtimes {
+		runtimes = append(runtimes, localRuntime{ID: r.ID, Adapter: r.Adapter, Enabled: r.Enabled, Allowlisted: r.AllowlistedProfileIDs})
+	}
+	return historicalRecord{legacy.FormatVersion, legacy.Revision, d, runtimes, legacy.ModelProfiles, legacy.Preferences}, err == nil
+}
+
+// retireLegacy is the only operation over a recognized historical
+// active-v1/v2/v3 record (Specification 007 PM-11, A1; AXM-36 D2): `binding
+// remove --runtime <id> --cascade` retires the ENTIRE record through the
+// existing tombstone, bound to the historical digest of the exact prior record.
+// The named Runtime must exist in it. Nothing is migrated, partially edited,
 // converted or created; list/show only report the state. Every other operation
 // is unsupported_configuration_format.
 func (s Authoring) retireLegacy(ctx context.Context, req AuthoringRequest, snapshot LocalSnapshot, report AuthoringReport) (AuthoringReport, error) {
 	deny := func(code string) (AuthoringReport, error) { report.Category = code; return report, ErrAuthoring }
 	report.Next = legacyNext
-	if req.EffortDeclaration != "" {
-		return deny("configuration_unavailable")
-	}
-	legacy := snapshot.Legacy
-	if runtimeprofile.Validate(legacy) != nil || legacy.Revision != snapshot.Revision {
+	legacy, ok := historicalSnapshot(snapshot)
+	if !ok {
 		return deny("configuration_invalid")
 	}
 	if req.Operation == "list" || req.Operation == "show" {
@@ -278,7 +300,7 @@ func (s Authoring) retireLegacy(ctx context.Context, req AuthoringRequest, snaps
 		return deny("unsupported_configuration_format")
 	}
 	found := false
-	for _, r := range legacy.Runtimes {
+	for _, r := range legacy.runtimes {
 		found = found || r.ID == req.RuntimeID
 	}
 	if req.RuntimeID == "" || !found {
@@ -290,40 +312,33 @@ func (s Authoring) retireLegacy(ctx context.Context, req AuthoringRequest, snaps
 	if snapshot.Revision == math.MaxUint64 {
 		return deny("revision_overflow")
 	}
-	priorDigest, err := runtimeprofile.Digest(legacy)
-	if err != nil {
-		return deny("configuration_invalid")
-	}
+	priorDigest := legacy.digest
 	wire, err := runtimeprofile.EncodeTombstone(runtimeprofile.Tombstone{Kind: runtimeprofile.TombstoneKind, FormatVersion: 1, Revision: snapshot.Revision + 1, PriorConfigurationDigest: priorDigest})
 	if err != nil {
 		return deny("candidate_invalid")
 	}
 	effects := []string{
-		fmt.Sprintf("retire ENTIRE pre-stable local configuration format %d revision %d: --cascade on a pre-stable record retires every Runtime and Profile, not only Runtime %s", legacy.FormatVersion, legacy.Revision, req.RuntimeID),
+		fmt.Sprintf("retire ENTIRE historical local configuration format %d revision %d: --cascade on a historical record retires every Runtime and Profile, not only Runtime %s", legacy.formatVersion, legacy.revision, req.RuntimeID),
 		"publish tombstone binding prior configuration digest " + priorDigest + "; preserve directories and vendor state",
 		"no canonical configuration is created and nothing is migrated; create one explicitly afterwards",
 	}
-	for _, r := range legacy.Runtimes {
-		effects = append(effects, fmt.Sprintf("retire Runtime %s enabled=%t allowlist=%s", safeView(r.ID), r.Enabled, strings.Join(safeViews(r.AllowlistedProfileIDs), ",")))
+	for _, r := range legacy.runtimes {
+		effects = append(effects, fmt.Sprintf("retire Runtime %s enabled=%t allowlist=%s", safeView(r.ID), r.Enabled, strings.Join(safeViews(r.Allowlisted), ",")))
 	}
-	for _, p := range legacy.ModelProfiles {
+	for _, p := range legacy.profiles {
 		effects = append(effects, "retire Profile "+safeView(p.ID)+" runtime="+safeView(p.RuntimeID))
 	}
-	for _, preference := range legacy.Preferences {
+	for _, preference := range legacy.preferences {
 		effects = append(effects, "retire local preference "+safeView(preference.Role)+"/"+safeView(preference.Complexity)+" referring to Profile "+safeView(preference.ModelProfileID))
 	}
 	sort.Strings(effects[3:])
 	report.CandidateDigest = digest(wire)
 	report.Effects = effects
 	report.Category = "preview"
-	runtimes := make([]localRuntime, 0, len(legacy.Runtimes))
-	for _, r := range legacy.Runtimes {
-		runtimes = append(runtimes, localRuntime{ID: r.ID, Adapter: r.Adapter, Enabled: r.Enabled, Allowlisted: r.AllowlistedProfileIDs})
-	}
-	projectLocal(&report, runtimes, legacy.ModelProfiles, AuthoringRequest{Kind: "binding"})
+	projectLocal(&report, legacy.runtimes, legacy.profiles, AuthoringRequest{Kind: "binding"})
 	result, err := s.confirm(ctx, req, snapshot.Token, wire, report, nil)
 	if err == nil && result.Category == "applied" {
-		result.Next = "Pre-stable configuration retired; create canonical configuration explicitly with axiom-runtime"
+		result.Next = "Historical configuration retired; create canonical configuration explicitly with axiom-runtime"
 	}
 	return result, err
 }
@@ -370,25 +385,21 @@ func (s Authoring) confirm(ctx context.Context, req AuthoringRequest, token stri
 	}
 	report.State, report.Revision = actual.State, actual.Revision
 	report.Category = "applied"
-	report.Next = "Intent saved; operational model, effort and authentication proofs remain separate"
+	report.Next = "Intent saved; executable, authentication and effort sources are observed at each preview and before each attempt; vendor model and effort support stay unconfirmed until a real attempt"
 	return report, nil
 }
 
-// cloneV3 is an independent canonical copy; an empty fresh/retired start has
+// cloneV4 is an independent canonical copy; an empty fresh/retired start has
 // no record to copy.
-func cloneV3(c runtimeprofile.ConfigurationV3) (runtimeprofile.ConfigurationV3, error) {
+func cloneV4(c runtimeprofile.ConfigurationV4) (runtimeprofile.ConfigurationV4, error) {
 	if len(c.Runtimes) == 0 {
-		return runtimeprofile.ConfigurationV3{FormatVersion: runtimeprofile.FormatVersionV3, Revision: c.Revision}, nil
+		return runtimeprofile.ConfigurationV4{FormatVersion: runtimeprofile.FormatVersionV4, Revision: c.Revision}, nil
 	}
-	wire, err := runtimeprofile.EncodeV3(c)
+	wire, err := runtimeprofile.EncodeV4(c)
 	if err != nil {
 		return c, err
 	}
-	v, err := runtimeprofile.DecodeVersioned(wire)
-	if err != nil || v.V3 == nil {
-		return c, runtimeprofile.ErrInvalidConfiguration
-	}
-	return *v.V3, nil
+	return runtimeprofile.DecodeV4(wire)
 }
 func safeAuthoring(r AuthoringRequest) bool {
 	if r.Kind != "profile" && r.Kind != "binding" {
@@ -430,12 +441,9 @@ func safeAuthoring(r AuthoringRequest) bool {
 			return false
 		}
 	}
-	if !safeDeclarationRequest(r) {
-		return false
-	}
 	return len(r.Capabilities) <= 32 && len(r.Complexities) <= 32
 }
-func editCandidate(c *runtimeprofile.ConfigurationV3, r AuthoringRequest, installed func(string) bool) error {
+func editCandidate(c *runtimeprofile.ConfigurationV4, r AuthoringRequest, installed func(string) bool) error {
 	fail := func(code string) error { return errors.New(code) }
 	if r.Operation == "validate" || r.Operation == "validate-candidate" {
 		return nil
@@ -462,7 +470,7 @@ func editCandidate(c *runtimeprofile.ConfigurationV3, r AuthoringRequest, instal
 			if r.Enabled != nil {
 				enabled = *r.Enabled
 			}
-			c.Runtimes = append(c.Runtimes, runtimeprofile.RuntimeV3{ID: r.RuntimeID, Adapter: r.RuntimeID, Enabled: enabled, AllowlistedProfileIDs: []string{r.ProfileID}})
+			c.Runtimes = append(c.Runtimes, runtimeprofile.RuntimeV4{ID: r.RuntimeID, Adapter: r.RuntimeID, Enabled: enabled, AllowlistedProfileIDs: []string{r.ProfileID}})
 			c.ModelProfiles = append(c.ModelProfiles, runtimeprofile.ModelProfile{ID: r.ProfileID, RuntimeID: r.RuntimeID, Model: r.Model, Effort: r.Effort, Capabilities: r.Capabilities, Complexities: r.Complexities})
 		case "edit", "enable", "disable":
 			if index < 0 {
@@ -578,7 +586,7 @@ func editCandidate(c *runtimeprofile.ConfigurationV3, r AuthoringRequest, instal
 	}
 	return nil
 }
-func removeProfile(c *runtimeprofile.ConfigurationV3, index int) {
+func removeProfile(c *runtimeprofile.ConfigurationV4, index int) {
 	id := c.ModelProfiles[index].ID
 	c.ModelProfiles = append(c.ModelProfiles[:index], c.ModelProfiles[index+1:]...)
 	for i := range c.Runtimes {
@@ -597,15 +605,15 @@ func removeProfile(c *runtimeprofile.ConfigurationV3, index int) {
 	}
 }
 
-// localRuntime is the presentation input of one Runtime: canonical v3
-// Runtimes and, for the retirement preview only, pre-stable ones.
+// localRuntime is the presentation input of one Runtime: canonical v4
+// Runtimes and, for the retirement preview only, historical ones.
 type localRuntime struct {
 	ID, Adapter string
 	Enabled     bool
 	Allowlisted []string
 }
 
-func v3Runtimes(c runtimeprofile.ConfigurationV3) []localRuntime {
+func v4Runtimes(c runtimeprofile.ConfigurationV4) []localRuntime {
 	out := make([]localRuntime, 0, len(c.Runtimes))
 	for _, r := range c.Runtimes {
 		out = append(out, localRuntime{ID: r.ID, Adapter: r.Adapter, Enabled: r.Enabled, Allowlisted: r.AllowlistedProfileIDs})

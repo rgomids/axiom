@@ -11,7 +11,7 @@ func policyRuntimeReadiness(p project.Project, workflow projectapp.PolicyWorkflo
 	if !project.RuntimePolicyDeclared(p.State()) {
 		return []projectapp.PolicyRuntimeReadiness{{Code: "policy_unconfigured"}}
 	}
-	consumer, code := runtimeapplication.ConsumerFromRecordV3(facts.State, facts.V3)
+	consumer, code := runtimeapplication.ConsumerFromRecord(facts.State, facts.V4)
 	if code != "" {
 		return []projectapp.PolicyRuntimeReadiness{{Code: code}}
 	}
@@ -21,7 +21,7 @@ func policyRuntimeReadiness(p project.Project, workflow projectapp.PolicyWorkflo
 		code = "no_allowed_match"
 		for _, profile := range impact.After.Profiles {
 			request := runtimeapplication.Request{Role: impact.Role, Complexity: impact.Complexity, Capabilities: impact.Capabilities, ModelProfileID: profile.Profile, RuntimeID: profile.Runtime}
-			_, blocker := runtimeapplication.EvaluatePolicyV3(p, consumer, request)
+			_, blocker := runtimeapplication.EvaluatePolicy(p, consumer, request)
 			if blocker == nil {
 				matches++
 			}
@@ -34,7 +34,7 @@ func policyRuntimeReadiness(p project.Project, workflow projectapp.PolicyWorkflo
 		rows = append(rows, projectapp.PolicyRuntimeReadiness{Stage: impact.Stage, Agent: impact.Agent, Code: code})
 	}
 	if len(rows) == 0 {
-		rows = append(rows, projectapp.PolicyRuntimeReadiness{Code: runtimeapplication.EvaluateAvailabilityV3(p, consumer)})
+		rows = append(rows, projectapp.PolicyRuntimeReadiness{Code: runtimeapplication.EvaluateAvailability(p, consumer)})
 	}
 	return rows
 }

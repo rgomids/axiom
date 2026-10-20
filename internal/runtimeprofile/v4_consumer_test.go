@@ -9,7 +9,7 @@ import (
 )
 
 func testOperationalObservation(runtimeID string) OperationalObservation {
-	return OperationalObservation{RuntimeID: runtimeID, Adapter: runtimeID, Installed: true, Available: true, ExecutableDigest: strings.Repeat("a", 64), InvocationMode: "noninteractive", Revision: 7, SubscriptionObserved: true, EffortSourceDigest: strings.Repeat("b", 64), ObservedAt: time.Unix(1, 0)}
+	return OperationalObservation{RuntimeID: runtimeID, Adapter: runtimeID, Installed: true, Available: true, ExecutableDigest: strings.Repeat("a", 64), InvocationMode: "noninteractive", Revision: 7, EffortSourceDigest: strings.Repeat("b", 64), ObservedAt: time.Unix(1, 0)}
 }
 
 func TestV4ConsumerRequiresExactAllowedIdentityWithoutCertification(t *testing.T) {
@@ -33,7 +33,6 @@ func TestV4ConsumerRequiresExactAllowedIdentityWithoutCertification(t *testing.T
 			t.Fatal("collection time changed binding", err)
 		}
 		for name, change := range map[string]func(*OperationalObservation){
-			"missing-auth":               func(o *OperationalObservation) { o.SubscriptionObserved = false },
 			"stale-revision":             func(o *OperationalObservation) { o.Revision++ },
 			"missing-executable":         func(o *OperationalObservation) { o.Installed = false },
 			"unavailable":                func(o *OperationalObservation) { o.Available = false },

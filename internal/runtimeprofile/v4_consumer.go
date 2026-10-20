@@ -1,6 +1,26 @@
 package runtimeprofile
 
-import "time"
+import (
+	"context"
+	"errors"
+	"time"
+)
+
+// Operational observation refusals shared by the adapter observer and policy
+// resolution. Each names its actual boundary; none requests certification.
+var (
+	ErrExecutableUnavailable     = errors.New("executable_unavailable")
+	ErrInspectionConsentRequired = errors.New("inspection_consent_required")
+	ErrEffortOverrideConflict    = errors.New("effort_override_conflict")
+	ErrConfigurationUnsafe       = errors.New("configuration_unsafe")
+)
+
+// OperationalObserver returns current machine facts on every call; it never
+// reads stored Evidence, runs a Runtime or asserts vendor support.
+type OperationalObserver interface {
+	ObserveExecutable(context.Context, string) (OperationalObservation, error)
+	ObserveOperational(context.Context, string, string) (OperationalObservation, error)
+}
 
 type ConsumerV4 struct {
 	cfg    ConfigurationV4
@@ -8,16 +28,15 @@ type ConsumerV4 struct {
 }
 
 type OperationalObservation struct {
-	RuntimeID            string    `json:"runtimeId"`
-	Adapter              string    `json:"adapter"`
-	Installed            bool      `json:"installed"`
-	Available            bool      `json:"available"`
-	ExecutableDigest     string    `json:"executableDigest"`
-	InvocationMode       string    `json:"invocationMode"`
-	Revision             uint64    `json:"revision"`
-	SubscriptionObserved bool      `json:"subscriptionObserved"`
-	EffortSourceDigest   string    `json:"effortSourceDigest"`
-	ObservedAt           time.Time `json:"-"`
+	RuntimeID          string    `json:"runtimeId"`
+	Adapter            string    `json:"adapter"`
+	Installed          bool      `json:"installed"`
+	Available          bool      `json:"available"`
+	ExecutableDigest   string    `json:"executableDigest"`
+	InvocationMode     string    `json:"invocationMode"`
+	Revision           uint64    `json:"revision"`
+	EffortSourceDigest string    `json:"effortSourceDigest"`
+	ObservedAt         time.Time `json:"-"`
 }
 
 func NewConsumerV4(cfg ConfigurationV4) (ConsumerV4, error) {
@@ -76,7 +95,7 @@ func (c ConsumerV4) ObservedProfile(runtimeID, profileID string, o OperationalOb
 	if err != nil {
 		return ResolvedProfileV4{}, err
 	}
-	if o.RuntimeID != runtimeID || o.Adapter != runtimeID || o.Revision != c.cfg.Revision || o.ObservedAt.IsZero() || !o.Installed || !o.Available || !o.SubscriptionObserved || o.InvocationMode != "noninteractive" || !validDigest(o.ExecutableDigest) || !validDigest(o.EffortSourceDigest) {
+	if o.RuntimeID != runtimeID || o.Adapter != runtimeID || o.Revision != c.cfg.Revision || o.ObservedAt.IsZero() || !o.Installed || !o.Available || o.InvocationMode != "noninteractive" || !validDigest(o.ExecutableDigest) || !validDigest(o.EffortSourceDigest) {
 		return ResolvedProfileV4{}, ErrNoMatch
 	}
 	od, err := operationalObservationDigest(o)
@@ -92,4 +111,29 @@ func (c ConsumerV4) ObservedProfile(runtimeID, profileID string, o OperationalOb
 		return ResolvedProfileV4{}, err
 	}
 	return resolved, nil
+}
+
+// ProfileIntent is an allowed Profile's model and effort intent bound to its
+// exact Runtime and the configuration identity it was read from.
+type ProfileIntent struct {
+	RuntimeID             string
+	Adapter               string
+	ProfileID             string
+	Model                 string
+	Effort                Effort
+	ProfileDigest         string
+	ConfigurationRevision uint64
+	ConfigurationDigest   string
+}
+
+func (c ConsumerV4) ProfileIntent(runtimeID, profileID string) (ProfileIntent, error) {
+	p, err := c.AllowedProfile(runtimeID, profileID)
+	if err != nil {
+		return ProfileIntent{}, err
+	}
+	pd, err := ProfileDigest(p)
+	if err != nil {
+		return ProfileIntent{}, ErrInvalidConfiguration
+	}
+	return ProfileIntent{RuntimeID: p.RuntimeID, Adapter: p.RuntimeID, ProfileID: p.ID, Model: p.Model, Effort: p.Effort, ProfileDigest: pd, ConfigurationRevision: c.cfg.Revision, ConfigurationDigest: c.digest}, nil
 }

@@ -11,69 +11,86 @@ import (
 	"github.com/rgomids/axiom/internal/runtimeprofile"
 )
 
-// StageBindingChecker is implemented by runtimeapplication.Service with the
-// capabilityproof.Observer. Check reloads local configuration and exact model
-// proof on each attempt, including removal, tombstones and disabled Runtimes.
+// StageBindingChecker is implemented by runtimeapplication.Service over the
+// operational observer. Check reloads local configuration, the executable and
+// effort sources on each attempt, including removal, tombstones and disabled
+// Runtimes.
 type StageBindingChecker interface {
 	Check(context.Context, runtimeapplication.Preview) (runtimeapplication.Binding, error)
 }
 
-// PrepareFrozenStageInvocation is the per-attempt #276 composition. The caller
+// PrepareFrozenStageInvocation is the per-attempt composition. The caller
 // supplies the persisted tuple and its reviewed preview; neither is replaced by
-// the current selection. No process is started here.
-func PrepareFrozenStageInvocation(ctx context.Context, request runtimeadapter.StageInvocationRequest, frozen runtimeprofile.ResolvedProfile, preview runtimeapplication.Preview, checker StageBindingChecker, sources EffortSourceInspector, auth SubscriptionAuthenticator) (executiongraph.Invocation, runtimeadapter.AuthReport, error) {
+// the current selection. Authentication is observed on the exact invocation;
+// an optional version is never compared. No process is started here.
+func PrepareFrozenStageInvocation(ctx context.Context, request runtimeadapter.StageInvocationRequest, frozen runtimeprofile.ResolvedProfileV4, preview runtimeapplication.Preview, checker StageBindingChecker, sources EffortSourceInspector, auth SubscriptionAuthenticator) (executiongraph.Invocation, runtimeadapter.AuthReport, error) {
 	report := runtimeadapter.AuthReport{}
 	if err := ctx.Err(); err != nil {
 		return executiongraph.Invocation{}, report, err
 	}
-	if runtimeprofile.ValidateResolvedProfile(frozen) != nil || checker == nil || preview.Choice == nil || preview.Choice.ResolvedProfile == nil || *preview.Choice.ResolvedProfile != frozen {
+	if runtimeprofile.ValidateResolvedProfileV4(frozen) != nil || checker == nil || preview.Choice == nil || preview.Choice.FrozenProfile == nil || *preview.Choice.FrozenProfile != frozen {
 		return executiongraph.Invocation{}, report, runtimeapplication.ErrStale
 	}
 	binding, err := checker.Check(ctx, preview)
 	if err != nil {
 		return executiongraph.Invocation{}, report, err
 	}
-	if binding.Choice.ResolvedProfile == nil || *binding.Choice.ResolvedProfile != frozen {
+	if binding.Choice.FrozenProfile == nil || *binding.Choice.FrozenProfile != frozen {
 		return executiongraph.Invocation{}, report, runtimeapplication.ErrStale
 	}
 	if binding.CredentialReference != "" || request.Profile.CredentialReference != "" || auth == nil {
 		return executiongraph.Invocation{}, report, executiongraph.ErrAuthenticationBlocked
 	}
-	inv, err := runtimeadapter.BuildFrozenStageInvocation(request, frozen)
+	inv, err := runtimeadapter.BuildFrozenStageInvocationV4(request, frozen)
 	if err != nil {
-		return executiongraph.Invocation{}, report, err
-	}
-	if sources == nil {
-		return executiongraph.Invocation{}, report, runtimeadapter.ErrEffortConfigurationUnproven
-	}
-	digest, err := sources.CheckEffortSources(ctx, frozen, inv)
-	if err != nil {
+		if errors.Is(err, runtimeadapter.ErrInvalidAdapterConfiguration) {
+			return executiongraph.Invocation{}, report, runtimeapplication.ErrStale
+		}
 		return executiongraph.Invocation{}, report, stageEffortError(err)
 	}
-	if digest != frozen.EffortSourceDigest {
-		return executiongraph.Invocation{}, report, runtimeapplication.ErrStale
+	if sources == nil {
+		return executiongraph.Invocation{}, report, runtimeadapter.ErrEffortConfigurationUnsafe
+	}
+	if err = checkFrozenSources(ctx, sources, frozen, inv); err != nil {
+		return executiongraph.Invocation{}, report, err
 	}
 	report = auth.Check(ctx, runtimeadapter.AuthTarget{RuntimeID: frozen.RuntimeID, Executable: inv.Argv[0], ExpectedDigest: frozen.ExecutableDigest, WorkingDirectory: inv.CWD, Environment: executiongraph.EffectiveInvocationEnvironment(inv)})
-	if report.RuntimeID != frozen.RuntimeID || !report.DispatchAllowed() || report.Version != frozen.RuntimeVersion || report.ExecutableDigest != frozen.ExecutableDigest {
-		return executiongraph.Invocation{}, report, fmt.Errorf("%w: subscription_binding_unproven", executiongraph.ErrAuthenticationBlocked)
+	if report.Reason == "executable_identity_changed" {
+		return executiongraph.Invocation{}, report, fmt.Errorf("%w: %w", executiongraph.ErrAuthenticationBlocked, runtimeapplication.ErrStale)
+	}
+	if report.RuntimeID != frozen.RuntimeID || !report.DispatchAllowed() || report.ExecutableDigest != frozen.ExecutableDigest {
+		return executiongraph.Invocation{}, report, fmt.Errorf("%w: %s", executiongraph.ErrAuthenticationBlocked, report.Reason)
 	}
 	// Authentication may observe changed local state; the last source check still
 	// compares against the frozen digest, never approves a replacement.
-	digest, err = sources.CheckEffortSources(ctx, frozen, inv)
-	if err != nil {
-		return executiongraph.Invocation{}, report, stageEffortError(err)
-	}
-	if digest != frozen.EffortSourceDigest {
-		return executiongraph.Invocation{}, report, runtimeapplication.ErrStale
+	if err = checkFrozenSources(ctx, sources, frozen, inv); err != nil {
+		return executiongraph.Invocation{}, report, err
 	}
 	return inv, report, ctx.Err()
+}
+
+func checkFrozenSources(ctx context.Context, sources EffortSourceInspector, frozen runtimeprofile.ResolvedProfileV4, inv executiongraph.Invocation) error {
+	digest, err := sources.CheckEffortSources(ctx, frozen, inv)
+	if err != nil {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		return stageEffortError(err)
+	}
+	if digest != frozen.EffortSourceDigest {
+		return runtimeapplication.ErrStale
+	}
+	return nil
 }
 
 // Inspectors expose safe categories only; opaque source failures cannot leak raw
 // configuration, paths or environment through dispatch errors.
 func stageEffortError(err error) error {
-	if errors.Is(err, runtimeadapter.ErrEffortOverrideConflict) || errors.Is(err, ErrEffortOverrideConflict) {
+	switch {
+	case errors.Is(err, runtimeadapter.ErrEffortOverrideConflict), errors.Is(err, ErrEffortOverrideConflict):
 		return runtimeadapter.ErrEffortOverrideConflict
+	case errors.Is(err, runtimeadapter.ErrExecutableUnavailable):
+		return runtimeadapter.ErrExecutableUnavailable
 	}
-	return runtimeadapter.ErrEffortConfigurationUnproven
+	return runtimeadapter.ErrEffortConfigurationUnsafe
 }

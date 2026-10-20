@@ -369,9 +369,6 @@ func RunInteractive(ctx context.Context, args []string, service Service, source 
 			return emitResponse(stdout, mode, "project_context", *failure)
 		}
 	}
-	if handled, code := runRuntimeCapability(ctx, mode, args, service, source, stdout); handled {
-		return code
-	}
 	if handled, code := runRuntimeAuthoring(ctx, mode, args, service, source, stdout); handled {
 		return code
 	}
@@ -1021,6 +1018,7 @@ func workflowFlagSet(operation action, values *requestInput) *flag.FlagSet {
 		set.StringVar(&values.runtime, "runtime", "", "Optional Runtime constraint; `<codex|claude>`. Portable policy resolves omitted Runtime.")
 		runtimeRequestFlags(set, &values.role, &values.complexity, &values.capabilities)
 		set.StringVar(&values.runtimePreview, "runtime-preview", "", "Exact reviewed Runtime resolution digest; `<digest>`. Omission previews without starting.")
+		set.BoolVar(&values.authorizeLocal, "authorize-local", false, "Consent to read-only inspection of the repository's Runtime effort sources; boolean. Grants no other authority.")
 	}
 	if operation == workflowAdvanceAction || operation == workflowFactAction || operation == workflowResumeAction || operation == workflowReconcileAction {
 		set.Uint64Var(&values.expectedRevision, "expected-revision", 0, "Exact current Execution revision; `<positive-integer>`.")

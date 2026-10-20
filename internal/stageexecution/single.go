@@ -383,20 +383,20 @@ type CompiledSinglePreparation struct {
 }
 
 func (p *CompiledSinglePreparation) PrepareSingle(ctx context.Context, run executiongraph.SingleStageRun, id string, epoch uint64) (executiongraph.Invocation, error) {
-	if p == nil || p.Loader == nil || run.Binding.Resolution.ResolvedProfile == nil {
+	if p == nil || p.Loader == nil || run.Binding.Resolution.FrozenProfile == nil {
 		return executiongraph.Invocation{}, ErrAdmission
 	}
 	m, err := p.Loader.LoadSingleAttempt(ctx, run, id, epoch)
 	if err != nil {
 		return executiongraph.Invocation{}, err
 	}
-	frozen := *run.Binding.Resolution.ResolvedProfile
+	frozen := *run.Binding.Resolution.FrozenProfile
 	inputDigest, err := canonicalDigest(m.Input)
 	if err != nil || inputDigest != run.Binding.InputDigest {
 		return executiongraph.Invocation{}, ErrStalePreview
 	}
 	b, scope := run.Binding, run.Scope
-	if m.Input.ResolvedProfile == nil || *m.Input.ResolvedProfile != frozen || m.Input.ProjectID != scope.ProjectID || m.Input.RepositoryKey != scope.RepositoryKey || m.Input.StageID != scope.StageID || !reflect.DeepEqual(m.Input.Effects, b.Effects) || m.Input.Controls != b.Controls || m.Invocation.Workspace != b.Workspace || m.Context.Workspace != b.Workspace || m.Context.Inbox != m.Invocation.Inbox || m.Packet.Inbox != m.Context.Inbox || m.Packet.AxiomPath != m.Invocation.AxiomPath || m.Packet.AxiomDigest != b.AxiomDigest || m.Context.ParentID != scope.ExecutionID || m.Context.ChildID != scope.ExecutionID || m.Context.GraphRevision != b.WorkflowRevision || m.Context.AttemptID != id || m.Packet.AttemptID != id || m.Context.Epoch != epoch || !coordination.ValidChildContext(m.Context) {
+	if m.Input.FrozenProfile == nil || *m.Input.FrozenProfile != frozen || m.Input.ProjectID != scope.ProjectID || m.Input.RepositoryKey != scope.RepositoryKey || m.Input.StageID != scope.StageID || !reflect.DeepEqual(m.Input.Effects, b.Effects) || m.Input.Controls != b.Controls || m.Invocation.Workspace != b.Workspace || m.Context.Workspace != b.Workspace || m.Context.Inbox != m.Invocation.Inbox || m.Packet.Inbox != m.Context.Inbox || m.Packet.AxiomPath != m.Invocation.AxiomPath || m.Packet.AxiomDigest != b.AxiomDigest || m.Context.ParentID != scope.ExecutionID || m.Context.ChildID != scope.ExecutionID || m.Context.GraphRevision != b.WorkflowRevision || m.Context.AttemptID != id || m.Packet.AttemptID != id || m.Context.Epoch != epoch || !coordination.ValidChildContext(m.Context) {
 		return executiongraph.Invocation{}, ErrAdmission
 	}
 	m.Invocation.Process, m.Invocation.RepositoryWrite = false, false

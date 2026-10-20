@@ -184,20 +184,20 @@ func (a workflowAuthoringAdapter) PublishWorkflowSelection(ctx context.Context, 
 	return string(result.Status)
 }
 
-// ObserveWorkflowProfiles reads only the canonical v3 record; missing,
-// retired, pre-stable and invalid state is profile_effort_unconfigured.
-func (a workflowAuthoringAdapter) ObserveWorkflowProfiles(ctx context.Context, _ string) (runtimeprofile.ConsumerV3, string, string) {
+// ObserveWorkflowProfiles reads only the canonical format-4 record; missing,
+// retired, historical and invalid state is profile_effort_unconfigured.
+func (a workflowAuthoringAdapter) ObserveWorkflowProfiles(ctx context.Context, _ string) (runtimeprofile.ConsumerV4, string, string) {
 	store, e := local.NewRuntimeProfileStore(a.s.stateRoot)
 	if e != nil {
-		return runtimeprofile.ConsumerV3{}, "", "profile_effort_unconfigured"
+		return runtimeprofile.ConsumerV4{}, "", "profile_effort_unconfigured"
 	}
 	snapshot, e := store.Inspect(ctx)
 	if e != nil {
-		return runtimeprofile.ConsumerV3{}, "", "profile_effort_unconfigured"
+		return runtimeprofile.ConsumerV4{}, "", "profile_effort_unconfigured"
 	}
-	consumer, code := runtimeapplication.ConsumerFromRecordV3(snapshot.State, snapshot.V3)
+	consumer, code := runtimeapplication.ConsumerFromRecord(snapshot.State, snapshot.V4)
 	if code != "" {
-		return runtimeprofile.ConsumerV3{}, "", "profile_effort_unconfigured"
+		return runtimeprofile.ConsumerV4{}, "", "profile_effort_unconfigured"
 	}
 	return consumer, snapshot.Token, ""
 }

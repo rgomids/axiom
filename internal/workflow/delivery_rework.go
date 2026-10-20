@@ -17,15 +17,16 @@ type ReworkLink struct {
 	PreviewDigest  string `json:"previewDigest"`
 }
 type ReworkInput struct {
-	NewExecutionID  string                          `json:"newExecutionId"`
-	RevisionChoice  string                          `json:"revisionChoice"`
-	RuntimeID       string                          `json:"runtimeId"`
-	RuntimePreview  string                          `json:"runtimePreview"`
-	ResolvedProfile *runtimeprofile.ResolvedProfile `json:"resolvedProfile,omitempty"`
-	Scope           string                          `json:"scope"`
-	Plan            Reference                       `json:"plan"`
-	Inputs          []Reference                     `json:"inputs"`
-	Authority       Reference                       `json:"authority"`
+	NewExecutionID  string                            `json:"newExecutionId"`
+	RevisionChoice  string                            `json:"revisionChoice"`
+	RuntimeID       string                            `json:"runtimeId"`
+	RuntimePreview  string                            `json:"runtimePreview"`
+	ResolvedProfile *runtimeprofile.ResolvedProfile   `json:"resolvedProfile,omitempty"`
+	FrozenProfile   *runtimeprofile.ResolvedProfileV4 `json:"frozenProfile,omitempty"`
+	Scope           string                            `json:"scope"`
+	Plan            Reference                         `json:"plan"`
+	Inputs          []Reference                       `json:"inputs"`
+	Authority       Reference                         `json:"authority"`
 }
 type ReworkPreview struct {
 	FormatVersion  int            `json:"formatVersion"`
@@ -121,7 +122,7 @@ func (s Service) PreviewDeliveryRework(ctx context.Context, original State, d De
 	target.ExecutionID = ""
 	target.RuntimeID = input.RuntimeID
 	target.RuntimePreview = input.RuntimePreview
-	target.ResolvedProfile = input.ResolvedProfile
+	target.FrozenProfile = input.FrozenProfile
 	target.ReviewedTarget = nil
 	started := s.Start(ctx, target)
 	if started.Status != Succeeded || admission.state == nil {
@@ -141,7 +142,7 @@ func ApplyDeliveryRework(ctx context.Context, store ReworkStore, original State,
 }
 func EncodeReworkPreview(p ReworkPreview) ([]byte, error) {
 	n, o := p.NewState, p.OriginalPacket
-	if _, err := EncodeDeliveryPacket(o); err != nil || p.FormatVersion != 1 || p.Kind != "delivery_rework" || !validDigest(p.DecisionDigest) || !ValidState(n) || n.Binding == nil || n.RuntimeID != p.Input.RuntimeID || n.Binding.RuntimePreview != p.Input.RuntimePreview || !reflect.DeepEqual(n.Binding.ResolvedProfile, p.Input.ResolvedProfile) || n.ExecutionID != p.Input.NewExecutionID || n.ExecutionID == o.ExecutionID || n.ProjectID != o.ProjectID || n.RepositoryKey != o.RepositoryKey || n.WorkItem != o.WorkItem || n.Status != ExecutionActive || n.Revision != 1 || n.StageOrdinal != 0 || len(n.Transitions) != 0 || len(n.Projections) != 0 || n.DeliveryDecision != nil || n.ReworkOf != nil || !validText(p.Input.Scope) || !validReference(p.Input.Plan) || !validReference(p.Input.Authority) || len(p.Input.Inputs) > 16 || (p.Input.RevisionChoice != "retained" && p.Input.RevisionChoice != "selected") {
+	if _, err := EncodeDeliveryPacket(o); err != nil || p.FormatVersion != 1 || p.Kind != "delivery_rework" || !validDigest(p.DecisionDigest) || !ValidState(n) || n.Binding == nil || n.RuntimeID != p.Input.RuntimeID || n.Binding.RuntimePreview != p.Input.RuntimePreview || !reflect.DeepEqual(n.Binding.ResolvedProfile, p.Input.ResolvedProfile) || !reflect.DeepEqual(n.Binding.FrozenProfile, p.Input.FrozenProfile) || n.ExecutionID != p.Input.NewExecutionID || n.ExecutionID == o.ExecutionID || n.ProjectID != o.ProjectID || n.RepositoryKey != o.RepositoryKey || n.WorkItem != o.WorkItem || n.Status != ExecutionActive || n.Revision != 1 || n.StageOrdinal != 0 || len(n.Transitions) != 0 || len(n.Projections) != 0 || n.DeliveryDecision != nil || n.ReworkOf != nil || !validText(p.Input.Scope) || !validReference(p.Input.Plan) || !validReference(p.Input.Authority) || len(p.Input.Inputs) > 16 || (p.Input.RevisionChoice != "retained" && p.Input.RevisionChoice != "selected") {
 		return nil, ErrDelivery
 	}
 	if p.Input.RevisionChoice == "retained" && n.Binding.Definition != o.Definition {

@@ -156,59 +156,51 @@ func locationIndependentFacts(wire []byte, projectScopes map[string]bool) ([]eff
 	return append([]effortSourceFact{{Scope: "proof", Key: projection.Proof}}, projection.Facts...), nil
 }
 
-// StageEffortInspector is the dispatch-time PE-05a inspector of the Stage
-// supervisor (PM-13). Immediately before each attempt it re-observes the
-// executable, the registry version and canonical v3 configuration, resolves
-// the stable roots from the attempt's own effective environment, verifies the
-// child's effective configuration equivalence and returns the canonical
-// EffortSourceDigest of the repository-root view for comparison with the
-// frozen tuple. Consented records the committed Stage dispatch authority; it
-// grants no other authority and proves no capability.
+// StageEffortInspector is the dispatch-time effort-source inspector of the
+// Stage supervisor (AXM-36 D4). Immediately before each attempt it re-reads
+// canonical configuration 4 and the actual executable, and returns the
+// canonical EffortSourceDigest of the repository-root view for comparison
+// with the frozen tuple. A reviewed repository-write child must read the same
+// project sources as the repository root; a read-only child's actual working
+// root is inspected and must hold no competing or unsafe source. Consented
+// records the committed Stage dispatch authority; it grants nothing else.
 type StageEffortInspector struct {
-	Configuration func(context.Context) (runtimeprofile.VersionedConfiguration, error)
-	Version       func(ctx context.Context, runtimeID, executableDigest string) (string, error)
-	// Roots is StageEffortRoots.Resolve in production.
-	Roots func(context.Context, capabilityproof.Target, []string) (EffortSourceRoots, error)
+	Configuration func(context.Context) (runtimeprofile.ConfigurationV4, error)
+	Repository    string
 	// Workspaces are the reviewed repository-write child workspaces.
 	Workspaces []string
 	Consented  bool
 }
 
-func (i StageEffortInspector) CheckEffortSources(ctx context.Context, p runtimeprofile.ResolvedProfile, inv executiongraph.Invocation) (string, error) {
-	if ctx.Err() != nil || !i.Consented || i.Configuration == nil || i.Version == nil || i.Roots == nil || runtimeprofile.ValidateResolvedProfile(p) != nil || len(inv.Argv) == 0 || inv.RuntimeID != p.RuntimeID {
-		return "", ErrEffortConfigurationUnproven
+func (i StageEffortInspector) CheckEffortSources(ctx context.Context, p runtimeprofile.ResolvedProfileV4, inv executiongraph.Invocation) (string, error) {
+	if err := ctx.Err(); err != nil {
+		return "", err
 	}
-	// Only a reviewed repository-write workspace is admitted; a read-only
-	// child's working root has no established resolution behaviour.
-	if !slices.Contains(i.Workspaces, inv.CWD) {
-		return "", ErrEffortConfigurationUnproven
+	if !i.Consented || i.Configuration == nil || runtimeprofile.ValidateResolvedProfileV4(p) != nil || len(inv.Argv) == 0 || inv.RuntimeID != p.RuntimeID {
+		return "", ErrEffortConfigurationUnsafe
 	}
 	digest, err := ExecutableIdentity(inv.Argv[0])
-	if err != nil || digest != p.ExecutableDigest {
-		return "", ErrEffortConfigurationUnproven
-	}
-	version, err := i.Version(ctx, p.RuntimeID, digest)
-	if err != nil || version != p.RuntimeVersion {
-		return "", ErrEffortConfigurationUnproven
+	if err != nil {
+		return "", ErrExecutableUnavailable
 	}
 	cfg, err := i.Configuration(ctx)
 	if err != nil {
-		return "", ErrEffortConfigurationUnproven
+		return "", ErrEffortConfigurationUnsafe
 	}
-	roots, err := i.Roots(ctx, capabilityproof.Target{RuntimeID: p.RuntimeID, ProfileID: p.ProfileID, Variant: capabilityproof.RepositoryWriteVariant}, executiongraph.EffectiveInvocationEnvironment(inv))
-	if err != nil {
-		return "", ErrEffortConfigurationUnproven
-	}
-	r := EffortSourceRequest{Consented: true, Configuration: cfg, ProfileID: p.ProfileID, Observed: runtimeprofile.EffortApplicability{RuntimeID: p.RuntimeID, RuntimeVersion: version, ExecutableDigest: digest, InvocationMode: p.InvocationMode}, Roots: roots, Invocation: inv}
-	if err := VerifyChildEquivalence(ctx, r, inv.CWD); err != nil {
-		return "", err
-	}
-	sum, err := InspectEffortSources(ctx, r)
+	roots, err := (StageEffortRoots{Repository: i.Repository}).ResolveOperational(ctx, inv, true)
 	if err != nil {
 		return "", err
 	}
-	if after, err := ExecutableIdentity(inv.Argv[0]); err != nil || after != digest {
-		return "", ErrEffortConfigurationUnproven
+	r := EffortSourceRequestV4{Consented: true, Configuration: cfg, ProfileID: p.ProfileID, ExecutableDigest: digest, InvocationMode: p.InvocationMode, Roots: roots, Invocation: inv}
+	if slices.Contains(i.Workspaces, inv.CWD) {
+		err = VerifyChildEquivalenceV4(ctx, r, inv.CWD)
+	} else {
+		actual := r
+		actual.Roots.Project = inv.CWD
+		_, err = InspectEffortSourcesV4(ctx, actual)
 	}
-	return sum, nil
+	if err != nil {
+		return "", err
+	}
+	return InspectEffortSourcesV4(ctx, r)
 }

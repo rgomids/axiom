@@ -233,7 +233,7 @@ type Result struct {
 	Executions []Summary
 }
 type Target struct {
-	ResolvedProfile                              *runtimeprofile.ResolvedProfile
+	FrozenProfile                                *runtimeprofile.ResolvedProfileV4
 	RuntimePreview                               string
 	ProjectSelector, RepositoryKey               string
 	WorkItemProvider, WorkItemResource, WorkItem string
@@ -315,7 +315,7 @@ func (s Service) Start(ctx context.Context, target Target) Result {
 		if s.profileContract && observation.Document.Definition.SchemaVersion != 2 {
 			return result(ValidationFailed, "workflow_migration_required", State{})
 		}
-		if s.profileContract && target.ResolvedProfile == nil {
+		if s.profileContract && target.FrozenProfile == nil {
 			return result(ValidationFailed, "profile_effort_unconfigured", State{})
 		}
 	}
@@ -345,12 +345,12 @@ func (s Service) Start(ctx context.Context, target Target) Result {
 		state.FormatVersion, state.WorkflowVersion = ConfiguredFormatVersion, ConfiguredWorkflowVersion
 		state.Binding = &WorkflowBinding{ProjectID: project.ID, Definition: observation.Document.Ref(observation.Source), SchemaVersion: observation.Document.Definition.SchemaVersion, SnapshotRef: "execution:" + id + "#/binding/snapshot", Snapshot: append([]byte(nil), observation.Document.Canonical...), ObservationDigest: observation.Digest, RuntimePreview: target.RuntimePreview, BoundAt: now}
 		if observation.Document.Definition.SchemaVersion == 2 {
-			if target.ResolvedProfile == nil || runtimeprofile.ValidateResolvedProfile(*target.ResolvedProfile) != nil || target.ResolvedProfile.RuntimeID != target.RuntimeID {
+			if target.FrozenProfile == nil || runtimeprofile.ValidateResolvedProfileV4(*target.FrozenProfile) != nil || target.FrozenProfile.RuntimeID != target.RuntimeID {
 				return result(ValidationFailed, "profile_effort_unconfigured", State{})
 			}
-			frozen := *target.ResolvedProfile
-			state.Binding.ResolvedProfile = &frozen
-			state.FormatVersion, state.WorkflowVersion = ProfileConfiguredFormatVersion, ProfileConfiguredWorkflowVersion
+			frozen := *target.FrozenProfile
+			state.Binding.FrozenProfile = &frozen
+			state.FormatVersion, state.WorkflowVersion = OperationalConfiguredFormatVersion, ProfileConfiguredWorkflowVersion
 		}
 		state.Binding.Contexts = observation.Contexts
 		state.Binding.ProjectRevision, state.Binding.LocalRevision = observation.ProjectRevision, observation.LocalRevision
@@ -488,7 +488,7 @@ func (s Service) Resume(ctx context.Context, target Target, expectedRevision uin
 	if failed.Category != "" {
 		return failed
 	}
-	if s.profileContract && state.FormatVersion != ProfileConfiguredFormatVersion {
+	if s.profileContract && state.FormatVersion != OperationalConfiguredFormatVersion {
 		return result(ValidationFailed, "legacy_execution_contract", state)
 	}
 	if state.Revision != expectedRevision {

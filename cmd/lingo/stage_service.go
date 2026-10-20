@@ -23,7 +23,6 @@ import (
 	"github.com/rgomids/axiom/internal/gitworkspace"
 	"github.com/rgomids/axiom/internal/local"
 	"github.com/rgomids/axiom/internal/projectapp"
-	"github.com/rgomids/axiom/internal/runtimeprofile"
 	"github.com/rgomids/axiom/internal/stageexecution"
 	"github.com/rgomids/axiom/internal/workflow"
 	"github.com/rgomids/axiom/internal/workflowcompiler"
@@ -229,25 +228,15 @@ func (s lifecycleService) stageContract(ctx context.Context, stores stageStores,
 		// The Workflow was explicitly selected when this Execution was bound.
 		c.WorkflowSelected = state.Binding.SchemaVersion == 2
 	}
-	// Stage admission (AdmitV3) derives the frozen Profile's availability from
-	// the canonical v3 record; a removed, disallowed or disabled Profile blocks
-	// and nothing falls back to another Profile, model, Runtime or effort.
+	// Stage admission derives the frozen Profile's availability from the
+	// canonical format-4 record; a removed, disallowed or disabled Profile
+	// blocks and nothing falls back to another Profile, model, Runtime or
+	// effort. Historical records stay refusals for planning and dispatch only.
 	snapshot, err := stores.profiles.Inspect(ctx)
 	if err != nil {
 		return c, stageexecution.ErrProfileEffortUnconfigured
 	}
-	switch snapshot.State {
-	case "active-v3":
-		c.Record = runtimeprofile.RecordActiveV3
-		c.Configuration = runtimeprofile.VersionedConfiguration{FormatVersion: runtimeprofile.FormatVersionV3, V3: snapshot.V3}
-	case "retired":
-		c.Record = runtimeprofile.RecordRetiredV3
-	case "fresh":
-		c.Record = runtimeprofile.RecordMissingV3
-	default:
-		// Pre-stable records are never current configuration (PM-11, B1).
-		return c, stageexecution.ErrProfileEffortUnconfigured
-	}
+	c.Record, c.Configuration = snapshot.State, snapshot.V4
 	return c, nil
 }
 

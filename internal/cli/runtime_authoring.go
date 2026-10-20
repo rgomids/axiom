@@ -41,12 +41,7 @@ func runtimeAuthoringFlagSet(op action, r *runtimeapplication.AuthoringRequest) 
 			return nil
 		})
 	case "remove":
-		set.BoolVar(&r.Cascade, "cascade", false, "Include reviewed compound Profile/Runtime removal; on a pre-stable record, retire the entire configuration.")
-	}
-	// Specification 007 PM-1: the only v3 declaration flag, on binding edit.
-	// There is no format-transition flag.
-	if r.Kind == "binding" && r.Operation == "edit" {
-		set.StringVar(&r.EffortDeclaration, "effort-declaration", "", "One EffortDeclaration for --runtime; `<json-file>`.")
+		set.BoolVar(&r.Cascade, "cascade", false, "Include reviewed compound Profile/Runtime removal; on a historical record, retire the entire configuration.")
 	}
 	if r.Operation != "list" && r.Operation != "show" && r.Operation != "validate" && r.Operation != "validate-candidate" {
 		set.StringVar(&r.ExpectedRevision, "expected-revision", "", "Exact opaque snapshot token from preview; `<digest>`.")

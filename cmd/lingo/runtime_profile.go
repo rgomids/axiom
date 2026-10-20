@@ -6,13 +6,14 @@ import (
 	"github.com/rgomids/axiom/internal/cli"
 	"github.com/rgomids/axiom/internal/completion"
 	"github.com/rgomids/axiom/internal/local"
+	"github.com/rgomids/axiom/internal/runtimeapplication"
 )
 
 var _ cli.RuntimeProfileService = lifecycleService{}
 
-// RuntimeProfileValidate accepts only an active, valid canonical v3 record
-// (runtimeProfileValidityV3). Pre-stable records are refused with explicit
-// retirement guidance; nothing is migrated.
+// RuntimeProfileValidate accepts only an active, valid canonical format-4
+// record (runtimeProfileValidity). Historical records are refused with
+// explicit retirement guidance; nothing is migrated.
 func (s lifecycleService) RuntimeProfileValidate(ctx context.Context) cli.Result {
 	failure := func(next string) cli.Result {
 		return canonicalCompletion(completion.Facts{ValidationFailed: true}, "Runtime profile configuration is missing or invalid", nil, next, s.provenance)
@@ -23,10 +24,10 @@ func (s lifecycleService) RuntimeProfileValidate(ctx context.Context) cli.Result
 		return failure(setup)
 	}
 	snapshot, err := store.Inspect(ctx)
-	switch code := runtimeProfileValidityV3(snapshot, err); code {
+	switch code := runtimeProfileValidity(snapshot, err); code {
 	case "":
 	case "unsupported_configuration_format":
-		r := failure("Pre-stable local configuration is not used and is never migrated; retire it explicitly with axiom-runtime (binding remove --runtime <id> --cascade), then create canonical configuration")
+		r := failure("Historical local configuration is not used and is never migrated; retire it explicitly with axiom-runtime (binding remove --runtime <id> --cascade), then create canonical configuration")
 		r.Category = code
 		return r
 	default:
@@ -35,4 +36,19 @@ func (s lifecycleService) RuntimeProfileValidate(ctx context.Context) cli.Result
 		return r
 	}
 	return canonicalCompletion(completion.Facts{Completed: true}, "Runtime profile configuration is valid", nil, "", s.provenance)
+}
+
+// runtimeProfileValidity evaluates one local.RuntimeProfileStore.Inspect
+// result. It returns "" only for an active, valid format-4 record; historical,
+// invalid, missing, retired, unsafe and recovery-required states are refused
+// with their established codes.
+func runtimeProfileValidity(snapshot local.RuntimeProfileSnapshot, err error) string {
+	if err != nil {
+		if snapshot.State == "pending" {
+			return "configuration_recovery_required"
+		}
+		return "configuration_unsafe"
+	}
+	_, code := runtimeapplication.ConsumerFromRecord(snapshot.State, snapshot.V4)
+	return code
 }

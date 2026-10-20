@@ -11,7 +11,6 @@ import (
 	"sort"
 	"time"
 
-	"github.com/rgomids/axiom/internal/capabilityproof"
 	"github.com/rgomids/axiom/internal/executiongraph"
 	"github.com/rgomids/axiom/internal/runtimeprofile"
 	"github.com/rgomids/axiom/internal/workflowcompiler"
@@ -24,9 +23,6 @@ var ErrPreview = errors.New("invalid_dispatch_preview")
 // StagePlanCompiler is the existing compiler's read-only PlanStageV2 boundary.
 type StagePlanCompiler interface {
 	PlanStageV2(context.Context, workflowcompiler.StagePlanRequest) (workflowcompiler.StagePlan, error)
-}
-type CapabilityReader interface {
-	Show(context.Context, capabilityproof.Target) (capabilityproof.View, error)
 }
 
 // PreviewObservation is loaded from trusted local stores, never from agent output.
@@ -45,9 +41,8 @@ type PreviewSource interface {
 	Observe(context.Context, workflowcompiler.ExecutionRef, string) (PreviewObservation, error)
 }
 type PreviewService struct {
-	Source       PreviewSource
-	Compiler     StagePlanCompiler
-	Capabilities CapabilityReader
+	Source   PreviewSource
+	Compiler StagePlanCompiler
 }
 
 type ChildRights struct {
@@ -60,7 +55,7 @@ type ChildRights struct {
 	Network      string                           `json:"network"`
 	Effects      []executiongraph.Effect          `json:"effects"`
 	Controls     executiongraph.ExecutionControls `json:"controls"`
-	Capability   capabilityproof.View             `json:"capability"`
+	Confinement  string                           `json:"confinement"`
 	Prohibitions map[string]string                `json:"prohibitions"`
 	NotTested    []string                         `json:"not_tested"`
 }
@@ -85,7 +80,7 @@ func canonicalDigest(v any) (string, error) {
 func previewDigest(p DispatchPreview) (string, error) { p.Digest = ""; return canonicalDigest(p) }
 
 func (s PreviewService) Preview(ctx context.Context, ref workflowcompiler.ExecutionRef, stage string) (DispatchPreview, error) {
-	if s.Source == nil || s.Compiler == nil || s.Capabilities == nil {
+	if s.Source == nil || s.Compiler == nil {
 		return DispatchPreview{}, ErrPreview
 	}
 	o, e := s.Source.Observe(ctx, ref, stage)
@@ -108,7 +103,7 @@ func (s PreviewService) Preview(ctx context.Context, ref workflowcompiler.Execut
 	if e != nil {
 		return DispatchPreview{}, e
 	}
-	if plan.FormatVersion != 2 || plan.Execution != ref || plan.StageID != stage || plan.Digest != o.Reviewed.Digest || plan.PlanDocumentDigest != o.Reviewed.PlanDocumentDigest || !reflect.DeepEqual(plan, o.Reviewed) {
+	if plan.FormatVersion != workflowcompiler.OperationalStagePlanVersion || plan.Execution != ref || plan.StageID != stage || plan.Digest != o.Reviewed.Digest || plan.PlanDocumentDigest != o.Reviewed.PlanDocumentDigest || !reflect.DeepEqual(plan, o.Reviewed) {
 		return DispatchPreview{}, ErrStalePreview
 	}
 	if len(plan.Blockers) != 0 || len(plan.Compilation.Agents) == 0 || len(plan.Compilation.Agents) > 32 {
@@ -124,8 +119,8 @@ func (s PreviewService) Preview(ctx context.Context, ref workflowcompiler.Execut
 		return DispatchPreview{}, ErrPreview
 	}
 	for _, a := range plan.Compilation.Agents {
-		frozen := a.Input.ResolvedProfile
-		if frozen == nil || runtimeprofile.ValidateResolvedProfile(*frozen) != nil || a.Choice.ResolvedProfile == nil || *a.Choice.ResolvedProfile != *frozen || !executiongraph.ValidProfileControls(frozen, a.Controls, a.Capability) {
+		frozen := a.Input.FrozenProfile
+		if frozen == nil || runtimeprofile.ValidateResolvedProfileV4(*frozen) != nil || a.Choice.FrozenProfile == nil || *a.Choice.FrozenProfile != *frozen || !executiongraph.ValidFrozenProfileControls(frozen, a.Controls, a.Capability) {
 			return DispatchPreview{}, ErrPreview
 		}
 		if a.Controls.MaximumAttempts < 1 || a.Controls.MaximumAttempts > 10 || a.Controls.Timeout <= 0 || a.Controls.Timeout > 24*time.Hour {
@@ -135,62 +130,26 @@ func (s PreviewService) Preview(ctx context.Context, ref workflowcompiler.Execut
 		if workspace == "" || inbox == "" || workspace == inbox {
 			return DispatchPreview{}, ErrPreview
 		}
-		variant, process := capabilityproof.ReadOnlyVariant, false
 		writes := []string{inbox}
-		required := append([]string{}, a.Capability.Capabilities...)
-		required = append(required, capabilityproof.Noninteractive, capabilityproof.AxiomCoordination, capabilityproof.ModelInvocation)
 		for _, effect := range a.Effects {
 			if effect.Kind == "repository-write" {
-				variant = capabilityproof.RepositoryWriteVariant
 				writes = append(writes, workspace)
-				required = append(required, capabilityproof.RepositoryWrite)
-			}
-			if effect.Kind == "process" {
-				process = true
-				required = append(required, capabilityproof.Process)
 			}
 		}
-		if frozen.Effort.Mode == "explicit" {
-			required = append(required, "reasoning-effort-"+frozen.Effort.Value)
-		}
-		// Variant and Process mirror the effects the supervisor applies to the
-		// dispatched StageInvocationRequest, so preview and dispatch share one mode.
-		target := capabilityproof.Target{RuntimeID: frozen.RuntimeID, ProfileID: frozen.ProfileID, Variant: variant, Process: process}
-		v, e := s.Capabilities.Show(ctx, target)
-		if e != nil {
-			return DispatchPreview{}, e
-		}
-		if v.Target != target || !capabilityproof.ValidBinding(v.Binding) || v.Binding.RuntimeID != frozen.RuntimeID || v.Model != nil && v.Model.ProfileID != frozen.ProfileID || v.EvidenceRef != frozen.CapabilityProofReference || v.Binding.ExecutableDigest != frozen.ExecutableDigest || v.Binding.Version != frozen.RuntimeVersion || v.Binding.AxiomDigest != o.AxiomDigest || v.Binding.Variant != variant || v.Model == nil || v.Model.ProfileDigest != frozen.ProfileDigest || v.Model.Model != frozen.Model || v.Model.ConfigurationRevision != frozen.ConfigurationRevision || v.Model.EffortSourceDigest != frozen.EffortSourceDigest || v.Model.EffortMode != frozen.Effort.Mode || v.Model.EffortToken != frozen.Effort.Value {
-			return DispatchPreview{}, ErrStalePreview
-		}
-		for _, cap := range required {
-			if v.States[cap] != capabilityproof.Proven {
-				return DispatchPreview{}, capabilityproof.ErrBlocked
-			}
-		}
-		if v.Confinement.Level != "os-enforced" && v.Confinement.Level != "advisory" {
-			return DispatchPreview{}, capabilityproof.ErrBlocked
-		}
-		// Enforcement claims are scoped to observed write targets. Reads, credential
-		// access, external network and high-level actions are always policy-only.
+		// Axiom passes the adapter's mandatory permission and sandbox options
+		// but does not verify vendor confinement; every prohibition is policy.
 		prohibitions := map[string]string{}
-		for _, k := range []string{"push", "PR", "merge", "Provider calls", "credential access", "nested agents"} {
+		for _, k := range []string{"push", "PR", "merge", "Provider calls", "credential access", "nested agents", "writes outside observed writable roots"} {
 			prohibitions[k] = "policy-only"
 		}
-		prohibitions["writes outside observed writable roots"] = "policy-only"
-		if v.Confinement.Level == "os-enforced" {
-			prohibitions["writes outside observed writable roots"] = "enforced for probe-listed negative targets only"
-		}
-		untested := append([]string{"home", "vendor-home", "tmpdir", "system-temp", "external-network"}, v.Confinement.NotTested...)
-		sort.Strings(untested)
-		untested = uniqueStrings(untested)
-		p.Children = append(p.Children, ChildRights{AgentID: a.AgentID, Workspace: workspace, Inbox: inbox, Reads: "worktree; reads outside are not OS-confined", Writes: writes, Commands: "within worktree under the disclosed confinement", Network: "external-network: not_tested; loopback observation limited to the disclosed probe scope", Effects: a.Effects, Controls: a.Controls, Capability: v, Prohibitions: prohibitions, NotTested: untested})
+		untested := []string{"external-network", "home", "runtime-sandbox", "system-temp", "tmpdir", "vendor-home"}
+		p.Children = append(p.Children, ChildRights{AgentID: a.AgentID, Workspace: workspace, Inbox: inbox, Reads: "worktree; reads outside are not OS-confined", Writes: writes, Commands: "within worktree under the Runtime's own permission mode; not verified by Axiom", Network: "external-network: not_tested and not confined by Axiom", Effects: a.Effects, Controls: a.Controls, Confinement: "unknown", Prohibitions: prohibitions, NotTested: untested})
 		if p.Publication != nil {
 			key := a.Input.NodeKey
 			p.Publication.ChildAuthorities[key] = a.Effects
 			p.Publication.Workspaces[key] = workspace
 			p.Publication.AuthorityReferences[key] = "pending-dispatch-authority"
-			p.Publication.Resolutions[key] = executiongraph.Resolution{RuntimeID: frozen.RuntimeID, ModelProfileID: frozen.ProfileID, ConfigurationRevision: frozen.ConfigurationRevision, ObservationRevision: frozen.ObservationRevision, ResolvedProfile: frozen}
+			p.Publication.Resolutions[key] = executiongraph.Resolution{RuntimeID: frozen.RuntimeID, ModelProfileID: frozen.ProfileID, ConfigurationRevision: frozen.ConfigurationRevision, ObservationRevision: frozen.ObservationRevision, FrozenProfile: frozen}
 		}
 	}
 	sort.Slice(p.Children, func(i, j int) bool { return p.Children[i].AgentID < p.Children[j].AgentID })

@@ -20,7 +20,7 @@ import (
 )
 
 var ErrEffortConfigurationUnproven = errors.New("effort_configuration_unproven")
-var ErrEffortOverrideConflict = errors.New("effort_override_conflict")
+var ErrEffortOverrideConflict = runtimeprofile.ErrEffortOverrideConflict
 
 // EffortDeclaration is supplied by the separately authorized capability-proof
 // owner. Axiom supplies no default vendor version, settings key or precedence.

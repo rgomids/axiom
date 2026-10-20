@@ -44,7 +44,7 @@ func (r runtimeReadiness) Availability(ctx context.Context, projectID string) st
 	if source == nil {
 		source = runtimePolicySource{installation: r.service.installation, portable: r.service.portable, stateRoot: r.service.stateRoot, runtimes: r.service.runtimeObservationSources()}
 	}
-	return runtimeapplication.New(source).CurrentAvailability(ctx, projectID)
+	return runtimeapplication.New(source).Availability(ctx, projectID)
 }
 
 // preflight returns a failure before any effect when a structurally valid
@@ -83,11 +83,11 @@ func runtimeCandidates(ctx context.Context, stateRoot string) []projectapp.Runti
 }
 
 // candidatesFrom lists enabled Runtimes with their allowlisted profiles from
-// the canonical v3 record only (ReadinessCandidatesV3). Missing, retired,
-// pre-stable or invalid state discloses no candidate. It is a disclosure of
+// the canonical format-4 record only (ReadinessCandidates). Missing, retired,
+// historical or invalid state discloses no candidate. It is a disclosure of
 // machine facts; nothing here selects a Runtime.
 func candidatesFrom(snapshot local.RuntimeProfileSnapshot) []projectapp.RuntimeCandidate {
-	runtimes, code := runtimeapplication.ReadinessCandidatesV3(snapshot.State, snapshot.V3)
+	runtimes, code := runtimeapplication.ReadinessCandidates(snapshot.State, snapshot.V4)
 	if code != "" {
 		return nil
 	}

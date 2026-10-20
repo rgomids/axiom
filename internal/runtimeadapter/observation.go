@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -21,7 +20,7 @@ const IntegrationCapability = "axiom-skills"
 
 const maxExecutableBytes = 1 << 30
 
-var ErrExecutableUnavailable = errors.New("runtime executable unavailable")
+var ErrExecutableUnavailable = runtimeprofile.ErrExecutableUnavailable
 
 // ExecutableIdentity is a presentation-safe identity of the regular executable
 // file that path currently resolves to. It binds the resolved path and the
@@ -101,26 +100,6 @@ func NewExecutableObserver(revision uint64, observedAt time.Time, runtimes []Obs
 		observer.runtimes[observed.ID] = observed
 	}
 	return observer, nil
-}
-
-func (o ExecutableObserver) ObserveOperational(ctx context.Context, runtimeID string) (runtimeprofile.OperationalObservation, error) {
-	observed, exists := o.runtimes[runtimeID]
-	if !exists {
-		return runtimeprofile.OperationalObservation{}, ErrInvalidAdapterConfiguration
-	}
-	if err := ctx.Err(); err != nil {
-		return runtimeprofile.OperationalObservation{}, err
-	}
-	observation := runtimeprofile.OperationalObservation{RuntimeID: runtimeID, Adapter: runtimeID, Revision: o.revision, ObservedAt: o.observedAt, InvocationMode: "noninteractive"}
-	if observed.Executable == "" {
-		return observation, nil
-	}
-	identity, err := ExecutableIdentity(observed.Executable)
-	if err != nil {
-		return observation, nil
-	}
-	observation.Installed, observation.Available, observation.ExecutableDigest = true, true, identity
-	return observation, nil
 }
 
 func (o ExecutableObserver) Observe(ctx context.Context, runtimeID string) (runtimeprofile.Observation, error) {

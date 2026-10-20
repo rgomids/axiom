@@ -1,7 +1,6 @@
 package runtimeapplication
 
 import (
-	"errors"
 	"reflect"
 	"sort"
 	"strings"
@@ -11,78 +10,60 @@ import (
 	"github.com/rgomids/axiom/internal/runtimeprofile"
 )
 
-// Specification 007 AXM-22 BLD-001B.3c-2b.2 prepared the format-3 consumers
-// below and BLD-001B.3c-2b.3 activated them in Preview, Check, Availability
-// and readiness. They read runtimeprofile.ConsumerV3 directly and never
-// project onto the format-1/2 Configuration.
-
-// ConsumerFromRecordV3 classifies one inspected local record state (as
-// local.RuntimeProfileStore.Inspect reports it) through RecordStateV3.
-// Only an active, valid format-3 record yields a consumer; every other state
-// returns the established blocker code and is never a default.
-func ConsumerFromRecordV3(state string, cfg *runtimeprofile.ConfigurationV3) (runtimeprofile.ConsumerV3, string) {
-	record := runtimeprofile.RecordStateV3(0)
+// ConsumerFromRecord classifies one inspected local record state (as
+// local.RuntimeProfileStore.Inspect reports it). Only an active, valid
+// format-4 record yields a consumer; every other state returns its blocker
+// code and is never a default. Historical formats require explicit retirement.
+func ConsumerFromRecord(state string, cfg *runtimeprofile.ConfigurationV4) (runtimeprofile.ConsumerV4, string) {
 	switch state {
-	case "fresh":
-		record = runtimeprofile.RecordMissingV3
-	case "retired":
-		record = runtimeprofile.RecordRetiredV3
-	case "active-v3":
-		record = runtimeprofile.RecordActiveV3
-	case "active-v1", "active-v2", "pending", "unsafe":
-		// Historical formats are refused, never upgraded or reinterpreted.
-		return runtimeprofile.ConsumerV3{}, localStateCategory(LocalStateError{State: state})
+	case "active-v4":
+	case "fresh", "retired", "pending", "unsafe", "active-v1", "active-v2", "active-v3":
+		return runtimeprofile.ConsumerV4{}, localStateCategory(LocalStateError{State: state})
 	default:
-		return runtimeprofile.ConsumerV3{}, "configuration_unsafe"
+		return runtimeprofile.ConsumerV4{}, "configuration_unsafe"
 	}
-	if record != runtimeprofile.RecordActiveV3 {
-		cfg = nil
+	if cfg == nil {
+		return runtimeprofile.ConsumerV4{}, "invalid_configuration"
 	}
-	consumer, err := runtimeprofile.NewConsumerV3(record, cfg)
-	switch {
-	case errors.Is(err, runtimeprofile.ErrConfigurationMissingV3):
-		return consumer, "configuration_missing"
-	case errors.Is(err, runtimeprofile.ErrConfigurationRetiredV3):
-		return consumer, "configuration_retired"
-	case err != nil:
-		return consumer, "invalid_configuration"
+	consumer, err := runtimeprofile.NewConsumerV4(*cfg)
+	if err != nil {
+		return runtimeprofile.ConsumerV4{}, "invalid_configuration"
 	}
 	return consumer, ""
 }
 
-// PolicyCandidateV3 is the single policy-admissible Runtime/Profile for one
+// PolicyCandidate is the single policy-admissible Runtime/Profile for one
 // request. Requested capabilities are matched only against the Profile's
-// declared capabilities: it carries no observation, ResolvedProfile or proof,
-// and an EffortDeclaration never contributes to it.
-type PolicyCandidateV3 struct {
-	ProjectID     string                         `json:"projectId"`
-	ProjectDigest string                         `json:"projectDigest"`
-	Request       Request                        `json:"request"`
-	Profile       runtimeprofile.ProfileIntentV3 `json:"profile"`
+// declared capabilities: it carries no observation and no proof.
+type PolicyCandidate struct {
+	ProjectID     string                       `json:"projectId"`
+	ProjectDigest string                       `json:"projectDigest"`
+	Request       Request                      `json:"request"`
+	Profile       runtimeprofile.ProfileIntent `json:"profile"`
 }
 
-// EvaluatePolicyV3 intersects portable Project policy with the consumed
-// format-3 configuration using the exact Preview blocker codes. It selects
-// nothing implicitly: several admissible Profiles are ambiguous_match.
-func EvaluatePolicyV3(p project.Project, consumer runtimeprofile.ConsumerV3, request Request) (PolicyCandidateV3, *runtimeprofile.Blocker) {
+// EvaluatePolicy intersects portable Project policy with the consumed
+// configuration using the exact Preview blocker codes. It selects nothing
+// implicitly: several admissible Profiles are ambiguous_match.
+func EvaluatePolicy(p project.Project, consumer runtimeprofile.ConsumerV4, request Request) (PolicyCandidate, *runtimeprofile.Blocker) {
 	state := p.State()
 	if !validRequest(request) || len(project.ValidateIdentity(state.ID, "preview")) != 0 {
-		return PolicyCandidateV3{}, &runtimeprofile.Blocker{Code: "invalid_request"}
+		return PolicyCandidate{}, &runtimeprofile.Blocker{Code: "invalid_request"}
 	}
 	request.Capabilities = append([]string(nil), request.Capabilities...)
 	sort.Strings(request.Capabilities)
 	wire, issues := manifest.Encode(p)
 	if len(issues) != 0 {
-		return PolicyCandidateV3{}, &runtimeprofile.Blocker{Code: "invalid_project"}
+		return PolicyCandidate{}, &runtimeprofile.Blocker{Code: "invalid_project"}
 	}
 	if consumer.Digest() == "" {
-		return PolicyCandidateV3{}, &runtimeprofile.Blocker{Code: "invalid_configuration"}
+		return PolicyCandidate{}, &runtimeprofile.Blocker{Code: "invalid_configuration"}
 	}
 	if state.SchemaVersion != 1 && !project.MultiRuntimeSchema(state.SchemaVersion) {
-		return PolicyCandidateV3{}, &runtimeprofile.Blocker{Code: "invalid_project"}
+		return PolicyCandidate{}, &runtimeprofile.Blocker{Code: "invalid_project"}
 	}
 	if !project.RuntimePolicyDeclared(state) {
-		return PolicyCandidateV3{}, &runtimeprofile.Blocker{Code: "policy_unconfigured"}
+		return PolicyCandidate{}, &runtimeprofile.Blocker{Code: "policy_unconfigured"}
 	}
 	allowed := map[string]bool{}
 	for _, id := range project.AllowedRuntimes(state) {
@@ -97,7 +78,7 @@ func EvaluatePolicyV3(p project.Project, consumer runtimeprofile.ConsumerV3, req
 	}
 	permitted := map[string]bool{}
 	seen := []string{}
-	candidates := []runtimeprofile.ProfileIntentV3{}
+	candidates := []runtimeprofile.ProfileIntent{}
 	for _, runtime := range consumer.Configuration().Runtimes {
 		if !allowed[runtime.ID] || request.RuntimeID != "" && request.RuntimeID != runtime.ID {
 			continue
@@ -120,13 +101,13 @@ func EvaluatePolicyV3(p project.Project, consumer runtimeprofile.ConsumerV3, req
 			}
 			intent, err := consumer.ProfileIntent(runtime.ID, id)
 			if err != nil {
-				return PolicyCandidateV3{}, &runtimeprofile.Blocker{Code: "invalid_configuration"}
+				return PolicyCandidate{}, &runtimeprofile.Blocker{Code: "invalid_configuration"}
 			}
 			candidates = append(candidates, intent)
 		}
 	}
 	if len(permitted) == 0 {
-		return PolicyCandidateV3{}, &runtimeprofile.Blocker{Code: "no_allowed_match"}
+		return PolicyCandidate{}, &runtimeprofile.Blocker{Code: "no_allowed_match"}
 	}
 	// A portable preference whose Profile is locally unavailable still blocks;
 	// another candidate is never substituted.
@@ -137,7 +118,7 @@ func EvaluatePolicyV3(p project.Project, consumer runtimeprofile.ConsumerV3, req
 				continue
 			}
 			if !permitted[preference.ModelProfileRef] {
-				return PolicyCandidateV3{}, &runtimeprofile.Blocker{Code: "no_allowed_match"}
+				return PolicyCandidate{}, &runtimeprofile.Blocker{Code: "no_allowed_match"}
 			}
 			if preferred == "" {
 				preferred = preference.ModelProfileRef
@@ -155,26 +136,26 @@ func EvaluatePolicyV3(p project.Project, consumer runtimeprofile.ConsumerV3, req
 	}
 	switch len(candidates) {
 	case 0:
-		return PolicyCandidateV3{}, &runtimeprofile.Blocker{Code: "no_allowed_match", RuntimeIDs: uniqueSorted(seen)}
+		return PolicyCandidate{}, &runtimeprofile.Blocker{Code: "no_allowed_match", RuntimeIDs: uniqueSorted(seen)}
 	case 1:
 	default:
 		ids := make([]string, 0, len(candidates))
 		for _, candidate := range candidates {
 			ids = append(ids, candidate.ProfileID)
 		}
-		return PolicyCandidateV3{}, &runtimeprofile.Blocker{Code: "ambiguous_match", ProfileIDs: uniqueSorted(ids)}
+		return PolicyCandidate{}, &runtimeprofile.Blocker{Code: "ambiguous_match", ProfileIDs: uniqueSorted(ids)}
 	}
 	if !runtimeprofile.SafeIdentifier(candidates[0].ProfileID) || !runtimeprofile.SafeIdentifier(candidates[0].Model) {
-		return PolicyCandidateV3{}, &runtimeprofile.Blocker{Code: "unsafe_configuration"}
+		return PolicyCandidate{}, &runtimeprofile.Blocker{Code: "unsafe_configuration"}
 	}
-	return PolicyCandidateV3{ProjectID: state.ID, ProjectDigest: digest(wire), Request: request, Profile: candidates[0]}, nil
+	return PolicyCandidate{ProjectID: state.ID, ProjectDigest: digest(wire), Request: request, Profile: candidates[0]}, nil
 }
 
-// CheckPolicyV3 re-evaluates current inputs and accepts only the exact
-// reviewed candidate, including its DigestV3 and ProfileDigest. It never
+// CheckPolicy re-evaluates current inputs and accepts only the exact reviewed
+// candidate, including its configuration and Profile digests. It never
 // substitutes a newly evaluated candidate on drift.
-func CheckPolicyV3(p project.Project, consumer runtimeprofile.ConsumerV3, expected PolicyCandidateV3) error {
-	current, blocker := EvaluatePolicyV3(p, consumer, expected.Request)
+func CheckPolicy(p project.Project, consumer runtimeprofile.ConsumerV4, expected PolicyCandidate) error {
+	current, blocker := EvaluatePolicy(p, consumer, expected.Request)
 	if blocker != nil || !reflect.DeepEqual(current, expected) {
 		return ErrStale
 	}
@@ -215,28 +196,28 @@ func uniqueSorted(values []string) []string {
 	return out
 }
 
-// RuntimeCandidateV3 discloses one enabled Runtime and the effort intent of
+// RuntimeCandidate discloses one enabled Runtime and the effort intent of
 // each Profile it allowlists. It is a readiness disclosure, not a selection.
-type RuntimeCandidateV3 struct {
-	RuntimeID string                           `json:"runtimeId"`
-	Profiles  []runtimeprofile.ProfileIntentV3 `json:"profiles"`
+type RuntimeCandidate struct {
+	RuntimeID string                         `json:"runtimeId"`
+	Profiles  []runtimeprofile.ProfileIntent `json:"profiles"`
 }
 
-// ReadinessCandidatesV3 projects every enabled Runtime with its allowed
+// ReadinessCandidates projects every enabled Runtime with its allowed
 // Profiles' model and effort intent from an inspected record. It selects no
-// Runtime and reads no EffortDeclaration. A non-active or invalid record
-// returns its distinct blocker code and no candidates.
-func ReadinessCandidatesV3(state string, cfg *runtimeprofile.ConfigurationV3) ([]RuntimeCandidateV3, string) {
-	consumer, code := ConsumerFromRecordV3(state, cfg)
+// Runtime. A non-active or invalid record returns its distinct blocker code
+// and no candidates.
+func ReadinessCandidates(state string, cfg *runtimeprofile.ConfigurationV4) ([]RuntimeCandidate, string) {
+	consumer, code := ConsumerFromRecord(state, cfg)
 	if code != "" {
 		return nil, code
 	}
-	candidates := []RuntimeCandidateV3{}
+	candidates := []RuntimeCandidate{}
 	for _, runtime := range consumer.Configuration().Runtimes {
 		if !runtime.Enabled {
 			continue
 		}
-		candidate := RuntimeCandidateV3{RuntimeID: runtime.ID, Profiles: []runtimeprofile.ProfileIntentV3{}}
+		candidate := RuntimeCandidate{RuntimeID: runtime.ID, Profiles: []runtimeprofile.ProfileIntent{}}
 		for _, id := range runtime.AllowlistedProfileIDs {
 			intent, err := consumer.ProfileIntent(runtime.ID, id)
 			if err != nil {
@@ -249,7 +230,7 @@ func ReadinessCandidatesV3(state string, cfg *runtimeprofile.ConfigurationV3) ([
 	return candidates, ""
 }
 
-func EvaluateAvailabilityV3(p project.Project, consumer runtimeprofile.ConsumerV3) string {
+func EvaluateAvailability(p project.Project, consumer runtimeprofile.ConsumerV4) string {
 	if !p.Equivalent(p) {
 		return "invalid_project"
 	}
