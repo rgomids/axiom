@@ -2,12 +2,13 @@
 
 ## Status
 
-Proposed, 2026-10-20, for [AXM-37](https://linear.app/rgomids/issue/AXM-37) in
-[PR #335](https://github.com/rgomids/axiom/pull/335). Requires explicit human
-acceptance of an exact ADR revision before material design adoption. The
-[Q1–Q6 decision register](../specifications/010-installed-operational-documentation/clarify.md#decision-register)
-records accepted directions, not acceptance of this ADR. No Plan, Tasks,
-implementation, merge, release or product acceptance is authorized here.
+Accepted on 2026-10-20 by the explicit human
+[decision in PR #335](https://github.com/rgomids/axiom/pull/335#issuecomment-6296075261),
+for revision `c7ef060d71849c9dc82275c23f0ec9f9256f97a0`, blob
+`5a8a1efc2b802285f291b31ece9823719a494057`.
+Only this Status section reconciles that acceptance; the accepted decision text
+remains unchanged. Plan review/acceptance, Tasks, implementation, merge, release
+and product acceptance remain separate gates.
 
 ## Context
 

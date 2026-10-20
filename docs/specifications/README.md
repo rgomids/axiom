@@ -35,17 +35,23 @@ bounded delivery unit. Technical merge does not imply human acceptance or next-T
 
 ## 010 — Installed operational documentation
 
-[Specification](010-installed-operational-documentation/spec.md) rev.1:
-**Proposed — specify only, 2026-10-20**, related to
+[Specification](010-installed-operational-documentation/spec.md) rev.1 was
+[accepted](https://github.com/rgomids/axiom/pull/335#issuecomment-6292970482) on
+2026-10-20; its Proposed header is historical. Related to
 [AXM-37](https://linear.app/rgomids/issue/AXM-37).
-Defines offline documentation bound to the effective installation, provenance,
-discovery, integrity, upgrade/recovery consistency, additional man pages and
-reproducible acceptance obligations. Six Clarification/Plan questions remain open;
-no layout, packaging, generator or new command is adopted. Current Windows
-support withdrawal is preserved. [Evidence and handoff](010-installed-operational-documentation/evidence.md)
-separate documentary validation from unexecuted product/native acceptance.
-No Specification acceptance, canonical Execution advancement or successor-stage
-authority is inferred.
+[Clarification rev.2](010-installed-operational-documentation/clarify.md#decision-register)
+records Q1–Q6 Accepted. [ADR-0033](../decisions/0033-installation-bound-operational-documentation.md)
+is Accepted by its exact-revision human decision.
+[Plan rev.1](010-installed-operational-documentation/plan.md) is **Proposed**:
+release/corpus/identity/lifecycle/CLI/man integration, producer-consumer matrix,
+incremental slices and OD-01–13 / AC-01–08 qualification. Concrete material
+contracts D1–D4 require human disposition before dependent Tasks.
+[Plan Evidence](010-installed-operational-documentation/evidence-plan.md) separates
+documentary checks from product/native acceptance, all ACs NOT_RUN.
+[Specify Evidence](010-installed-operational-documentation/evidence.md) and
+[Clarification Evidence](010-installed-operational-documentation/evidence-clarify.md)
+remain historical. Windows withdrawal is preserved. No Tasks, implementation,
+canonical Execution advancement or product acceptance is inferred.
 
 ## 009 — Guided Project/Runtime configuration with feasibility preflight
 
