@@ -12,10 +12,6 @@ import (
 
 var errConfigurationUnavailable = errors.New("configuration_unavailable")
 
-// productionEffortInspector is the supervisor's dispatch-time effort-source
-// inspector. Its consent is the committed Stage dispatch authority;
-// repository-write children are those the reviewed preview grants
-// repository-write.
 func productionEffortInspector(stateRoot, repository string, children []stageexecution.ChildRights) (runtimeadapter.StageEffortInspector, error) {
 	profiles, err := local.NewRuntimeProfileStore(stateRoot)
 	if err != nil {
@@ -32,10 +28,6 @@ func productionEffortInspector(stateRoot, repository string, children []stageexe
 	return inspector, nil
 }
 
-// canonicalConfiguration reads local configuration through the zero-write
-// store reader on every observation. Only an active canonical format-4 record
-// is observable; fresh, retired, historical, future, corrupt, unsafe and
-// pending states are blocked, with no compatibility fallback or migration.
 func canonicalConfiguration(store local.RuntimeProfileStore) func(context.Context) (runtimeprofile.ConfigurationV4, error) {
 	return func(ctx context.Context) (runtimeprofile.ConfigurationV4, error) {
 		snapshot, err := store.Inspect(ctx)

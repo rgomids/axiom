@@ -82,6 +82,9 @@ func (s lifecycleService) WorkflowStage(ctx context.Context, in cli.WorkflowStag
 			switch in.Operation {
 			case "run", "status", "cancel", "retry", "reconcile", "integrate":
 				d.Operation = "workflow stage " + in.Operation
+				if d.Attempt != nil && (in.Operation == "run" || in.Operation == "retry") {
+					d.Attempt.Operation = "stage-" + in.Operation
+				}
 			case "coordination-list", "coordination-show", "coordination-publish":
 				d.Operation = "workflow coordination " + strings.TrimPrefix(in.Operation, "coordination-")
 			default:
@@ -228,10 +231,6 @@ func (s lifecycleService) stageContract(ctx context.Context, stores stageStores,
 		// The Workflow was explicitly selected when this Execution was bound.
 		c.WorkflowSelected = state.Binding.SchemaVersion == 2
 	}
-	// Stage admission derives the frozen Profile's availability from the
-	// canonical format-4 record; a removed, disallowed or disabled Profile
-	// blocks and nothing falls back to another Profile, model, Runtime or
-	// effort. Historical records stay refusals for planning and dispatch only.
 	snapshot, err := stores.profiles.Inspect(ctx)
 	if err != nil {
 		return c, stageexecution.ErrProfileEffortUnconfigured
@@ -333,6 +332,11 @@ func (s lifecycleService) stageSuccess(category, message string, references []st
 // stageError maps application errors to canonical status and category. It
 // never upgrades an uncertain outcome.
 func (s lifecycleService) stageError(err error, payload any) cli.WorkflowStageResponse {
+	if d := stageexecution.PreSpawnDiagnostic(err, "stage-preview"); d != nil {
+		out := s.stageFailure(completion.ValidationFailure, d.Code, "Stage operation refused", d.NextAction, payload)
+		out.Result.Diagnostic.Attempt = d
+		return out
+	}
 	type rule struct {
 		target   error
 		status   completion.Status

@@ -12,7 +12,6 @@ import (
 	"github.com/rgomids/axiom/internal/manifest"
 	"github.com/rgomids/axiom/internal/project"
 	"github.com/rgomids/axiom/internal/projectapp"
-	"github.com/rgomids/axiom/internal/runtimeadapter"
 	"github.com/rgomids/axiom/internal/workflowdefinition"
 )
 
@@ -130,10 +129,10 @@ func installTestRuntimePolicy(t *testing.T, stateRoot, id, runtimeID string) []s
 	if err := os.WriteFile(recordPath, wire, 0600); err != nil {
 		t.Fatal(err)
 	}
-	publishRuntimeProfileV3(t, stateRoot, singleRuntimeV3(runtimeID, "worker", "approved-model", []string{runtimeadapter.IntegrationCapability}, []string{"high"}))
+	publishRuntimeProfileV3(t, stateRoot, singleRuntimeV3(runtimeID, "worker", "approved-model", []string{"axiom-skills"}, []string{"high"}))
 	// Observations are never supplied: Lingo reads the executable and the
 	// Axiom skill integration that the caller's environment exposes.
-	return []string{"--role", "implementation", "--complexity", "high", "--capabilities", runtimeadapter.IntegrationCapability}
+	return []string{"--role", "implementation", "--complexity", "high", "--capabilities", "axiom-skills"}
 }
 
 // testRuntime gives an in-process service one observable Runtime: a stub

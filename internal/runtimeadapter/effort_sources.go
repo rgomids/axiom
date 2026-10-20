@@ -162,7 +162,7 @@ func observeEffortFacts(ctx context.Context, p effortIntent, d effortRules, inv 
 				selected, e = jsonEffortSelectors(wire, d.JSONKeys)
 			}
 			if e != nil {
-				return nil, ErrEffortConfigurationUnsafe
+				return nil, ErrEffortConfigurationInvalid
 			}
 			selectors = append(selectors, selected...)
 		}

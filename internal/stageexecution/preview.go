@@ -136,8 +136,6 @@ func (s PreviewService) Preview(ctx context.Context, ref workflowcompiler.Execut
 				writes = append(writes, workspace)
 			}
 		}
-		// Axiom passes the adapter's mandatory permission and sandbox options
-		// but does not verify vendor confinement; every prohibition is policy.
 		prohibitions := map[string]string{}
 		for _, k := range []string{"push", "PR", "merge", "Provider calls", "credential access", "nested agents", "writes outside observed writable roots"} {
 			prohibitions[k] = "policy-only"

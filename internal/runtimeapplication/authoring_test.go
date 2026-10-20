@@ -254,7 +254,6 @@ func TestAuthoringLegacyFullRetirement(t *testing.T) {
 			if s.snapshot.V4 != nil {
 				t.Fatal("retirement created canonical configuration")
 			}
-			// Fresh canonical v4 only through an explicit, separately reviewed create.
 			created := applyReviewed(t, a, createRequest())
 			if created.State != "active-v4" || created.Revision != 9 || s.snapshot.V4 == nil || len(s.snapshot.V4.Runtimes) != 1 || len(s.snapshot.V4.ModelProfiles) != 1 || s.snapshot.V4.ModelProfiles[0].ID != "operator-review" {
 				t.Fatalf("explicit create after retirement: %+v %+v", created, s.snapshot.V4)

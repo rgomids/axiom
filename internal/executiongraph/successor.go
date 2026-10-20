@@ -97,7 +97,6 @@ func ValidateSuccessorGraph(g SuccessorGraph) error {
 	if g.FormatVersion != SuccessorGraphVersion && g.FormatVersion != OperationalGraphVersion || g.ClassificationPolicy != ClassificationPolicyV1 || !successorDigest(g.DispatchAuthorityRef) || g.StageConcurrency == 0 || g.StageConcurrency > MaxStageConcurrency || !utc(g.Parent.CreatedAt) {
 		return ErrInvalidGraph
 	}
-	// Reuse immutable Graph2/3 envelope/topology checks, without converting state.
 	base := Graph{FormatVersion: g.projectionVersion(), Parent: g.Parent}
 	for _, c := range g.Children {
 		base.Children = append(base.Children, ChildExecution{ExecutionID: c.ExecutionID, ParentID: c.ParentID, GraphRevision: c.GraphRevision, NodeKey: c.NodeKey, Envelope: c.Envelope})
@@ -368,8 +367,6 @@ func EncodeGraphDocument(d GraphDocument) ([]byte, error) {
 	return nil, ErrInvalidGraph
 }
 
-// projectionVersion is the in-memory Graph generation whose envelope profile
-// rules match this ledger: Graph 2 for successor 3, projection-only 3 for 4.
 func (g SuccessorGraph) projectionVersion() int {
 	if g.FormatVersion == OperationalGraphVersion {
 		return OperationalProposalVersion

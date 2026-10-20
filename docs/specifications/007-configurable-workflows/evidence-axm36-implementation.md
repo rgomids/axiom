@@ -666,3 +666,145 @@ The four inherited formatting repairs are included after package checks.
 CLI migration is separate work in progress; T02 diagnostics, T03 guidance,
 full RA-AC1–10/installed matrix and final-head CI remain pending. This checkpoint
 is neither T02/T03 delivery nor technical/human acceptance. No real inference.
+
+## Mac continuation — coordinated T02/T03 closure
+
+Continuation authority and approved Tasks remain unchanged from the local-store
+checkpoint. T01 predecessors were implemented and checked in the earlier
+checkpoints before activation; this continuation completes their consumers and
+historical regression coverage. T02 and T03 form one reviewable delivery in
+PR #334. No canonical Execution or human acceptance is recorded by this report.
+The dedicated Mac root remains host-local; no other-host Execution is inferred.
+
+### Operational boundary and review
+
+Configuration 4, Execution 5, compiler/StagePlan 3, Graph 4, single run 2 and
+DispatchInputs 2 carry operational identity rather than certification. Resolution,
+compiler, workflow preview/start, stage plan/run/retry and both supervisors use
+the same frozen executable/Profile/configuration/effort-source identities. Policy,
+Profile capability intent and exact Workflow/Agent selection remain constraints;
+missing, disabled, mismatched or ambiguous candidates cannot fall back.
+
+Auth status is an independent read-only observation on the effective invocation,
+not proof of model/effort support or execution success. Malformed source syntax
+has a distinct safe diagnostic from unsafe source ownership/path/symlinks.
+On macOS the fixed Codex system sources use `/private/etc`, the actual ancestor
+behind the system `/etc` symlink, without relaxing the no-symlink rule.
+
+Typed pre-spawn operational failures persist a failed attempt with no Process,
+empty undelivered packet/output digests and confirmed no child effect. A spawned
+process whose start cannot be durably observed persists `unknown`, consuming the
+first-attempt authority rather than allowing replay. Process stdin is released
+only after durable running-attempt publication. The installed invalid-result
+case exposed the previous publication race; the regression failed before this
+ordering fix and passed afterwards. Native process tests also verify withheld
+packet delivery and retain exit/output facts from a fast CLI rejection.
+
+Terminal diagnostics use closed categories, digest references and fixed recovery
+actions. Recognized bounded stderr patterns are hypotheses; arbitrary transcript
+text cannot confirm a cause. Timeout/start errno facts can be confirmed. Exit,
+result validity and effect certainty remain separate: exit zero without a valid
+successful result fails, and uncertainty requires observation/reconciliation,
+never automatic retry. No raw stderr, account, config, path or secret payload is
+persisted in the summary or rendered in either output mode.
+
+The stdin gate uses the existing stdlib `context`, channel and `io.Reader`/exec
+boundary. No dependency, registry, generic qualification layer or supervisor
+redesign was introduced. New production comments are limited to public API/package contracts and
+required tooling directives, including `DiagnoseAttempt`, `PreSpawnDiagnostic`
+and `RunObserved`. Review against the approved Tasks SHA removed 145 narrative
+comment lines from changed blocks, including an orphaned observation comment;
+unchanged comments outside the diff are preserved. No added TODO/FIXME,
+commented-out code or unrelated refactoring remains. Existing historical bytes and digest vectors are preserved.
+
+### Structural retirement inventory
+
+Deleted active owners across the PR: capabilityproof acquisition/service/probe
+and canary; runtimeadapter version registry, embedded runtime-versions.json and
+binding/proof source; local proof store/selection; capability CLI parsers,
+handlers, flags and help; declaration ingestion/migration writers; proof-bound
+observers/resolvers/readiness loops and their certification-only tests.
+
+Remaining search hits have these bounded owners:
+
+| Reference | Retained reason; cannot admit/dispatch |
+| --- | --- |
+| `internal/capabilityproof/evidence.go` | Read-only historical strict codec and digest, consumed only by inventory. No service, acquisition, registry or writer remains |
+| `internal/local/{inventory,probe_envelope_inventory,probe_envelope_history}.go` | Inventory/retirement inspection of existing historical Evidence and sealed envelopes; no startup deletion, import, repair or admission consumption |
+| Configuration 1–3 and historical `ResolvedProfile`/Choice wire fields, graph/single/workflow codecs and fixtures | Historical read/retirement and byte/digest compatibility. Current publication/dispatch requires successor formats; explicit retirement precedes fresh Configuration 4 |
+| `scripts/acceptance/s9-graph-runner.go` | Build-ignored, exact-RC historical acceptance tool; not a current admission producer or current supported executable. Not rebuilt or redesigned in AXM-36 |
+| Dated Specs, Evidence and affected ADR clauses | Preserved history with ADR-0032 supersession. AXM-33's dated registry observation is annotated; its separate proposal/authority is not rewritten |
+| Generic CLI output fixtures/category names | Transport/classification regression input, not an admission gate |
+| `AXIOM_TEST_PROBE_STATE_ROOT` | Private synthetic filesystem fixture root used by existing tests/CI; not certification or Runtime admission state |
+
+Commands/packaged skills now guide inspect → authorize → execute → observe →
+diagnose/recover. Previous packaged skill hashes remain recognized ownership
+history; new bundled bytes have their own pinned manifest digest. Removed
+capability verbs and `--effort-declaration` refuse before subprocess/file intake
+or canonical writes. No runtime-versions file, proof inventory injection or
+mock resolver is used by the installed journeys.
+
+### RA-AC1–10 × Tasks matrix
+
+PASS means deterministic synthetic/codec evidence only. Shared codecs and
+application rules have no adapter-specific branch unless indicated. Installed
+single cases run independently for Codex and Claude; mixed graphs execute both
+adapters through their actual production composition. N/A identifies a Task
+that does not own that runtime behavior, not an omitted applicable test.
+
+| AC | T01 checkpoint | T02 operational cutover | T03 installed/retirement closure |
+| --- | --- | --- | --- |
+| RA-AC1 | PASS: V4 closed schemas, successor codecs/digests, historical fixtures | PASS: production resolution/compiler/start/plan/run without proof | PASS: `TestInstalledSyntheticSingleStageJourney` (both), `TestInstalledSyntheticGraphStageJourney`; fresh state, no proof directories |
+| RA-AC2 | PASS: operational tuple/observation identity; version excluded | PASS: `TestExecutableIdentityBindsReviewedRuntime`, `TestFrozenStageEveryTupleElementDrift`, source/Profile/config drift | PASS: `TestInstalledIdentityDriftAndRetiredCommandsBothAdapters`; arbitrary unregistered versions, upgrade before fresh preview; stale apply has zero spawn/write |
+| RA-AC3 | PASS: `TestV4ConsumerRequiresExactAllowedIdentityWithoutCertification` | PASS: `TestProjectResolutionBlocksWithoutFallback`, exact Profile/compiler/binding negatives | PASS: installed lineage/admission/spoof and graph binding negatives; policy and Agent intent retained |
+| RA-AC4 | N/A: execution authority belongs to T02, not inactive codecs | PASS: `TestRunAuthorityAndDriftRefuseBeforeCommit`, graph/single authority ordering and independent rights | PASS: installed single journeys both adapters and mixed graphs; omitted authority yields zero extra invocation; no Provider invocation |
+| RA-AC5 | PASS: auth vendor outcomes, operational effort unsafe/config/source cases for both adapters | PASS: `TestFrozenStageAuthenticationIsObservedNotVersioned`, typed pre-spawn persisted failures, exact invocation checks | PASS: installed auth/permission failures, malformed/symlink/config/path unit-integration negatives; no repair or credential mutation |
+| RA-AC6 | PASS: closed diagnostic schema; `TestStageInvocationHasNoVersionGate`, `TestStageArgvGolden` | PASS: `TestDiagnoseAttemptSeparatesCauseAndEffects`, no-spawn/fast rejection/native process cases | PASS: `TestInstalledOperationalDiagnosticsBothAdapters` and `TestInstalledGraphOperationalDiagnosticsBothAdapters`: option/auth/permission/model/effort/unknown rejection and exact attempt counts |
+| RA-AC7 | N/A: result execution belongs to T02; codecs retain strict diagnostic fields | PASS: classification/inbox/supervisor result regressions | PASS: same two installed diagnostic suites, exit-zero missing/invalid result independently on both adapters in single and graph |
+| RA-AC8 | PASS: successor persistence, diagnostic certainty and historical no-dispatch | PASS: supervisor/lease/cancel/retry/reconcile/reset tests; unknown cannot reuse first-attempt authority | PASS: both-adapter installed single lifecycle, crash/reconcile, corruption, admission and retry/reset; mixed graph conflict/retry/reset; no implicit redispatch |
+| RA-AC9 | PASS: `TestOperationalEffortBindsSourceBytesAndChildView`, actual read-only inbox, no-override conflicts | PASS: frozen invocation/source drift and child equivalence; filesystem/coordination/integration regressions | PASS: installed child-write/partial/reset/security cases retain actual controls and disclose unknown vendor confinement |
+| RA-AC10 | PASS: closed diagnostic/sanitized wire tests | PASS: persisted failure summary canary tests, CLI separation and same operator/AI recovery facts | PASS: both installed diagnostic suites inspect JSON/text for seeded secrets; actual installed skill bytes and history/provenance tests |
+
+### Installed provenance and limits
+
+`newRuntimeStageJourney` builds the public CLI into a temporary directory, installs
+actual embedded Codex/Claude skill packages, uses fresh HOME/state/PATH and invokes
+from unrelated temporary CWDs. Its sole build overlay redirects fixed managed
+system source paths into isolated fixtures; resolver/observer/adapter/store code
+is production code. Synthetic executables provide status/version/attempt behavior
+and separate invocation counters; cleanup asserts no certification directory and
+no fake Provider invocation. Positive results satisfy the actual structured
+result contract. The suites do not execute an installed vendor binary.
+
+PASS/FAIL/SKIP command results and remote final-head checks are recorded below.
+Real vendor inference, external effects, vendor compatibility/confinement,
+AXM-12 E2E and human technical acceptance are SKIP: outside this authority.
+`scripts/dogfood-poc.sh` has syntax validation only; its complete smoke journey
+and the pinned historical S9 tool were not run. No Runtime auth/credential/config
+mutation, infra change, merge, release, label/status change or Issue closure.
+
+### Closure validation results
+
+Local PASS on macOS arm64, Go 1.26.1:
+
+- `AXIOM_TEST_PROBE_STATE_ROOT=$(mktemp -d /Users/rgomids/Library/Caches/axiom-axm36-tests.XXXXXX) go test ./...` — full suite including all installed journeys and adapter/path matrices. Only comment removal/documentation changed after functional source freeze; no behavioral change was made while installed binaries were building.
+- `go test ./cmd/lingo -run 'TestInstalledSyntheticSingle(LifecycleAdversarial|SupervisorCrashAndReconcile|LedgerCorruptionFailsClosed|LineageCapacityAndAdmission|StageRetryReset)/claude|TestOperatorStageDiagnostic' -count=1` — PASS, 47.152s, explicit new Claude recovery coverage.
+- `go test ./internal/executiongraph ./internal/stageexecution ./internal/runtimeadapter ./internal/runtimeapplication ./internal/graphapplication ./internal/workflowcompiler` — PASS after fast-rejection, timeout and startup-observation changes.
+- `go test ./cmd/lingo -run TestRuntimePolicyObservesConsentIdentityAndIntent -count=1` — PASS; profile-preview recovery names a supported scoped command rather than an unsupported flag.
+- `go vet ./...`, `go build ./...`, `go mod verify` — PASS; all modules verified.
+- `STATICCHECK=/Users/rgomids/Library/Caches/axiom-axm36-tools/staticcheck ./scripts/check-go-quality.sh all` — PASS after comment cleanup: formatting, `go mod tidy -diff`, pinned Staticcheck 0.8.1 including tests. Tool installed only into a local cache; go.mod/go.sum unchanged.
+- `./scripts/validate-repository.sh .` — PASS after documentation reconciliation, including runtime packaging, automation, ADR governance and security checks.
+- `bash -n scripts/dogfood-poc.sh`, `git diff --check`, staged diff review — PASS.
+- `./scripts/check-sensitive-files.sh --staged .` and `gitleaks detect --source . --no-git --redact` — PASS; no leaks.
+
+Earlier diagnostic/result/publication regressions initially FAIL as described
+above; their final reruns PASS. Intermediate checkpoint `f220e67` remote PR Checks
+FAIL at vet because certification-only CLI tests still referenced deleted
+StageContext; those tests are retired/replaced in this coordinated closure.
+There was no auth, protection or permission bypass. Final-head remote CI must be
+read after the normal push and is reported on PR #334 against its exact SHA;
+a checkpoint's green checks are not transferred to another head.
+
+Final local root read-back: mode 0700, zero JSON records. Approved Tasks diff
+against `91b04156a48005d9a7498372ae7990ce4fbb515d` is empty. No acceptance,
+canonical gate transition or operational Linear status change is implied.

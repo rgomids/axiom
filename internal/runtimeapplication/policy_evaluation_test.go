@@ -144,8 +144,6 @@ func TestPolicyCandidateCarriesIntentOnly(t *testing.T) {
 			t.Fatalf("candidate claims %s: %s", forbidden, wire)
 		}
 	}
-	// Effort is never a capability: a Profile cannot declare one and a request
-	// for one is not satisfied by any local configuration.
 	declared := fx.Current(fx.CodexOnly())
 	declared.ModelProfiles[0].Capabilities = append(declared.ModelProfiles[0].Capabilities, "reasoning-effort-high")
 	if _, err := runtimeprofile.NewConsumerV4(declared); !errors.Is(err, runtimeprofile.ErrInvalidConfiguration) {

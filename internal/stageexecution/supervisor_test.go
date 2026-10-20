@@ -94,16 +94,17 @@ func (f *fakeSupervisorStore) Records(context.Context, executiongraph.SuccessorG
 }
 
 type fakeSupervisorPreparation struct {
-	store       *fakeSupervisorStore
-	prepares    int
-	drains      int
-	finals      int
-	failPrepare int
-	failDrain   bool
-	failFinal   bool
-	results     bool
-	kind        string
-	onPrepare   func()
+	store        *fakeSupervisorStore
+	prepares     int
+	drains       int
+	finals       int
+	failPrepare  int
+	prepareError error
+	failDrain    bool
+	failFinal    bool
+	results      bool
+	kind         string
+	onPrepare    func()
 }
 
 func (f *fakeSupervisorPreparation) Prepare(_ context.Context, g executiongraph.SuccessorGraph, c executiongraph.SuccessorChild, id string, epoch uint64) (executiongraph.Invocation, error) {
@@ -112,6 +113,9 @@ func (f *fakeSupervisorPreparation) Prepare(_ context.Context, g executiongraph.
 		f.onPrepare()
 	}
 	if f.prepares == f.failPrepare {
+		if f.prepareError != nil {
+			return executiongraph.Invocation{}, f.prepareError
+		}
 		return executiongraph.Invocation{}, errInjected
 	}
 	if epoch != 1 || c.Envelope.Resolution.FrozenProfile == nil {

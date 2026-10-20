@@ -19,11 +19,6 @@ import (
 	"github.com/rgomids/axiom/internal/runtimeprofile"
 )
 
-// Specification 007 AXM-22 BI-2/BI-2a: the narrow inspector derives the
-// EffortSourceDigest from the fixed adapter source rules, trusted anchor
-// roots and independent observations only. Supported hosts (macOS, Linux)
-// provide native symlinks and FIFOs; fixture setup failure fails the test.
-
 type effortInspectorFixture struct {
 	operationalEffortFixture
 	base string

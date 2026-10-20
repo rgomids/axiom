@@ -161,8 +161,19 @@ func (s SingleSupervisor) Run(ctx context.Context, r SingleRequest) error {
 	if err != nil {
 		return err
 	}
+	now := s.Now
+	if now == nil {
+		now = time.Now
+	}
 	inv, err := s.Preparation.PrepareSingle(ctx, run, attemptID, lease.Epoch())
 	if err != nil {
+		if at, ok := preSpawnAttempt(err, attemptID, number, lease.Epoch(), now()); ok {
+			candidate := executiongraph.CloneSingleStageRun(run)
+			candidate.Attempts = append(candidate.Attempts, at)
+			if _, saveErr := s.Store.SaveSingle(ctx, candidate, lease); saveErr != nil {
+				return saveErr
+			}
+		}
 		return err
 	}
 	fresh, again, err := reload()
@@ -177,10 +188,6 @@ func (s SingleSupervisor) Run(ctx context.Context, r SingleRequest) error {
 	}
 	if err = lease.Validate(); err != nil {
 		return err
-	}
-	now := s.Now
-	if now == nil {
-		now = time.Now
 	}
 	interval := s.PollInterval
 	if interval <= 0 {
@@ -230,6 +237,21 @@ func (s SingleSupervisor) attempt(ctx context.Context, r SingleRequest, run exec
 					started = true
 				}
 				continue
+			}
+			if !started && firstErr == nil {
+				finish := now().UTC()
+				at.Status, at.ClassificationReason, at.ExitCode, at.FinishedAt = executiongraph.AttemptUnknown, executiongraph.ProcessOutcomeUnknown, ev.result.ExitCode, &finish
+				if ev.result.SpawnFailed {
+					at.Status, at.ClassificationReason = executiongraph.AttemptFailed, executiongraph.ProcessFailed
+				}
+				digest := sha256.Sum256(ev.result.Output)
+				at.OutputDigest = hex.EncodeToString(digest[:])
+				at.ResultReference = at.OutputDigest
+				at.Diagnostic = executiongraph.DiagnoseAttempt(at, *ev.result)
+				candidate := executiongraph.CloneSingleStageRun(run)
+				candidate.Attempts = append(candidate.Attempts, at)
+				_, err := s.Store.SaveSingle(ctx, candidate, lease)
+				return err
 			}
 			if !started {
 				if firstErr == nil {
@@ -334,6 +356,7 @@ func (s SingleSupervisor) saveFinish(ctx context.Context, r SingleRequest, run *
 	digest := sha256.Sum256(process.Output)
 	at.OutputDigest = hex.EncodeToString(digest[:])
 	at.ResultReference = at.OutputDigest
+	at.Diagnostic = executiongraph.DiagnoseAttempt(at, process)
 	candidate := executiongraph.CloneSingleStageRun(fresh)
 	candidate.Attempts[len(candidate.Attempts)-1] = at
 	saved, err := s.Store.SaveSingle(ctx, candidate, lease)

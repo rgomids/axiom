@@ -303,3 +303,31 @@ func TestOperationalBuilderRefusesInheritedEffortBeforeEnvironmentFiltering(t *t
 		}
 	}
 }
+
+func TestOperationalEffortSeparatesInvalidSyntaxFromUnsafeStorage(t *testing.T) {
+	for _, id := range []string{"codex", "claude"} {
+		t.Run(id, func(t *testing.T) {
+			f := newOperationalEffortFixture(t, id, false)
+			source := fixedEffortRules(id, f.request.Roots).Sources[0]
+			path := filepath.Join(source.Root, source.Relative)
+			if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(path, []byte("{ malformed"), 0600); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := InspectEffortSourcesV4(context.Background(), f.request); !errors.Is(err, runtimeprofile.ErrConfigurationInvalid) {
+				t.Fatal("invalid syntax lost", err)
+			}
+			if err := os.Remove(path); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Symlink(path+"-missing", path); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := InspectEffortSourcesV4(context.Background(), f.request); !errors.Is(err, ErrEffortConfigurationUnsafe) || errors.Is(err, runtimeprofile.ErrConfigurationInvalid) {
+				t.Fatal("unsafe storage became syntax failure", err)
+			}
+		})
+	}
+}

@@ -132,6 +132,8 @@ func observationCategory(ctx context.Context, err error) string {
 		return "inspection_consent_required"
 	case errors.Is(err, runtimeprofile.ErrEffortOverrideConflict):
 		return "effort_override_conflict"
+	case errors.Is(err, runtimeprofile.ErrConfigurationInvalid):
+		return "configuration_invalid"
 	case errors.Is(err, runtimeprofile.ErrConfigurationUnsafe):
 		return "configuration_unsafe"
 	}

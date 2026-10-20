@@ -115,7 +115,7 @@ Provider effects and never grant authority.
 Consume the Project inventory and preflight before collecting configuration
 choices. Reuse valid decisions, ask at most one material decision per question,
 and require explicit partial opt-in before technical collection for a reduced
-objective. Missing required operation/proof/producer, incompatible snapshots,
+objective. Missing required operation/observation/producer, incompatible snapshots,
 recovery or denial stops its dependent path. No Profile/policy workaround.
 
 Inspect exact definition source/ID/revision/digest and Stage/Agent requirements
@@ -127,14 +127,14 @@ remain immutable; invalid refs or authoring/migration outside the chosen objecti
 require bounded owner handoff, with no default selection or Execution rebind.
 
 Before every apply reobserve owner snapshots and material Project/source/selector,
-policy, local configuration, executable/auth/proof and Workflow facts. Material
+policy, local configuration, executable/auth/effort-source and Workflow facts. Material
 drift invalidates preview and authority; redo preflight and obtain a fresh preview
 and exact confirmation. Denial cancels without insistence or substitution. After
 each write compare read-back identity, revision/digest and content, then re-evaluate
 affected readiness through the existing evaluator. Lost acknowledgement or missing/
 divergent read-back stops the chain; never replay an uncertain mutation. Preserve
 confirmed/uncertain effects, cumulative budgets, references and used/pending
-authority. Installed, authenticated, supported and proven stay independent;
+authority. Installed, authenticated and authorized stay independent;
 ready/partial/blocked are scoped conversational summaries, separate from canonical
 status/result, readiness, effect certainty and acceptance. Handoff never starts,
 resumes, runs, dispatches or rebinds Execution or creates/links a Work Item.
@@ -256,7 +256,7 @@ a reconciliation fact preserves historical status and attempts; it neither
 promotes unknown to success nor grants a retry. Live/uncertain processes, foreign
 leases and identity drift require read/wait or bounded handoff, never blind
 redispatch, kill or host bypass. A confirmed receipt replay never redispatches.
-Delivery/rework remains AXM-9; proof and live acceptance remain their own gates.
+Delivery/rework and live acceptance retain their own independent authority.
 
 Before interruption, exhausted budget or missing authority, write a sanitized
 checkpoint only in already authorized working Evidence outside canonical stores:

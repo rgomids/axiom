@@ -9,8 +9,6 @@ import (
 	"github.com/rgomids/axiom/internal/runtimeprofile"
 )
 
-// The preview freezes a proof-free tuple bound to the exact configuration,
-// observation and effort-source identity; Check returns an unaliased copy.
 func TestPreviewFreezesProofFreeTupleAndExactCheck(t *testing.T) {
 	s, o := setup(t, "codex")
 	service := New(s)
@@ -37,8 +35,6 @@ func TestPreviewFreezesProofFreeTupleAndExactCheck(t *testing.T) {
 	}
 }
 
-// Availability reports only whether an allowed, enabled Runtime currently has
-// a resolvable executable; it observes no authentication or effort source.
 func TestAvailabilityObservesExecutableOnly(t *testing.T) {
 	for _, tc := range []struct {
 		name, want string

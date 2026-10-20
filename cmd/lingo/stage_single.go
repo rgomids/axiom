@@ -375,7 +375,7 @@ func (l singleAttemptLoader) LoadSingleAttempt(ctx context.Context, run executio
 	frozen := *material.Input.FrozenProfile
 	executable, err := l.s.runtimes.lookPath(frozen.RuntimeID)
 	if err != nil {
-		return material, err
+		return material, runtimeadapter.ErrExecutableUnavailable
 	}
 	axiom, err := os.Executable()
 	if err != nil {

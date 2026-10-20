@@ -121,8 +121,6 @@ func (s lifecycleService) dispatchPreview(ctx context.Context, stores stageStore
 	return stageexecution.PreviewService{Source: dispatchObservation{s: s, stores: stores, target: t, input: in, policy: policy, compiler: compiler, root: root}, Compiler: compiler}, nil
 }
 
-// stagePolicy resolves each compiler request with observations scoped to the
-// stage repository. The same request is repeated for dispatch Check.
 type stagePolicy struct {
 	s        lifecycleService
 	runtimes runtimeObservationSources
@@ -141,9 +139,6 @@ func (p stagePolicy) Check(ctx context.Context, preview runtimeapplication.Previ
 	return p.service().Check(ctx, preview)
 }
 
-// stageRuntimePolicy scopes effort-source inspection to the registered
-// repository; consent is --authorize-local at preview and the committed
-// dispatch authority in the supervisor.
 func (s lifecycleService) stageRuntimePolicy(ctx context.Context, repository string, consented bool) (stagePolicy, error) {
 	if ctx.Err() != nil {
 		return stagePolicy{}, ctx.Err()

@@ -162,8 +162,6 @@ func (s Authoring) Run(ctx context.Context, req AuthoringRequest) (AuthoringRepo
 	if snapshot.Revision == math.MaxUint64 {
 		return deny("revision_overflow")
 	}
-	// Fresh and retired state start an explicit new canonical v4 record; a
-	// retired record is never resurrected (Specification 007 PM-11).
 	cfg, err := cloneV4(prior)
 	if err != nil {
 		return deny("configuration_invalid")
@@ -215,8 +213,6 @@ func (s Authoring) Run(ctx context.Context, req AuthoringRequest) (AuthoringRepo
 	}
 	var wire []byte
 	if len(cfg.Runtimes) == 0 {
-		// Removing the final Runtime retires the canonical record explicitly;
-		// no empty v4 configuration exists.
 		if snapshot.State != "active-v4" {
 			return deny("configuration_required")
 		}
@@ -241,7 +237,6 @@ func (s Authoring) Run(ctx context.Context, req AuthoringRequest) (AuthoringRepo
 
 const legacyNext = "Historical local configuration is not used and is never migrated; retire it explicitly with `axiom runtime binding remove --runtime <id> --cascade`, then create canonical configuration"
 
-// historicalRecord is the retirement view of a recognized historical record.
 type historicalRecord struct {
 	formatVersion int
 	revision      uint64
@@ -275,13 +270,6 @@ func historicalSnapshot(snapshot LocalSnapshot) (historicalRecord, bool) {
 	return historicalRecord{legacy.FormatVersion, legacy.Revision, d, runtimes, legacy.ModelProfiles, legacy.Preferences}, err == nil
 }
 
-// retireLegacy is the only operation over a recognized historical
-// active-v1/v2/v3 record (Specification 007 PM-11, A1; AXM-36 D2): `binding
-// remove --runtime <id> --cascade` retires the ENTIRE record through the
-// existing tombstone, bound to the historical digest of the exact prior record.
-// The named Runtime must exist in it. Nothing is migrated, partially edited,
-// converted or created; list/show only report the state. Every other operation
-// is unsupported_configuration_format.
 func (s Authoring) retireLegacy(ctx context.Context, req AuthoringRequest, snapshot LocalSnapshot, report AuthoringReport) (AuthoringReport, error) {
 	deny := func(code string) (AuthoringReport, error) { report.Category = code; return report, ErrAuthoring }
 	report.Next = legacyNext
@@ -389,8 +377,6 @@ func (s Authoring) confirm(ctx context.Context, req AuthoringRequest, token stri
 	return report, nil
 }
 
-// cloneV4 is an independent canonical copy; an empty fresh/retired start has
-// no record to copy.
 func cloneV4(c runtimeprofile.ConfigurationV4) (runtimeprofile.ConfigurationV4, error) {
 	if len(c.Runtimes) == 0 {
 		return runtimeprofile.ConfigurationV4{FormatVersion: runtimeprofile.FormatVersionV4, Revision: c.Revision}, nil
@@ -605,8 +591,6 @@ func removeProfile(c *runtimeprofile.ConfigurationV4, index int) {
 	}
 }
 
-// localRuntime is the presentation input of one Runtime: canonical v4
-// Runtimes and, for the retirement preview only, historical ones.
 type localRuntime struct {
 	ID, Adapter string
 	Enabled     bool

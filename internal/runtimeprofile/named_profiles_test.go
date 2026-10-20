@@ -1,30 +1,36 @@
 package runtimeprofile
 
 import (
-	"context"
 	"reflect"
 	"testing"
 )
 
-// Operator names are references, not a fixed set of three quality tiers.
-func TestMultipleNamedProfilesPerRuntimeResolveDeterministically(t *testing.T) {
-	cfg := testConfiguration()
+func TestMultipleNamedProfilesRemainSelectable(t *testing.T) {
+	cfg, err := DecodeV4(readV4Fixture(t, "configuration-v4.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
 	names := []string{"review-go", "build-tools", "docs-only", "integration-go"}
 	for _, name := range names {
-		cfg.Runtimes[0].AllowlistedProfileIDs = append(cfg.Runtimes[0].AllowlistedProfileIDs, name)
-		cfg.ModelProfiles = append(cfg.ModelProfiles, ModelProfile{ID: name, RuntimeID: "codex", Model: "local-codex-model", Capabilities: []string{"go"}, Complexities: []string{"high"}})
-	}
-	observer := &fakeObserver{observations: map[string]Observation{"codex": testObservation("codex", "codex", true), "claude": testObservation("claude", "claude", true)}}
-	resolver := NewResolver(observer)
-	for _, name := range names {
-		req := Request{ConfigurationRevision: 7, Role: "implementation", Complexity: "high", Capabilities: []string{"go"}, ModelProfileID: name}
-		first, err := resolver.Resolve(context.Background(), cfg, req)
-		if err != nil || first.Choice == nil || first.Choice.ModelProfileID != name {
-			t.Fatalf("profile %s: %+v %v", name, first, err)
+		for i := range cfg.Runtimes {
+			if cfg.Runtimes[i].ID == "codex" {
+				cfg.Runtimes[i].AllowlistedProfileIDs = append(cfg.Runtimes[i].AllowlistedProfileIDs, name)
+			}
 		}
-		again, err := resolver.Resolve(context.Background(), cfg, req)
+		cfg.ModelProfiles = append(cfg.ModelProfiles, ModelProfile{ID: name, RuntimeID: "codex", Model: "synthetic-codex-model", Effort: Effort{Mode: EffortRuntimeDefault, Value: "default"}, Capabilities: []string{"go"}, Complexities: []string{"high"}})
+	}
+	consumer, err := NewConsumerV4(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range names {
+		first, err := consumer.ObservedProfile("codex", name, testOperationalObservation("codex"))
+		if err != nil || first.ProfileID != name {
+			t.Fatalf("%s: %+v %v", name, first, err)
+		}
+		again, err := consumer.ObservedProfile("codex", name, testOperationalObservation("codex"))
 		if err != nil || !reflect.DeepEqual(first, again) {
-			t.Fatalf("profile %s not deterministic", name)
+			t.Fatal("unstable profile selection", err)
 		}
 	}
 }

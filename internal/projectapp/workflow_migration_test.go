@@ -24,7 +24,6 @@ type migrationPort struct {
 
 var _ projectapp.WorkflowProfilePort = (*migrationPort)(nil)
 
-// ObserveWorkflowProfiles re-reads the canonical format-4 record on every call.
 func (p *migrationPort) ObserveWorkflowProfiles(context.Context, string) (runtimeprofile.ConsumerV4, string, string) {
 	consumer, err := runtimeprofile.NewConsumerV4(fx.Current(p.cfg))
 	if err != nil {

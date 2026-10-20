@@ -57,8 +57,6 @@ func (f *stageAuthFake) Check(_ context.Context, target runtimeadapter.AuthTarge
 	return runtimeadapter.AuthReport{RuntimeID: target.RuntimeID, Status: f.status, Reason: f.reason, Version: f.version, ExecutableDigest: target.ExpectedDigest, EvidenceKind: runtimeadapter.EvidenceFake}
 }
 
-// frozenFixture binds the tuple to the bytes of an inert synthetic executable;
-// no fixture ever runs it.
 func frozenFixture(t *testing.T, id, mode string) (runtimeadapter.StageInvocationRequest, runtimeprofile.ResolvedProfileV4, runtimeapplication.Preview) {
 	t.Helper()
 	executable := filepath.Join(t.TempDir(), id)
@@ -169,8 +167,6 @@ func TestFrozenStageNoFallbackAndSourceFailures(t *testing.T) {
 	}
 }
 
-// Authentication is observed on the exact invocation; any Runtime version is
-// irrelevant, while an observed failure blocks dispatch for its actual reason.
 func TestFrozenStageAuthenticationIsObservedNotVersioned(t *testing.T) {
 	for _, id := range []string{"codex", "claude"} {
 		for _, version := range []string{"unknown", "999.0.0-future", "0.0.1"} {
@@ -205,8 +201,6 @@ func TestFrozenStageAuthenticationIsObservedNotVersioned(t *testing.T) {
 	}
 }
 
-// The executable is the reviewed bytes: replacement is drift and removal is an
-// unavailable executable, both refused before authentication or spawn.
 func TestFrozenStageExecutableIdentity(t *testing.T) {
 	r, p, preview := frozenFixture(t, "claude", "explicit")
 	if err := os.WriteFile(r.Profile.Executable, []byte("replaced; never execute"), 0o700); err != nil {
@@ -271,8 +265,6 @@ func (o frozenObserver) ObserveOperational(context.Context, string, string) (run
 	return o.observed, nil
 }
 
-// Exercises the delivered resolver's Check with fake local inputs. No Runtime
-// executable is invoked and no status command runs.
 func TestFrozenStageCurrentLocalProfileRefusals(t *testing.T) {
 	const projectID = "12345678-1234-4abc-8def-123456789abc"
 	for _, name := range []string{"removed", "tombstoned", "edited", "disabled", "effort-edited", "sources-changed"} {

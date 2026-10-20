@@ -57,11 +57,17 @@ func stageFakeProcess() (bool, int) {
 		return false, 0
 	}
 	if len(os.Args) == 2 && os.Args[1] == "--version" {
-		version := map[string]string{"codex": "0.159.1", "claude": "2.1.296"}[name]
+		if err := recordFakeStageStatus(name, "version"); err != nil {
+			return true, 98
+		}
+		version := "synthetic-unregistered-" + name
 		_, err = io.WriteString(os.Stdout, version+"\n")
 		return true, boolExit(err)
 	}
 	if len(os.Args) > 2 && (os.Args[1] == "login" || os.Args[1] == "auth") {
+		if err := recordFakeStageStatus(name, "auth"); err != nil {
+			return true, 98
+		}
 		status := map[string]string{"codex": "Logged in using ChatGPT", "claude": `{"loggedIn":true,"authMethod":"claude.ai","apiProvider":"firstParty"}`}[name]
 		_, err = io.WriteString(os.Stdout, status+"\n")
 		return true, boolExit(err)
@@ -181,6 +187,10 @@ func runFakeStageSteps(script fakeStageScript, packet runtimeadapter.TaskPacket,
 			}
 		case "sleep":
 			time.Sleep(time.Duration(step.Millis) * time.Millisecond)
+		case "stderr":
+			if _, err := io.WriteString(os.Stderr, step.Content); err != nil {
+				return 27
+			}
 		case "exit":
 			return step.Code
 		default:
@@ -223,4 +233,14 @@ func stageFakeEnvironment(overrides []string) []string {
 		environment = append(environment, key+"="+values[key])
 	}
 	return environment
+}
+
+func recordFakeStageStatus(runtimeID, operation string) error {
+	f, err := os.OpenFile(filepath.Join(os.Getenv("HOME"), "fake-stage-status.log"), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	_, err = io.WriteString(f, runtimeID+" "+operation+"\n")
+	return err
 }

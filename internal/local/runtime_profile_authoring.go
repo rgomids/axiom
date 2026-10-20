@@ -275,8 +275,6 @@ func (s RuntimeProfileStore) Publish(ctx context.Context, expectedToken string, 
 		v, err := runtimeprofile.DecodeVersioned(next)
 		switch {
 		case err == nil && v.FormatVersion == runtimeprofile.FormatVersionV4 && v.V4 != nil:
-			// Format 4 starts only from fresh or retired state, or replaces format 4:
-			// an active historical record is retired explicitly, never converted.
 			if prior.State != "fresh" && prior.State != "retired" && prior.State != "active-v4" {
 				return prior, runtimeprofile.ErrUnsupportedConfigurationFormat
 			}

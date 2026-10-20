@@ -166,3 +166,55 @@ func TestOperationalDiagnosticUncertaintyRequiresCanonicalUnknown(t *testing.T) 
 		})
 	}
 }
+
+func TestDiagnoseAttemptSeparatesCauseAndEffects(t *testing.T) {
+	for _, tc := range []struct{ name, output, code, cause, confidence string }{
+		{"option", "error: unexpected argument '--secret-token'", "invocation_incompatible", "invocation_incompatible", "hypothesis"},
+		{"auth", "error: authentication failed: private-account@example.invalid", "authentication_unavailable", "authentication_unavailable", "hypothesis"},
+		{"permission", "error: permission denied: /private/secret", "permission_denied", "permission_denied", "hypothesis"},
+		{"model", "error: unsupported model", "model_unsupported", "model_unsupported", "hypothesis"},
+		{"effort", "error: unsupported effort", "effort_unsupported", "effort_unsupported", "hypothesis"},
+		{"unknown", "secret-token permission denied in a transcript", "subprocess_failed", "unknown", "unknown"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			a := SuccessorAttempt{AttemptID: "00000000-0000-4000-8000-000000000001", Number: 2, Status: AttemptFailed, ClassificationReason: ProcessFailed, OutputDigest: strings.Repeat("a", 64)}
+			p := ProcessResult{ExitCode: 7, Output: []byte(tc.output)}
+			d := DiagnoseAttempt(a, p)
+			if ValidateAttemptDiagnostic(*d) != nil || d.Code != tc.code || d.Cause != tc.cause || d.CauseConfidence != tc.confidence || d.EffectCertainty != "known" || d.Operation != "stage-retry" {
+				t.Fatalf("%+v", d)
+			}
+			wire, _ := json.Marshal(d)
+			for _, secret := range []string{"secret-token", "private-account", "/private/secret"} {
+				if bytes.Contains(wire, []byte(secret)) {
+					t.Fatal("raw process output retained")
+				}
+			}
+			a.Status, a.ClassificationReason = AttemptUnknown, ProcessOutcomeUnknown
+			d = DiagnoseAttempt(a, p)
+			if d.Code != "effects_uncertain" || d.EffectCertainty != "unknown" || d.NextAction != "observe-and-reconcile" || d.RequiredAuthority != "reconciliation" {
+				t.Fatalf("%+v", d)
+			}
+		})
+	}
+}
+
+func TestDiagnoseAttemptNoSpawnAndResultFailures(t *testing.T) {
+	a := SuccessorAttempt{AttemptID: "00000000-0000-4000-8000-000000000001", Number: 1, Status: AttemptFailed, ClassificationReason: ProcessFailed}
+	for _, code := range []string{"spawn_failed", "permission_denied", "executable_unavailable"} {
+		d := DiagnoseAttempt(a, ProcessResult{SpawnFailed: true, FailureCode: code})
+		if ValidateAttemptDiagnostic(*d) != nil || d.Code != code || d.CauseConfidence != "confirmed" || d.EffectCertainty != "none" {
+			t.Fatalf("%+v", d)
+		}
+	}
+	for reason, code := range map[ClassificationReason]string{ResultMissing: "result_missing", ResultNotSuccessful: "result_invalid", TimeoutStopped: "attempt_timeout", CancelConfirmed: "attempt_cancelled"} {
+		a.ClassificationReason = reason
+		d := DiagnoseAttempt(a, ProcessResult{})
+		if d.Code != code || d.Cause != "unknown" {
+			t.Fatalf("%+v", d)
+		}
+	}
+	a.Status = AttemptSucceeded
+	if DiagnoseAttempt(a, ProcessResult{}) != nil {
+		t.Fatal("success acquired a failure diagnostic")
+	}
+}

@@ -6,9 +6,6 @@ import (
 	"time"
 )
 
-// Consumer refusals. ErrInvalidConfiguration and
-// ErrUnsupportedConfigurationFormat remain the invalid and historical-format
-// refusals.
 var (
 	ErrRuntimeAbsent          = errors.New("runtime_absent")
 	ErrRuntimeDisabled        = errors.New("runtime_disabled")
@@ -17,13 +14,12 @@ var (
 	ErrProfileNotAllowlisted  = errors.New("profile_not_allowlisted")
 )
 
-// Operational observation refusals shared by the adapter observer and policy
-// resolution. Each names its actual boundary; none requests certification.
 var (
 	ErrExecutableUnavailable     = errors.New("executable_unavailable")
 	ErrInspectionConsentRequired = errors.New("inspection_consent_required")
 	ErrEffortOverrideConflict    = errors.New("effort_override_conflict")
 	ErrConfigurationUnsafe       = errors.New("configuration_unsafe")
+	ErrConfigurationInvalid      = errors.New("configuration_invalid")
 )
 
 // OperationalObserver returns current machine facts on every call; it never

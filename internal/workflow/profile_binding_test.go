@@ -16,7 +16,6 @@ func profileBindingFixture() runtimeprofile.ResolvedProfileV4 {
 	return runtimeprofile.ResolvedProfileV4{ProfileID: "worker", RuntimeID: "codex", Model: "opaque-model", Effort: runtimeprofile.Effort{Mode: "explicit", Value: "opaque-high"}, ProfileDigest: d, ConfigurationRevision: 5, ConfigurationDigest: d, ExecutableDigest: d, InvocationMode: "noninteractive", ObservationRevision: 7, ObservationDigest: d, EffortSourceDigest: d}
 }
 
-// historicalProfileFixture is the proof-bound Execution 3 tuple, readable only.
 func historicalProfileFixture() runtimeprofile.ResolvedProfile {
 	d := strings.Repeat("a", 64)
 	return runtimeprofile.ResolvedProfile{ProfileID: "worker", RuntimeID: "codex", Model: "opaque-model", Effort: runtimeprofile.Effort{Mode: "explicit", Value: "opaque-high"}, ProfileDigest: d, ConfigurationRevision: 5, ConfigurationDigest: d, ExecutableDigest: d, RuntimeVersion: "test-1", InvocationMode: "noninteractive", ObservationRevision: 7, ObservationDigest: d, EffortSourceDigest: d, CapabilityProofReference: "injected-proof"}

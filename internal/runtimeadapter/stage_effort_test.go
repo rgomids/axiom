@@ -160,8 +160,6 @@ func TestTrustedEffortAnchorAbsentManaged(t *testing.T) {
 	}
 }
 
-// equivalentChild mirrors the fixture's project sources into the fixture's
-// child worktree, which is the working directory of its invocation.
 func equivalentChild(t *testing.T, f *effortInspectorFixture) string {
 	t.Helper()
 	for _, s := range f.rules().Sources {
@@ -399,8 +397,6 @@ func TestStageEffortInspectorReadOnlyChildInspectsActualRoot(t *testing.T) {
 	}
 }
 
-// Preview (OperationalSource over the repository root) and dispatch (inspector
-// over an equivalent child worktree) observe the same EffortSourceDigest.
 func TestStageEffortPreviewDispatchAgreement(t *testing.T) {
 	ctx := context.Background()
 	for _, runtime := range []string{"codex", "claude"} {

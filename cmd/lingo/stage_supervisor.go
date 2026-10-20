@@ -72,8 +72,6 @@ func (productionSupervisorLoader) LoadSupervisor(ctx context.Context, r stageexe
 	if t.state.ExecutionID == "" {
 		return stageexecution.Supervisor{}, stageexecution.ErrAdmission
 	}
-	// The committed dispatch authority is the inspection consent boundary;
-	// every child is a retained, digest-verified preview child.
 	if len(preview.Children) == 0 {
 		return stageexecution.Supervisor{}, stageexecution.ErrAdmission
 	}
@@ -156,7 +154,7 @@ func (l stageAttemptLoader) LoadAttempt(ctx context.Context, g executiongraph.Su
 	frozen := *material.Input.FrozenProfile
 	executable, err := l.s.runtimes.lookPath(frozen.RuntimeID)
 	if err != nil {
-		return material, err
+		return material, runtimeadapter.ErrExecutableUnavailable
 	}
 	axiom, err := os.Executable()
 	if err != nil {

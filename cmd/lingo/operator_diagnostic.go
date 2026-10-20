@@ -33,14 +33,8 @@ func stageDiagnostic(category string, status completion.Status) *cli.Diagnostic 
 	d := diagnosticBase("workflow stage", category, "workflow stage status")
 	switch category {
 	case "runtime_unresolvable":
-		d.Hypotheses = []string{"Project Runtime policy, Profile resolution or capability Evidence may be unresolved; this error does not establish which"}
-		d.NotObserved = append(d.NotObserved, "Proof absence, expiry, identity drift and producer support are not distinguished by this error")
-		read := cli.DiagnosticOption{ID: "inspect-profiles", Availability: "available", Prerequisites: []string{}, Effects: []string{"read-only"}, RequiredAuthority: []string{}, Operation: "runtime profile list", Arguments: map[string]string{}, MissingArguments: []string{}, Purpose: "Inspect configured Profiles; declaration and authentication do not prove capability", Verification: cli.DiagnosticVerification{Operation: "runtime profile list", ExpectedFact: "Observe configured Profile identities; then inspect exact capability Evidence under its own contract"}}
-		d.Options = []cli.DiagnosticOption{d.Options[0], read, d.Options[1]}
-	case "capability_unknown", "capability_stale":
-		d.MissingPrerequisites = []string{"Current independently observed capability Evidence in the exact dispatch mode", "Producer support, authorized probe envelope and separate effect authority"}
-		d.NotObserved = append(d.NotObserved, "Proof absence, expiry, identity drift and producer support are not distinguished by this error")
-		d.Options = append(d.Options, cli.DiagnosticOption{ID: "probe", Availability: "unavailable", Prerequisites: []string{"Establish producer observation support and exact probe envelope", "Separate local and external authority"}, Effects: []string{"May invoke a Runtime; outside automatic retry budget"}, RequiredAuthority: []string{"Exact probe envelope and external inference authority"}, Arguments: map[string]string{}, MissingArguments: []string{"Runtime", "Profile", "variant", "envelope"}, Purpose: "Only a supported independent observation can establish capability", Verification: d.Verification})
+		d.Hypotheses = []string{"Project Runtime policy, Profile intent or current executable/source observation may be unresolved; inspect the actual blocker"}
+		d.Options = []cli.DiagnosticOption{d.Options[0], {ID: "inspect-profiles", Availability: "available", Prerequisites: []string{}, Effects: []string{"read-only"}, RequiredAuthority: []string{}, Operation: "runtime profile list", Arguments: map[string]string{}, MissingArguments: []string{}, Purpose: "Inspect configured Profile intent; scoped operational preview needs its own inspection consent", Verification: cli.DiagnosticVerification{Operation: "runtime profile list", ExpectedFact: "Observe configured Profiles without inferring authentication or compatibility"}}, d.Options[1]}
 	case "stop_orphan_then_reconcile", "reconcile_lease_held":
 		d.MissingPrerequisites = []string{"Recorded process identity, observed liveness and lease ownership", "Separate stop authority where a supported stop is available"}
 		d.Options[1].Purpose = "Wait or hand off process inspection and a separately authorized stop; uncertain liveness never authorizes signaling"

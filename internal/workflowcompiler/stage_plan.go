@@ -231,7 +231,7 @@ func ClassifyFailure(err error) Failure {
 // boundary instead of a generic unresolvable Runtime.
 func OperationalRefusal(code string) bool {
 	switch code {
-	case "executable_unavailable", "inspection_consent_required", "effort_override_conflict", "configuration_unsafe":
+	case "executable_unavailable", "inspection_consent_required", "effort_override_conflict", "configuration_unsafe", "configuration_invalid":
 		return true
 	}
 	return false

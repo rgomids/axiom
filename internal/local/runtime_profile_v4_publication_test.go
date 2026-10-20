@@ -63,6 +63,26 @@ func TestRuntimeProfileV4PublicationAndExplicitRetirement(t *testing.T) {
 	if _, err := historical.Publish(ctx, v3.Token, upgraded); !errors.Is(err, runtimeprofile.ErrUnsupportedConfigurationFormat) {
 		t.Fatal("active format 3 converted implicitly", err)
 	}
+	priorDigest, err := runtimeprofile.DigestV3(*v3.V3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	retirement, err := runtimeprofile.EncodeTombstone(runtimeprofile.Tombstone{Kind: runtimeprofile.TombstoneKind, FormatVersion: 1, Revision: 2, PriorConfigurationDigest: priorDigest})
+	if err != nil {
+		t.Fatal(err)
+	}
+	retiredHistorical, err := historical.Publish(ctx, v3.Token, retirement)
+	if err != nil || retiredHistorical.State != "retired" {
+		t.Fatal(retiredHistorical.State, err)
+	}
+	configured, _ := v4Wire(t, 3)
+	if current, err := historical.Publish(ctx, retiredHistorical.Token, configured); err != nil || current.State != "active-v4" || current.Revision != 3 {
+		t.Fatal(current.State, err)
+	}
+	if _, err := historical.Publish(ctx, v3.Token, configured); !errors.Is(err, ErrConflict) {
+		t.Fatal("historical authority survived retirement", err)
+	}
+
 }
 
 func v3Wire(t *testing.T, revision uint64) []byte {

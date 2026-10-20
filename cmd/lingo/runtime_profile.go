@@ -38,10 +38,6 @@ func (s lifecycleService) RuntimeProfileValidate(ctx context.Context) cli.Result
 	return canonicalCompletion(completion.Facts{Completed: true}, "Runtime profile configuration is valid", nil, "", s.provenance)
 }
 
-// runtimeProfileValidity evaluates one local.RuntimeProfileStore.Inspect
-// result. It returns "" only for an active, valid format-4 record; historical,
-// invalid, missing, retired, unsafe and recovery-required states are refused
-// with their established codes.
 func runtimeProfileValidity(snapshot local.RuntimeProfileSnapshot, err error) string {
 	if err != nil {
 		if snapshot.State == "pending" {

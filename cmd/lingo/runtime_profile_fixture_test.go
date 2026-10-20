@@ -10,8 +10,6 @@ import (
 	"github.com/rgomids/axiom/internal/runtimeprofile"
 )
 
-// publishRuntimeProfileV3 initializes canonical v3 local configuration through
-// the only writer, the exact-token Publish (Specification 007 PM-1/PM-11).
 func publishRuntimeProfileV3(t *testing.T, stateRoot string, cfg runtimeprofile.ConfigurationV3) local.RuntimeProfileSnapshot {
 	t.Helper()
 	store, err := local.NewRuntimeProfileStore(stateRoot)
@@ -23,13 +21,13 @@ func publishRuntimeProfileV3(t *testing.T, stateRoot string, cfg runtimeprofile.
 		t.Fatal(err)
 	}
 	cfg.Revision = fresh.Revision + 1
-	wire, err := runtimeprofile.EncodeV3(cfg)
+	wire, err := runtimeprofile.EncodeV4(operationalCLIConfig(cfg))
 	if err != nil {
 		t.Fatal(err)
 	}
 	active, err := store.Publish(context.Background(), fresh.Token, wire)
-	if err != nil || active.State != "active-v3" {
-		t.Fatalf("publish canonical v3: %+v %v", active, err)
+	if err != nil || active.State != "active-v4" {
+		t.Fatalf("publish canonical v4: %+v %v", active, err)
 	}
 	return active
 }
@@ -64,4 +62,12 @@ func writeLegacyRuntimeProfile(t *testing.T, stateRoot string, cfg runtimeprofil
 		t.Fatal(err)
 	}
 	return wire
+}
+
+func operationalCLIConfig(cfg runtimeprofile.ConfigurationV3) runtimeprofile.ConfigurationV4 {
+	next := runtimeprofile.ConfigurationV4{FormatVersion: 4, Revision: cfg.Revision, ModelProfiles: cfg.ModelProfiles, Preferences: cfg.Preferences}
+	for _, r := range cfg.Runtimes {
+		next.Runtimes = append(next.Runtimes, runtimeprofile.RuntimeV4{ID: r.ID, Adapter: r.Adapter, Enabled: r.Enabled, AllowlistedProfileIDs: r.AllowlistedProfileIDs})
+	}
+	return next
 }

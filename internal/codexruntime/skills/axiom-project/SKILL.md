@@ -92,9 +92,8 @@ freshness; inaccessible means not observed, not absent:
   relevant Stage/Agent requirements, and current Project selection.
 - Canonical readiness per affected operation and required Integration/Provider
   declarations; backlog provider access does not prove product adapter support.
-- Existing executable, authentication and proof observations with their exact
-  identity and validity, or explicit unknown. Installed, authenticated, supported
-  and proven are independent facts, never implications.
+- Existing executable, authentication and effort-source observations with their exact
+  identity and validity, or explicit unknown. Installed, authenticated and authorized are independent facts, never implications.
 
 Before asking model, effort, Profile ID or template, map every known gap to its
 owner/operation, observed accepted forms, prerequisites, future authority,
@@ -106,15 +105,16 @@ If policy needs editing and installed G-1/#305 is absent or unknown, stop before
 technical collection and before creating a Profile. Explain observed version,
 missing capability and the smallest supported next observation. Main's delivery
 does not supply an installed operation. Missing operation/argument, incompatible
-snapshot, recovery, unavailable required proof/producer or denied authority also
+snapshot, recovery, unavailable required observation/producer or denied authority also
 stops its dependent path immediately; do not substitute another Runtime/Project,
 manual state edits or automatic installation/upgrade.
 
 Use passive observations only for discovery. Auth preflight and effort-source
 inspection can execute vendor processes even when called read-only. They need
 their own authority; do not invoke them to fill this inventory automatically.
-Inspect existing proof only through a supported path with satisfied prerequisites;
-never prepare, probe or invalidate proof to discover support. No login, inference,
+Runtime capability certification is retired; no probe, registry or receipt is
+required for admission. Inspect current identity, auth and effort sources only
+through supported paths with their separate consent. No login, inference,
 credential resolution or real canary belongs to this journey.
 
 A supported independent partial objective may be offered with its observed
@@ -129,8 +129,8 @@ Reuse compatible confirmed Profiles, Workflows and still-valid decisions. Ask at
 most one material decision per question, explaining purpose, observed alternatives,
 consequences and a recommendation with its source. A closed catalog proves only
 its accepted tokens; an open intent field is not a catalog. Without authoritative
-model/effort options, report unknown and block operational use. Save unproven
-intent only when its owner contract permits it and partial opt-in was obtained.
+model/effort options, report unknown; explicit operator intent can be saved
+without vendor certification. Save intent only when its owner contract permits it and partial opt-in was obtained.
 
 For a new Profile ID, validate form and collision in its canonical scope through
 the owner; propose only an unconfirmed candidate label for human choice. Never
@@ -160,7 +160,7 @@ asking again. Denial cancels that effect without insistence or substitution;
 preserve previously confirmed effects.
 
 Before every apply reobserve owner snapshots and material Project UUID/source/
-selector, policy, local configuration, executable/auth/proof and Workflow facts.
+selector, policy, local configuration, executable/auth/effort-source and Workflow facts.
 Any material drift invalidates preview and authority: return to preflight, obtain
 a fresh owner preview and new exact confirmation. No silent rebase, global lock
 or transaction is supplied by this journey. Missing canonical coverage blocks
@@ -188,7 +188,7 @@ Use the cumulative AO-06/07/09 budgets and sanitized checkpoint below, including
 correlation/attempt, original deadline, counters, references, decisions and used/
 pending authority. No start, create/link Work Item, resume, run, stage dispatch or
 rebind is authorized by handoff to `axiom-work-item`. Unobserved Execution/gate
-remains unknown. Ready requires fresh auth/proof and its own preview/authority
+remains unknown. Ready requires fresh auth/identity and its own preview/authority
 before any later start; readiness is neither run nor human acceptance.
 
 ## configure
@@ -434,7 +434,7 @@ a reconciliation fact preserves historical status and attempts; it neither
 promotes unknown to success nor grants a retry. Live/uncertain processes, foreign
 leases and identity drift require read/wait or bounded handoff, never blind
 redispatch, kill or host bypass. A confirmed receipt replay never redispatches.
-Delivery/rework remains AXM-9; proof and live acceptance remain their own gates.
+Delivery/rework and live acceptance retain their own independent authority.
 
 Before interruption, exhausted budget or missing authority, write a sanitized
 checkpoint only in already authorized working Evidence outside canonical stores:

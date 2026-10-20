@@ -73,8 +73,6 @@ func (s lifecycleService) WorkflowStart(ctx context.Context, input cli.WorkflowI
 		return workflowResult(failed, s.provenance)
 	}
 	policyInput := cli.RuntimeProfilePreviewInput{Project: input.Project, Role: input.Role, Complexity: input.Complexity, Capabilities: input.Capabilities, Runtime: input.Runtime}
-	// Effort sources are inspected read-only over the target's registered
-	// repository, only with explicit --authorize-local consent.
 	preview, policy, err := s.scopedRuntimePolicyPreview(ctx, policyInput, s.runtimeObservationSources().scoped(target.Repository.Path, input.AuthorizeLocal))
 	if err != nil {
 		return s.runtimeResolutionResult(preview, false)

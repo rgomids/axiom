@@ -52,9 +52,10 @@ func TestExecutableDeclarationAuthoringWithoutMigration(t *testing.T) {
 		b, _ := cmd.CombinedOutput()
 		var out struct {
 			Category string         `json:"category"`
+			Status   string         `json:"status"`
 			Report   map[string]any `json:"runtimeAuthoring"`
 		}
-		if json.Unmarshal(b, &out) != nil || out.Category != expected || bytes.Contains(b, []byte("invoked")) || bytes.Contains(b, []byte(base)) {
+		if json.Unmarshal(b, &out) != nil || (expected != "invalid_command" && out.Category != expected || expected == "invalid_command" && (out.Status != "validation_failure" || out.Report != nil)) || bytes.Contains(b, []byte("invoked")) || bytes.Contains(b, []byte(base)) {
 			t.Fatalf("%v expected %s got %s", args, expected, b)
 		}
 		return out.Report
@@ -69,14 +70,14 @@ func TestExecutableDeclarationAuthoringWithoutMigration(t *testing.T) {
 		return runIn(root, "applied", append(args, "--expected-revision", preview["expectedRevision"].(string), "--preview-digest", preview["previewDigest"].(string), "--authorize-local")...)
 	}
 	path := filepath.Join(state, "runtime-profiles", "v1", "configuration.json")
-	decode := func(p string) *runtimeprofile.ConfigurationV3 {
+	decode := func(p string) *runtimeprofile.ConfigurationV4 {
 		t.Helper()
 		b, e := os.ReadFile(p)
 		v, de := runtimeprofile.DecodeVersioned(b)
-		if e != nil || de != nil || v.V3 == nil {
-			t.Fatalf("not canonical v3: %s %v %v", b, e, de)
+		if e != nil || de != nil || v.V4 == nil {
+			t.Fatalf("not canonical v4: %s %v %v", b, e, de)
 		}
-		return v.V3
+		return v.V4
 	}
 	// Fresh state initializes canonical v3 directly.
 	create := []string{"runtime", "binding", "create", "--runtime", "codex", "--profile", "codex-one", "--model", "operator-model", "--effort-mode", "runtime-default", "--effort", "default", "--capabilities", "axiom-skills"}
@@ -96,12 +97,12 @@ func TestExecutableDeclarationAuthoringWithoutMigration(t *testing.T) {
 	v3, _ := os.ReadFile(path)
 	// The embedded registry has no production entry: the observed version is
 	// unproven and nothing is written or executed.
-	run("effort_configuration_unproven", "runtime", "binding", "edit", "--runtime", "codex", "--effort-declaration", declaration)
+	run("invalid_command", "runtime", "binding", "edit", "--runtime", "codex", "--effort-declaration", declaration)
 	link := filepath.Join(base, "link.json")
 	if e := os.Symlink(declaration, link); e != nil {
 		t.Fatal(e)
 	}
-	run("invalid_input", "runtime", "binding", "edit", "--runtime", "codex", "--effort-declaration", link)
+	run("invalid_command", "runtime", "binding", "edit", "--runtime", "codex", "--effort-declaration", link)
 	if after, _ := os.ReadFile(path); !bytes.Equal(v3, after) {
 		t.Fatal("refused declaration authoring changed the v3 record")
 	}
@@ -121,7 +122,7 @@ func TestExecutableDeclarationAuthoringWithoutMigration(t *testing.T) {
 	apply(state, "runtime", "binding", "remove", "--runtime", "codex", "--cascade")
 	b, _ := os.ReadFile(path)
 	tomb, e := runtimeprofile.DecodeTombstone(b)
-	if want, _ := runtimeprofile.DigestV3(*prior); e != nil || tomb.Revision != 4 || tomb.FormatVersion != 1 || tomb.PriorConfigurationDigest != want {
+	if want, _ := runtimeprofile.DigestV4(*prior); e != nil || tomb.Revision != 4 || tomb.FormatVersion != 1 || tomb.PriorConfigurationDigest != want {
 		t.Fatalf("retirement %s %v", b, e)
 	}
 	// Fresh explicit reconfiguration after retirement; nothing is resurrected.
@@ -147,7 +148,7 @@ func TestExecutableDeclarationAuthoringWithoutMigration(t *testing.T) {
 	preview := runIn(legacyState, "preview", "runtime", "binding", "remove", "--runtime", "codex", "--cascade")
 	effects, _ := json.Marshal(preview["effects"])
 	historical, _ := runtimeprofile.Digest(legacy)
-	for _, want := range []string{"retire ENTIRE pre-stable local configuration", "retire Runtime claude", "retire Profile claude-default", historical} {
+	for _, want := range []string{"retire ENTIRE historical local configuration", "retire Runtime claude", "retire Profile claude-default", historical} {
 		if !strings.Contains(string(effects), want) {
 			t.Fatalf("legacy retirement preview lacks %q: %s", want, effects)
 		}

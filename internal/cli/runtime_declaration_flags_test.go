@@ -19,8 +19,6 @@ func (p *declarationProbe) RuntimeAuthoring(_ context.Context, r runtimeapplicat
 	return Result{Status: Succeeded, Category: "preview"}
 }
 
-// AXM-36 D1: the retired declaration and migration flags are ordinary
-// invalid input everywhere; nothing reaches the authoring service.
 func TestRuntimeDeclarationFlagSurfaceRetired(t *testing.T) {
 	refused := map[string][]string{
 		"binding-edit-declaration":    {"runtime", "binding", "edit", "--runtime=codex", "--effort-declaration=declaration.json", "--expected-revision", "token", "--preview-digest", "digest", "--authorize-local"},

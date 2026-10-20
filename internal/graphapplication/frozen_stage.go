@@ -100,6 +100,8 @@ func checkFrozenSources(ctx context.Context, sources EffortSourceInspector, froz
 // configuration, paths or environment through dispatch errors.
 func stageEffortError(err error) error {
 	switch {
+	case errors.Is(err, runtimeadapter.ErrEffortConfigurationInvalid):
+		return runtimeadapter.ErrEffortConfigurationInvalid
 	case errors.Is(err, runtimeadapter.ErrEffortOverrideConflict):
 		return runtimeadapter.ErrEffortOverrideConflict
 	case errors.Is(err, runtimeadapter.ErrExecutableUnavailable):

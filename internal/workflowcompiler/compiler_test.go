@@ -494,11 +494,6 @@ func (s fixedPolicySource) Load(context.Context, string) (runtimeapplication.Sna
 	return s.snapshot, nil
 }
 
-// Under canonical configuration 4 effort is Profile-owned (ADR-0024): a
-// schema-1 agent's requested effort is never satisfied by a reasoning-effort
-// capability, even with current operational observations, so the historical
-// schema-1 compile refuses it. Schema-2 compilation is covered by
-// TestProfileProtectedRetirementCompilerGraphRestartChain.
 func TestCompileWithRealProjectPolicyRefusesSchema1AgentEffort(t *testing.T) {
 	const projectID = "123e4567-e89b-42d3-a456-426614174000"
 	state := project.State{SchemaVersion: 2, ID: projectID, Slug: "example", Name: "Example"}

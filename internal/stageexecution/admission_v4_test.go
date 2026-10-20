@@ -61,7 +61,6 @@ func TestAdmitRefusesNonCurrentConfiguration(t *testing.T) {
 	unlisted := cfg
 	unlisted.Runtimes = []runtimeprofile.RuntimeV4{cfg.Runtimes[0]}
 	unlisted.Runtimes[0].AllowlistedProfileIDs = []string{"other-profile"}
-	// The frozen Profile is gone; the remaining Profile is never substituted.
 	removed := unlisted
 	removed.ModelProfiles = []runtimeprofile.ModelProfile{cfg.ModelProfiles[1]}
 	for _, tc := range []struct {

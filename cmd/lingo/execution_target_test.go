@@ -15,7 +15,6 @@ import (
 	"testing"
 
 	"github.com/rgomids/axiom/internal/cli"
-	"github.com/rgomids/axiom/internal/runtimeadapter"
 	"github.com/rgomids/axiom/internal/runtimeapplication"
 	"github.com/rgomids/axiom/internal/runtimeprofile"
 	"github.com/rgomids/axiom/internal/workflowdefinition"
@@ -29,7 +28,7 @@ func TestWorkflowStartValidatesTargetBeforeRuntimePreview(t *testing.T) {
 	service = currentProfileStartFixture(t, service, env.state)
 	before := snapshotTrees(t, env.root, env.state, env.elsewhere)
 	for _, number := range []int{0, -1, 7} {
-		input := cli.WorkflowInput{Project: "external", Repository: "main", Number: number, Role: "implementation", Complexity: "high", Capabilities: []string{runtimeadapter.IntegrationCapability}}
+		input := cli.WorkflowInput{Project: "external", Repository: "main", Number: number, Role: "implementation", Complexity: "high", Capabilities: []string{"axiom-skills"}}
 		got := service.WorkflowStart(context.Background(), input)
 		if got.Completion == nil || got.Completion.Status() != "validation_failure" || got.RuntimeResolution != nil || got.Workflow != nil {
 			t.Errorf("invalid/unlinked %d reached Runtime preview: %+v", number, got)
@@ -95,7 +94,7 @@ func TestWorkflowStartReviewBindsCanonicalTargetAndContext(t *testing.T) {
 	service, _ := testRuntime(t, env.service.(lifecycleService), "codex")
 	service = currentProfileStartFixture(t, service, env.state)
 	ctx := context.Background()
-	input := cli.WorkflowInput{Project: "external", Repository: "main", Number: 7, Role: "implementation", Complexity: "high", Capabilities: []string{runtimeadapter.IntegrationCapability}}
+	input := cli.WorkflowInput{Project: "external", Repository: "main", Number: 7, Role: "implementation", Complexity: "high", Capabilities: []string{"axiom-skills"}}
 	preview := service.WorkflowStart(ctx, input)
 	if preview.ExecutionTarget == nil || preview.ExecutionTarget.ProjectID != workItemSourceProjectID || preview.ExecutionTarget.ProjectSource != "explicit" || preview.ExecutionTarget.WorkItem != "github:owner/repo#7" {
 		t.Fatalf("preview=%+v", preview)
@@ -144,7 +143,7 @@ func TestWorkflowStartEffectiveProjectSourcesAndDisclosure(t *testing.T) {
 	service, _ := testRuntime(t, env.service.(lifecycleService), "codex")
 	service = currentProfileStartFixture(t, service, env.state)
 	ctx := projectapp.WithProjectSession(context.Background(), "target-session")
-	input := cli.WorkflowInput{Repository: "main", WorkItem: "github:owner/repo#7", Role: "implementation", Complexity: "high", Capabilities: []string{runtimeadapter.IntegrationCapability}}
+	input := cli.WorkflowInput{Repository: "main", WorkItem: "github:owner/repo#7", Role: "implementation", Complexity: "high", Capabilities: []string{"axiom-skills"}}
 	if got := service.WorkflowStart(ctx, input); got.Category != "project_context_unresolved" {
 		t.Fatal(got)
 	}
@@ -164,7 +163,7 @@ func TestWorkflowStartEffectiveProjectSourcesAndDisclosure(t *testing.T) {
 		if preview.ExecutionTarget == nil || preview.ExecutionTarget.ProjectSource != source {
 			t.Fatalf("source=%s preview=%+v", source, preview)
 		}
-		args := []string{"--session", "target-session", "workflow", "start", "--repository", "main", "--work-item", input.WorkItem, "--role", input.Role, "--complexity", input.Complexity, "--capabilities", runtimeadapter.IntegrationCapability}
+		args := []string{"--session", "target-session", "workflow", "start", "--repository", "main", "--work-item", input.WorkItem, "--role", input.Role, "--complexity", input.Complexity, "--capabilities", "axiom-skills"}
 		if input.Project != "" {
 			args = append(args, "--project", input.Project)
 		}
@@ -231,7 +230,7 @@ func TestWorkflowStartStaleContextReviewAndPersistedIdentity(t *testing.T) {
 			t.Fatal(c)
 		}
 	}
-	input := cli.WorkflowInput{Repository: "main", Number: 7, Role: "implementation", Complexity: "high", Capabilities: []string{runtimeadapter.IntegrationCapability}}
+	input := cli.WorkflowInput{Repository: "main", Number: 7, Role: "implementation", Complexity: "high", Capabilities: []string{"axiom-skills"}}
 	preview := service.WorkflowStart(ctx, input)
 	if preview.ExecutionTarget == nil {
 		t.Fatal(preview)
@@ -273,7 +272,7 @@ func TestWorkflowStartAmbiguousLinkAndProjectFailClosed(t *testing.T) {
 	installTestRuntimePolicy(t, env.state, workItemSourceProjectID, "codex")
 	service, _ := testRuntime(t, env.service.(lifecycleService), "codex")
 	service = currentProfileStartFixture(t, service, env.state)
-	input := cli.WorkflowInput{Project: "external", Repository: "main", Number: 7, Role: "implementation", Complexity: "high", Capabilities: []string{runtimeadapter.IntegrationCapability}}
+	input := cli.WorkflowInput{Project: "external", Repository: "main", Number: 7, Role: "implementation", Complexity: "high", Capabilities: []string{"axiom-skills"}}
 	saveTargetLink(t, env.state, workItemSourceProjectID, "7", "other/repo")
 	before := snapshotTrees(t, env.root, env.state, env.elsewhere)
 	if got := service.WorkflowStart(context.Background(), input); got.Category != "work_item_ambiguous" || got.RuntimeResolution != nil {
@@ -348,7 +347,7 @@ func TestWorkflowStartNeverSearchesAnotherProjectForWorkItem(t *testing.T) {
 		t.Fatal(err)
 	}
 	runCLI(t, env.service, []string{"project", "install", "--source", source, "--repository", "main=" + repository}, cli.ExitSuccess, "installed")
-	input := cli.WorkflowInput{Project: other, Repository: "main", WorkItem: "github:owner/repo#7", Role: "implementation", Complexity: "high", Capabilities: []string{runtimeadapter.IntegrationCapability}}
+	input := cli.WorkflowInput{Project: other, Repository: "main", WorkItem: "github:owner/repo#7", Role: "implementation", Complexity: "high", Capabilities: []string{"axiom-skills"}}
 	before := snapshotTrees(t, env.root, env.state, env.elsewhere)
 	if got := service.WorkflowStart(context.Background(), input); got.Category != "work_item_not_linked" || got.RuntimeResolution != nil || got.Workflow != nil {
 		t.Fatal(got)
@@ -387,7 +386,7 @@ func TestWorkflowStartRejectsTargetDriftDuringPolicyCheck(t *testing.T) {
 					t.Fatal(c)
 				}
 			}
-			input := cli.WorkflowInput{Repository: "main", Number: 7, Role: "implementation", Complexity: "high", Capabilities: []string{runtimeadapter.IntegrationCapability}}
+			input := cli.WorkflowInput{Repository: "main", Number: 7, Role: "implementation", Complexity: "high", Capabilities: []string{"axiom-skills"}}
 			preview := service.WorkflowStart(ctx, input)
 			input.RuntimePreview = preview.PreviewDigest
 			var afterDrift []byte
@@ -432,7 +431,7 @@ func TestWorkflowStartRechecksAdmissionAfterPolicyCheck(t *testing.T) {
 	service, _ := testRuntime(t, env.service.(lifecycleService), "codex")
 	service = currentProfileStartFixture(t, service, env.state)
 	ctx := context.Background()
-	input := cli.WorkflowInput{Project: "external", Repository: "main", Number: 7, Role: "implementation", Complexity: "high", Capabilities: []string{runtimeadapter.IntegrationCapability}}
+	input := cli.WorkflowInput{Project: "external", Repository: "main", Number: 7, Role: "implementation", Complexity: "high", Capabilities: []string{"axiom-skills"}}
 	preview := service.WorkflowStart(ctx, input)
 	if preview.ExecutionTarget == nil || preview.PreviewDigest == "" {
 		t.Fatalf("preview = %+v", preview)
@@ -465,9 +464,6 @@ func TestWorkflowStartRechecksAdmissionAfterPolicyCheck(t *testing.T) {
 	}
 }
 
-// New-admission fixtures consume actual protected local2 and executable identity,
-// while explicitly injecting unacquired model/effort/auth/source evidence. Legacy
-// observer-only tests keep their original v1 setup and no positive proof claim.
 type currentFixtureSource struct{ base runtimeapplication.Source }
 
 func (s currentFixtureSource) Load(ctx context.Context, id string) (runtimeapplication.Snapshot, error) {
@@ -480,26 +476,20 @@ func (s currentFixtureSource) Load(ctx context.Context, id string) (runtimeappli
 }
 
 type currentFixtureObserver struct {
-	base          runtimeprofile.Observer
-	configuration runtimeprofile.ConfigurationV3
+	base          runtimeprofile.OperationalObserver
+	configuration runtimeprofile.ConfigurationV4
 }
 
-func (o currentFixtureObserver) Observe(ctx context.Context, id string) (runtimeprofile.Observation, error) {
-	observed, err := o.base.Observe(ctx, id)
-	if err != nil || !observed.Installed || !observed.Available {
+func (o currentFixtureObserver) ObserveExecutable(ctx context.Context, id string) (runtimeprofile.OperationalObservation, error) {
+	return o.base.ObserveExecutable(ctx, id)
+}
+func (o currentFixtureObserver) ObserveOperational(ctx context.Context, id, profile string) (runtimeprofile.OperationalObservation, error) {
+	observed, err := o.base.ObserveExecutable(ctx, id)
+	if err != nil {
 		return observed, err
 	}
-	observed.Version = "injected-fixture-1"
-	for _, p := range o.configuration.ModelProfiles {
-		if p.RuntimeID != id {
-			continue
-		}
-		caps := map[string]runtimeprofile.CapabilityStatus{}
-		for _, c := range p.Capabilities {
-			caps[c] = runtimeprofile.CapabilityProven
-		}
-		observed.ProfileProofs = append(observed.ProfileProofs, runtimeprofile.ProfileProof{RuntimeID: id, Model: p.Model, Effort: p.Effort, ExecutableDigest: observed.ExecutableDigest, RuntimeVersion: observed.Version, InvocationMode: "noninteractive", ObservationRevision: observed.Revision, Reference: "injected-fixture-" + p.ID, EffortSourceDigest: strings.Repeat("a", 64), Authentication: runtimeprofile.CapabilityProven, ModelAvailability: runtimeprofile.CapabilityProven, EffortSupport: runtimeprofile.CapabilityProven, NoOverride: runtimeprofile.CapabilityProven, CapabilityStatus: caps})
-	}
+	observed.Revision = o.configuration.Revision
+	observed.EffortSourceDigest = strings.Repeat("a", 64)
 	return observed, nil
 }
 func currentProfileStartFixture(t *testing.T, service lifecycleService, root string) lifecycleService {
@@ -508,19 +498,16 @@ func currentProfileStartFixture(t *testing.T, service lifecycleService, root str
 	if err != nil {
 		t.Fatal(err)
 	}
-	if snapshot, err := store.Inspect(context.Background()); err != nil || snapshot.State != "active-v3" {
-		t.Fatalf("current fixtures need canonical v3 local configuration: %s %v", snapshot.State, err)
+	if snapshot, err := store.Inspect(context.Background()); err != nil || snapshot.State != "active-v4" {
+		t.Fatalf("current fixtures need canonical v4 local configuration: %s %v", snapshot.State, err)
 	}
 	if record, category := service.installation.Inspect(context.Background(), workItemSourceProjectID); category == "" && record.Record.State().ProjectID == workItemSourceProjectID {
 		selectProfileBuiltinForTest(t, service, workItemSourceProjectID)
 	}
-	return withInjectedProofs(service, root)
+	return withOperationalObservations(service, root)
 }
 
-// withInjectedProofs composes the real policy source over the service's
-// current machine observation seams and injects only per-Profile proof for the
-// observed executable; it never acquires proof.
-func withInjectedProofs(service lifecycleService, root string) lifecycleService {
+func withOperationalObservations(service lifecycleService, root string) lifecycleService {
 	service.RuntimePolicySource = currentFixtureSource{base: runtimePolicySource{installation: service.installation, portable: service.portable, stateRoot: root, runtimes: service.runtimeObservationSources()}}
 	return service
 }

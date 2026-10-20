@@ -43,12 +43,3 @@ func TestV3FixturesAreCanonicalAndRoundTrip(t *testing.T) {
 		t.Fatal("fixture builders share state")
 	}
 }
-
-func contains(values []string, value string) bool {
-	for _, v := range values {
-		if v == value {
-			return true
-		}
-	}
-	return false
-}

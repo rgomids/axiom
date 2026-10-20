@@ -82,10 +82,6 @@ func runtimeCandidates(ctx context.Context, stateRoot string) []projectapp.Runti
 	return candidatesFrom(snapshot)
 }
 
-// candidatesFrom lists enabled Runtimes with their allowlisted profiles from
-// the canonical format-4 record only (ReadinessCandidates). Missing, retired,
-// historical or invalid state discloses no candidate. It is a disclosure of
-// machine facts; nothing here selects a Runtime.
 func candidatesFrom(snapshot local.RuntimeProfileSnapshot) []projectapp.RuntimeCandidate {
 	runtimes, code := runtimeapplication.ReadinessCandidates(snapshot.State, snapshot.V4)
 	if code != "" {

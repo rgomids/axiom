@@ -203,45 +203,18 @@ Workflows or historical Executions. Pending state uses scoped
 `runtime profile recover` and its separate exact recovery confirmation;
 uncertain publication requires inspection before any new attempt.
 
-Local configuration format 3, with Runtime-owned effort-source declarations, is
-the only canonical format before the first stable release: every authoring
-command above writes it and every Runtime/Profile consumer reads only it. There
-is no migration, automatic conversion or downgrade (Specification 007 AXM-22
-PM-1, PM-8, PM-11).
+Local configuration format 4 stores Runtime/Profile intent without effort-source
+declarations. Authoring writes only format 4. Historical formats 1–3 remain
+readable for inspection and explicit retirement; current use refuses them with
+`unsupported_configuration_format`. There is no implicit conversion or downgrade.
 
-A pre-stable local record (format 1 or 2, written by earlier releases) is kept
-byte-for-byte and refused by every current use with
-`unsupported_configuration_format`; upgrading the application does not convert
-it. Reconfigure explicitly: `axiom runtime binding remove --runtime <id>
---cascade` on such a record retires the ENTIRE pre-stable configuration (the
-named Runtime must exist in it). Its preview lists every Runtime, Profile,
-allowlist and Preference retired and the historical configuration digest the
-tombstone binds; apply it with the exact `--expected-revision`,
-`--preview-digest` and `--authorize-local`. Then create a format-3
-configuration with `runtime binding create`. No other operation, including
-create, edit, enable, disable or a declaration edit, changes a pre-stable
-record. `axiom compatibility backup` can keep a copy of the source first.
-
-A declaration is authored on a format-3 record only:
-
-```bash
-axiom runtime binding edit --runtime codex \
-  --effort-declaration ./codex-declaration.json
-```
-
-The file holds exactly one complete declaration object for `--runtime` (no
-unknown, duplicate or defaulted field); it must be a regular, non-symlinked
-file and is never stored verbatim. Its `runtimeVersion` and `executableDigest`
-must equal the independently observed Runtime identity, or the command refuses
-with `effort_configuration_unproven`. The embedded Runtime version registry
-has no production entry, so an unregistered executable stays unproven and the
-command refuses without writing; the Runtime is never executed to learn its
-version. `edit` adds a declaration or replaces the one with the same
-`declarationId`, using the same preview and exact
-`--expected-revision`/`--preview-digest`/`--authorize-local` confirmation. On a
-format 1/2 record it refuses with `configuration_unavailable` and changes
-nothing. A declaration is configuration, not capability proof. Earlier Axiom
-versions that only read format 2 refuse format 3 without changing it.
+To reconfigure, preview `axiom runtime binding remove --runtime <id> --cascade`.
+Historical retirement covers the entire configuration and binds its exact digest.
+Apply only with the returned `--expected-revision`, `--preview-digest` and
+`--authorize-local`, then explicitly create format 4 with `runtime binding create`.
+Use `axiom compatibility backup` to preserve source records first.
+`--effort-declaration` is retired and cannot read a file, invoke a Runtime or
+write configuration.
 
 Workflow migration is a separate `project workflow migrate` operation: map each
 Agent using repeated `--agent-profile <stage>:<agent>:<profile>`, inspect the
@@ -250,77 +223,28 @@ Selection remains a separate Project operation. `--from-default
 --default-revision 2` derives the neutral schema-2 default; revision 1 remains
 readable. Current starts require schema 2 and local Profile-owned effort.
 Historical Executions remain readable; new stage compilation, dispatch or retry
-without a frozen v2 tuple refuses `legacy_execution_contract`.
+without a proof-free frozen tuple refuses `legacy_execution_contract`.
 
-## Inspect and invalidate capability Evidence
+## Runtime operational journey
 
-```bash
-axiom runtime codex capability show --help
-axiom runtime claude capability invalidate --help
-axiom --json runtime codex capability show --profile codex-high \
-  --variant repository-write --repository-root /absolute/repository \
-  --workspace-root /absolute/workspace --authorize-local
-axiom --json runtime codex capability invalidate --profile codex-high \
-  --variant repository-write --repository-root /absolute/repository \
-  --workspace-root /absolute/workspace --authorize-local
-```
+Follow inspect → authorize → execute → observe → diagnose/recover. Inspect local
+bindings/Profiles and Project policy; choose model/effort explicitly. Authorize
+read-only effort-source inspection with `--authorize-local` on workflow start,
+stage plan or stage run. A preview binds current executable path/content,
+configuration, Profile intent and effort-source facts. Drift requires a new
+preview and authority; an unfamiliar CLI version does not require certification.
 
-Both Runtime names expose the same commands. `--process` selects the exact mode
-with process effects. `--authorize-local` consents to effort-source inspection;
-it authorizes invalidation only with the exact `--preview-digest` returned by
-the invalidation preview. Omitting the digest previews without writes. Repeat
-the same selectors and add that digest to invalidate; no Runtime or Provider is
-invoked. JSON and human output carry the same completion and capability payload.
+Auth preflight observes login only; it cannot prove inference or billing.
+Dispatch needs its own exact preview and local/external authority. Inspect
+persisted stage status and coordination records after dispatch. An acknowledgement,
+login or exit 0 alone does not establish a successful result. Unknown/partial
+attempt effects require observation and reconciliation before any new authorized
+retry. Never repair credentials, expand permissions or substitute Runtime/model
+as an automatic response to a failure.
 
-Evidence must match the fresh executable, passive version observation, Profile,
-effort, variant and pinned Axiom binary. Unknown or unavailable observations
-remain `capability_unknown`, including the empty embedded version registry and
-the currently unprovable read-only effort boundary. Invalidation never promotes
-capability. Capability commands are CLI-only, outside `axiom-runtime` skill routing.
-
-`runtime <codex|claude> capability prepare` previews an envelope preparation.
-It uses the same Profile/variant and operation roots, plus `--probe-id <unique-id>`.
-Apply requires its exact `--preview-digest` and **`--authorize-prepare`**.
-This consent creates only the private envelope (30s, 64 files, 1 MiB); it never
-authorizes authentication, inference or Provider access. The preview binds the
-existing state-root ancestor identities. Preparation returns `manifestDigest`.
-
-`runtime <codex|claude> capability probe` takes the same selectors plus
-`--probe-id` and `--manifest-digest`. With no preview digest it inspects an unused
-ready envelope without writes. Apply requires the exact `--preview-digest`,
-`--authorize-local` and `--authorize-external`; preparation consent cannot replace
-them. Exact subscription preflight precedes effects and binding revalidation
-follows preflight. Claims and quarantine are durable: a started, interrupted or
-quarantined preparation cannot be reused. Inspect recovery and authorize exact
-cleanup instead. An unknown capability result is inconclusive even if the child
-exits successfully; child claims cannot attest invocation, effort or confinement.
-The empty production version registry continues to block unrecognized binaries
-before invocation.
-
-`runtime <codex|claude> capability probe-extended` is a distinct operation. It
-requires a prepared envelope and explicit `--roots tmpdir`, `--roots system-temp`
-or `--roots tmpdir,system-temp`. There is no arbitrary-path flag. Its read-only
-preview binds the standard invocation, exact physical roots and snapshots,
-unique filename, one-file limit, timeout, the digest of each per-root canary
-packet and its cost (one vendor inference per root, no retries). HOME, vendor
-homes, repository, linked and duplicate roots are refused. Apply additionally
-needs its exact preview digest and **`--authorize-extended`**; standard probe
-authority cannot substitute.
-
-Apply runs the subscription preflight, re-observes the whole preview, claims
-the envelope, binds the exact selected roots in a bounded permit outside child
-write roots (live host process identity and preview timeout), and, per root: creates and removes an exclusive empty control
-file on the host, runs the Runtime once with a packet that only invokes the
-hidden canary entrypoint for that exact file, observes the root on the host,
-removes only the exact observed file identity when it remains an empty
-single-link regular file of the current user, and repeats the control. A file
-the host observes after the run
-reports `advisory`; anything else stays `unknown`, because a child report or
-exit status cannot attest denial. A pre-existing or non-owned object at the
-probe filename is never touched: apply stops with `extended_residue_detected`
-and quarantines the envelope. The result is reported as
-`capability_extended_measured`; it writes no capability Evidence and proves no
-confinement.
+`runtime <codex|claude> capability show|invalidate|prepare|probe|probe-extended`
+is retired. Old Evidence/probe directories remain untouched historical state;
+they are never an admission dependency. No registry or probe receipt is required.
 
 ## Inspect skill arguments
 
@@ -783,10 +707,12 @@ axiom --json runtime profile preview \
 observation input: Lingo observes each configured Runtime itself, on every
 preview and check. It resolves the executable from `PATH` without running it and
 binds its identity (`executableDigest`, a digest of the resolved path and
-content). It leaves the version unknown and proves only `axiom-skills`, when that
-Runtime's Axiom skill integration inspects Ready. Any other required capability
-stays unproven and blocks (`no_allowed_match`). Lingo does not probe or
-authenticate vendors. Output includes requirements, Runtime/Profile/model,
+content). Required capabilities describe requested work and allowed Profile
+intent, without certifying vendor behavior. This metadata-only command has no
+repository inspection scope and reports `inspection_consent_required` when an
+operational resolution needs that scope. Use the scoped workflow/stage preview
+with explicit inspection consent. Lingo does not infer auth from identity.
+Output includes requirements, Runtime/Profile/model,
 `executableDigest`, revisions, content digests and `previewDigest`, or one bounded
 blocker category. Credential references, environment and raw adapter errors never
 enter output; executable paths appear only inside `executableDigest`. Human and JSON modes show the same decision.
@@ -1523,7 +1449,7 @@ Policy storage requires portable validity and exact active Workflow compatibilit
 missing/disabled/mismatched local Profiles do not delete portable declarations or
 prevent an otherwise authorized save. `project validate` and policy read-back use
 the same read-only metadata and policy rules for v2/v3. Executable, authentication
-and capability proofs remain uninspected (`inventory_unavailable`); the explicit
+and effort sources remain uninspected (`inventory_unavailable`); the explicit
 Runtime resolution operation still acquires its own current observations.
 Readiness grants no authority. Follow `runtime.next` guidance to `axiom-runtime`
 for local setup, under separate authority.
@@ -1876,16 +1802,16 @@ authority; dispatch belongs to #276. Refusals use fixed categories:
 `configured_binding_required` for historical Executions, `invalid_stage_plan`,
 `invalid_stage_topology`, `runtime_unresolvable`, `unsupported_effort` and
 `authority_denied` (denied). There is no fallback to another Runtime or Profile.
-The production Runtime observer currently proves only Axiom skill integration, so
-stages requiring other capabilities or explicit effort are refused as
-`runtime_unresolvable`/`unsupported_effort` until an authoritative observation
-proves them. See the
-[#275 implementation record](specifications/007-configurable-workflows/issue-275-implementation.md).
+The Runtime observer checks executable identity and effective effort sources.
+Policy and Profile capability intent remain constraints; vendor behavior is
+observed at execution time rather than certified before planning. Explicit
+effort belongs to the selected Profile. Historical planning Evidence remains in
+the [#275 implementation record](specifications/007-configurable-workflows/issue-275-implementation.md).
 
 ### Dispatch and inspect a stage
 
 `workflow stage run` recompiles the pinned stage and previews the exact Runtime,
-Profile, capability Evidence, workspace/inbox roots, validator policy and effects.
+Profile, executable and effort-source identity, workspace/inbox roots, validator policy and effects.
 Use the same Project/Repository/Work Item/Execution selectors as `stage plan`:
 
 ```bash
@@ -1900,14 +1826,14 @@ axiom --json workflow stage run --project my-project --repository main \
 
 `--authorize-local` also consents to current effort-source inspection. It does
 not permit dispatch without the exact preview digest and external authority.
-The public binary refuses unknown/stale capability, executable/version or
-Profile bindings; an empty production version registry cannot admit a Runtime.
-Synthetic test builds with a fixture registry and temporary Evidence are not
-operational proof. No child report or successful exit can promote capability.
+The public binary admits permitted configured Codex/Claude without certification,
+version registry, Evidence store or declaration. It rechecks executable identity,
+effort sources and observable auth at each attempt; no fallback is implied.
+Synthetic tests exercise composition without claiming vendor compatibility.
 
 Dispatch persists its inputs and single-use authority before launching a detached
-supervisor. A graph keeps successor Graph3; a single-agent stage keeps its own
-`single_stage_run` v1 ledger and authority v2, bound to the Execution3 generation.
+supervisor. A graph keeps successor Graph4; a single-agent stage keeps its own
+`single_stage_run` v2 ledger and authority v2, bound to the Execution5 generation.
 It never creates a graph for a single agent. Re-invoking `stage run` resumes only
 a pending committed receipt; completed or uncertain attempts are never rerun by
 that command. Each attempt rechecks frozen bindings before spawning. The initiating

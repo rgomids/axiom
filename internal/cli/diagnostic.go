@@ -6,27 +6,29 @@ import (
 	"io"
 
 	"github.com/rgomids/axiom/internal/completion"
+	"github.com/rgomids/axiom/internal/executiongraph"
 )
 
 // Diagnostic is optional output guidance, never persisted state or authority.
 // Mappers supply bounded, application-owned observations, never raw errors.
 type Diagnostic struct {
-	SchemaVersion        int                    `json:"schemaVersion"`
-	Operation            string                 `json:"operation"`
-	Category             string                 `json:"category"`
-	Target               map[string]string      `json:"target"`
-	ObservedRevision     string                 `json:"observedRevision"`
-	Observed             []string               `json:"observed"`
-	NotObserved          []string               `json:"notObserved"`
-	Hypotheses           []string               `json:"hypotheses"`
-	MissingPrerequisites []string               `json:"missingPrerequisites"`
-	Capability           string                 `json:"capability"`
-	Authority            string                 `json:"authority"`
-	Confinement          string                 `json:"confinement"`
-	ConfirmedEffects     []string               `json:"confirmedEffects"`
-	UncertainEffects     []string               `json:"uncertainEffects"`
-	Options              []DiagnosticOption     `json:"options"`
-	Verification         DiagnosticVerification `json:"verification"`
+	Attempt              *executiongraph.AttemptDiagnostic `json:"attempt,omitempty"`
+	SchemaVersion        int                               `json:"schemaVersion"`
+	Operation            string                            `json:"operation"`
+	Category             string                            `json:"category"`
+	Target               map[string]string                 `json:"target"`
+	ObservedRevision     string                            `json:"observedRevision"`
+	Observed             []string                          `json:"observed"`
+	NotObserved          []string                          `json:"notObserved"`
+	Hypotheses           []string                          `json:"hypotheses"`
+	MissingPrerequisites []string                          `json:"missingPrerequisites"`
+	Capability           string                            `json:"capability"`
+	Authority            string                            `json:"authority"`
+	Confinement          string                            `json:"confinement"`
+	ConfirmedEffects     []string                          `json:"confirmedEffects"`
+	UncertainEffects     []string                          `json:"uncertainEffects"`
+	Options              []DiagnosticOption                `json:"options"`
+	Verification         DiagnosticVerification            `json:"verification"`
 }
 
 type DiagnosticOption struct {
@@ -50,7 +52,7 @@ type DiagnosticVerification struct {
 // boundedDiagnostic omits invalid enrichment while retaining the canonical
 // refusal. This boundary never truncates a result or turns it into success.
 func boundedDiagnostic(d *Diagnostic) *Diagnostic {
-	if d == nil || d.SchemaVersion != 1 || len(d.Options) > 3 {
+	if d == nil || d.SchemaVersion != 1 || len(d.Options) > 3 || d.Attempt != nil && executiongraph.ValidateAttemptDiagnostic(*d.Attempt) != nil {
 		return nil
 	}
 	for _, o := range d.Options {

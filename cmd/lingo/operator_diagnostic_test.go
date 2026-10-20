@@ -8,10 +8,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/rgomids/axiom/internal/capabilityproof"
 	"github.com/rgomids/axiom/internal/completion"
 	"github.com/rgomids/axiom/internal/executiongraph"
 	"github.com/rgomids/axiom/internal/projectapp"
+	"github.com/rgomids/axiom/internal/runtimeprofile"
 	"github.com/rgomids/axiom/internal/stageexecution"
 	"github.com/rgomids/axiom/internal/workflowcompiler"
 	"github.com/rgomids/axiom/internal/workflowdefinition"
@@ -25,7 +25,8 @@ func TestOperatorStageDiagnosticTypedRefusals(t *testing.T) {
 		category string
 		status   completion.Status
 	}{
-		{capabilityproof.ErrBlocked, "capability_unknown", completion.ValidationFailure},
+		{executiongraph.ErrAuthenticationBlocked, "authentication_unavailable", completion.ValidationFailure},
+		{runtimeprofile.ErrConfigurationInvalid, "configuration_invalid", completion.ValidationFailure},
 		{workflowcompiler.ErrRuntimeBlocked, "runtime_unresolvable", completion.ValidationFailure},
 		{stageexecution.ErrStalePreview, "stale_preview", completion.DeniedAuthority},
 		{stageexecution.ErrReconcileOrphanAlive, "stop_orphan_then_reconcile", completion.ValidationFailure},

@@ -528,16 +528,13 @@ exit 0
 	policyFlags := installTestRuntimePolicy(t, state, preview.Setup.ProjectID, "codex")
 	selectBuiltinWorkflowExecutable(t, binary, environment, "configured")
 	startArgs := append([]string{"workflow", "start", "--project", "configured", "--repository", "main", "--number", "7"}, policyFlags...)
-	// Canonical v3 intent is valid, but the production composition injects no
-	// Profile proof and the embedded version registry is empty, so the real
-	// binary fails closed before any Execution exists (Specification 007 PM-7).
 	runtimePreview := runCanonical(1, "validation_failure", "Project Runtime policy resolution blocked", startArgs...)
-	if runtimePreview.RuntimeResolution == nil || runtimePreview.RuntimeResolution.Blocker == nil || runtimePreview.RuntimeResolution.Blocker.Code != "effort_unproven" || runtimePreview.RuntimeResolution.Choice != nil {
-		t.Fatalf("unproven Runtime resolved: %+v", runtimePreview.RuntimeResolution)
+	if runtimePreview.RuntimeResolution == nil || runtimePreview.RuntimeResolution.Blocker == nil || runtimePreview.RuntimeResolution.Blocker.Code != "inspection_consent_required" || runtimePreview.RuntimeResolution.Choice != nil {
+		t.Fatalf("unconsented inspection resolved: %+v", runtimePreview.RuntimeResolution)
 	}
 	refused := runCanonical(1, "validation_failure", "Project Runtime policy resolution blocked", append(startArgs, "--runtime-preview", runtimePreview.PreviewDigest)...)
 	if refused.Workflow != nil {
-		t.Fatal("unproven start wrote an Execution")
+		t.Fatal("unconsented start wrote an Execution")
 	}
 	t.Setenv("LINGO_PROJECTS_ROOT", portable)
 	t.Setenv("LINGO_STATE_ROOT", state)

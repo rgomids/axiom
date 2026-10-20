@@ -13,8 +13,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/rgomids/axiom/internal/capabilityproof"
 	"github.com/rgomids/axiom/internal/executiongraph"
+	"github.com/rgomids/axiom/internal/stageexecution"
 )
 
 type singleCrashStatus struct {
@@ -83,9 +83,14 @@ func recordedGroupID(t *testing.T, recorded executiongraph.ProcessCorrelation) i
 }
 
 func TestInstalledSyntheticSingleLifecycleAdversarial(t *testing.T) {
-	j := newStageJourney(t)
-	j.run(t, 0, "runtime", "codex", "install")
-	j.seedEvidence(t, "codex", "profile-codex", capabilityproof.RepositoryWriteVariant, stageJourneyCaps...)
+	for _, id := range []string{"codex", "claude"} {
+		t.Run(id, func(t *testing.T) { testInstalledSyntheticSingleLifecycleAdversarial(t, id) })
+	}
+}
+
+func testInstalledSyntheticSingleLifecycleAdversarial(t *testing.T, runtimeID string) {
+	j := newRuntimeStageJourney(t, runtimeID)
+	j.run(t, 0, "runtime", runtimeID, "install")
 	unit := writeUnit("owner", []string{"docs"}, "docs/intake.md")
 	plan := writeStagePlanDocument(t, []executiongraph.WorkUnit{unit}, []executiongraph.Effect{{Kind: "repository-write", Target: "docs/intake.md"}})
 
@@ -177,21 +182,7 @@ func TestInstalledSyntheticSingleLifecycleAdversarial(t *testing.T) {
 	invalidatedArgs := stageRunArgs(invalidated, "intake", plan, j.policy, j.workspace)
 	j.script(t, fakeStageScript{Agents: map[string][]fakeStageStep{"owner": {{Op: "publish", Kind: "result", Fields: []string{"outcome=succeeded"}}}}})
 	invalidatedDigest := j.run(t, 0, append(invalidatedArgs, "--authorize-local")...).reference(t, "stage-preview:")
-	capabilityArgs := []string{"runtime", "codex", "capability", "invalidate", "--profile", "profile-codex", "--variant", "repository-write", "--repository-root", j.repository, "--workspace-root", j.workspace, "--authorize-local"}
-	capabilityPreview := j.run(t, 0, capabilityArgs...)
-	var invalidation struct {
-		PreviewDigest string `json:"previewDigest"`
-	}
-	if err := json.Unmarshal(capabilityPreview.Capability, &invalidation); err != nil || invalidation.PreviewDigest == "" {
-		t.Fatalf("capability invalidation preview: %s %v", capabilityPreview.Capability, err)
-	}
-	if applied := j.run(t, 0, append(capabilityArgs, "--preview-digest", invalidation.PreviewDigest)...); applied.Category != "capability_invalidated" {
-		t.Fatalf("capability invalidation: %+v", applied)
-	}
-	if refused := j.run(t, 1, append(invalidatedArgs, "--preview-digest", invalidatedDigest, "--authorize-local", "--authorize-external")...); refused.Category != "runtime_unresolvable" {
-		t.Fatalf("invalidated Evidence admitted dispatch: %+v", refused)
-	}
-	fakeRuntime := filepath.Join(j.bin, "codex")
+	fakeRuntime := filepath.Join(j.bin, runtimeID)
 	file, err := os.OpenFile(fakeRuntime, os.O_APPEND|os.O_WRONLY, 0)
 	if err != nil {
 		t.Fatal(err)
@@ -204,21 +195,26 @@ func TestInstalledSyntheticSingleLifecycleAdversarial(t *testing.T) {
 		t.Fatal(err)
 	}
 	refused := j.run(t, 1, append(invalidatedArgs, "--preview-digest", invalidatedDigest, "--authorize-local", "--authorize-external")...)
-	if refused.Category != "runtime_unresolvable" {
-		t.Fatalf("dispatch after capability invalidation: %+v", refused)
+	if refused.Category != "stale_preview" {
+		t.Fatalf("dispatch after executable drift: %+v", refused)
 	}
 	if calls := j.invocations(t); len(calls) != 4 {
-		t.Fatalf("invalidated capability launched Runtime; calls=%+v", calls)
+		t.Fatalf("changed executable launched Runtime; calls=%+v", calls)
 	}
 }
 
 func TestInstalledSyntheticSingleSupervisorCrashAndReconcile(t *testing.T) {
+	for _, id := range []string{"codex", "claude"} {
+		t.Run(id, func(t *testing.T) { testInstalledSyntheticSingleSupervisorCrashAndReconcile(t, id) })
+	}
+}
+
+func testInstalledSyntheticSingleSupervisorCrashAndReconcile(t *testing.T, runtimeID string) {
 	if runtime.GOOS != "linux" && runtime.GOOS != "darwin" {
 		t.Skip("process identity and /bin/ps verification are supported on Linux and macOS")
 	}
-	j := newStageJourney(t)
-	j.run(t, 0, "runtime", "codex", "install")
-	j.seedEvidence(t, "codex", "profile-codex", capabilityproof.RepositoryWriteVariant, stageJourneyCaps...)
+	j := newRuntimeStageJourney(t, runtimeID)
+	j.run(t, 0, "runtime", runtimeID, "install")
 	saveTargetLink(t, j.env.state, workItemSourceProjectID, "30", "owner/repo")
 	view := j.startExecution(t, "github:owner/repo#30")
 	unit := writeUnit("owner", []string{"docs"}, "docs/intake.md")
@@ -235,7 +231,7 @@ func TestInstalledSyntheticSingleSupervisorCrashAndReconcile(t *testing.T) {
 			return false
 		}
 		for _, call := range j.invocations(t) {
-			if call.Attempt == value.Single.Attempts[0].AttemptID && call.Runtime == "codex" && call.Agent == "owner" {
+			if call.Attempt == value.Single.Attempts[0].AttemptID && call.Runtime == runtimeID && call.Agent == "owner" {
 				return true
 			}
 		}
@@ -247,14 +243,14 @@ func TestInstalledSyntheticSingleSupervisorCrashAndReconcile(t *testing.T) {
 	calls := j.invocations(t)
 	fakeCall := false
 	for _, call := range calls {
-		fakeCall = fakeCall || call.Attempt == attempt.AttemptID && call.Runtime == "codex" && call.Agent == "owner"
+		fakeCall = fakeCall || call.Attempt == attempt.AttemptID && call.Runtime == runtimeID && call.Agent == "owner"
 	}
 	if !fakeCall {
 		t.Fatalf("recorded attempt did not match the FAKE invocation: attempt=%s calls=%+v", attempt.AttemptID, calls)
 	}
 	fakeArgs := psField(t, "args", recorded.PID)
-	if !strings.Contains(fakeArgs, filepath.Join(j.bin, "codex")) {
-		t.Fatalf("recorded process is not the fake codex executable: %q", fakeArgs)
+	if !strings.Contains(fakeArgs, filepath.Join(j.bin, runtimeID)) {
+		t.Fatalf("recorded process is not the fake Runtime executable: %q", fakeArgs)
 	}
 	supervisorPID, err := strconv.ParseInt(psField(t, "ppid", recorded.PID), 10, 64)
 	if err != nil || supervisorPID <= 1 || !verifiedSingleSupervisor(t, j, supervisorPID, workItemSourceProjectID, view.ExecutionID, running.Single.ScopeDigest) {
@@ -355,9 +351,14 @@ func TestInstalledSyntheticSingleSupervisorCrashAndReconcile(t *testing.T) {
 }
 
 func TestInstalledSyntheticSingleLedgerCorruptionFailsClosed(t *testing.T) {
-	j := newStageJourney(t)
-	j.run(t, 0, "runtime", "codex", "install")
-	j.seedEvidence(t, "codex", "profile-codex", capabilityproof.RepositoryWriteVariant, stageJourneyCaps...)
+	for _, id := range []string{"codex", "claude"} {
+		t.Run(id, func(t *testing.T) { testInstalledSyntheticSingleLedgerCorruptionFailsClosed(t, id) })
+	}
+}
+
+func testInstalledSyntheticSingleLedgerCorruptionFailsClosed(t *testing.T, runtimeID string) {
+	j := newRuntimeStageJourney(t, runtimeID)
+	j.run(t, 0, "runtime", runtimeID, "install")
 	saveTargetLink(t, j.env.state, workItemSourceProjectID, "31", "owner/repo")
 	view := j.startExecution(t, "github:owner/repo#31")
 	plan := writeStagePlanDocument(t, []executiongraph.WorkUnit{writeUnit("owner", []string{"docs"}, "docs/intake.md")}, []executiongraph.Effect{{Kind: "repository-write", Target: "docs/intake.md"}})
@@ -391,9 +392,14 @@ func TestInstalledSyntheticSingleLedgerCorruptionFailsClosed(t *testing.T) {
 }
 
 func TestInstalledSyntheticSingleLineageCapacityAndAdmission(t *testing.T) {
-	j := newStageJourney(t)
-	j.run(t, 0, "runtime", "codex", "install")
-	j.seedEvidence(t, "codex", "profile-codex", capabilityproof.RepositoryWriteVariant, stageJourneyCaps...)
+	for _, id := range []string{"codex", "claude"} {
+		t.Run(id, func(t *testing.T) { testInstalledSyntheticSingleLineageCapacityAndAdmission(t, id) })
+	}
+}
+
+func testInstalledSyntheticSingleLineageCapacityAndAdmission(t *testing.T, runtimeID string) {
+	j := newRuntimeStageJourney(t, runtimeID)
+	j.run(t, 0, "runtime", runtimeID, "install")
 	unit := writeUnit("owner", []string{"docs"}, "docs/intake.md")
 	plan := writeStagePlanDocument(t, []executiongraph.WorkUnit{unit}, []executiongraph.Effect{{Kind: "repository-write", Target: "docs/intake.md"}})
 
@@ -502,5 +508,215 @@ func TestInstalledSyntheticSingleLineageCapacityAndAdmission(t *testing.T) {
 	}
 	if calls := j.invocations(t); len(calls) != 2 {
 		t.Fatalf("spoof, capacity, or rejected admission launched an extra Runtime: %+v", calls)
+	}
+}
+
+func TestInstalledOperationalDiagnosticsBothAdapters(t *testing.T) {
+	for _, runtimeID := range []string{"codex", "claude"} {
+		t.Run(runtimeID, func(t *testing.T) {
+			j := newRuntimeStageJourney(t, runtimeID)
+			j.run(t, 0, "runtime", runtimeID, "install")
+			for i, scenario := range []struct {
+				name, stderr, code, confidence string
+				exit                           int
+				invalid                        bool
+			}{
+				{name: "option", stderr: "error: unknown option '--synthetic-secret'", code: "invocation_incompatible", confidence: "hypothesis", exit: 7},
+				{name: "auth", stderr: "error: authentication failed: synthetic-account@example.invalid", code: "authentication_unavailable", confidence: "hypothesis", exit: 7},
+				{name: "permission", stderr: "error: permission denied: /private/synthetic-secret", code: "permission_denied", confidence: "hypothesis", exit: 7},
+				{name: "model", stderr: "error: unsupported model", code: "model_unsupported", confidence: "hypothesis", exit: 7},
+				{name: "effort", stderr: "error: unsupported effort", code: "effort_unsupported", confidence: "hypothesis", exit: 7},
+				{name: "unknown", stderr: "synthetic-secret permission denied inside transcript", code: "subprocess_failed", confidence: "unknown", exit: 7},
+				{name: "missing-result", code: "result_missing", confidence: "unknown"},
+				{name: "invalid-result", code: "result_invalid", confidence: "unknown", invalid: true},
+			} {
+				t.Run(scenario.name, func(t *testing.T) {
+					external := strconv.Itoa(100 + i)
+					saveTargetLink(t, j.env.state, workItemSourceProjectID, external, "owner/repo")
+					view := j.startExecution(t, "github:owner/repo#"+external)
+					steps := []fakeStageStep{{Op: "stderr", Content: scenario.stderr}}
+					if scenario.invalid {
+						steps = append(steps, fakeStageStep{Op: "publish", Kind: "result", Fields: []string{"outcome=failed", "summary=synthetic"}})
+					}
+					steps = append(steps, fakeStageStep{Op: "exit", Code: scenario.exit})
+					j.script(t, fakeStageScript{Agents: map[string][]fakeStageStep{"owner": steps}})
+					unit := writeUnit("owner", []string{"docs"}, "docs/intake.md")
+					plan := writeStagePlanDocument(t, []executiongraph.WorkUnit{unit}, []executiongraph.Effect{{Kind: "repository-write", Target: "docs/intake.md"}})
+					args := stageRunArgs(view, "intake", plan, j.policy, j.workspace)
+					digest := j.run(t, 0, append(args, "--authorize-local")...).reference(t, "stage-preview:")
+					before := len(j.invocations(t))
+					j.run(t, 0, append(args, "--preview-digest", digest, "--authorize-local", "--authorize-external")...)
+					persisted := decodeSingle(t, j.waitStatus(t, view, latestSettled))
+					if len(persisted.Single.Attempts) != 1 {
+						t.Fatal("missing terminal attempt")
+					}
+					a := persisted.Single.Attempts[0]
+					if a.Status != "failed" || a.Diagnostic == nil || a.Diagnostic.Code != scenario.code || a.Diagnostic.CauseConfidence != scenario.confidence {
+						t.Fatalf("%+v", a)
+					}
+					if len(j.invocations(t)) != before+1 {
+						t.Fatal("wrong attempt count")
+					}
+					statusArgs := append([]string{"workflow", "stage", "status"}, stageSelector(view)...)
+					_, _, wire := j.invoke(t, j.axiom, statusArgs...)
+					human := exec.Command(j.axiom, statusArgs...)
+					human.Env, human.Dir = j.environment, j.home
+					rendered, err := human.Output()
+					if err != nil {
+						t.Fatal(err)
+					}
+					for _, secret := range []string{"synthetic-secret", "synthetic-account@example.invalid"} {
+						if bytes.Contains(wire, []byte(secret)) || bytes.Contains(rendered, []byte(secret)) {
+							t.Fatal("raw diagnostic escaped presentation")
+						}
+					}
+					j.run(t, 1, append(args, "--preview-digest", digest, "--authorize-local", "--authorize-external")...)
+					if len(j.invocations(t)) != before+1 {
+						t.Fatal("terminal effect repeated")
+					}
+				})
+			}
+		})
+	}
+}
+
+func TestInstalledGraphOperationalDiagnosticsBothAdapters(t *testing.T) {
+	j := newStageJourney(t)
+	for _, id := range []string{"codex", "claude"} {
+		j.run(t, 0, "runtime", id, "install")
+	}
+	for i, scenario := range []struct{ name, stderr, code, confidence string }{
+		{"option", "error: unknown option '--synthetic-secret'", "invocation_incompatible", "hypothesis"},
+		{"auth", "error: authentication failed: synthetic-account@example.invalid", "authentication_unavailable", "hypothesis"},
+		{"permission", "error: permission denied: /private/synthetic-secret", "permission_denied", "hypothesis"},
+		{"model", "error: unsupported model", "model_unsupported", "hypothesis"},
+		{"effort", "error: unsupported effort", "effort_unsupported", "hypothesis"},
+		{"unknown", "synthetic-secret inside unknown transcript", "subprocess_failed", "unknown"},
+		{"missing-result", "", "result_missing", "unknown"},
+		{"invalid-result", "", "result_invalid", "unknown"},
+	} {
+		t.Run(scenario.name, func(t *testing.T) {
+			external := strconv.Itoa(200 + i)
+			saveTargetLink(t, j.env.state, workItemSourceProjectID, external, "owner/repo")
+			view := j.advanceTo(t, j.startExecution(t, "github:owner/repo#"+external), "implementation")
+			impl := executiongraph.Effect{Kind: "repository-write", Target: "src/impl.go"}
+			review := executiongraph.Effect{Kind: "repository-write", Target: "docs/review.md"}
+			integrate := executiongraph.Effect{Kind: "integration", Target: "src/impl.go"}
+			plan := writeStagePlanDocument(t, []executiongraph.WorkUnit{
+				stagePlanUnit("implementer", []string{"src"}, impl), stagePlanUnit("reviewer", []string{"docs"}, review), stagePlanUnit("integrator", []string{"src"}, impl, integrate),
+			}, []executiongraph.Effect{impl, review, integrate})
+			steps := []fakeStageStep{{Op: "stderr", Content: scenario.stderr}}
+			exit := 7
+			if scenario.code == "result_missing" || scenario.code == "result_invalid" {
+				exit = 0
+			}
+			if scenario.code == "result_invalid" {
+				steps = append(steps, fakeStageStep{Op: "publish", Kind: "result", Fields: []string{"outcome=failed", "summary=synthetic"}})
+			}
+			steps = append(steps, fakeStageStep{Op: "exit", Code: exit})
+			j.script(t, fakeStageScript{Agents: map[string][]fakeStageStep{"implementer": steps, "reviewer": steps}})
+			args := stageRunArgs(view, "implementation", plan, j.policy, j.workspace)
+			digest := j.run(t, 0, append(args, "--authorize-local")...).reference(t, "stage-preview:")
+			before := len(j.invocations(t))
+			j.run(t, 0, append(args, "--preview-digest", digest, "--authorize-local", "--authorize-external")...)
+			wire := j.waitStatus(t, view, func(wire json.RawMessage) bool {
+				var status stageexecution.StatusResult
+				if json.Unmarshal(wire, &status) != nil || status.Graph.Successor == nil {
+					return false
+				}
+				count := 0
+				for _, c := range status.Graph.Successor.Children {
+					for _, a := range c.Attempts {
+						if a.Status == executiongraph.AttemptRunning {
+							return false
+						}
+						count++
+					}
+				}
+				return count == 2
+			})
+			var status stageexecution.StatusResult
+			if err := json.Unmarshal(wire, &status); err != nil {
+				t.Fatal(err)
+			}
+			runtimes := map[string]bool{}
+			for _, c := range status.Graph.Successor.Children {
+				for _, a := range c.Attempts {
+					runtimes[c.Envelope.Resolution.RuntimeID] = true
+					if a.Status != executiongraph.AttemptFailed || a.Diagnostic == nil || a.Diagnostic.Code != scenario.code || a.Diagnostic.CauseConfidence != scenario.confidence {
+						t.Fatalf("%+v", a)
+					}
+				}
+			}
+			if !runtimes["codex"] || !runtimes["claude"] || len(j.invocations(t)) != before+2 {
+				t.Fatal("both adapters did not execute exactly once")
+			}
+			human := exec.Command(j.axiom, append([]string{"workflow", "stage", "status"}, stageSelector(view)...)...)
+			human.Env, human.Dir = j.environment, j.home
+			rendered, err := human.Output()
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, secret := range []string{"synthetic-secret", "synthetic-account@example.invalid"} {
+				if bytes.Contains(wire, []byte(secret)) || bytes.Contains(rendered, []byte(secret)) {
+					t.Fatal("raw diagnostic escaped graph presentation")
+				}
+			}
+			_, _, _ = j.invoke(t, j.axiom, append(args, "--preview-digest", digest, "--authorize-local", "--authorize-external")...)
+			if len(j.invocations(t)) != before+2 {
+				t.Fatal("graph terminal effects repeated")
+			}
+		})
+	}
+}
+
+func TestInstalledIdentityDriftAndRetiredCommandsBothAdapters(t *testing.T) {
+	for _, id := range []string{"codex", "claude"} {
+		t.Run(id, func(t *testing.T) {
+			j := newRuntimeStageJourney(t, id)
+			j.run(t, 0, "runtime", id, "install")
+			j.script(t, fakeStageScript{})
+			view := j.startExecution(t, "github:owner/repo#7")
+			unit := writeUnit("owner", []string{"docs"}, "docs/intake.md")
+			plan := writeStagePlanDocument(t, []executiongraph.WorkUnit{unit}, []executiongraph.Effect{{Kind: "repository-write", Target: "docs/intake.md"}})
+			args := stageRunArgs(view, "intake", plan, j.policy, j.workspace)
+			digest := j.run(t, 0, append(args, "--authorize-local")...).reference(t, "stage-preview:")
+			f, err := os.OpenFile(filepath.Join(j.bin, id), os.O_WRONLY|os.O_APPEND, 0)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := f.WriteString("\nnew-synthetic-executable-identity\n"); err != nil {
+				f.Close()
+				t.Fatal(err)
+			}
+			if err := f.Close(); err != nil {
+				t.Fatal(err)
+			}
+			before := snapshotTrees(t, j.env.state)
+			refused := j.run(t, 1, append(args, "--preview-digest", digest, "--authorize-local", "--authorize-external")...)
+			if refused.Category != "stale_preview" || len(j.invocations(t)) != 0 || !bytes.Equal(before, snapshotTrees(t, j.env.state)) {
+				t.Fatal("identity drift consumed stale authority or changed canonical state")
+			}
+			saveTargetLink(t, j.env.state, workItemSourceProjectID, "110", "owner/repo")
+			fresh := j.startExecution(t, "github:owner/repo#110")
+			j.run(t, 0, append(stageRunArgs(fresh, "intake", plan, j.policy, j.workspace), "--authorize-local")...)
+			before = snapshotTrees(t, j.env.state)
+			statuses, _ := os.ReadFile(filepath.Join(j.home, "fake-stage-status.log"))
+			for _, verb := range []string{"show", "prepare", "probe", "probe-extended", "invalidate"} {
+				j.run(t, 1, "runtime", id, "capability", verb, "--profile", "profile-"+id, "--authorize-local", "--authorize-external")
+			}
+			afterStatuses, _ := os.ReadFile(filepath.Join(j.home, "fake-stage-status.log"))
+			if !bytes.Equal(statuses, afterStatuses) || len(j.invocations(t)) != 0 || !bytes.Equal(before, snapshotTrees(t, j.env.state)) {
+				t.Fatal("retired command invoked a Runtime or wrote canonical state")
+			}
+			installed := filepath.Join(j.home, ".codex", "skills", "axiom-runtime", "SKILL.md")
+			if id == "claude" {
+				installed = filepath.Join(j.home, ".claude", "skills", "axiom-runtime", "SKILL.md")
+			}
+			skill, err := os.ReadFile(installed)
+			if err != nil || !bytes.Contains(skill, []byte("inspect → authorize → execute → observe → diagnose/recover")) || bytes.Contains(skill, []byte("blocked pending exact proof")) {
+				t.Fatal("installed skill journey differs from operational contract", err)
+			}
+		})
 	}
 }

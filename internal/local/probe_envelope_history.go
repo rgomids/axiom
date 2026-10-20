@@ -13,10 +13,6 @@ import (
 	"github.com/rgomids/axiom/internal/workflowdefinition"
 )
 
-// Probe envelopes are retired (ADR-0032). Existing directories are classified
-// read-only by the state inventory; nothing creates, claims, runs or cleans
-// them, and they grant no authority.
-
 var ErrUnsafeEnvelope = errors.New("unsafe probe envelope; recovery required")
 
 type EnvelopeLimits struct {
@@ -40,7 +36,6 @@ type EnvelopeManifest struct {
 	Identities      map[string]string `json:"identities"`
 }
 
-// envelopeCleanupIntent is the historical record of an interrupted cleanup.
 type envelopeCleanupIntent struct {
 	Version    int               `json:"version"`
 	Manifest   EnvelopeManifest  `json:"manifest"`

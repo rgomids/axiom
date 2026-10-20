@@ -150,7 +150,7 @@ func NewAuthPreflight(runner StatusRunner, managed ManagedConfiguration) (AuthPr
 func DefaultManagedConfiguration() ManagedConfiguration {
 	switch runtime.GOOS {
 	case "darwin":
-		return ManagedConfiguration{ClaudeSettings: []string{"/Library/Application Support/ClaudeCode/managed-settings.json"}, CodexConfig: []string{"/etc/codex/config.toml", "/etc/codex/managed_config.toml"}}
+		return ManagedConfiguration{ClaudeSettings: []string{"/Library/Application Support/ClaudeCode/managed-settings.json"}, CodexConfig: []string{"/private/etc/codex/config.toml", "/private/etc/codex/managed_config.toml"}}
 	case "linux":
 		return ManagedConfiguration{ClaudeSettings: []string{"/etc/claude-code/managed-settings.json"}, CodexConfig: []string{"/etc/codex/config.toml", "/etc/codex/managed_config.toml"}}
 	}

@@ -21,8 +21,6 @@ import (
 	"github.com/rgomids/axiom/internal/workflowdefinition"
 )
 
-// This chain exercises Axiom's actual protected stores and application/compiler
-// boundaries. Only operational observations are injected; no vendor runs.
 type chainAuthoringStore struct{ store local.RuntimeProfileStore }
 
 func chainSnapshot(s local.RuntimeProfileSnapshot) runtimeapplication.LocalSnapshot {
@@ -37,8 +35,6 @@ func (s chainAuthoringStore) Publish(ctx context.Context, token string, w []byte
 	return chainSnapshot(v), e
 }
 
-// chainObserver returns the current executable identity per Runtime and an
-// effort-source digest per Profile; failure injects an inspection refusal.
 type chainObserver struct {
 	runtimes map[string]runtimeprofile.OperationalObservation
 	sources  map[string]string
@@ -199,9 +195,6 @@ func TestProfileProtectedRetirementCompilerGraphRestartChain(t *testing.T) {
 		t.Fatal(issues)
 	}
 	historicalDigest := historical.Digest
-	// PM-11 A1: the pre-stable record is retired explicitly as a whole, then
-	// canonical configuration 4 is created through separately reviewed operations. Nothing
-	// is migrated and no effort is inferred from the historical record.
 	author := runtimeapplication.Authoring{Store: chainAuthoringStore{store}, Installed: func(string) bool { return true }}
 	if migrate, err := author.Run(ctx, runtimeapplication.AuthoringRequest{Kind: "profile", Operation: "migrate"}); err == nil || migrate.Category != "invalid_input" {
 		t.Fatalf("migration is callable: %+v", migrate)
@@ -304,8 +297,6 @@ func TestProfileProtectedRetirementCompilerGraphRestartChain(t *testing.T) {
 		allocation++
 		return fmt.Sprintf("00000000-0000-4000-8000-%012d", allocation), nil
 	}
-	// The proof-free graph is an in-memory projection of the successor ledger;
-	// it is never persisted as a historical Graph document.
 	graph, err := executiongraph.NewGraphService(nil, allocate, func() time.Time { return time.Unix(10, 0).UTC() }).Build(publication)
 	if err != nil || graph.FormatVersion != executiongraph.OperationalProposalVersion || len(graph.Children) != 3 {
 		t.Fatal("graph projection failed", err)
@@ -323,8 +314,6 @@ func TestProfileProtectedRetirementCompilerGraphRestartChain(t *testing.T) {
 		}
 	}
 
-	// The configured Execution 5 uses the same canonical resolution and retains
-	// its complete schema2 snapshot in the protected WorkflowStore.
 	startSelection := runtimeapplication.Request{Role: "engineer", Complexity: "medium", Capabilities: []string{"read"}, ModelProfileID: "codex-default"}
 	startPreview, err := policy.Preview(ctx, projectID, startSelection)
 	if err != nil {
@@ -379,8 +368,6 @@ func TestProfileProtectedRetirementCompilerGraphRestartChain(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// The frozen issue306 corpus is historical (TestIssue306HistoricalCorpus...);
-	// the live chain binds DigestV4 everywhere instead.
 	if frozenStart.ConfigurationDigest != configurationDigest || startPreview.ConfigurationDigest != configurationDigest || planned.Compilation.Proposal == nil {
 		t.Fatal("Execution 5 binding is not bound to DigestV4")
 	}
@@ -410,7 +397,6 @@ func TestProfileProtectedRetirementCompilerGraphRestartChain(t *testing.T) {
 		t.Fatal("Execution 5 restored bytes failed restart")
 	}
 
-	// A reviewed tuple cannot authorize later source, executable or inspection drift.
 	selection := runtimeapplication.Request{Role: "implementer", Complexity: "medium", Capabilities: []string{"read"}, ModelProfileID: "codex-explicit"}
 	resolved, err := policy.Preview(ctx, projectID, selection)
 	if err != nil {

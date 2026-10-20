@@ -17,7 +17,6 @@ import (
 	"github.com/rgomids/axiom/internal/workflowdefinition"
 )
 
-const MaxAge = 30 * 24 * time.Hour
 const (
 	Read                   = "read"
 	RepositoryWrite        = "repository-write"

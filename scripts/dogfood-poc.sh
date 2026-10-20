@@ -235,7 +235,6 @@ axiom --json project show --selector dogfood-project >"$temporary/project-author
 assert_canonical "$temporary/project-authored.json" success "Project resolved"
 
 # Machine-local Runtime Profile configuration stays outside portable intent.
-# It is authored as canonical v3 through the public reviewed lifecycle
 # (Specification 007 PM-1/PM-11): fresh state is initialized directly, nothing
 # is migrated and no local configuration file is written by hand. Binding
 # creation only looks the executables up on an isolated PATH holding
@@ -267,7 +266,7 @@ author_runtime codex runtime binding create --runtime codex --profile worker --m
 python3 - "$state_root/runtime-profiles/v1/configuration.json" <<'PYJSON'
 import json,sys
 c=json.load(open(sys.argv[1]))
-assert c["formatVersion"] == 3 and c["revision"] == 2
+assert c["formatVersion"] == 4 and c["revision"] == 2
 assert [r["id"] for r in c["runtimes"]] == ["claude", "codex"]
 assert all("effortDeclarations" not in r for r in c["runtimes"])
 assert all(p["effort"] == {"mode":"runtime-default","value":"default"} for p in c["modelProfiles"])
@@ -358,7 +357,7 @@ done
 # capability Lingo cannot prove ever falls back to Codex.
 assert_runtime_blocked unconfigured policy_unconfigured \
   workflow start --project dogfood-configured --repository main --number 7 "${policy_inputs[@]}"
-assert_runtime_blocked claude-unobserved no_allowed_match \
+assert_runtime_blocked claude-unobserved executable_unavailable \
   workflow start --project dogfood-project --repository main --number 7 "${policy_inputs[@]}" --runtime claude
 assert_runtime_blocked unprovable no_allowed_match \
   workflow start --project dogfood-project --repository main --number 7 \
@@ -368,37 +367,27 @@ assert_runtime_blocked unprovable no_allowed_match \
 assert_runtime_blocked implicit ambiguous_match \
   workflow start --project dogfood-project --repository main --number 7 "${policy_inputs[@]}"
 
-# The observed codex stub and its verified skill integration are not proof:
-# the production composition injects no Profile proof and the embedded
-# version registry has no production entry, so even the explicitly selected,
-# structurally valid v3 Profile fails closed before any Execution exists.
-assert_runtime_blocked historical-proof effort_unproven "${start_args[@]}"
+assert_runtime_blocked historical-inspection inspection_consent_required "${start_args[@]}"
 
-# The new builtin selection has its own exact confirmation. Missing G-3 proof
-# still blocks use after explicit selection.
 "$temporary/dogfoodfixture" definition-current >"$temporary/definition-current.json"
 read -r current_id current_revision current_digest < <(python3 -c 'import json,sys; w=json.load(open(sys.argv[1])); print(w["workflowId"],w["revision"],w["digest"])' "$temporary/definition-current.json")
 current_selection=(project workflow select --project dogfood-project --workflow "$current_id" --revision "$current_revision" --digest "$current_digest" --source builtin)
 run_success previewed "$temporary/current-selection-preview.json" "${current_selection[@]}"
 read -r project_revision selection_preview < <(python3 -c 'import json,sys; w=json.load(open(sys.argv[1]))["workflowAuthoring"]; print(w["projectRevision"],w["previewDigest"])' "$temporary/current-selection-preview.json")
 run_success applied "$temporary/current-selected.json" "${current_selection[@]}" --expected-revision "$project_revision" --preview-digest "$selection_preview" --authorize-local
-assert_runtime_blocked current-proof effort_unproven "${start_args[@]}"
+assert_runtime_blocked current-inspection inspection_consent_required "${start_args[@]}"
 run_success inspected "$temporary/current-profiles.json" runtime profile list
 python3 - "$temporary/current-profiles.json" <<'PYJSON'
 import json,sys
 r=json.load(open(sys.argv[1]))["runtimeAuthoring"]
-assert r["state"] == "active-v3" and r["revision"] == 2
+assert r["state"] == "active-v4" and r["revision"] == 2
 assert r["authentication"] == "unknown" and r["modelSupport"] == "unproven" and r["effortSupport"] == "unproven"
 assert all(p["effort"] == {"mode":"runtime-default","value":"default"} for p in r["profiles"])
 PYJSON
 
-# Positive current lifecycle and historical inspection are synthetic integration
-# receipts with injected evidence, separate from this real CLI refusal journal.
-# Synthetic canonical-v3 identity/applicability receipts use only the
-# test-only registry decoder; the embedded production registry stays empty.
-(cd "$repository_root" && env -u OPENAI_API_KEY -u CODEX_API_KEY -u CLAUDE_CODE_EFFORT_LEVEL go test ./cmd/lingo -run 'TestExecutableMinimalLifecycleAndFailurePaths|TestExecutableDeclarationAuthoringWithoutMigration|TestCurrentWorkflowStartFreezesReviewedV2ProfileWithoutModelRun|TestWorkflowStagePlanPublicJourneySingleAndMixedRuntimeGraph|TestCapabilityComposition|TestProductionCapabilityComposition|TestProductionEffortInspectorComposition' -count=1)
-(cd "$repository_root" && env -u CLAUDE_CODE_EFFORT_LEVEL go test ./internal/runtimeadapter -run 'TestDogfoodV3Fixture|TestStageEffort|TestTrustedEffortAnchorAbsentManaged|TestVerifyChildEquivalence' -count=1)
+(cd "$repository_root" && env -u OPENAI_API_KEY -u CODEX_API_KEY -u CLAUDE_CODE_EFFORT_LEVEL go test ./cmd/lingo -run 'TestExecutableMinimalLifecycleAndFailurePaths|TestExecutableDeclarationAuthoringWithoutMigration|TestCurrentWorkflowStartFreezesReviewedV2ProfileWithoutModelRun|TestWorkflowStagePlanPublicJourneySingleAndMixedRuntimeGraph|TestProductionEffortInspectorComposition' -count=1)
+(cd "$repository_root" && env -u CLAUDE_CODE_EFFORT_LEVEL go test ./internal/runtimeadapter -run 'TestOperationalEffortHasNoVersionOrDeclarationPrerequisite|TestStageEffort|TestTrustedEffortAnchorAbsentManaged|TestVerifyChildEquivalence' -count=1)
 # AXM-22 PM-6: a preview issued before a failed, rolled-back or recovered
 # Runtime/Profile publication never becomes valid again.
 (cd "$repository_root" && go test ./internal/local -run 'TestAuthorizationEpoch' -count=1)
-printf '%s\n' 'PASS: bounded production canonical-v3 authoring/refusal smoke; current positive lifecycle and v3 identity SYNTHETIC; vendor model/auth, production Runtime identity and integrated E2E UNVERIFIED'
+printf '%s\n' 'PASS: bounded production canonical-v4 authoring/refusal smoke; current positive lifecycle and operational identity SYNTHETIC; vendor model/auth, production Runtime identity and integrated E2E UNVERIFIED'

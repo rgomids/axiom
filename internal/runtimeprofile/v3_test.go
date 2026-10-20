@@ -147,29 +147,6 @@ func TestV3RefusedByV2OnlyCodec(t *testing.T) {
 	}
 }
 
-// A declaration carries no capability status and cannot satisfy a proof.
-func TestV3DeclarationIsNeverCapabilityProof(t *testing.T) {
-	for _, typ := range []reflect.Type{reflect.TypeOf(EffortDeclaration{}), reflect.TypeOf(EffortSourceDeclaration{})} {
-		for i := 0; i < typ.NumField(); i++ {
-			f := typ.Field(i).Type
-			if f == reflect.TypeOf(CapabilityStatus("")) || f.Kind() == reflect.Map {
-				t.Fatal("declaration carries capability state:", typ.Field(i).Name)
-			}
-		}
-	}
-	c := testV3()
-	cfg := projectV2(c)
-	d := c.Runtimes[0].EffortDeclarations[0]
-	o := testObservation("codex", "codex", true)
-	o.ExecutableDigest = d.ExecutableDigest
-	o.Version = d.RuntimeVersion
-	// Same reference string, but only a declared (not proven) effort: blocked.
-	o.ProfileProofs = []ProfileProof{{RuntimeID: "codex", Model: cfg.ModelProfiles[0].Model, Effort: cfg.ModelProfiles[0].Effort, ExecutableDigest: o.ExecutableDigest, RuntimeVersion: o.Version, InvocationMode: "noninteractive", ObservationRevision: o.Revision, Reference: d.DeclarationID, EffortSourceDigest: strings.Repeat("a", 64), Authentication: CapabilityProven, ModelAvailability: CapabilityProven, EffortSupport: CapabilityDeclared, NoOverride: CapabilityProven}}
-	if code := ProfileReadiness(cfg, cfg.ModelProfiles[0], o); code != "effort_unproven" {
-		t.Fatal("declarationId proved effort:", code)
-	}
-}
-
 func TestV3StrictDeclarationValidation(t *testing.T) {
 	type mutation func(*ConfigurationV3)
 	codex := func(f func(*EffortDeclaration)) mutation {

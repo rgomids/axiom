@@ -18,8 +18,6 @@ import (
 
 const projectID = "123e4567-e89b-42d3-a456-426614174000"
 
-// sourceFake re-reads config on every Load, as the production source re-reads
-// the canonical format-4 record; an invalid config yields no consumer.
 type sourceFake struct {
 	snapshot Snapshot
 	config   runtimeprofile.ConfigurationV4
@@ -34,8 +32,6 @@ func (s *sourceFake) Load(context.Context, string) (Snapshot, error) {
 	return snapshot, s.err
 }
 
-// observerFake injects current operational observations: executable identity
-// and the effort-source digest. It asserts no authentication or vendor support.
 type observerFake struct {
 	runtimes map[string]runtimeprofile.OperationalObservation
 	failure  error
@@ -107,7 +103,6 @@ func TestProjectResolutionBothExplicitRuntimes(t *testing.T) {
 				t.Fatal("nondeterministic preview")
 			}
 			binding, err := service.Check(context.Background(), preview)
-			// Canonical configuration carries no credential reference.
 			if err != nil || !reflect.DeepEqual(binding.Choice, *preview.Choice) || binding.CredentialReference != "" {
 				t.Fatal("preview mismatch", err)
 			}
@@ -160,8 +155,6 @@ func TestExactProfileDoesNotUseUnavailableDefaultPreference(t *testing.T) {
 
 func wireString(p Preview) string { wire, _ := json.Marshal(p); return string(wire) }
 func TestProjectResolutionBlocksWithoutFallback(t *testing.T) {
-	// Operational observation applies after exact selection; narrowed cases
-	// request one Runtime so the two configured Runtimes are not ambiguous.
 	cases := []struct {
 		name, code string
 		change     func(*sourceFake, *observerFake)
@@ -197,6 +190,7 @@ func TestProjectResolutionBlocksWithoutFallback(t *testing.T) {
 		}, true},
 		{"inspection consent missing", "inspection_consent_required", func(_ *sourceFake, o *observerFake) { o.failure = runtimeprofile.ErrInspectionConsentRequired }, true},
 		{"competing effort selector", "effort_override_conflict", func(_ *sourceFake, o *observerFake) { o.failure = runtimeprofile.ErrEffortOverrideConflict }, true},
+		{"invalid effort syntax", "configuration_invalid", func(_ *sourceFake, o *observerFake) { o.failure = runtimeprofile.ErrConfigurationInvalid }, true},
 		{"unsafe effort source", "configuration_unsafe", func(_ *sourceFake, o *observerFake) { o.failure = runtimeprofile.ErrConfigurationUnsafe }, true},
 		{"opaque observation failure", "invalid_observation", func(_ *sourceFake, o *observerFake) { o.failure = errors.New("PRIVATE_SECRET /home/operator") }, true},
 		{"stale observation", "invalid_observation", func(_ *sourceFake, o *observerFake) {
@@ -330,8 +324,6 @@ func TestInvalidRequestDoesNotReflectRejectedText(t *testing.T) {
 	}
 }
 
-// executableObserver observes the identity of one real file on every call,
-// like the production adapter, so the test isolates executable drift.
 type executableObserver struct {
 	id, path string
 }
@@ -355,8 +347,6 @@ func (o executableObserver) ObserveOperational(ctx context.Context, id, _ string
 	return observation, err
 }
 
-// Replacing or removing the reviewed executable after preview blocks Check;
-// an unknown Runtime version never participates.
 func TestExecutableIdentityBindsReviewedRuntime(t *testing.T) {
 	for _, id := range []string{"codex", "claude"} {
 		t.Run(id, func(t *testing.T) {

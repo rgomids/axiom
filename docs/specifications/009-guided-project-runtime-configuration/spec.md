@@ -143,9 +143,15 @@ Se metadata não permitir concluir suporte, usar diagnóstico/ajuda canônica so
 leitura disponível; não descobrir suporte tentando mutações. Sem confirmação,
 reportar capacidade desconhecida e parar o caminho dependente. Um catálogo que
 aceita uma capability ou modelo prova forma/declaração, não suporte operacional.
+> Histórico da inspeção de 2026-10-18: o produtor/registry citado abaixo foi
+> retirado por [ADR-0032](../../decisions/0032-runtime-admission-without-certification.md).
+> Não constitui requisito atual de admissão; a proposta de AXM-33 conserva sua
+> própria revisão e autoridade.
+
 Um produtor de proof indisponível também impede prometer viabilidade; consentimento
-não resolve esse bloqueio. O [registry inspecionado](../../../internal/runtimeadapter/runtime-versions.json)
-com `entries: []` não prova qualquer combinação de versão/modelo/effort.
+não resolve esse bloqueio. O registry então inspecionado
+(`internal/runtimeadapter/runtime-versions.json`, removido por AXM-36), com
+`entries: []`, não provava qualquer combinação de versão/modelo/effort.
 
 Uma alternativa só pode ser oferecida como suportada com referência observada,
 escopo e perdas explicados. Caminho alternativo material exige escolha humana.

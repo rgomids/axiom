@@ -51,7 +51,7 @@ func TestRuntimeProfileValidateConfiguration(t *testing.T) {
 						if err != nil {
 							t.Fatal(err)
 						}
-						digest, _ := runtimeprofile.DigestV3(*active.V3)
+						digest, _ := runtimeprofile.DigestV4(*active.V4)
 						tomb, _ := runtimeprofile.EncodeTombstone(runtimeprofile.Tombstone{Kind: runtimeprofile.TombstoneKind, FormatVersion: 1, Revision: 2, PriorConfigurationDigest: digest})
 						if _, err := store.Publish(context.Background(), active.Token, tomb); err != nil {
 							t.Fatal(err)

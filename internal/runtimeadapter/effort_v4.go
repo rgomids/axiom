@@ -13,6 +13,7 @@ import (
 )
 
 var ErrEffortConfigurationUnsafe = runtimeprofile.ErrConfigurationUnsafe
+var ErrEffortConfigurationInvalid = errors.Join(runtimeprofile.ErrConfigurationInvalid, ErrEffortConfigurationUnsafe)
 
 type EffortSourceRequestV4 struct {
 	Consented        bool
@@ -169,6 +170,9 @@ func VerifyChildEquivalenceV4(ctx context.Context, r EffortSourceRequestV4, chil
 }
 
 func operationalEffortError(err error) error {
+	if errors.Is(err, ErrEffortConfigurationInvalid) {
+		return ErrEffortConfigurationInvalid
+	}
 	if errors.Is(err, ErrEffortOverrideConflict) {
 		return ErrEffortOverrideConflict
 	}

@@ -12,11 +12,6 @@ import (
 	"github.com/rgomids/axiom/internal/runtimeprofile"
 )
 
-// Specification 007 AXM-22 BLD-001B.3a: the argv scan must not treat
-// the spelling of a stage path as an effort override. Only the clean absolute
-// operand of the adapter's own path options is exempt; every override stays
-// refused and no path enters the EffortSourceDigest.
-
 type effortStagePaths struct{ workspace, inbox, axiom string }
 
 func (f *effortInspectorFixture) stagePaths(t *testing.T, paths effortStagePaths, write, process bool) {
@@ -174,10 +169,6 @@ func TestEffortSourcesPathOperandRefusesRelativeOrNonPath(t *testing.T) {
 	}
 }
 
-// Specification 007 AXM-22 D6: a lexically valid configured source path does
-// not prove filesystem safety. Resolution below its anchor still uses the
-// existing trusted boundary, which refuses a symlinked component escaping it.
-// Supported hosts (macOS, Linux) provide native symlinks; setup failure fails.
 func TestEffortSourcesRefuseSymlinkEscapeOfValidConfiguredPath(t *testing.T) {
 	const relative = ".codex/config.toml"
 	if !runtimeprofile.ValidEffortSourcePath(relative) {
