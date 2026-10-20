@@ -38,9 +38,13 @@ future authorized work.
 ## Decision
 
 Propose one installation-bound contract: verified external operational assets
-belong to an immutable generation selected through proof of the executing
-binary, with explicit package evolution, truthful publication and a single
-read-only discovery authority.
+belong to an immutable generation selected through ~~proof of the executing
+binary~~ the release-content and installation association defined by ADR-0034,
+with explicit package evolution, truthful publication and a single read-only
+discovery authority.
+
+> Superseded by [ADR-0034 — Release-content documentation association](0034-release-content-documentation-association.md#decision), accepted 2026-10-20.
+> Only the requirement to prove original whole-file or mapped-image identity is superseded; this contract and its other requirements remain in force. The historical wording is preserved for traceability.
 
 ### Corpus and generation identity
 
@@ -67,8 +71,13 @@ Project, global/XDG search and equal version strings cannot select a generation.
 Read-only alias resolution gives no write authority. A/B installations in separate
 eligible destinations resolve independently, including spaces and switched PATH.
 A moved/copied binary needs authorized revalidation/rebinding; an old process
-surviving replacement must prove its own generation or refuse. Hashing only the
-replacement at the former pathname cannot prove that old process's identity.
+surviving replacement must ~~prove its own generation~~ compare its compiled
+release-content descriptor with the validated current installation association,
+or refuse. ~~Hashing only the replacement at the former pathname cannot prove
+that old process's identity.~~
+
+> Superseded by [ADR-0034 — Release-content documentation association](0034-release-content-documentation-association.md#decision), accepted 2026-10-20.
+> Only original executing-image identity proof is superseded. Refusal on a missing, crossed, changed, unsafe or ambiguous association remains required; the historical wording is preserved for traceability.
 Unprovable binding, absent or corrupt assets produce explicit absence/mismatch,
 without fallback or repair.
 

@@ -2,9 +2,12 @@
 
 ## Status
 
-Proposed — 2026-10-20, AXM-37 reconciliation R1 in Draft
-[PR #335](https://github.com/rgomids/axiom/pull/335). Not accepted or in force.
-No implementation or supersession annotation is authorized by this proposal.
+Accepted — 2026-10-20 by the exact-revision human decision in
+[PR #335](https://github.com/rgomids/axiom/pull/335#issuecomment-6304042497)
+and [Linear AXM-37](https://linear.app/rgomids/issue/AXM-37/distribuir-documentacao-operacional-versionada-junto-a-instalacao-do#comment-805779e5),
+for baseline revision `4b9c4fb409b79d98e0c52e6a00384c7c8fa42bf8`.
+This accepts the R1 documentary baseline and bounded ADR change; it does not
+accept unimplemented product ACs or alter the original C2 FAIL.
 
 ## Context
 
@@ -79,22 +82,15 @@ reference changes must update it. Public identity semantics and installation
 binding remain lasting compatibility obligations; native qualification still costs
 three host rows plus real Codex/Claude observation.
 
-## Proposed partial supersession
+## Supersedes
 
-On explicit human acceptance, partially supersede
-[ADR-0033](0033-installation-bound-operational-documentation.md#corpus-and-generation-identity)
-only where “actual executing binary”, “proof of the executing binary” and “old
-process … prove its own generation” require original whole-file/mapped-image
-identity. Apply the same bounded replacement to its Decision opening and concurrent/
-surviving-reader proof wording. New guarantee is the association defined above;
-all corpus, namespace, external package, publication, retention, return, discovery,
-security, platform and Q6 requirements remain in force. ADR-0033 stays Accepted.
-
-No supersession is active. Once accepted, add reciprocal annotations immediately
-after affected fragments, rename this section to `Supersedes` with exact links,
-and reconcile the index per ADR-0018. The current governance validator forbids an
-actual `Supersedes` section on a Proposed ADR; proposed scope is recorded here
-without falsifying acceptance or editing the older ADR.
+Partially supersedes [ADR-0033](0033-installation-bound-operational-documentation.md#corpus-and-generation-identity)
+only where its Decision requires original whole-file or mapped-image identity:
+the opening, actual-executing-binary proof language, and surviving-process
+generation-proof clause. The replacement guarantee is the release-content and
+installation association defined in this ADR. All corpus, namespace, external
+package, publication, retention, return, discovery, security, platform and Q6
+requirements remain in force; ADR-0033 remains Accepted.
 
 ## Revisit when
 
