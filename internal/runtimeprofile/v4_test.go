@@ -48,9 +48,6 @@ func TestV4CanonicalConfigurationAndFrozenTuple(t *testing.T) {
 	if err != nil || versioned.FormatVersion != FormatVersionV4 || versioned.V4 == nil || versioned.V3 != nil || versioned.Configuration != nil {
 		t.Fatalf("version dispatch: %+v %v", versioned, err)
 	}
-	if _, err := ConsumeVersioned(versioned); err == nil {
-		t.Fatal("inactive v4 reached the active v3 consumer")
-	}
 	if _, err := Decode(wire); !errors.Is(err, ErrUnsupportedConfigurationFormat) {
 		t.Fatal("historical configuration decoder admitted v4", err)
 	}

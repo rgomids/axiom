@@ -21,14 +21,9 @@ func operationalState(t *testing.T) State {
 	s, _, d, _ := newConfigured(t)
 	d.document, _ = workflowdefinition.BuiltinRevision(2)
 	target := configuredTarget()
-	profile := profileBindingFixture()
-	target.ResolvedProfile = &profile
-	state := s.Start(context.Background(), target).State
-	frozen := frozenBindingFixture(state.RuntimeID)
-	state.FormatVersion = OperationalConfiguredFormatVersion
-	state.Binding.ResolvedProfile = nil
-	state.Binding.FrozenProfile = &frozen
-	return state
+	frozen := frozenBindingFixture("codex")
+	target.FrozenProfile = &frozen
+	return s.Start(context.Background(), target).State
 }
 
 func TestExecution5ProofFreeBindingCodec(t *testing.T) {
@@ -53,7 +48,7 @@ func TestExecution5ProofFreeBindingCodec(t *testing.T) {
 	for name, mutate := range map[string]func(*State){
 		"historical generation": func(s *State) { s.FormatVersion = ProfileConfiguredFormatVersion },
 		"mixed tuple": func(s *State) {
-			profile := profileBindingFixture()
+			profile := historicalProfileFixture()
 			s.Binding.ResolvedProfile = &profile
 		},
 		"missing tuple":  func(s *State) { s.Binding.FrozenProfile = nil },
@@ -70,7 +65,7 @@ func TestExecution5ProofFreeBindingCodec(t *testing.T) {
 		})
 	}
 	historical := operationalState(t)
-	profile := profileBindingFixture()
+	profile := historicalProfileFixture()
 	historical.FormatVersion = ProfileConfiguredFormatVersion
 	historical.Binding.FrozenProfile = nil
 	historical.Binding.ResolvedProfile = &profile

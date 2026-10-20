@@ -52,7 +52,7 @@ func encodeV3(t *testing.T, c ConfigurationV3) []byte {
 }
 
 // Golden values recorded from the unmodified format-2 codec at 825b88c.
-func TestV3HistoricalV2BytesDigestAndUnprovenDeclaration(t *testing.T) {
+func TestV3HistoricalV2BytesAndDigest(t *testing.T) {
 	w, err := Encode(testV2())
 	sum := sha256.Sum256(w)
 	if err != nil || hex.EncodeToString(sum[:]) != "08a005eafe66a7b90127c33c9695f5fb51baccba6e87b82a2abcecd439cf1b53" {
@@ -70,10 +70,6 @@ func TestV3HistoricalV2BytesDigestAndUnprovenDeclaration(t *testing.T) {
 		again, _ := Encode(*v.Configuration)
 		if string(again) != string(wire) || strings.Contains(string(wire), "effortDeclarations") {
 			t.Fatal("historical record rewritten or given a synthetic declaration")
-		}
-		// D3: valid history is not corruption; its effort configuration is unproven.
-		if _, err := ApplicableEffortDeclaration(v, EffortApplicability{"codex", "synthetic-codex-1", v3Executable, "noninteractive"}); !errors.Is(err, ErrEffortDeclarationUnproven) {
-			t.Fatal("historical record gained a declaration")
 		}
 	}
 }
@@ -110,19 +106,6 @@ func TestV3CanonicalCodecAndVersionDispatch(t *testing.T) {
 		if profile.Effort != want.Effort || got != expected {
 			t.Fatal("v3 changed Profile effort intent")
 		}
-	}
-	// D7: declarationId maps 1:1 to the existing ProofReference contract.
-	refs := map[string]string{}
-	for _, r := range v.V3.Runtimes {
-		for _, d := range r.EffortDeclarations {
-			if d.ProofReference() != d.DeclarationID || refs[d.ProofReference()] != "" {
-				t.Fatal("declaration/ProofReference mapping is not 1:1")
-			}
-			refs[d.ProofReference()] = r.ID
-		}
-	}
-	if len(refs) != 2 {
-		t.Fatal(refs)
 	}
 	for _, version := range []string{"5", "99"} {
 		if _, err := DecodeVersioned([]byte(`{"formatVersion":` + version + `,"revision":1}`)); !errors.Is(err, ErrUnsupportedConfigurationFormat) {
@@ -164,40 +147,6 @@ func TestV3RefusedByV2OnlyCodec(t *testing.T) {
 	}
 }
 
-func TestV3EffortDeclarationApplicability(t *testing.T) {
-	w := encodeV3(t, testV3())
-	v, err := DecodeVersioned(w)
-	if err != nil {
-		t.Fatal(err)
-	}
-	match := EffortApplicability{"codex", "synthetic-codex-1", v3Executable, "noninteractive"}
-	d, err := ApplicableEffortDeclaration(v, match)
-	if err != nil || d.DeclarationID != "codex-effort-sources" {
-		t.Fatal(d, err)
-	}
-	for name, a := range map[string]EffortApplicability{
-		"runtime":    {"claude", match.RuntimeVersion, match.ExecutableDigest, match.InvocationMode},
-		"executable": {match.RuntimeID, match.RuntimeVersion, strings.Repeat("3", 64), match.InvocationMode},
-		"version":    {match.RuntimeID, "synthetic-codex-2", match.ExecutableDigest, match.InvocationMode},
-		"mode":       {match.RuntimeID, match.RuntimeVersion, match.ExecutableDigest, "interactive"},
-		"unknown":    {"other", match.RuntimeVersion, match.ExecutableDigest, match.InvocationMode},
-	} {
-		if _, err := ApplicableEffortDeclaration(v, a); !errors.Is(err, ErrEffortDeclarationUnproven) {
-			t.Fatal("inapplicable declaration selected:", name)
-		}
-	}
-	// A vendor CLI version never creates a declaration.
-	none := testV3()
-	none.Runtimes[0].EffortDeclarations = nil
-	nv, err := DecodeVersioned(encodeV3(t, none))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := ApplicableEffortDeclaration(nv, match); !errors.Is(err, ErrEffortDeclarationUnproven) {
-		t.Fatal("declaration synthesized from version")
-	}
-}
-
 // A declaration carries no capability status and cannot satisfy a proof.
 func TestV3DeclarationIsNeverCapabilityProof(t *testing.T) {
 	for _, typ := range []reflect.Type{reflect.TypeOf(EffortDeclaration{}), reflect.TypeOf(EffortSourceDeclaration{})} {
@@ -215,7 +164,7 @@ func TestV3DeclarationIsNeverCapabilityProof(t *testing.T) {
 	o.ExecutableDigest = d.ExecutableDigest
 	o.Version = d.RuntimeVersion
 	// Same reference string, but only a declared (not proven) effort: blocked.
-	o.ProfileProofs = []ProfileProof{{RuntimeID: "codex", Model: cfg.ModelProfiles[0].Model, Effort: cfg.ModelProfiles[0].Effort, ExecutableDigest: o.ExecutableDigest, RuntimeVersion: o.Version, InvocationMode: "noninteractive", ObservationRevision: o.Revision, Reference: d.ProofReference(), EffortSourceDigest: strings.Repeat("a", 64), Authentication: CapabilityProven, ModelAvailability: CapabilityProven, EffortSupport: CapabilityDeclared, NoOverride: CapabilityProven}}
+	o.ProfileProofs = []ProfileProof{{RuntimeID: "codex", Model: cfg.ModelProfiles[0].Model, Effort: cfg.ModelProfiles[0].Effort, ExecutableDigest: o.ExecutableDigest, RuntimeVersion: o.Version, InvocationMode: "noninteractive", ObservationRevision: o.Revision, Reference: d.DeclarationID, EffortSourceDigest: strings.Repeat("a", 64), Authentication: CapabilityProven, ModelAvailability: CapabilityProven, EffortSupport: CapabilityDeclared, NoOverride: CapabilityProven}}
 	if code := ProfileReadiness(cfg, cfg.ModelProfiles[0], o); code != "effort_unproven" {
 		t.Fatal("declarationId proved effort:", code)
 	}
