@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 	"testing"
@@ -22,10 +23,23 @@ type v2Archive struct {
 	pax     map[string]string
 }
 
+func hostTuple() (string, string, string) {
+	if runtime.GOOS == "darwin" {
+		return "macos", "darwin", runtime.GOARCH
+	}
+	return "linux", "linux", runtime.GOARCH
+}
+
 func newV2Archive(t *testing.T) *v2Archive {
 	t.Helper()
+	return newV2ArchiveFor(t, "binary", "")
+}
+
+func newV2ArchiveFor(t *testing.T, binary, tag string) *v2Archive {
+	t.Helper()
+	platform, goos, arch := hostTuple()
 	commit := strings.Repeat("b", 40)
-	files := map[string][]byte{binaryName: []byte("binary"), "LICENSE": []byte("license\n"), "install.sh": []byte("#!/bin/sh\n")}
+	files := map[string][]byte{binaryName: []byte(binary), "LICENSE": []byte("license\n"), "install.sh": []byte("#!/bin/sh\n")}
 	var skillLines strings.Builder
 	skillLines.WriteString("formatVersion=1\nskillSetVersion=1\nbinaryCompatibility=1\n")
 	for _, name := range skillNames {
@@ -43,7 +57,7 @@ func newV2Archive(t *testing.T) *v2Archive {
 	}
 	sort.Strings(names)
 	for _, name := range names {
-		body := []byte("# " + name + "\n")
+		body := []byte("# " + name + tag + "\n")
 		kind := "markdown"
 		if strings.HasSuffix(name, ".1") {
 			body, kind = []byte(".TH AXIOM 1\n.SH ROOT\nx\n"), "man1"
@@ -55,8 +69,8 @@ func newV2Archive(t *testing.T) *v2Archive {
 	files["docs/inventory.tsv"] = []byte(inventory.String())
 	files["docs/provenance.tsv"] = []byte(provenance.String())
 	files["docs/man-map.tsv"] = []byte("formatVersion=1\ncommand\tpage\tanchor\naxiom\tdocs/man/man1/axiom.1\tROOT\n")
-	files["release-metadata.txt"] = []byte("formatVersion=2\nproduct=Axiom\nversion=0.2.0\nrevision=" + commit[:12] + "\nsourceState=clean\nrelease=true\nplatform=linux\ngoos=linux\narchitecture=amd64\nskillSetVersion=1\nsourceCommit=" + commit + "\narchiveGeneration=2\ndocsInventorySha256=" + digest(files["docs/inventory.tsv"]) + "\ndocsProvenanceSha256=" + digest(files["docs/provenance.tsv"]) + "\ndocsManMapSha256=" + digest(files["docs/man-map.tsv"]) + "\nbinarySha256=" + digest(files[binaryName]) + "\n")
-	a := &v2Archive{files: files, modes: map[string]int64{}, root: "axiom-0.2.0-linux-amd64", format: tar.FormatUSTAR}
+	files["release-metadata.txt"] = []byte("formatVersion=2\nproduct=Axiom\nversion=0.2.0\nrevision=" + commit[:12] + "\nsourceState=clean\nrelease=true\nplatform=" + platform + "\ngoos=" + goos + "\narchitecture=" + arch + "\nskillSetVersion=1\nsourceCommit=" + commit + "\narchiveGeneration=2\ndocsInventorySha256=" + digest(files["docs/inventory.tsv"]) + "\ndocsProvenanceSha256=" + digest(files["docs/provenance.tsv"]) + "\ndocsManMapSha256=" + digest(files["docs/man-map.tsv"]) + "\nbinarySha256=" + digest(files[binaryName]) + "\n")
+	a := &v2Archive{files: files, modes: map[string]int64{}, root: "axiom-0.2.0-" + platform + "-" + arch, format: tar.FormatUSTAR}
 	a.seal()
 	return a
 }
@@ -128,7 +142,7 @@ func TestLoadCandidateV2Accepts(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if c.Docs == nil || c.DocsMetadata == nil || c.Docs.Generation == "" || c.Values["platform"] != "linux" || len(c.Skills) != 4 {
+	if c.Docs == nil || c.DocsMetadata == nil || c.Docs.Generation == "" || c.Values["goos"] != runtime.GOOS || len(c.Skills) != 4 {
 		t.Fatalf("%+v", c)
 	}
 }
@@ -144,7 +158,7 @@ func TestLoadCandidateV2Refusals(t *testing.T) {
 		"binary mode":         func(a *v2Archive) { a.modes[binaryName] = 0o755 },
 		"setuid":              func(a *v2Archive) { a.modes[binaryName] = 0o4700 },
 		"text mode":           func(a *v2Archive) { a.modes["LICENSE"] = 0o644 },
-		"wrong root":          func(a *v2Archive) { a.root = "axiom-0.2.0-linux-arm64" },
+		"wrong root":          func(a *v2Archive) { a.root = "axiom-0.2.0-linux-riscv" },
 		"pax record":          func(a *v2Archive) { a.format = tar.FormatPAX; a.pax = map[string]string{"comment": "x"} },
 		"gnu format":          func(a *v2Archive) { a.format = tar.FormatGNU },
 		"uppercase path":      func(a *v2Archive) { a.files["docs/text/BAD.md"] = []byte("x\n"); a.seal() },

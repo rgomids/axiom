@@ -152,6 +152,7 @@ type Preview struct {
 	markerRetired   int
 	markerActivated bool
 	transition      *compatibility.TransitionPlan
+	docsPending     bool
 }
 
 type Authority struct{ digest string }
@@ -260,7 +261,19 @@ func (s Service) previewIn(ctx context.Context, target Target, candidate Candida
 	}
 	preview.currentReceipt = currentReceipt
 	preview.nextReceipt = expectedReceipt(destination, candidate, values["installedAt"])
-	receiptAlreadyNext := bytes.Equal(currentReceipt, preview.nextReceipt)
+	if candidate.Docs != nil {
+		preview.nextReceipt = expectedReceiptV2(destination, candidate, values["installedAt"], strings.Repeat("0", 64))
+		if currentDigest == candidateDigest {
+			_, _, hash, err := installedBinding(candidate, target, binaryDir)
+			if err != nil {
+				return Preview{}, &Error{Category: "unsafe_binary"}
+			}
+			preview.nextReceipt = expectedReceiptV2(destination, candidate, values["installedAt"], hash)
+		} else {
+			preview.docsPending = true
+		}
+	}
+	receiptAlreadyNext := !preview.docsPending && bytes.Equal(currentReceipt, preview.nextReceipt)
 	preview.SourceVersion = values["version"]
 	comparison := compareSemver(candidate.Version, values["version"])
 	switch {
@@ -284,6 +297,14 @@ func (s Service) previewIn(ctx context.Context, target Target, candidate Candida
 		return preview, err
 	}
 	preview.Effects = append(preview.Effects, transitionEffects...)
+	if candidate.Docs != nil {
+		docsEffects, docsBytes, err := planDocs(target, binaryDir, candidate, destination, currentDigest == candidateDigest)
+		if err != nil {
+			return preview, err
+		}
+		preview.Effects = append(preview.Effects, docsEffects...)
+		preview.RequiredBytes += docsBytes
+	}
 	if currentDigest != candidateDigest {
 		preview.Effects = append(preview.Effects, Effect{Kind: "binary", Target: destination, Expected: currentDigest, Next: candidateDigest})
 		preview.RequiredBytes += int64(len(candidate.Binary))
@@ -517,6 +538,22 @@ func (s Service) Apply(ctx context.Context, preview Preview, authority Authority
 	if err != nil || current.Digest != preview.Digest {
 		return result, &Error{Category: "authority_denied"}
 	}
+	var docs docsStore
+	if current.candidate.Docs != nil {
+		docs, err = openDocsStore(binaryDir, current.target.BinaryDir, hasDocsEffect(current.Effects))
+		if err != nil {
+			result.Status = "failure"
+			return result, &Error{Category: "docs_namespace_unsafe", cause: err}
+		}
+		defer docs.Close()
+		if hasDocsEffect(current.Effects) {
+			if err := docs.lock(); err != nil {
+				result.Status = "failure"
+				return result, err
+			}
+		}
+	}
+	boundBinding := ""
 	result.Status = "failure"
 	recorded := current.markerSkills
 	archive, manifest := current.markerArchive, current.markerManifest
@@ -607,10 +644,59 @@ func (s Service) Apply(ctx context.Context, preview Preview, authority Authority
 			if !ok || compatibility.RetireObject(ctx, current.target.State, object) != nil {
 				err = &Error{Category: "retirement_failed"}
 			}
+		case "docs_generation":
+			err = docs.publishGeneration(current.candidate.Docs)
+		case "docs_binding":
+			if effect.Next == pendingBinding {
+				continue
+			}
+			err = publishInstalledBinding(docs, current.candidate, current.target, binaryDir)
 		case "binary":
-			err = publishEffect(binaryDir, binaryName, binaryStage, current.candidate.Binary, effect, 0o700, maxBinaryBytes)
+			if current.candidate.Docs == nil {
+				err = publishEffect(binaryDir, binaryName, binaryStage, current.candidate.Binary, effect, 0o700, maxBinaryBytes)
+				break
+			}
+			err = publishEffect(binaryDir, binaryName, binaryStage, current.candidate.Binary, effect, 0o700, maxBinaryBytes, func(stage os.FileInfo) error {
+				parent, statErr := os.Lstat(current.target.BinaryDir)
+				if statErr != nil {
+					return &Error{Category: "unsafe_target"}
+				}
+				_, wire, hash, bindErr := docsBinding(current.candidate, effect.Target, parent, stage)
+				if bindErr != nil {
+					return docsFailure(bindErr)
+				}
+				if err := docs.publishBinding(digest(current.candidate.Binary), hash, wire); err != nil {
+					return err
+				}
+				boundBinding = hash
+				return docsFault("before_binary_commit")
+			})
+			if err == nil {
+				_, _, hash, bindErr := installedBinding(current.candidate, current.target, binaryDir)
+				if bindErr != nil || hash != boundBinding {
+					err = &Error{Category: "binding_identity_changed"}
+				} else {
+					result.Ledger = append(result.Ledger, LedgerEntry{Kind: "docs_binding", Target: filepath.Join(docs.path, docsBindingsName, digest(current.candidate.Binary)), Revision: hash, Confirmed: true})
+				}
+			}
 		case "receipt":
-			err = publishEffect(receiptDir, receiptName, receiptStage, current.nextReceipt, effect, 0o600, maxReceiptBytes)
+			if current.candidate.Docs == nil {
+				err = publishEffect(receiptDir, receiptName, receiptStage, current.nextReceipt, effect, 0o600, maxReceiptBytes)
+				break
+			}
+			_, _, hash, bindErr := installedBinding(current.candidate, current.target, binaryDir)
+			if bindErr != nil {
+				err = &Error{Category: "unsafe_binary"}
+				break
+			}
+			values, parseErr := parseReceipt(current.currentReceipt)
+			if parseErr != nil {
+				err = &Error{Category: "receipt_invalid"}
+				break
+			}
+			wire := expectedReceiptV2(filepath.Join(current.target.BinaryDir, binaryName), current.candidate, values["installedAt"], hash)
+			effect.Next = digest(wire)
+			err = publishEffect(receiptDir, receiptName, receiptStage, wire, effect, 0o600, maxReceiptBytes)
 		case "skill_retire":
 			if skillSession.RemoveRetiredSkill(effect.Name, effect.Expected) != nil {
 				err = &Error{Category: "skill_retirement_failed"}
@@ -699,6 +785,9 @@ func (s Service) Apply(ctx context.Context, preview Preview, authority Authority
 	_ = receiptDir.Sync()
 	final, err := compatibility.Inspect(ctx, current.target.State)
 	if err != nil || compatibility.Resolve(compatibility.Owned, final).Strategy != compatibility.StrategyDirect {
+		return partial(result), &Error{Category: "final_verification_failed"}
+	}
+	if current.candidate.Docs != nil && verifyDocsInstallation(docs, current.candidate, current.target, binaryDir, receiptDir) != nil {
 		return partial(result), &Error{Category: "final_verification_failed"}
 	}
 	verified, err := planSkills(ctx, current.target.SkillsRoot, current.candidate, "", nil, false, skillSession, current.skillReceipt)
@@ -814,7 +903,7 @@ func partial(result Result) Result {
 // pathname. A replacement of dir or an ancestor observed before the commit
 // is refused as target_changed with nothing renamed; one observed after the
 // commit is publication_uncertain, never a confirmed effect.
-func publishEffect(dir local.AnchoredDirectory, name, prefix string, wire []byte, effect Effect, mode os.FileMode, limit int) error {
+func publishEffect(dir local.AnchoredDirectory, name, prefix string, wire []byte, effect Effect, mode os.FileMode, limit int, before ...func(os.FileInfo) error) error {
 	stage, err := dir.Stage(prefix, wire, mode)
 	if errors.Is(err, local.ErrReplaced) {
 		return &Error{Category: "target_changed"}
@@ -834,6 +923,15 @@ func publishEffect(dir local.AnchoredDirectory, name, prefix string, wire []byte
 	current, err := dir.ReadFile(name, limit)
 	if err != nil || digest(current) != effect.Expected {
 		return &Error{Category: "target_changed"}
+	}
+	for _, hook := range before {
+		stageInfo, err := dir.Lstat(stage)
+		if err != nil {
+			return &Error{Category: "stage_verification_failed"}
+		}
+		if err := hook(stageInfo); err != nil {
+			return err
+		}
 	}
 	if err := dir.Rename(stage, name); errors.Is(err, local.ErrReplaced) {
 		return &Error{Category: "target_changed"}
@@ -1002,6 +1100,9 @@ func expectedReceipt(destination string, candidate Candidate, installedAt string
 }
 
 func parseReceipt(wire []byte) (map[string]string, error) {
+	if bytes.HasPrefix(wire, []byte("formatVersion=2\n")) {
+		return receiptValuesV2(wire)
+	}
 	lines := strings.Split(strings.TrimSuffix(string(wire), "\n"), "\n")
 	if len(lines) != len(receiptFields) || !strings.HasSuffix(string(wire), "\n") {
 		return nil, errors.New("receipt schema")

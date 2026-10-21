@@ -4,6 +4,7 @@ import (
 	"errors"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/rgomids/axiom/internal/operationaldocs"
@@ -65,7 +66,7 @@ func loadCandidateV2(read bundleRead, archiveSHA string) (Candidate, error) {
 	if err != nil {
 		return invalid("release_metadata_invalid")
 	}
-	values := map[string]string{"version": metadata.Version, "revision": metadata.Revision, "sourceState": metadata.SourceState, "platform": metadata.Platform, "goos": metadata.GOOS, "architecture": metadata.Architecture}
+	values := map[string]string{"release": strconv.FormatBool(metadata.Release), "version": metadata.Version, "revision": metadata.Revision, "sourceState": metadata.SourceState, "platform": metadata.Platform, "goos": metadata.GOOS, "architecture": metadata.Architecture}
 	if read.root != "axiom-"+metadata.Version+"-"+metadata.Platform+"-"+metadata.Architecture {
 		return invalid("archive_invalid")
 	}
@@ -97,6 +98,7 @@ func loadCandidateV2(read bundleRead, archiveSHA string) (Candidate, error) {
 		}
 	}
 	candidate.Docs, candidate.DocsMetadata = &bundle, &metadata
+	candidate.MetadataSHA256 = digest(files["release-metadata.txt"])
 	return candidate, nil
 }
 

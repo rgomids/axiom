@@ -256,11 +256,33 @@ func resolveInstallation(executable string, d Descriptor) (Resolution, error) {
 
 func loadGeneration(root string, binding Binding) (Bundle, error) {
 	var zero Bundle
-	if _, err := privateDir(filepath.Dir(root), true); err != nil {
+	files, err := ReadGeneration(root)
+	if err != nil {
 		return zero, err
 	}
+	bundle, err := Validate(files, binding.SourceCommit)
+	if err != nil {
+		reason := err.Error()
+		state := StateInvalid
+		if reason == "quota_exceeded" {
+			state = StateUnknown
+		}
+		return zero, refuse(state, reason)
+	}
+	if bundle.Generation != binding.Generation || bundle.ProvenanceSHA256 != binding.ProvenanceSHA256 || bundle.ManMapSHA256 != binding.ManMapSHA256 {
+		return zero, refuse(StateInvalid, "identity_mismatch")
+	}
+	return bundle, nil
+}
+
+// ReadGeneration reads one published generation tree under the resolver's path,
+// ownership and bound rules, without validating its documentary content.
+func ReadGeneration(root string) (map[string][]byte, error) {
+	if _, err := privateDir(filepath.Dir(root), true); err != nil {
+		return nil, err
+	}
 	if _, err := privateDir(root, false); err != nil {
-		return zero, err
+		return nil, err
 	}
 	files := map[string][]byte{}
 	total := 0
@@ -297,21 +319,9 @@ func loadGeneration(root string, binding Binding) (Bundle, error) {
 		return nil
 	}
 	if err := walk("docs"); err != nil {
-		return zero, err
+		return nil, err
 	}
-	bundle, err := Validate(files, binding.SourceCommit)
-	if err != nil {
-		reason := err.Error()
-		state := StateInvalid
-		if reason == "quota_exceeded" {
-			state = StateUnknown
-		}
-		return zero, refuse(state, reason)
-	}
-	if bundle.Generation != binding.Generation || bundle.ProvenanceSHA256 != binding.ProvenanceSHA256 || bundle.ManMapSHA256 != binding.ManMapSHA256 {
-		return zero, refuse(StateInvalid, "identity_mismatch")
-	}
-	return bundle, nil
+	return files, nil
 }
 
 func (r Resolution) Locator(name string) string {

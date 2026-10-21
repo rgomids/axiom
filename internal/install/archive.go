@@ -49,8 +49,9 @@ type Candidate struct {
 	Skills              map[string]string
 	SkillFiles          map[string][]byte
 	// Docs and DocsMetadata are set only for archive generation 2.
-	Docs         *operationaldocs.Bundle
-	DocsMetadata *operationaldocs.Metadata
+	Docs           *operationaldocs.Bundle
+	DocsMetadata   *operationaldocs.Metadata
+	MetadataSHA256 string
 }
 
 // LoadCandidate mirrors install-release.sh verification: exact SHA256SUMS
