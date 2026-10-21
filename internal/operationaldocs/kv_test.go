@@ -1,6 +1,9 @@
 package operationaldocs
 
 import (
+	"bytes"
+	"encoding/json"
+	"os"
 	"strings"
 	"testing"
 )
@@ -103,5 +106,51 @@ func TestBindingCanonicalHashAndNegatives(t *testing.T) {
 	}
 	if _, err := ParseBinding([]byte(validBinding() + validBinding())); err == nil {
 		t.Fatal("trailing value accepted")
+	}
+}
+
+func TestAcceptedPositiveVectorsDecodeAndRoundTrip(t *testing.T) {
+	wire, err := os.ReadFile("../../docs/specifications/010-installed-operational-documentation/contract-vectors-proposed.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var vectors struct {
+		PositiveRecords struct {
+			Metadata   string          `json:"metadata"`
+			Inventory  string          `json:"inventory"`
+			Provenance string          `json:"provenance"`
+			ManMap     string          `json:"manMap"`
+			Binding    json.RawMessage `json:"binding"`
+			Receipt    string          `json:"receipt"`
+		} `json:"positiveRecords"`
+	}
+	if err := json.Unmarshal(wire, &vectors); err != nil {
+		t.Fatal(err)
+	}
+	records := vectors.PositiveRecords
+	if _, err := ParseMetadata([]byte(records.Metadata)); err != nil {
+		t.Fatalf("metadata: %v", err)
+	}
+	if _, err := ParseReceipt([]byte(records.Receipt)); err != nil {
+		t.Fatalf("receipt: %v", err)
+	}
+	for name, spec := range map[string]struct {
+		text, header string
+		fields       int
+	}{"inventory": {records.Inventory, "path\tkind\tbytes\tsha256", 4}, "provenance": {records.Provenance, "output\tsource\tsourceCommit\tsourceSha256\ttransform", 5}, "man-map": {records.ManMap, "command\tpage\tanchor", 3}} {
+		if _, err := rows([]byte(spec.text), spec.header, spec.fields, 1024); err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+	}
+	var members map[string]json.RawMessage
+	if err := json.Unmarshal(records.Binding, &members); err != nil {
+		t.Fatal(err)
+	}
+	binding, err := ParseBinding(append(bytes.TrimSpace(records.Binding), '\n'))
+	if err != nil {
+		t.Fatalf("binding: %v", err)
+	}
+	if again, _ := binding.Wire(); len(again) == 0 || len(members) != len(bindingFields) {
+		t.Fatal("binding field set differs from the accepted vector")
 	}
 }
