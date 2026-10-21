@@ -10,10 +10,13 @@ import (
 	"testing"
 )
 
-// Covers the repaired integrity seams, not exhaustive gzip/tar framing parity.
 func TestShellArchiveIntegrityBeforeExecution(t *testing.T) {
 	for _, version := range []int{1, 2} {
-		for _, mutation := range []string{"valid", "trailing", "truncated", "crc", "duplicate directory", "duplicate file", "path", "manifest", "metadata", "file limit"} {
+		mutations := []string{"valid", "complete tars", "tar trailing", "zero tar tail", "zero trailing", "trailing", "truncated", "crc", "duplicate directory", "duplicate file", "path", "manifest", "metadata", "file limit"}
+		if version == 1 {
+			mutations = append(mutations, "split", "extra empty", "prefix empty")
+		}
+		for _, mutation := range mutations {
 			t.Run(string(rune('0'+version))+"/"+mutation, func(t *testing.T) {
 				work := t.TempDir()
 				marker := filepath.Join(work, "candidate-executed")
@@ -60,6 +63,20 @@ func TestShellArchiveIntegrityBeforeExecution(t *testing.T) {
 				raw := tarBytes(t, archive)
 				wire := gzipMembers(t, raw)
 				switch mutation {
+				case "split":
+					wire = gzipMembers(t, raw, 17)
+				case "extra empty":
+					wire = append(wire, gzipMembers(t, nil)...)
+				case "prefix empty":
+					wire = append(gzipMembers(t, nil), wire...)
+				case "complete tars":
+					wire = append(wire, gzipMembers(t, raw)...)
+				case "tar trailing":
+					wire = gzipMembers(t, append(raw, []byte("garbage")...))
+				case "zero tar tail":
+					wire = gzipMembers(t, append(raw, make([]byte, 512)...))
+				case "zero trailing":
+					wire = append(wire, make([]byte, 16)...)
 				case "trailing":
 					wire = append(wire, []byte("garbage")...)
 				case "truncated":
@@ -79,6 +96,10 @@ func TestShellArchiveIntegrityBeforeExecution(t *testing.T) {
 				}
 				replaceArchive(t, archive, sums, wire)
 				_, goErr := LoadCandidate(archive, sums)
+				wantAccept := mutation == "valid" || mutation == "zero tar tail" || version == 1 && (mutation == "split" || mutation == "extra empty" || mutation == "prefix empty")
+				if (goErr == nil) != wantAccept {
+					t.Fatalf("unexpected Go acceptance: %v", goErr)
+				}
 				args := []string{"--verify-only", "--archive", archive, "--checksums", sums, "--bin-dir", filepath.Join(work, "bin"), "--receipt-dir", filepath.Join(work, "receipts")}
 				script, _ := filepath.Abs("../../scripts/install-release.sh")
 				cmd := exec.Command("bash", append([]string{script}, args...)...)

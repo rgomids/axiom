@@ -255,6 +255,35 @@ if ! gzip -dc "$staged_archive" | head -c 536870912 >"$staged_tar"; then
 fi
 stream_bytes=$(wc -c <"$staged_tar" | tr -d ' ')
 [[ "$stream_bytes" -lt 536870912 ]] || { printf 'install_error: archive exceeds stream limit\n' >&2; exit 1; }
+tar_offset=0
+tar_headers=0
+while [[ "$tar_offset" -lt "$stream_bytes" ]]; do
+  tar_size=$(dd if="$staged_tar" bs=512 skip="$((tar_offset / 512))" count=1 2>/dev/null | LC_ALL=C od -An -v -tu1 | awk '
+    { for (i = 1; i <= NF; i++) b[n++] = $i }
+    END {
+      if (n != 512) exit 1
+      for (i = 0; i < 512; i++) nonzero += b[i]
+      if (!nonzero) { print "eof"; exit }
+      if (b[124] == 128) {
+        for (i = 125; i < 136; i++) size = size * 256 + b[i]
+      } else {
+        for (i = 124; i < 136; i++) {
+          if (b[i] == 0 || b[i] == 32) continue
+          if (b[i] < 48 || b[i] > 55) exit 1
+          size = size * 8 + b[i] - 48
+        }
+      }
+      if (size > 536870912) exit 1
+      printf "%.0f\n", size
+    }') || { printf 'install_error: invalid tar framing\n' >&2; exit 1; }
+  if [[ "$tar_size" == eof ]]; then
+    [[ $((stream_bytes - tar_offset)) -ge 1024 && $(tail -c "+$((tar_offset + 1))" "$staged_tar" | LC_ALL=C tr -d '\000' | wc -c | tr -d ' ') == 0 ]] || { printf 'install_error: invalid tar trailer\n' >&2; exit 1; }
+    break
+  fi
+  tar_headers=$((tar_headers + 1))
+  tar_offset=$((tar_offset + 512 + (tar_size + 511) / 512 * 512))
+  [[ "$tar_headers" -le 192 && "$tar_offset" -le "$stream_bytes" ]] || { printf 'install_error: invalid tar framing or entry limit\n' >&2; exit 1; }
+done
 tar -tf "$staged_tar" >"$temporary/archive-entries" || { printf 'install_error: invalid tar stream\n' >&2; exit 1; }
 [[ -z $(sed 's#/$##' "$temporary/archive-entries" | LC_ALL=C sort | uniq -d) ]] || { printf 'install_error: duplicate archive entry\n' >&2; exit 1; }
 while IFS= read -r entry; do
