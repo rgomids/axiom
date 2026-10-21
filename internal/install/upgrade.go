@@ -219,7 +219,7 @@ func (s Service) previewIn(ctx context.Context, target Target, candidate Candida
 		return Preview{}, &Error{Category: "invalid_candidate"}
 	}
 	row := candidate.Values["platform"] + ":" + candidate.Values["goos"] + ":" + candidate.Values["architecture"]
-	if hostRow() != row {
+	if !hostMatches(row, candidate) {
 		return Preview{}, &Error{Category: "unsupported_host"}
 	}
 	if !lockHeld {

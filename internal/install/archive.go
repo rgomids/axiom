@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"github.com/rgomids/axiom/internal/codexruntime"
+	"github.com/rgomids/axiom/internal/operationaldocs"
 	"io"
 	"os"
 	"path"
@@ -47,6 +48,9 @@ type Candidate struct {
 	SkillManifestSHA256 string
 	Skills              map[string]string
 	SkillFiles          map[string][]byte
+	// Docs and DocsMetadata are set only for archive generation 2.
+	Docs         *operationaldocs.Bundle
+	DocsMetadata *operationaldocs.Metadata
 }
 
 // LoadCandidate mirrors install-release.sh verification: exact SHA256SUMS
@@ -81,8 +85,15 @@ func LoadCandidate(archivePath, checksumsPath string) (Candidate, error) {
 	if actual != expected {
 		return Candidate{}, &Error{Category: "checksum_mismatch"}
 	}
-	files, err := readBundle(archive)
+	read, err := readBundleBounded(archive, maxArchiveEntriesV2)
 	if err != nil {
+		return Candidate{}, &Error{Category: "archive_invalid"}
+	}
+	files := read.files
+	if bytes.HasPrefix(files["release-metadata.txt"], []byte("formatVersion=2\n")) {
+		return loadCandidateV2(read, actual)
+	}
+	if read.headers > maxArchiveEntries {
 		return Candidate{}, &Error{Category: "archive_invalid"}
 	}
 	if err := verifyBundleManifest(files); err != nil {
@@ -107,61 +118,120 @@ func LoadCandidate(archivePath, checksumsPath string) (Candidate, error) {
 	return candidate, nil
 }
 
+type bundleEntry struct {
+	mode  int64
+	ustar bool
+}
+
+type bundleRead struct {
+	files    map[string][]byte
+	entries  map[string]bundleEntry
+	dirs     map[string]bundleEntry
+	root     string
+	headers  int
+	stream   int64
+	trailing bool
+	zeroTail bool
+}
+
 func readBundle(archive []byte) (map[string][]byte, error) {
-	compressed, err := gzip.NewReader(bytes.NewReader(archive))
+	read, err := readBundleBounded(archive, maxArchiveEntries)
+	return read.files, err
+}
+
+func readBundleBounded(archive []byte, maxHeaders int) (bundleRead, error) {
+	result := bundleRead{files: map[string][]byte{}, entries: map[string]bundleEntry{}, dirs: map[string]bundleEntry{}}
+	source := bytes.NewReader(archive)
+	compressed, err := gzip.NewReader(source)
 	if err != nil {
-		return nil, err
+		return result, err
 	}
 	defer compressed.Close()
-	reader := tar.NewReader(io.LimitReader(compressed, maxArchiveBytes+maxBinaryBytes))
+	compressed.Multistream(false)
+	counted := &countingReader{reader: io.LimitReader(compressed, maxArchiveBytes+maxBinaryBytes)}
+	reader := tar.NewReader(counted)
 	root := ""
-	files := map[string][]byte{}
+	files := result.files
 	for entries := 0; ; entries++ {
 		header, err := reader.Next()
 		if errors.Is(err, io.EOF) {
 			break
 		}
-		if err != nil || entries >= maxArchiveEntries {
-			return nil, errors.New("invalid archive")
+		if err != nil || entries >= maxHeaders {
+			return result, errors.New("invalid archive")
 		}
+		result.headers++
 		name := strings.TrimSuffix(header.Name, "/")
 		if name == "" || strings.HasPrefix(name, "/") || strings.Contains(name, "\\") || path.Clean(name) != name || name == ".." || strings.HasPrefix(name, "../") {
-			return nil, errors.New("unsafe archive path")
+			return result, errors.New("unsafe archive path")
 		}
 		first, rest, nested := strings.Cut(name, "/")
 		if root == "" {
 			root = first
 		}
 		if first != root || !strings.HasPrefix(root, "axiom-") {
-			return nil, errors.New("invalid archive root")
+			return result, errors.New("invalid archive root")
 		}
+		entry := bundleEntry{mode: header.Mode, ustar: header.Format == tar.FormatUSTAR && len(header.PAXRecords) == 0}
 		switch header.Typeflag {
 		case tar.TypeDir:
+			result.dirs[name] = entry
 			continue
 		case tar.TypeReg:
 		default:
-			return nil, errors.New("archive links or special files refused")
+			return result, errors.New("archive links or special files refused")
 		}
 		if !nested || rest == "" {
-			return nil, errors.New("file outside bundle root")
+			return result, errors.New("file outside bundle root")
 		}
 		limit := int64(maxBundleFile)
 		if rest == binaryName {
 			limit = maxBinaryBytes
 		}
 		if header.Size < 0 || header.Size > limit {
-			return nil, errors.New("archive entry exceeds limit")
+			return result, errors.New("archive entry exceeds limit")
 		}
 		wire, err := io.ReadAll(io.LimitReader(reader, limit+1))
 		if err != nil || int64(len(wire)) != header.Size {
-			return nil, errors.New("archive entry truncated")
+			return result, errors.New("archive entry truncated")
 		}
 		if _, exists := files[rest]; exists {
-			return nil, errors.New("duplicate archive entry")
+			return result, errors.New("duplicate archive entry")
 		}
 		files[rest] = wire
+		result.entries[rest] = entry
 	}
-	return files, nil
+	var tail zeroChecker
+	if _, err := io.Copy(&tail, counted); err != nil {
+		return result, errors.New("invalid archive trailer")
+	}
+	result.stream = counted.total
+	result.zeroTail = !tail.nonzero
+	result.trailing = source.Len() > 0
+	result.root = root
+	return result, nil
+}
+
+type countingReader struct {
+	reader io.Reader
+	total  int64
+}
+
+func (c *countingReader) Read(p []byte) (int, error) {
+	n, err := c.reader.Read(p)
+	c.total += int64(n)
+	return n, err
+}
+
+type zeroChecker struct{ nonzero bool }
+
+func (z *zeroChecker) Write(p []byte) (int, error) {
+	for _, b := range p {
+		if b != 0 {
+			z.nonzero = true
+		}
+	}
+	return len(p), nil
 }
 
 func verifyBundleManifest(files map[string][]byte) error {
