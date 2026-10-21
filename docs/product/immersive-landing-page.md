@@ -27,9 +27,9 @@ review, merge, deployment or full MVP acceptance.
   The idea remains the protagonist; the large Axiom mark enters at the third
   scene. The six workflow stages belong to scene four, not six more scenes.
 - Eighteen distinct beats retain the five-chapter story (4/3/2/4/5). Fragmentation includes
-  six work fronts and tool/context tiles; orchestration separately presents the
-  five configurable stage cards, dependency graph, human gate and six-row
-  execution view. Delivery presents convergence, five artifact rows, five review
+  six work fronts and tool/context tiles; orchestration now presents a seven-component C4 view of Lingo and a six-phase
+  Execution Graph with four specialist roles, dependencies, human gates and
+  reconciliation, followed by the existing human gate and execution view. Delivery presents convergence, five artifact rows, five review
   checks with two human alternatives, the delivered result and next possibilities.
   The same 18 illustrated beats remain available without motion or JavaScript.
 - Native scroll controls the narrative reversibly. System reduced motion,
@@ -42,7 +42,8 @@ review, merge, deployment or full MVP acceptance.
   configurable flow forms. The original idea returns connected to the next
   possibilities after the verifiable delivery. Its identity and explanation persist;
   no repeated flash or timed scene advancement is added.
-- Pacing uses 200svh per beat, a reading hold, quintic geometry interpolation and
+- Pacing uses 200svh per ordinary interval, four units for the C4 interval and nine
+  for the Execution Graph interval, a reading hold, quintic geometry interpolation and
   a short scroll follower. Card blooms introduce work fronts; connection signals
   begin only after Axiom appears.
   Ambient globe rotation, light pulses, wave lines and decorative square zooms
@@ -137,3 +138,36 @@ The organization scene keeps six primary fronts in focus. Nine secondary tools
 converge into subordinate badges under their owning front; no independent wires
 connect those badges. Two shared lateral spines and short branches replace the
 previous dense central graph. Wave intensity decreases during organization.
+
+## Candidate refinement — 2026-10-21
+
+The maintainer requested the complete local gold-dominant candidate for the two
+existing review branches. Presentation sources remain upstream in DS PR #19.
+The candidate adds a luminous solar orb, subtle navy in the almost-black canvas,
+revised Axiom introduction, seven C4 components and external boundaries, and
+six workflow phases (Intake, Specification, Planning, Implementation, Review,
+Completion). Backend, Integration, Documentation and Test roles remain distinct;
+validation, review, rejection, bounded rework and reconciliation remain explicit.
+These are conceptual target-architecture illustrations, not a delivered GUI.
+
+The final idea and possibilities cards are equal and centered. The chapter
+drawer keeps a stable triangle hit area, borderless acrylic and permanent
+caption clearance. It supports hover, keyboard and touch; mobile chapters scroll
+horizontally. The footer provides Product, Solutions and Resources, real project
+links, synchronized PT/EN, copyright and GitHub only. License/terms point to
+Apache-2.0. No privacy policy was found: its index is disabled until a confirmed
+URL is configured upstream. SECURITY.md is not substituted for privacy.
+
+The snapshot remains reproducible from the pinned committed DS source, with
+per-file SHA-256 hashes. No live server, Sites hosting, runtime CDN or DS checkout
+is needed to serve the imported site. Human editorial approval and production
+publication remain separate from this PR.
+
+Validation for this candidate passed the structural/hash/brand/installer check,
+three importer tests and eight offline Chromium acceptance tests. Automation
+registry coverage (94 surfaces) and ADR structure (30 ADRs) pass. The broader
+registry fixtures have two Windows limitations (symlink privilege and executable
+bits); the ADR fixtures have one symlink-privilege error. These platform cases
+remain subject to Linux CI, without weakening either validator. Browser `.mjs`
+modules share the existing `site/` product-code exclusion; the landing safety
+checker inspects both `.js` and `.mjs` files.

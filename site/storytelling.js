@@ -1,3 +1,6 @@
+import './footer.mjs?v=e773a15fef6c';
+import './chapter-navigation.mjs?v=e773a15fef6c';
+import { orchestrationProgress, paintOrchestration } from './orchestration.mjs?v=e773a15fef6c';
 import {
   storyState,
   storyConnections,
@@ -5,14 +8,14 @@ import {
   dependencySideConnections,
   frameState,
   clamp,
-} from './story-state.js?v=5d511770b198';
+} from './story-state.js?v=e773a15fef6c';
 import {
   frames,
   workContent,
   frameProgress,
   sceneStarts,
   sceneRepresentatives,
-} from './story-frames.js?v=5d511770b198';
+} from './story-frames.js?v=e773a15fef6c';
 const story = document.querySelector('.storytelling'),
   world = story.querySelector('.live-world');
 const entities = {
@@ -45,10 +48,14 @@ let frame = 0,
   renderedProgress = null,
   lastPaint = 0;
 function measure() {
+  document.body.classList.toggle(
+    'story-motion',
+    !document.body.classList.contains('static-motion') || previewIndex !== null,
+  );
   top = story.getBoundingClientRect().top + scrollY;
   const rect = world.getBoundingClientRect();
-  width = rect.width;
-  height = rect.height;
+  width = Math.max(1, rect.width);
+  height = Math.max(1, rect.height);
   range = Math.max(1, story.offsetHeight - innerHeight);
   schedule();
 }
@@ -69,7 +76,9 @@ function paint(now) {
   const staticMode = document.body.classList.contains('static-motion');
   document.body.classList.toggle('story-motion', !staticMode || previewIndex !== null);
   const target =
-    previewIndex !== null ? frameProgress(previewIndex) : clamp((scrollY - top) / range) * 4;
+    previewIndex !== null
+      ? frameProgress(previewIndex)
+      : orchestrationProgress(clamp((scrollY - top) / range));
   if (renderedProgress === null || staticMode || previewIndex !== null) renderedProgress = target;
   const dt = Math.min(64, now - (lastPaint || now));
   lastPaint = now;
@@ -90,6 +99,7 @@ function paint(now) {
     'gold-start',
     (!staticMode || previewIndex !== null) && s.wash > 0.65 && scrollY < top + innerHeight,
   );
+  paintOrchestration(p, staticMode, previewIndex);
   if (staticMode && previewIndex === null) return;
   world.dataset.layout = s.layout;
   world.style.setProperty('--tool-grouping', s.toolGrouping);
@@ -174,20 +184,18 @@ function paint(now) {
     path.setAttribute('d', sideConnections[i]);
     path.style.opacity = s.contexts[i].opacity * dependency;
   });
-  alpha('.story-wave', Math.max(s.energy * 0.75, (1 - s.wash) * 0.45) * (1 - s.toolGrouping * 0.7));
+  alpha(
+    '.story-wave',
+    Math.max(s.energy * 0.75, (1 - s.wash) * 0.45) *
+      (1 - s.toolGrouping * 0.7) *
+      (1 - s.continuity),
+  );
   alpha('.story-ground', s.ground);
   alpha('.execution-shell', s.execution);
   alpha('.story-decision', s.decision);
   alpha('.delivery-chips', s.chips);
   alpha('.story-continuity', s.continuity);
-  place(world.querySelector('.story-continuity'), {
-    x: 72,
-    y: 50,
-    w: innerWidth <= 760 ? 140 : 220,
-    h: innerWidth <= 760 ? 140 : 170,
-    opacity: s.continuity,
-    rotation: 0,
-  });
+  place(world.querySelector('.story-continuity'), s.continuityCard);
   alpha('.flow-ports', s.flowPorts);
   world.querySelectorAll('.flow-port').forEach((el, i) => {
     el.setAttribute('cx', flowSpineX(s, width));

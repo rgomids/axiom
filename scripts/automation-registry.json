@@ -34,7 +34,8 @@
     {
       "path": "site/",
       "extensions": [
-        ".js"
+        ".js",
+        ".mjs"
       ],
       "reason": "Landing page browser JavaScript loaded by site/index.html; site code validated by scripts/validate-landing-page.sh."
     }

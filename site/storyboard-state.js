@@ -1,4 +1,5 @@
-import { frames } from './story-frames.js?v=5d511770b198';
+import { continuityLayout } from './continuity.mjs?v=e773a15fef6c';
+import { frames } from './story-frames.js?v=e773a15fef6c';
 export const clamp = (n, min = 0, max = 1) => Math.max(min, Math.min(max, n));
 export const ease = (n) => {
   const p = clamp(n);
@@ -76,6 +77,7 @@ export function frameState(index, narrow = false, width = narrow ? 360 : 1000) {
     execution: 0,
     decision: 0,
     continuity: 0,
+    continuityCard: node(72, 50, narrow ? 140 : 220, narrow ? 140 : 170),
     chips: 0,
     panel: 0,
     hubRound: 0,
@@ -242,7 +244,9 @@ export function frameState(index, narrow = false, width = narrow ? 360 : 1000) {
     s.beam = 0.4;
   }
   if (layout === 'continuity') {
-    s.idea = node(23, 50, narrow ? 90 : 120, narrow ? 94 : 130, 1);
+    const pair = continuityLayout(width);
+    s.idea = node(pair.left, 50, pair.size, pair.size, 1);
+    s.continuityCard = node(pair.right, 50, pair.size, pair.size, 1);
     s.ideaCard = 1;
     s.continuity = 1;
     s.connections = 0.6;
@@ -347,8 +351,8 @@ function relationCurve(s, i, width, height) {
     opacity = i === 5 ? 0.6 : 0;
   }
   if (s.layout === 'continuity') {
-    from = [s.idea.x, s.idea.y];
-    to = [72, 50];
+    from = [s.idea.x + (s.idea.w / width) * 50, s.idea.y];
+    to = [s.continuityCard.x - (s.continuityCard.w / width) * 50, s.continuityCard.y];
     opacity = i === 0 ? 0.7 : 0;
   }
   const radial = ['emerge', 'connect'].includes(s.layout);

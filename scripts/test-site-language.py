@@ -105,10 +105,12 @@ class LandingTests(unittest.TestCase):
         self.assertEqual(self.errors, [])
 
     def seek_story(self, progress):
-        self.page.evaluate("""progress => {
+        self.page.evaluate("""async progress => {
+            const moduleUrl="https://axiom.test/orchestration-timeline.mjs";
+            const {orchestrationFraction}=await import(moduleUrl);
             const story=document.querySelector('.storytelling');
             const top=story.getBoundingClientRect().top+scrollY;
-            scrollTo({top:top+(story.offsetHeight-innerHeight)*progress/4,behavior:'instant'});
+            scrollTo({top:top+(story.offsetHeight-innerHeight)*orchestrationFraction(progress*17/4),behavior:'instant'});
         }""", progress)
         self.page.evaluate('() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))')
         self.page.wait_for_function("expected=>{const s=document.querySelector('.storytelling');return s.dataset.storySettled==='true' && Math.abs(Number(s.dataset.storyProgress)-expected)<.01}", arg=progress, timeout=3000)
@@ -191,6 +193,20 @@ class LandingTests(unittest.TestCase):
         self.assertIn('curl -fsSL https://raw.githubusercontent.com/rgomids/axiom/main/scripts/install.sh | sh', self.page.locator('#instalar').inner_text())
         self.assertGreater(self.page.locator('a[href="#instalar"]').count(), 0)
         self.assertGreater(self.page.locator('a[href*="github.com/rgomids/axiom"]').count(), 0)
+
+    def test_footer_language_and_verified_project_indices(self):
+        self.load()
+        footer = self.page.locator('.site-footer')
+        self.assertEqual(footer.locator('.footer-column h2').all_text_contents(), ['Produto', 'Soluções', 'Recursos'])
+        self.assertEqual(footer.locator('.footer-social').count(), 1)
+        self.assertEqual(footer.locator('.footer-social').get_attribute('href'), 'https://github.com/rgomids/axiom')
+        self.assertEqual(footer.locator('.footer-unavailable').get_attribute('aria-disabled'), 'true')
+        self.page.locator('#footer-language').select_option('en')
+        self.assertEqual(self.page.locator('html').get_attribute('lang'), 'en')
+        self.assertEqual(footer.locator('.footer-column h2').all_text_contents(), ['Product', 'Solutions', 'Resources'])
+        self.page.locator('#language').click()
+        self.assertEqual(self.page.locator('#footer-language').input_value(), 'pt')
+        self.assertEqual(self.errors, [])
 
     def test_copy_denial_selects_only_requested_command(self):
         self.page.add_init_script("Object.defineProperty(navigator,'clipboard',{value:{writeText:async()=>{throw Error('denied')}}})")

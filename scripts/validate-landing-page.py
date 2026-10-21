@@ -90,7 +90,7 @@ def validate():
     require('conceitual' in html.lower() and 'conceptual' in html.lower(), 'story must identify its conceptual visualization in both languages')
     require('retrabalho' in html.lower() and 'rework' in html.lower(), 'human rework alternative missing')
     require('Apache 2.0' in html and 'github.com/rgomids/axiom' in html, 'required project/license links missing')
-    scripts = '\n'.join(p.read_text(encoding='utf-8') for p in SITE.glob('*.js'))
+    scripts = '\n'.join(p.read_text(encoding='utf-8') for p in SITE.iterdir() if p.suffix in ('.js', '.mjs'))
     require(not re.search('innerHTML|outerHTML|insertAdjacentHTML|document\\.write', scripts), 'browser scripts must keep translations and commands as text')
     require('prefers-reduced-motion: reduce' in scripts, 'system motion preference missing')
     require('navigator.clipboard' in scripts and 'copy-command' in scripts, 'individual command copy missing')
