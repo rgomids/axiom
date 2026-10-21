@@ -139,3 +139,16 @@ Next gate: explicit verifier strategy/scope decision, then implementation,
 exact-HEAD CI and independent code review. Historical FAILs stay visible;
 prototype PASSs are not final-source proof. T13–T15/Q6 remain NOT_RUN, T16 partial,
 AC-08/v0.1.0 unproven; no status/acceptance/merge/release or AXM-12/39 unblocking.
+
+### Strict v1 Go helper r1 — distribution-contract gate
+
+[Go helper preflight Evidence](evidence-v1-strict-go-helper-r1.md) applies the
+delegated stdlib technique decision without adopting a new bootstrap contract.
+Existing acquisition, closed release asset/member inventories and local facade
+provide no independently trusted, version/identity-bound pre-candidate helper.
+Adding one requires an explicit distribution/packaging amendment; T07/T09 strict
+v1 repair remains BLOCKED at that boundary. No production or permanent-test change.
+Existing focused Go/Apple suite PASS on inspected source; GNU/Linux and new helper
+tests NOT_RUN, baseline Linux exact-SHA CI FAIL preserved. Final documentary HEAD
+CI belongs to the completion receipt, not an inferred PASS. T13–T15/Q6 remain
+deferred, T16 partial; no default-v2 promotion, acceptance or dependency changes.
