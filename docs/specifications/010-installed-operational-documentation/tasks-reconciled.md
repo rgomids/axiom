@@ -124,3 +124,18 @@ No code/test/bootstrap change or v1 waiver: next gate is an explicit bounded v1
 framing/prerequisite decision before any repair. Default v1, opt-in v2 and legacy
 multistream remain unchanged; seven framing repairs preserved. T13–T15/Q6 stay
 deferred to AXM-12, T16 partial, AC-08/v0.1.0 unproven.
+
+### Strict v1 without Python r1 — Decision A
+
+[Strict v1 preflight Evidence](evidence-v1-strict-no-python-r1.md) records a
+BLOCKED T07/T09/E07/E09 correction for AC-05/06. GNU gzip verbose mode rejects
+zero tails but accepts an empty .Z stream after a gzip member, unlike Go/Apple;
+a checksum-valid fixture reaches the candidate sentinel. Therefore verbose mode
+alone does not establish strict gzip framing. Experimental implementation/test
+changes were removed; production and permanent tests retain baseline bytes.
+Only Evidence/Tasks and an isolated diagnostic patch are delivered. No parser,
+dependency or format change adopted; default v1 and opt-in v2 preserved.
+Next gate: explicit verifier strategy/scope decision, then implementation,
+exact-HEAD CI and independent code review. Historical FAILs stay visible;
+prototype PASSs are not final-source proof. T13–T15/Q6 remain NOT_RUN, T16 partial,
+AC-08/v0.1.0 unproven; no status/acceptance/merge/release or AXM-12/39 unblocking.
