@@ -91,3 +91,19 @@ cover repaired boundaries and historical v1 multistream. Default v1 stays
 unchanged; activation preparation is out of scope. Native T13–T15/Q6 remain
 deferred to AXM-12 and T16 remains partial. Next: incremental review plus the
 host-contract decision for remaining framing work.
+
+### Framing three / Python r1 continuation
+
+The human decision of 2026-10-21 authorizes Python 3/stdlib zlib as a conditional
+v2 bootstrap prerequisite and supersedes only the pending prerequisite boundary
+above. [Python r1 Evidence](evidence-framing-three-python3-r1.md) maps the
+T07/T09/E07/E09 delta to AC-05/06: split members, empty suffix and empty prefix
+now refuse before candidate execution or persistent publication, with
+checksum-valid shell/Go contrast and sentinel assertions. All four previous
+tar EOF repairs and v1 multistream controls remain tested. Requirements now
+document fail-closed Python/zlib diagnostics; no external dependency installed.
+Default v1 remains; v2 opt-in. T13–T15/Q6 deferred to AXM-12, T16 partial,
+no acceptance/status/blocker change. Remaining Linux v1 compressed-zero-tail
+CI discrepancy and isolated executiongraph FAIL are separate Evidence, not
+waived or folded into the seven-case PASS. Next: incremental review of the
+actual pushed HEAD and disposition of remaining CI evidence.

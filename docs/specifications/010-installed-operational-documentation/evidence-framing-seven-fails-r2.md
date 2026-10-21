@@ -114,3 +114,11 @@ real Runtime inference, credential/cost change, lock recovery, workflow dispatch
 merge, release, acceptance, Done, status or blocker mutation occurred.
 Next gate: incremental review of the four repaired cases on the actual PR head,
 plus the explicit host-prerequisite decision before the remaining three repairs.
+
+## Subsequent authorized continuation
+
+Historical r2 results above are preserved. On 2026-10-21 Rafael authorized
+Python 3 with stdlib zlib for the three remaining v2 framing refusals.
+[Python r1 Evidence](evidence-framing-three-python3-r1.md) records the scoped
+implementation, fresh tests and remaining gates. The pending prerequisite
+decision above describes r2 only; it no longer blocks this authorized delta.
