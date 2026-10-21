@@ -86,7 +86,7 @@ func documentationLocation(path []string) (string, string) {
 		return "docs/man/man1/axiom-runtime-" + path[1] + ".1", strings.ToUpper(strings.ReplaceAll(strings.Join(path[1:], "_"), "-", "_"))
 	}
 	if path[0] == "docs" {
-		return "docs/man/man1/axiom-docs.1", strings.ToUpper(strings.ReplaceAll(strings.Join(path[1:], "_"), "-", "_"))
+		return "docs/man/man1/axiom-docs.1", strings.ToUpper(strings.ReplaceAll(strings.Join(path, "_"), "-", "_"))
 	}
 	return "docs/man/man1/axiom-" + path[0] + ".1", strings.ToUpper(strings.ReplaceAll(strings.Join(path, "_"), "-", "_"))
 }
