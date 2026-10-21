@@ -135,11 +135,6 @@ type bundleRead struct {
 	zeroTail bool
 }
 
-func readBundle(archive []byte) (map[string][]byte, error) {
-	read, err := readBundleBounded(archive, maxArchiveEntries)
-	return read.files, err
-}
-
 func readBundleBounded(archive []byte, maxHeaders int) (bundleRead, error) {
 	result := bundleRead{files: map[string][]byte{}, entries: map[string]bundleEntry{}, dirs: map[string]bundleEntry{}}
 	source := bytes.NewReader(archive)

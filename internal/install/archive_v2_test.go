@@ -18,7 +18,6 @@ type v2Archive struct {
 	modes   map[string]int64
 	root    string
 	format  tar.Format
-	extra   []byte
 	trailer []byte
 	pax     map[string]string
 }
