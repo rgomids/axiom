@@ -16,6 +16,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/rgomids/axiom/internal/cli"
+	"github.com/rgomids/axiom/internal/codexruntime"
 	"github.com/rgomids/axiom/internal/operationaldocs"
 )
 
@@ -44,6 +45,7 @@ func main() {
 	output := flag.String("output", "", "new output directory")
 	version := flag.String("version", "", "documented Axiom version")
 	commit := flag.String("commit", "", "full source commit")
+	ldflags := flag.String("ldflags", "", "print the compiled descriptor linker flags for <platform>/<architecture> instead of the summary")
 	flag.Parse()
 	if flag.NArg() != 0 {
 		fail(fmt.Errorf("unexpected arguments"))
@@ -51,6 +53,14 @@ func main() {
 	result, err := generate(*root, *output, *version, *commit)
 	if err != nil {
 		fail(err)
+	}
+	if *ldflags != "" {
+		flags, err := descriptorLdflags(*root, result.generation, *commit, *ldflags)
+		if err != nil {
+			fail(err)
+		}
+		fmt.Println(flags)
+		return
 	}
 	encoded, _ := json.Marshal(struct {
 		Generation   string            `json:"generation"`
@@ -328,4 +338,30 @@ func hasOutput(records []sourceRecord, name string) bool {
 func fail(err error) {
 	fmt.Fprintln(os.Stderr, err)
 	os.Exit(1)
+}
+
+func descriptorLdflags(root, generation, commit, row string) (string, error) {
+	platform, arch, ok := strings.Cut(row, "/")
+	if !ok {
+		return "", fmt.Errorf("invalid descriptor row")
+	}
+	skills := map[string]string{}
+	for _, name := range codexruntime.ActiveSkillNames() {
+		data, err := readRegular(filepath.Join(root, "internal/codexruntime/skills", name, "SKILL.md"), maxOutputBytes)
+		if err != nil {
+			return "", err
+		}
+		skills[name] = digest(data)
+	}
+	skillsIdentity, err := operationaldocs.SkillsIdentity(skills)
+	if err != nil {
+		return "", err
+	}
+	descriptor := operationaldocs.Descriptor{Generation: generation, SourceCommit: commit, Platform: platform, Architecture: arch, SkillsSHA256: skillsIdentity}
+	descriptor.Identity = operationaldocs.Association(generation, commit, platform, arch, skillsIdentity)
+	if !descriptor.Valid() {
+		return "", fmt.Errorf("invalid descriptor")
+	}
+	const prefix = "-X github.com/rgomids/axiom/internal/operationaldocs."
+	return prefix + "compiledGeneration=" + generation + " " + prefix + "compiledIdentity=" + descriptor.Identity + " " + prefix + "compiledCommit=" + commit + " " + prefix + "compiledPlatform=" + platform + " " + prefix + "compiledArchitecture=" + arch + " " + prefix + "compiledSkills=" + skillsIdentity, nil
 }

@@ -7,16 +7,22 @@ repository_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)
 version=
 output=
 development=false
+format=1
 
 while (($#)); do
   case "$1" in
     --version) version=${2:-}; shift 2 ;;
     --output) output=${2:-}; shift 2 ;;
     --development) development=true; shift ;;
+    --format) format=${2:-}; shift 2 ;;
     *) printf 'release_build_error: invalid argument\n' >&2; exit 1 ;;
   esac
 done
 
+if [[ "$format" != 1 && "$format" != 2 ]]; then
+  printf 'release_build_error: archive format must be 1 or 2\n' >&2
+  exit 1
+fi
 if [[ ! "$version" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?(\+[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$ ]]; then
   printf 'release_build_error: exact semantic version required\n' >&2
   exit 1
@@ -74,6 +80,10 @@ digest() {
 
 build_target() {
   local platform=$1 goos=$2 arch=$3
+  if [[ "$format" == 2 ]]; then
+    build_target_v2 "${platform%%-*}" "$goos" "$arch"
+    return
+  fi
   local executable=axiom installer=install.sh installer_source=install-release.sh
   local bundle="axiom-${version}-${platform}-${arch}"
   local root="$work/$bundle"
@@ -130,7 +140,73 @@ build_target() {
   printf '%s  %s\n' "$(digest "$archive")" "$(basename "$archive")" >>"$checksums"
 }
 
-build_target macos-27 darwin arm64
+build_target_v2() {
+  local platform=$1 goos=$2 arch=$3
+  local executable=axiom installer=install.sh installer_source=install-release.sh
+  local bundle="axiom-${version}-${platform}-${arch}"
+  local root="$work/$bundle" docs_build="$work/docs-$bundle" descriptor
+  mkdir -p "$root/skills"
+  descriptor=$(cd "$repository_root" && go run ./cmd/axiom-docs-build --source-root "$repository_root" --output "$docs_build" --version "$version" --commit "$revision" --ldflags "$platform/$arch")
+  (cd "$repository_root" && GOOS="$goos" GOARCH="$arch" CGO_ENABLED=0 go build -trimpath \
+    -ldflags "-s -w -X main.buildVersion=$version -X main.buildRevision=${revision:0:12} -X main.buildSourceState=$source_state -X main.buildRelease=$release $descriptor" \
+    -o "$root/$executable" ./cmd/lingo)
+  chmod 700 "$root/$executable"
+  cp "$repository_root/LICENSE" "$root/LICENSE"
+  cp "$repository_root/scripts/$installer_source" "$root/$installer"
+  chmod 700 "$root/$installer"
+  cp -R "$docs_build/docs" "$root/docs"
+  find "$root/docs" -type d -exec chmod 700 {} +
+  find "$root/docs" -type f -exec chmod 600 {} +
+  {
+    printf 'formatVersion=1\n'
+    printf 'skillSetVersion=1\n'
+    printf 'binaryCompatibility=1\n'
+    for skill in "$repository_root"/internal/codexruntime/skills/*; do
+      local name
+      name=$(basename "$skill")
+      mkdir -p "$root/skills/$name"
+      cp "$skill/SKILL.md" "$root/skills/$name/SKILL.md"
+      printf 'skill.%s=%s\n' "$name" "$(digest "$root/skills/$name/SKILL.md")"
+    done
+  } >"$root/skills-manifest.txt"
+  find "$root/skills" -type d -exec chmod 700 {} +
+  {
+    printf 'formatVersion=2\n'
+    printf 'product=Axiom\n'
+    printf 'version=%s\n' "$version"
+    printf 'revision=%s\n' "${revision:0:12}"
+    printf 'sourceState=%s\n' "$source_state"
+    printf 'release=%s\n' "$release"
+    printf 'platform=%s\n' "$platform"
+    printf 'goos=%s\n' "$goos"
+    printf 'architecture=%s\n' "$arch"
+    printf 'skillSetVersion=1\n'
+    printf 'sourceCommit=%s\n' "$revision"
+    printf 'archiveGeneration=2\n'
+    printf 'docsInventorySha256=%s\n' "$(digest "$root/docs/inventory.tsv")"
+    printf 'docsProvenanceSha256=%s\n' "$(digest "$root/docs/provenance.tsv")"
+    printf 'docsManMapSha256=%s\n' "$(digest "$root/docs/man-map.tsv")"
+    printf 'binarySha256=%s\n' "$(digest "$root/$executable")"
+  } >"$root/release-metadata.txt"
+  chmod 600 "$root/LICENSE" "$root/skills-manifest.txt" "$root/release-metadata.txt" "$root"/skills/*/SKILL.md
+  (
+    cd "$root"
+    find . -type f ! -name MANIFEST.sha256 -print | sed 's#^\./##' | LC_ALL=C sort | while IFS= read -r file; do
+      printf '%s  %s\n' "$(digest "$file")" "$file"
+    done >MANIFEST.sha256
+  )
+  chmod 600 "$root/MANIFEST.sha256"
+  chmod 700 "$root"
+  local archive="$output/$bundle.tar.gz"
+  COPYFILE_DISABLE=1 tar --format=ustar -C "$work" -czf "$archive" "$bundle"
+  printf '%s  %s\n' "$(digest "$archive")" "$(basename "$archive")" >>"$checksums"
+}
+
+if [[ "$format" == 2 ]]; then
+  build_target macos darwin arm64
+else
+  build_target macos-27 darwin arm64
+fi
 build_target linux linux amd64
 build_target linux linux arm64
 

@@ -172,7 +172,7 @@ func readBundleBounded(archive []byte, maxHeaders int) (bundleRead, error) {
 		if first != root || !strings.HasPrefix(root, "axiom-") {
 			return result, errors.New("invalid archive root")
 		}
-		entry := bundleEntry{mode: header.Mode, ustar: header.Format == tar.FormatUSTAR && len(header.PAXRecords) == 0}
+		entry := bundleEntry{mode: header.Mode, ustar: header.Format != tar.FormatPAX && header.Format != tar.FormatGNU && len(header.PAXRecords) == 0}
 		switch header.Typeflag {
 		case tar.TypeDir:
 			result.dirs[name] = entry
