@@ -119,7 +119,7 @@ func (s docsStore) generationState(bundle *operationaldocs.Bundle) (string, erro
 	return "present", nil
 }
 
-func (s docsStore) publishGeneration(bundle *operationaldocs.Bundle) error {
+func (s docsStore) publishGeneration(bundle *operationaldocs.Bundle) (result error) {
 	state, err := s.generationState(bundle)
 	if err != nil {
 		return docsFailure(err)
@@ -135,10 +135,18 @@ func (s docsStore) publishGeneration(bundle *operationaldocs.Bundle) error {
 		return docsFailure(err)
 	}
 	stagePath := s.generationPath(stageName)
+	stageInfo, err := s.generations.Lstat(stageName)
+	if err != nil {
+		return docsFailure(err)
+	}
 	committed := false
 	defer func() {
 		if !committed {
-			removeTree(stagePath)
+			// Only the stage this operation created is discarded; a replaced
+			// stage or ancestor is preserved and reported.
+			if err := s.generations.RemoveTree(stageName, stageInfo); err != nil {
+				result = docsFailure(errors.Join(result, err))
+			}
 		}
 	}()
 	names := make([]string, 0, len(bundle.Files))
@@ -200,6 +208,9 @@ func (s docsStore) publishGeneration(bundle *operationaldocs.Bundle) error {
 	if err := docsFault("generation_staged"); err != nil {
 		return docsFailure(err)
 	}
+	if visible, err := s.generations.Lstat(stageName); err != nil || !os.SameFile(visible, stageInfo) {
+		return docsFailure(errors.Join(local.ErrReplaced, err))
+	}
 	if err := s.generations.PublishNew(stageName, bundle.Generation); err != nil {
 		if errors.Is(err, os.ErrExist) {
 			if state, checkErr := s.generationState(bundle); checkErr == nil && state == "present" {
@@ -228,17 +239,6 @@ func localStageName(dir local.AnchoredDirectory) (string, error) {
 	return "", os.ErrExist
 }
 
-func removeTree(path string) {
-	_ = filepath.Walk(path, func(p string, info os.FileInfo, err error) error {
-		if err == nil && info.IsDir() {
-			_ = os.Chmod(p, 0o700)
-		}
-		return nil
-	})
-	_ = os.RemoveAll(path)
-}
-
-// docsBinding builds the immutable binding for the installed binary identity.
 func docsBinding(candidate Candidate, binaryPath string, parent, binary os.FileInfo) (operationaldocs.Binding, []byte, string, error) {
 	pdev, pino := fileIdentity(parent)
 	bdev, bino := fileIdentity(binary)

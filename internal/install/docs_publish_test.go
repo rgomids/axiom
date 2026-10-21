@@ -275,3 +275,106 @@ func TestV2StaleDocumentationLockRefusesWithoutEffects(t *testing.T) {
 		t.Fatal("publisher wrote through a held lock")
 	}
 }
+
+func removeTree(path string) {
+	_ = filepath.Walk(path, func(p string, info os.FileInfo, err error) error {
+		if err == nil && info.IsDir() {
+			_ = os.Chmod(p, 0o700)
+		}
+		return nil
+	})
+	_ = os.RemoveAll(path)
+}
+
+// docsBinding builds the immutable binding for the installed binary identity.
+
+func TestV2StageSwapAtFaultBoundaryPreservesForeignObject(t *testing.T) {
+	for _, swap := range []string{"stage_replaced_by_directory", "stage_replaced_by_symlink", "ancestor_replaced"} {
+		t.Run(swap, func(t *testing.T) {
+			target, candidate := v2Target(t), v2Candidate(t, "binary-A", "A", "")
+			generations := filepath.Join(target.BinaryDir, docsParentName, docsRootName, docsGenerationsName)
+			foreign := filepath.Join(filepath.Dir(target.BinaryDir), "foreign")
+			if err := os.MkdirAll(filepath.Join(foreign, "keep"), 0o700); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(foreign, "keep", "file"), []byte("mine\n"), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			moved := filepath.Join(filepath.Dir(target.BinaryDir), "moved")
+			docsFault = func(s string) error {
+				if s != "generation_staged" {
+					return nil
+				}
+				entries, err := os.ReadDir(generations)
+				if err != nil || len(entries) != 1 {
+					t.Errorf("stage not found: %v %v", entries, err)
+					return nil
+				}
+				stage := filepath.Join(generations, entries[0].Name())
+				switch swap {
+				case "ancestor_replaced":
+					_ = os.Chmod(stage, 0o700)
+					if err := os.Rename(generations, moved); err != nil {
+						t.Error(err)
+					}
+					if err := os.Symlink(foreign, generations); err != nil {
+						t.Error(err)
+					}
+				default:
+					_ = os.Chmod(stage, 0o700)
+					if err := os.Rename(stage, moved); err != nil {
+						t.Error(err)
+					}
+					if swap == "stage_replaced_by_symlink" {
+						if err := os.Symlink(foreign, stage); err != nil {
+							t.Error(err)
+						}
+					} else if err := os.Rename(foreign, stage); err != nil {
+						t.Error(err)
+					}
+				}
+				return nil
+			}
+			defer func() { docsFault = func(string) error { return nil } }()
+			result := installV2(t, target, candidate)
+			if result.ExitCode == 0 || posixExists(filepath.Join(target.BinaryDir, binaryName)) {
+				t.Fatal("swap accepted: " + brief(result))
+			}
+			content := filepath.Join(foreign, "keep", "file")
+			if swap == "stage_replaced_by_directory" {
+				content = filepath.Join(generations, "keep", "file")
+				entries, _ := os.ReadDir(generations)
+				for _, e := range entries {
+					if strings.HasPrefix(e.Name(), docsStagePrefix) {
+						content = filepath.Join(generations, e.Name(), "keep", "file")
+					}
+				}
+			}
+			if read(t, content) != "mine\n" {
+				t.Fatal("foreign object changed or removed")
+			}
+			_ = os.Remove(generations)
+			if swap == "ancestor_replaced" {
+				_ = os.Rename(moved, generations)
+			}
+		})
+	}
+}
+
+func TestV2FailedPublicationRemovesOnlyItsOwnStage(t *testing.T) {
+	target, candidate := v2Target(t), v2Candidate(t, "binary-A", "A", "")
+	docsFault = func(s string) error {
+		if s == "generation_staged" {
+			return errors.New("injected")
+		}
+		return nil
+	}
+	defer func() { docsFault = func(string) error { return nil } }()
+	if result := installV2(t, target, candidate); result.ExitCode == 0 {
+		t.Fatal(brief(result))
+	}
+	entries, err := os.ReadDir(filepath.Join(target.BinaryDir, docsParentName, docsRootName, docsGenerationsName))
+	if err != nil || len(entries) != 0 {
+		t.Fatalf("stage left behind: %v %v", entries, err)
+	}
+}
