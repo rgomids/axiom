@@ -23,7 +23,7 @@ Older releases may lack an asset for your platform.
 
 ## Prerequisites
 
-- `sh`, `bash`, `curl`, `tar`, `awk`, `grep`, `mktemp`, and `sha256sum` or
+- `sh`, `bash`, `curl`, `tar`, `gzip`, `awk`, `grep`, `mktemp`, and `sha256sum` or
   `shasum`.
 - Network access to GitHub release metadata and assets over HTTPS.
 - A supported Runtime, installed separately, for Runtime skills. Project setup

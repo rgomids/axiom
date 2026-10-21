@@ -3,7 +3,7 @@
 Install a published release on macOS arm64 or Linux amd64/arm64. Installation
 uses HTTPS and verifies the published archive checksum before extraction. It
 does not require a checkout, Go toolchain, administrator privileges or a
-Runtime. The host needs `sh`, `bash`, `curl`, `tar`, `awk`, `grep`, `mktemp` and
+Runtime. The host needs `sh`, `bash`, `curl`, `tar`, `gzip`, `awk`, `grep`, `mktemp` and
 `sha256sum` or `shasum`.
 
 Install the latest stable release:

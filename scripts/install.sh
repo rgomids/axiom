@@ -254,7 +254,7 @@ esac
 [ -n "$row" ] || fail "unsupported host $system/$machine; supported hosts are $supported_rows"
 info "checking required tools for $row"
 
-for tool in curl tar bash awk grep mktemp; do
+for tool in curl tar gzip bash awk grep mktemp; do
   command -v "$tool" >/dev/null 2>&1 || fail "required tool not found: $tool"
 done
 if command -v sha256sum >/dev/null 2>&1; then

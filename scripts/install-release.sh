@@ -56,6 +56,9 @@ host_matches_release_row() {
 }
 
 archive_name=$(basename "$archive")
+[[ -f "$archive" && ! -L "$archive" && $(wc -c <"$archive") -le 268435456 && -f "$checksums" && ! -L "$checksums" && $(wc -c <"$checksums") -le 65536 ]] || {
+  printf 'install_error: archive or checksums unavailable or exceeds limit\n' >&2; exit 1;
+}
 expected=$(awk -v name="$archive_name" '$2 == name {print $1}' "$checksums")
 if [[ ! "$expected" =~ ^[0-9a-f]{64}$ || $(printf '%s\n' "$expected" | wc -l | tr -d ' ') != 1 ]]; then
   printf 'install_error: exact archive checksum unavailable\n' >&2
@@ -243,30 +246,48 @@ chmod 600 "$staged_archive"
 staged_checksums="$temporary/SHA256SUMS"
 printf '%s  release.tar.gz\n' "$actual" >"$staged_checksums"
 
+# System tar may stop at tar EOF without consuming the gzip trailer. Drain
+# gzip separately, with a hard output bound, before inspecting/extracting tar.
+# This preserves legacy members; it does not prove v2 single-member framing.
+staged_tar="$temporary/archive.tar"
+if ! gzip -dc "$staged_archive" | head -c 536870912 >"$staged_tar"; then
+  printf 'install_error: invalid gzip stream or archive exceeds limit\n' >&2; exit 1
+fi
+stream_bytes=$(wc -c <"$staged_tar" | tr -d ' ')
+[[ "$stream_bytes" -lt 536870912 ]] || { printf 'install_error: archive exceeds stream limit\n' >&2; exit 1; }
+tar -tf "$staged_tar" >"$temporary/archive-entries" || { printf 'install_error: invalid tar stream\n' >&2; exit 1; }
+[[ -z $(sed 's#/$##' "$temporary/archive-entries" | LC_ALL=C sort | uniq -d) ]] || { printf 'install_error: duplicate archive entry\n' >&2; exit 1; }
 while IFS= read -r entry; do
   case "$entry" in /*|../*|*/../*|*/..|*\\*) printf 'install_error: unsafe archive path\n' >&2; exit 1 ;; esac
-done < <(tar -tzf "$staged_archive")
-if tar -tvzf "$staged_archive" | awk 'substr($1,1,1) != "-" && substr($1,1,1) != "d" {exit 1}'; then :; else
+done <"$temporary/archive-entries"
+if tar -tvf "$staged_tar" | awk 'substr($1,1,1) != "-" && substr($1,1,1) != "d" {exit 1}'; then :; else
   printf 'install_error: archive links or special files refused\n' >&2
   exit 1
 fi
 archive_format=1
-metadata_member=$(tar -tzf "$staged_archive" | grep -E '^axiom-[^/]+/release-metadata\.txt$' | head -n1 || true)
-if [[ -n "$metadata_member" ]] && tar -xzOf "$staged_archive" "$metadata_member" 2>/dev/null | head -n1 | grep -qx 'formatVersion=2'; then archive_format=2; fi
+metadata_member=$(grep -E '^axiom-[^/]+/release-metadata\.txt$' "$temporary/archive-entries" | head -n1 || true)
+if [[ -n "$metadata_member" ]] && tar -xOf "$staged_tar" "$metadata_member" 2>/dev/null | head -n1 | grep -qx 'formatVersion=2'; then archive_format=2; fi
 if [[ "$archive_format" == 2 ]]; then
-  [[ $(tar -tzf "$staged_archive" | wc -l | tr -d ' ') -le 192 ]] || { printf 'install_error: archive exceeds entry limit\n' >&2; exit 1; }
+  [[ "$stream_bytes" -le 301989888 && $(wc -l <"$temporary/archive-entries") -le 192 ]] || { printf 'install_error: archive exceeds entry or stream limit\n' >&2; exit 1; }
   while IFS= read -r entry; do
     entry=${entry%/}
     [[ "$entry" =~ ^axiom-[^/]+(/[A-Za-z0-9][A-Za-z0-9._-]*)*$ && ${#entry} -le 280 ]] || { printf 'install_error: unsafe archive path\n' >&2; exit 1; }
-  done < <(tar -tzf "$staged_archive")
-  tar -tvzf "$staged_archive" | awk '{ name = $NF; sub(/\/$/, "", name); n = split(name, parts, "/"); leaf = parts[n]; want = "-rw-------"; if (substr($1, 1, 1) == "d") want = "drwx------"; else if (n == 2 && (leaf == "axiom" || leaf == "install.sh")) want = "-rwx------"; if ($1 != want) exit 1 }' || { printf 'install_error: archive modes refused\n' >&2; exit 1; }
+  done <"$temporary/archive-entries"
+  tar -tvf "$staged_tar" | awk '{ name = $NF; sub(/\/$/, "", name); n = split(name, parts, "/"); leaf = parts[n]; want = "-rw-------"; if (substr($1, 1, 1) == "d") want = "drwx------"; else if (n == 2 && (leaf == "axiom" || leaf == "install.sh")) want = "-rwx------"; if ($1 != want) exit 1 }' || { printf 'install_error: archive modes refused\n' >&2; exit 1; }
+else
+  [[ $(wc -l <"$temporary/archive-entries") -le 64 ]] || { printf 'install_error: archive exceeds entry limit\n' >&2; exit 1; }
 fi
-tar -xzf "$staged_archive" -C "$temporary"
+tar -xf "$staged_tar" -C "$temporary"
 bundle=$(find "$temporary" -mindepth 1 -maxdepth 1 -type d)
 if [[ -z "$bundle" || $(printf '%s\n' "$bundle" | wc -l | tr -d ' ') != 1 ]]; then
   printf 'install_error: invalid archive root\n' >&2
   exit 1
 fi
+while IFS= read -r file; do
+  limit=1048576
+  [[ "$file" != "$bundle/axiom" ]] || limit=268435456
+  [[ $(wc -c <"$file") -le "$limit" ]] || { printf 'install_error: archive file exceeds limit\n' >&2; exit 1; }
+done < <(find "$bundle" -type f -print)
 (
   cd "$bundle"
   while read -r hash name extra; do
