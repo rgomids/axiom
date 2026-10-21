@@ -38,9 +38,13 @@ status/relationship change or AXM-39/AXM-12 unblocking occurred.
 - PASS: `./scripts/check-sensitive-files.sh --staged .` and `gitleaks git --staged --no-banner --redact` before commit `f1896d138311d91480aff1f7e9ead9daa2877d69`.
 - PASS: `./scripts/test-release-pipeline.sh`, clean committed fixture source `f1896d138311d91480aff1f7e9ead9daa2877d69`. Builds/verifies full v1 and explicit v2 sets; rejects either set under the other format, preserves no-publication workflow checks. Its Python stub tests use the working-tree test script (13 tests), not the clone.
 - PASS: producer rejects `--only unsupported` before output creation (expected exit 1, `unsupported row filter`).
-- Bootstrap first clean-commit run: all 76 cases PASS / `failures=0`, including v2 install/reinstall and `loaded:unknown`; overall command FAIL because its old cleanup trap could not remove immutable v2 generation directories. The test-only trap now grants owner write permission inside its own temporary fixture before removal. Clean-commit rerun pending; no production permission/lock behavior changed.
+- Bootstrap first clean-commit run: all 78 cases PASS / `failures=0`, including v2 install/reinstall and `loaded:unknown`; overall command FAIL because its old cleanup trap could not remove immutable v2 generation directories. The test-only trap now grants owner write permission inside its own temporary fixture before removal. Clean-commit rerun pending; no production permission/lock behavior changed.
 - FAIL: `GOPROXY=off GOTOOLCHAIN=local go test ./internal/executiongraph -run '^TestOSProcessRunnerRetainsFastRejectionBeforeCorrelation$' -count=3 -timeout=30s -v`: FAIL/FAIL/FAIL; exit -1, empty output, Stopped/OutcomeUnknown true. No file under executiongraph changed. Timing/race remains an unconfirmed hypothesis.
-- Pending: full Go suite, clean-commit bootstrap rerun, final documentation/security checks and final-head CI. Results will be appended before final handoff.
+- PASS: release-pipeline repeated at clean source `5aadca9cca9da6c8c78a5a8549e6a2d1336d0b7d`, including the updated checksum refusal and all 13 Python tests.
+- PASS: final repository validator and ADR governance after Evidence/routing updates.
+- PASS: `./scripts/test-install-bootstrap.sh` at clean committed source `5aadca9cca9da6c8c78a5a8549e6a2d1336d0b7d`: 78 cases, `failures=0`, command exit 0, including fixture cleanup. All three row selections for both generations are simulated without foreign candidate execution; local development lifecycle uses macOS arm64 only.
+- FAIL: `go test ./...`: every other package PASS (including `cmd/lingo`, 487.001s; `internal/install`, 48.183s), only `internal/executiongraph/TestOSProcessRunnerRetainsFastRejectionBeforeCorrelation` FAIL with the same lost process result. Go sources are unchanged since this run; later commits adjust Python test safety/checksum selection and documentation. This is a failing full suite, not a product/native PASS.
+- Final staged security/diff checks and final-head CI are reported in the same-attempt Linear completion receipt. Source test commit and final documentation commit are distinct; no old SHA's CI PASS is reused.
 
 ## Limits and next gate
 
@@ -78,3 +82,13 @@ and all 13 cases pass. No environment dump was written to repository artifacts
 or published to Git/Linear. The user was notified to rotate the exposed token;
 rotation/credential operations were not performed or authorized. No credential
 value is retained in this Evidence.
+
+## Handoff
+
+Bounded producer/bootstrap/release-consumer and legacy-gzip patches are committed
+on the original branch. Default remains generation 1; no workflow dispatch or
+publication took place. Delivery is **PARTIAL**: exact-head remote CI must be
+read after push, T16 independent review remains required, and the shell framing
+differential above must be resolved/qualified before any separate default
+activation authority. T13/T15 remain NOT_RUN, T14/T16 PARTIAL, AC-04/08 NOT_RUN,
+v0.1.0 UNVERIFIED. No historical PASS or FAIL was erased.

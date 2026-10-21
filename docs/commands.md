@@ -800,9 +800,9 @@ a publishable release set always contains all three rows.
 
 Each archive holds one bundle directory with the canonical public executable
 `axiom`, `LICENSE`, the release installer `install.sh`, `release-metadata.txt`,
-`skills-manifest.txt`, the three canonical Runtime skills, and a complete `MANIFEST.sha256`.
+`skills-manifest.txt`, the four canonical Runtime skills, and a complete `MANIFEST.sha256`.
 Upgrading a recognized six- or eight-skill installation retires verified
-Axiom-owned legacy entries and converges to the three canonical skills. Foreign,
+Axiom-owned legacy entries and converges to the four canonical skills. Foreign,
 modified, linked or unrecognized content is preserved and reported as conflict.
 The installer publishes `<bin-dir>/axiom`. A receipt or binary from a pre-`axiom`
 archive (which shipped `lingo`) is not recognized as owned and is preserved;
@@ -955,7 +955,7 @@ The manually dispatched `Release artifacts` workflow
 (`.github/workflows/release-artifacts.yml`) is the PREPARE phase of the
 [Release flow](#release-flow). It takes `tag` and `revision` inputs, runs from
 `main`, checks out that exact revision, requires it to be clean and to pass
-`release-preflight.sh`, builds the four supported rows with
+`release-preflight.sh`, builds the three supported rows with
 `build-release-archives.sh`, verifies the complete set, renders the release
 notes, and retains `artifacts/`, `release-evidence.txt`, `release-notes.md`,
 `preflight.txt` and `prepare-metadata.txt` as the workflow artifact
