@@ -15,6 +15,10 @@ That packet records the current gate and later checks without overwriting the
 historical observations below. Review 7 resolved CR-002 only; native T13/T15 and
 AC-08 remain NOT_RUN, T14/T16 PARTIAL. No full-delivery acceptance is inferred.
 
+Bounded continuation: [v2/gzip r2 Evidence](evidence-bounded-v2-gzip-r2.md).
+The tables and known-limits statements below retain their original checkpoint;
+the linked delta records later changes without replacing historical results.
+
 ## Task traceability
 
 | Task / Evidence | State | What exists and what was run |

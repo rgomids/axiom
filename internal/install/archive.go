@@ -86,8 +86,14 @@ func LoadCandidate(archivePath, checksumsPath string) (Candidate, error) {
 	if actual != expected {
 		return Candidate{}, &Error{Category: "checksum_mismatch"}
 	}
-	read, err := readBundleBounded(archive, maxArchiveEntriesV2)
-	if err != nil {
+	read, err := readBundleBounded(archive, maxArchiveEntriesV2, false)
+	// Legacy tar streams may span gzip members, including their headers and
+	// metadata. A retry is never eligible for v2: that format is single-member.
+	if err != nil || read.trailing {
+		read, err = readBundleBounded(archive, maxArchiveEntriesV2, true)
+		read.trailing = true
+	}
+	if err != nil || !read.zeroTail {
 		return Candidate{}, &Error{Category: "archive_invalid"}
 	}
 	files := read.files
@@ -135,7 +141,7 @@ type bundleRead struct {
 	zeroTail bool
 }
 
-func readBundleBounded(archive []byte, maxHeaders int) (bundleRead, error) {
+func readBundleBounded(archive []byte, maxHeaders int, multistream bool) (bundleRead, error) {
 	result := bundleRead{files: map[string][]byte{}, entries: map[string]bundleEntry{}, dirs: map[string]bundleEntry{}}
 	source := bytes.NewReader(archive)
 	compressed, err := gzip.NewReader(source)
@@ -143,10 +149,11 @@ func readBundleBounded(archive []byte, maxHeaders int) (bundleRead, error) {
 		return result, err
 	}
 	defer compressed.Close()
-	compressed.Multistream(false)
+	compressed.Multistream(multistream)
 	counted := &countingReader{reader: io.LimitReader(compressed, maxArchiveBytes+maxBinaryBytes)}
 	reader := tar.NewReader(counted)
 	root := ""
+	seen := map[string]bool{}
 	files := result.files
 	for entries := 0; ; entries++ {
 		header, err := reader.Next()
@@ -161,6 +168,10 @@ func readBundleBounded(archive []byte, maxHeaders int) (bundleRead, error) {
 		if name == "" || strings.HasPrefix(name, "/") || strings.Contains(name, "\\") || path.Clean(name) != name || name == ".." || strings.HasPrefix(name, "../") {
 			return result, errors.New("unsafe archive path")
 		}
+		if seen[name] {
+			return result, errors.New("duplicate archive entry")
+		}
+		seen[name] = true
 		first, rest, nested := strings.Cut(name, "/")
 		if root == "" {
 			root = first
@@ -198,7 +209,7 @@ func readBundleBounded(archive []byte, maxHeaders int) (bundleRead, error) {
 		result.entries[rest] = entry
 	}
 	var tail zeroChecker
-	if _, err := io.Copy(&tail, counted); err != nil {
+	if _, err := io.Copy(&tail, counted); err != nil || counted.total >= maxArchiveBytes+maxBinaryBytes {
 		return result, errors.New("invalid archive trailer")
 	}
 	result.stream = counted.total

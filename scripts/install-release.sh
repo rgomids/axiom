@@ -7,8 +7,10 @@ archive=
 checksums=
 binary_root=
 receipt_root=
+verify_only=false
 while (($#)); do
   case "$1" in
+    --verify-only) verify_only=true; shift ;;
     --archive) archive=${2:-}; shift 2 ;;
     --checksums) checksums=${2:-}; shift 2 ;;
     --bin-dir) binary_root=${2:-}; shift 2 ;;
@@ -325,6 +327,12 @@ if [[ "$archive_format" != 2 ]]; then
   platform=$(awk -F= '$1 == "goos" {print $2}' "$metadata")
   architecture=$(awk -F= '$1 == "architecture" {print $2}' "$metadata")
   release_platform=$(awk -F= '$1 == "platform" {print $2}' "$metadata")
+fi
+# Release-set verification validates all rows without executing candidates or
+# publishing installation state. Destination arguments remain mandatory.
+if [[ "$verify_only" == true ]]; then
+  printf 'archive_verify_success: format=%s platform=%s architecture=%s\n' "$archive_format" "$release_platform" "$architecture"
+  exit 0
 fi
 if ! host_matches_release_row "$release_platform" "$platform" "$architecture"; then
   printf 'install_error: unsupported host for release row %s/%s; supported OS family and architecture required\n' "$release_platform" "$architecture" >&2

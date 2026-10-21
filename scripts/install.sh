@@ -304,8 +304,6 @@ else
     || fail 'the latest release tag is not a stable vMAJOR.MINOR.PATCH tag; use --version'
 fi
 version=${tag#v}
-asset=axiom-$version-$row.tar.gz
-bundle=axiom-$version-$row
 success "resolved $tag"
 
 work=$(mktemp -d)
@@ -326,6 +324,21 @@ case "$status" in
   22) fail "release $tag has no published SHA256SUMS; nothing was installed" ;;
   *) fail "network failure while downloading SHA256SUMS for $tag (curl exit $status); nothing was installed" ;;
 esac
+# The complete checksum set selects one generation, for every host. Linux
+# names are shared; the macOS token disambiguates v1/v2 without probing URLs.
+archive_format=$(awk -v v="$version" '
+  NF != 2 || length($1) != 64 || $1 ~ /[^0-9a-f]/ { bad=1; next }
+  { if (seen[$2]++) bad=1 }
+  $2 == "axiom-" v "-macos-27-arm64.tar.gz" { legacy++; next }
+  $2 == "axiom-" v "-macos-arm64.tar.gz" { current++; next }
+  $2 == "axiom-" v "-linux-amd64.tar.gz" { amd++; next }
+  $2 == "axiom-" v "-linux-arm64.tar.gz" { arm++; next }
+  { bad=1 }
+  END { if (bad || NR != 3 || amd != 1 || arm != 1 || legacy+current != 1) exit 1; print current ? 2 : 1 }
+' "$work/SHA256SUMS") || fail "release $tag checksum asset set is ambiguous or incomplete; nothing was installed"
+if [ "$archive_format" = 2 ] && [ "$row" = macos-27-arm64 ]; then row=macos-arm64; fi
+asset=axiom-$version-$row.tar.gz
+bundle=axiom-$version-$row
 expected=$(awk -v name="$asset" '$2 == name && NF == 2 {print $1}' "$work/SHA256SUMS")
 [ "$(printf '%s\n' "$expected" | grep -c .)" = 1 ] && printf '%s\n' "$expected" | grep -Eq '^[0-9a-f]{64}$' \
   || fail "release $tag publishes no single checksum for $asset; nothing was installed"
@@ -364,9 +377,13 @@ for member in install.sh release-metadata.txt; do
     || fail "bundle $member does not match its manifest; nothing was installed"
 done
 metadata=$work/bundle/$bundle/release-metadata.txt
+for key in formatVersion product version sourceState release platform architecture; do
+  [ "$(awk -F= -v key="$key" '$1 == key {n++} END {print n+0}' "$metadata")" = 1 ] \
+    || fail "release metadata is ambiguous; nothing was installed"
+done
 platform=${row%-*}
 architecture=${row##*-}
-for expected_line in "product=Axiom" "version=$version" "sourceState=clean" "release=true" "platform=$platform" "architecture=$architecture"; do
+for expected_line in "formatVersion=$archive_format" "product=Axiom" "version=$version" "sourceState=clean" "release=true" "platform=$platform" "architecture=$architecture"; do
   grep -Fxq "$expected_line" "$metadata" || fail "release metadata does not match $tag for $row; nothing was installed"
 done
 installer=$work/bundle/$bundle/install.sh

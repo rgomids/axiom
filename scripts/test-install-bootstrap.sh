@@ -199,6 +199,7 @@ publish v1.2.0-rc.1
 publish v3.0.0
 publish v4.0.0 --development
 publish v2.0.0
+publish v5.0.0 "--format 2"
 rm -- "$fixtures/releases/v2.0.0/"*.tar.gz
 rm -- "$fixtures/releases/v3.0.0/axiom-3.0.0-$row.tar.gz"
 mkdir "$fixtures/releases/v6.0.0" "$fixtures/releases/v7.0.0" "$fixtures/releases/v8.0.0"
@@ -206,9 +207,11 @@ cp "$fixtures/releases/v1.1.0/axiom-1.1.0-$row.tar.gz" "$fixtures/releases/v6.0.
 grep -v "$row" "$fixtures/releases/v1.1.0/SHA256SUMS" >"$fixtures/releases/v6.0.0/SHA256SUMS"
 cp "$fixtures/releases/v1.1.0/axiom-1.1.0-$row.tar.gz" "$fixtures/releases/v7.0.0/axiom-7.0.0-$row.tar.gz"
 printf 'tamper\n' >>"$fixtures/releases/v7.0.0/axiom-7.0.0-$row.tar.gz"
-printf '%s  axiom-7.0.0-%s.tar.gz\n' "$(digest "$fixtures/releases/v1.1.0/axiom-1.1.0-$row.tar.gz")" "$row" >"$fixtures/releases/v7.0.0/SHA256SUMS"
+sed "s/axiom-1.1.0/axiom-7.0.0/g" "$fixtures/releases/v1.1.0/SHA256SUMS" | grep -v "$row" >"$fixtures/releases/v7.0.0/SHA256SUMS"
+printf '%s  axiom-7.0.0-%s.tar.gz\n' "$(digest "$fixtures/releases/v1.1.0/axiom-1.1.0-$row.tar.gz")" "$row" >>"$fixtures/releases/v7.0.0/SHA256SUMS"
 cp "$fixtures/releases/v1.1.0/axiom-1.1.0-$row.tar.gz" "$fixtures/releases/v8.0.0/axiom-8.0.0-$row.tar.gz"
-printf '%s  axiom-8.0.0-%s.tar.gz\n' "$(digest "$fixtures/releases/v8.0.0/axiom-8.0.0-$row.tar.gz")" "$row" >"$fixtures/releases/v8.0.0/SHA256SUMS"
+sed "s/axiom-1.1.0/axiom-8.0.0/g" "$fixtures/releases/v1.1.0/SHA256SUMS" | grep -v "$row" >"$fixtures/releases/v8.0.0/SHA256SUMS"
+printf '%s  axiom-8.0.0-%s.tar.gz\n' "$(digest "$fixtures/releases/v8.0.0/axiom-8.0.0-$row.tar.gz")" "$row" >>"$fixtures/releases/v8.0.0/SHA256SUMS"
 printf '%s/releases/tag/v1.1.0' "$base" >"$fixtures/latest-location"
 revision12=$(git -C "$repository_root" rev-parse --verify HEAD | cut -c1-12)
 asset_sha() { awk -v name="axiom-${1#v}-$row.tar.gz" '$2 == name {print $1}' "$fixtures/releases/$1/SHA256SUMS"; }
@@ -236,6 +239,44 @@ for selection in macos-27-arm64:Darwin:arm64 linux-amd64:Linux:x86_64 linux-arm6
     printf "https://github.com/rgomids/axiom/releases/download/v2.0.0/SHA256SUMS\nhttps://github.com/rgomids/axiom/releases/download/v2.0.0/axiom-2.0.0-%s.tar.gz\n" "$selected_row" | cmp -s - "$temporary/ledger"
   '
 done
+
+# v2 uses the closed macos token on every host's checksum inventory. No
+# second URL or v1 fallback is attempted for an ambiguous set.
+for selection in macos-arm64:Darwin:arm64 linux-amd64:Linux:x86_64 linux-arm64:Linux:aarch64; do
+  IFS=: read -r selected_row selected_system selected_machine <<<"$selection"
+  shim="$temporary/v2-row-tools-$selected_row"
+  mkdir -p "$shim"
+  printf '#!/bin/sh\ncase "$1" in -s) echo %s ;; -m) echo %s ;; esac\n' "$selected_system" "$selected_machine" >"$shim/uname"
+  chmod 700 "$shim/uname"
+  # Serve the exact checksum inventory but withhold all archives, so no foreign
+  # binary runs even with a simulated host.
+  mkdir -p "$fixtures/releases/v5.1.0"
+  sed 's/axiom-5.0.0/axiom-5.1.0/g' "$fixtures/releases/v5.0.0/SHA256SUMS" >"$fixtures/releases/v5.1.0/SHA256SUMS"
+  export shim selected_row
+  step "v2-row-selection:$selected_row" bash -eo pipefail -c '
+    EXTRA_PATH="$shim" refused "$(mktemp -d "$temporary/homes/v2-row.XXXXXX")" "has no published asset axiom-5.1.0-$selected_row.tar.gz" --version v5.1.0
+    [[ $(wc -l <"$temporary/ledger" | tr -d " ") == 2 ]]
+    tail -n1 "$temporary/ledger" | grep -Fxq "https://github.com/rgomids/axiom/releases/download/v5.1.0/axiom-5.1.0-$selected_row.tar.gz"
+  '
+done
+mkdir -p "$fixtures/releases/v5.2.0"
+sed 's/axiom-5.0.0/axiom-5.2.0/g' "$fixtures/releases/v5.0.0/SHA256SUMS" >"$fixtures/releases/v5.2.0/SHA256SUMS"
+grep macos "$fixtures/releases/v5.2.0/SHA256SUMS" | sed 's/-macos-/-macos-27-/' >>"$fixtures/releases/v5.2.0/SHA256SUMS"
+step mixed-generation-checksums bash -eo pipefail -c '
+  refused "$(mktemp -d "$temporary/homes/mixed.XXXXXX")" "checksum asset set is ambiguous or incomplete" --version v5.2.0
+  [[ $(wc -l <"$temporary/ledger" | tr -d " ") == 1 ]]
+'
+step v2-install-reinstall bash -eo pipefail -c '
+  home=$(mktemp -d "$temporary/homes/v2-install.XXXXXX")
+  run_bootstrap "$home" --version v5.0.0
+  grep -Fxq "formatVersion=2" "$(receipt_of "$home")"
+  env -i HOME="$home" PATH=/usr/bin:/bin "$(bin_of "$home")" --json docs inspect >"$temporary/v2-inspect.json"
+  grep -Fq "\"state\":\"verified\"" "$temporary/v2-inspect.json"
+  grep -Fq "\"loaded\":\"unknown\"" "$temporary/v2-inspect.json"
+  before=$(snapshot "$home")
+  run_bootstrap "$home" --version v5.0.0
+  [[ $(snapshot "$home") == "$before" ]]
+'
 
 # Issue #183: macOS eligibility is the OS family and architecture only. Any
 # reported version selects the darwin/arm64 row, and sw_vers is never run: the
@@ -397,7 +438,7 @@ step ambiguous-latest-redirect bash -eo pipefail -c '
 '
 step unpublished-exact-version bash -eo pipefail -c 'refused "$home" "release v9.9.9 has no published SHA256SUMS" --version v9.9.9'
 step missing-asset bash -eo pipefail -c 'refused "$home" "has no published asset axiom-3.0.0-$row.tar.gz" --version v3.0.0'
-step missing-checksum bash -eo pipefail -c 'refused "$home" "publishes no single checksum" --version v6.0.0 && ! grep -Fq ".tar.gz" "$temporary/ledger"'
+step missing-checksum bash -eo pipefail -c 'refused "$home" "checksum asset set is ambiguous or incomplete" --version v6.0.0 && ! grep -Fq ".tar.gz" "$temporary/ledger"'
 step checksum-mismatch bash -eo pipefail -c 'refused "$home" "checksum mismatch for axiom-7.0.0-$row.tar.gz" --version v7.0.0'
 step mislabeled-release-asset bash -eo pipefail -c 'refused "$home" "lacks its release installer or metadata" --version v8.0.0'
 step development-build-not-installable bash -eo pipefail -c 'refused "$home" "release metadata does not match v4.0.0" --version v4.0.0'

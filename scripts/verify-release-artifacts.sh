@@ -11,8 +11,10 @@ repository_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)
 directory=
 version=
 revision=
+format=1
 while (($#)); do
   case "$1" in
+    --format) format=${2:-}; shift 2 ;;
     --dir) directory=${2:-}; shift 2 ;;
     --version) version=${2:-}; shift 2 ;;
     --revision) revision=${2:-}; shift 2 ;;
@@ -25,6 +27,7 @@ fail() {
   exit 1
 }
 
+[[ "$format" == 1 || "$format" == 2 ]] || fail 'archive format must be 1 or 2'
 [[ "$directory" == /* && -d "$directory" && ! -L "$directory" ]] || fail 'absolute artifact directory required'
 [[ "$version" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$ ]] || fail 'exact semantic version required'
 [[ "$revision" =~ ^[0-9a-f]{40}$ ]] || fail 'full source revision required'
@@ -41,6 +44,7 @@ digest() {
 }
 
 rows='macos-27:darwin:arm64 linux:linux:amd64 linux:linux:arm64'
+if [[ "$format" == 2 ]]; then rows='macos:darwin:arm64 linux:linux:amd64 linux:linux:arm64'; fi
 # The closed skill set is exactly the source revision's embedded skills
 # (internal/codexruntime/skills), which this checkout is verified to be.
 skill_names=$(cd "$repository_root/internal/codexruntime/skills" && for skill in */; do printf '%s ' "${skill%/}"; done)
@@ -85,6 +89,12 @@ for row in $rows; do
   bundle="axiom-$version-$platform-$architecture"
   archive="$directory/$bundle.tar.gz"
 
+  if [[ "$format" == 2 ]]; then
+    # Reuse the full source shell verifier. No candidate is executed, including
+    # cross-compiled rows; all persistent destinations stay absent.
+    "$repository_root/scripts/install-release.sh" --verify-only --archive "$archive" --checksums "$checksums" \
+      --bin-dir "$temporary/unused-bin" --receipt-dir "$temporary/unused-receipt" >"$temporary/verified"
+  fi
   # Closed entry set with regular files and directories only.
   {
     printf '%s\n' "$bundle" "$bundle/LICENSE" "$bundle/MANIFEST.sha256" "$bundle/$executable" "$bundle/$installer" \
@@ -92,6 +102,11 @@ for row in $rows; do
     for name in $skill_names; do
       printf '%s\n' "$bundle/skills/$name" "$bundle/skills/$name/SKILL.md"
     done
+    if [[ "$format" == 2 ]]; then
+      printf '%s\n' "$bundle/docs" "$bundle/docs/text" "$bundle/docs/man" "$bundle/docs/man/man1" \
+        "$bundle/docs/inventory.tsv" "$bundle/docs/provenance.tsv" "$bundle/docs/man-map.tsv"
+      tar -xzOf "$archive" "$bundle/docs/inventory.tsv" | tail -n +3 | cut -f1 | while IFS= read -r name; do printf '%s/%s\n' "$bundle" "$name"; done
+    fi
   } | LC_ALL=C sort >"$temporary/expected-entries"
   tar -tzf "$archive" | sed 's#/$##' | LC_ALL=C sort >"$temporary/actual-entries"
   cmp -s "$temporary/expected-entries" "$temporary/actual-entries" || fail "archive entries are not the closed bundle set: $bundle"
@@ -113,9 +128,18 @@ for row in $rows; do
     done <MANIFEST.sha256
   ) || fail "bundle MANIFEST.sha256 is incomplete or wrong: $bundle"
 
-  printf 'formatVersion=1\nproduct=Axiom\nversion=%s\nrevision=%s\nsourceState=clean\nrelease=true\nplatform=%s\ngoos=%s\narchitecture=%s\nskillSetVersion=1\n' \
-    "$version" "${revision:0:12}" "$platform" "$goos" "$architecture" >"$temporary/expected-metadata"
-  cmp -s "$temporary/expected-metadata" "$root/release-metadata.txt" || fail "release metadata does not match version/revision/row: $bundle"
+  printf 'formatVersion=%s\nproduct=Axiom\nversion=%s\nrevision=%s\nsourceState=clean\nrelease=true\nplatform=%s\ngoos=%s\narchitecture=%s\nskillSetVersion=1\n' \
+    "$format" "$version" "${revision:0:12}" "$platform" "$goos" "$architecture" >"$temporary/expected-metadata"
+  if [[ "$format" == 2 ]]; then
+    # All remaining hashes/schema were checked by verify-only above; bind the
+    # documentary source to this exact checkout as well.
+    head -n 10 "$root/release-metadata.txt" >"$temporary/metadata-prefix"
+    grep -Fxq "sourceCommit=$revision" "$root/release-metadata.txt" || fail "documentary source mismatch: $bundle"
+    metadata_compare="$temporary/metadata-prefix"
+  else
+    metadata_compare="$root/release-metadata.txt"
+  fi
+  cmp -s "$temporary/expected-metadata" "$metadata_compare" || fail "release metadata does not match version/revision/row: $bundle"
 
   cmp -s "$repository_root/LICENSE" "$root/LICENSE" || fail "LICENSE differs from source: $bundle"
   cmp -s "$repository_root/scripts/$installer_source" "$root/$installer" || fail "installer differs from source: $bundle"

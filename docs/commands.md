@@ -782,7 +782,7 @@ structured event, as with other `axiom` commands.
 ## Build and install exact-version S2 archives
 
 A release build requires a clean checkout, an exact semantic version, and an
-absolute output directory. It emits four checksummed archives plus
+absolute output directory. It emits three checksummed archives plus
 `SHA256SUMS`:
 
 ```bash
@@ -790,6 +790,13 @@ absolute output directory. It emits four checksummed archives plus
   --version 0.1.0 \
   --output /absolute/release
 ```
+
+Archive generation 1 remains the effective default in the builder and release
+workflows. Explicit `--format 2` adds the installed operational corpus and uses
+`macos-arm64`; generation 1 retains `macos-27-arm64`. Both generations use
+`linux-amd64` and `linux-arm64`. `--only` accepts a single normalized row
+(`macos-arm64`, `linux-amd64` or `linux-arm64`) for local development builds;
+a publishable release set always contains all three rows.
 
 Each archive holds one bundle directory with the canonical public executable
 `axiom`, `LICENSE`, the release installer `install.sh`, `release-metadata.txt`,
@@ -889,11 +896,12 @@ Selection:
   selector, is an input error with no effect.
 - `--channel` and `--version` are mutually exclusive and fail before any effect.
 
-The bootstrap detects the eligible row (macOS on arm64 mapped to the
-`macos-27-arm64` archive, or Linux on x86_64/aarch64 mapped to the
-`linux-amd64`/`linux-arm64` archive; the OS version is not consulted) before any
-download, fetches the release
-`SHA256SUMS` and the row's archive over HTTPS only, and verifies the digest
+The bootstrap detects the eligible OS/architecture before any download, then
+fetches `SHA256SUMS` over HTTPS. Its complete, closed three-archive inventory
+selects generation 1 (`macos-27-arm64`) or 2 (`macos-arm64`) for all hosts;
+Linux retains `linux-amd64`/`linux-arm64`. Mixed generations, duplicate names,
+unknown assets, missing rows and malformed checksums refuse before any archive
+request. It requests exactly the selected row with no fallback, and verifies its digest
 before reading the archive. It then requires the bundle's `install.sh` and
 `release-metadata.txt` to match the bundle manifest and the metadata to be the
 resolved version and row of a clean release build, and runs that release
@@ -965,6 +973,16 @@ Verify an artifact set locally from a clean checkout at its exact revision:
   --version 0.1.0-rc.2 \
   --revision "$(git rev-parse HEAD)"
 ```
+
+For generation 2, pass `--format 2` to both builder and verifier. The verifier
+keeps generation 1 as its default and rejects a set for the other generation.
+The bundled installer supports `--verify-only` with the usual absolute archive,
+checksum and destination arguments: it validates without executing the candidate,
+checking host eligibility or creating destinations. Release verification uses
+this mode for all v2 rows before source/provenance checks. The prepared-artifact
+smoke also accepts explicit `--format 2` and `--row macos-arm64`; its default
+remains generation 1. Smoke is development evidence, not native documentation
+or agent qualification.
 
 The verifier requires exactly `SHA256SUMS` plus one archive per supported row,
 correct checksums, the closed bundle entry set with a `0700` `axiom` executable,

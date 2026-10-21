@@ -139,6 +139,11 @@ repack_refused() {
   mkdir -m 700 "$dir" "$dir/bin" "$dir/receipts"
   tar -xzf "$archive" -C "$dir"
   bundle=$(find "$dir" -mindepth 1 -maxdepth 1 -type d -not -name bin -not -name receipts)
+  # Safe execution sentinel: documentary rejection must happen before even
+  # the candidate's version probe, not merely before persistent publication.
+  printf '#!/bin/sh\n: >"%s"\nexit 0\n' "$dir/candidate-executed" >"$bundle/axiom"
+  sed "s/^binarySha256=.*/binarySha256=$(digest "$bundle/axiom")/" "$bundle/release-metadata.txt" >"$dir/metadata"
+  mv "$dir/metadata" "$bundle/release-metadata.txt"
   (cd "$bundle" && eval "$mutation")
   (
     cd "$bundle"
@@ -154,7 +159,7 @@ repack_refused() {
   if out=$("$repository_root/scripts/install-release.sh" --archive "$dir/$(basename "$bundle").tar.gz" --checksums "$dir/SHA256SUMS" --bin-dir "$dir/bin" --receipt-dir "$dir/receipts" 2>&1); then
     fail "$label: installer accepted a resealed bad archive"
   fi
-  [[ "$out" == *"$expected"* && ! -e "$dir/bin/axiom" ]] || fail "$label: unexpected refusal: $out"
+  [[ "$out" == *"$expected"* && ! -e "$dir/bin/axiom" && ! -e "$dir/candidate-executed" ]] || fail "$label: unexpected refusal: $out"
   printf 'docs_offline_refused: %s -> %s\n' "$label" "$expected"
 }
 

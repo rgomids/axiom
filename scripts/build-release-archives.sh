@@ -25,6 +25,7 @@ if [[ "$format" != 1 && "$format" != 2 ]]; then
   printf 'release_build_error: archive format must be 1 or 2\n' >&2
   exit 1
 fi
+case "$only" in ''|macos-arm64|linux-amd64|linux-arm64) ;; *) printf 'release_build_error: unsupported row filter\n' >&2; exit 1 ;; esac
 if [[ ! "$version" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?(\+[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$ ]]; then
   printf 'release_build_error: exact semantic version required\n' >&2
   exit 1

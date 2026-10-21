@@ -5,6 +5,10 @@ baseline; [E01–E16](evidence-implement-v3.md) retains historical results and
 limits. This preparation does not accept product behavior, replace Q6 or grant
 host, network, credential, Runtime, release or Linear-transition authority.
 
+Later bounded continuation: [v2/gzip r2 Evidence](evidence-bounded-v2-gzip-r2.md).
+The five decisions and explicit patch authority were subsequently verified;
+this packet's historical qualification limits remain unchanged.
+
 ## Entry and reproducible development checks
 
 Entry head: `78ecd6cac911d6f53726bd51cda7b2817413365b`. Review 7 resolved
