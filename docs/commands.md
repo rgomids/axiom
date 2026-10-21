@@ -284,6 +284,28 @@ Unknown/duplicate/conflicting invocation inputs retain their validation errors;
 inspection neither validates live domain state nor authorizes any effect.
 See the [contract and evidence](specifications/004-mvp-v1-baseline/issue-131-skill-arguments.md).
 
+## Inspect installed operational documentation
+
+```sh
+axiom --json docs inspect
+axiom --human docs inspect
+```
+
+`docs inspect` is read-only. It verifies, against the descriptor compiled into the
+running binary, the documentation generation and binding published next to the
+installed binary (`.axiom-docs/axiom/`), and returns the Markdown and man paths
+only when the state is `verified`. Every other state (`absent`, `invalid`,
+`unknown`) is a refusal with a `reason`, exit 1 and no paths. Presentation flags
+go before the command words. It never repairs, downloads, starts a man reader or
+a Runtime, and reports `loaded` as `unknown`: `skills.observed` lists on-disk
+skill facts per Runtime, not session state. A release archive carries these
+documents only in archive generation 2 (`scripts/build-release-archives.sh
+--format 2`); generation 1 installations report no documentation.
+
+`scripts/test-docs-offline.sh` builds a development generation 2 archive,
+installs it into a throwaway prefix and checks verification, corpus integrity,
+closed links and refusal of tampered, copied or modified installations.
+
 ## Lingo Project lifecycle
 
 O lifecycle portátil básico é local. Comandos separados de Runtime/Work Item

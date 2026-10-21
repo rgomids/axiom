@@ -226,3 +226,52 @@ func TestV2MigratesAV1InstallationPreservingForeignFiles(t *testing.T) {
 		t.Fatal(brief(again))
 	}
 }
+
+func TestV2InstallationLockCoversDifferentReceiptRoots(t *testing.T) {
+	target, candidate := v2Target(t), v2Candidate(t, "binary-A", "A", "")
+	other := target
+	other.ReceiptDir = filepath.Join(filepath.Dir(target.ReceiptDir), "receipts-other")
+	t.Cleanup(func() { removeTree(filepath.Dir(target.BinaryDir)) })
+	results := make(chan InstallerResult, 2)
+	for _, t2 := range []Target{target, other} {
+		go func(tt Target) { results <- InstallReleasePOSIX(context.Background(), tt, candidate, "") }(t2)
+	}
+	first, second := <-results, <-results
+	if first.ExitCode == 0 && second.ExitCode == 0 {
+		t.Fatalf("both publishers succeeded: %s | %s", brief(first), brief(second))
+	}
+	if first.ExitCode != 0 && second.ExitCode != 0 {
+		if posixExists(filepath.Join(target.BinaryDir, binaryName)) && posixExists(filepath.Join(target.ReceiptDir, receiptName)) && posixExists(filepath.Join(other.ReceiptDir, receiptName)) {
+			t.Fatal("both receipts exist")
+		}
+	}
+	owners := 0
+	for _, dir := range []string{target.ReceiptDir, other.ReceiptDir} {
+		if posixExists(filepath.Join(dir, receiptName)) {
+			owners++
+		}
+	}
+	if owners > 1 {
+		t.Fatalf("%d receipt roots claim one binary", owners)
+	}
+}
+
+func TestV2StaleDocumentationLockRefusesWithoutEffects(t *testing.T) {
+	target, candidate := v2Target(t), v2Candidate(t, "binary-A", "A", "")
+	if result := installV2(t, target, candidate); result.ExitCode != 0 {
+		t.Fatal(brief(result))
+	}
+	lock := filepath.Join(target.BinaryDir, docsParentName, docsRootName, docsLockName)
+	if err := os.Mkdir(lock, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	removeTree(filepath.Join(target.BinaryDir, docsParentName, docsRootName, docsGenerationsName, candidate.Docs.Generation))
+	before := read(t, filepath.Join(target.ReceiptDir, receiptName))
+	result := installV2(t, target, candidate)
+	if result.ExitCode == 0 || read(t, filepath.Join(target.ReceiptDir, receiptName)) != before {
+		t.Fatal(brief(result))
+	}
+	if posixExists(filepath.Join(target.BinaryDir, docsParentName, docsRootName, docsGenerationsName, candidate.Docs.Generation)) {
+		t.Fatal("publisher wrote through a held lock")
+	}
+}
