@@ -8,8 +8,12 @@ checksums=
 binary_root=
 receipt_root=
 verify_only=false
+helper=${AXIOM_VERIFIER_PATH:-}
+helper_sha256=${AXIOM_VERIFIER_SHA256:-}
 while (($#)); do
   case "$1" in
+    --helper) helper=${2:-}; shift 2 ;;
+    --helper-sha256) helper_sha256=${2:-}; shift 2 ;;
     --verify-only) verify_only=true; shift ;;
     --archive) archive=${2:-}; shift 2 ;;
     --checksums) checksums=${2:-}; shift 2 ;;
@@ -246,13 +250,32 @@ chmod 600 "$staged_archive"
 staged_checksums="$temporary/SHA256SUMS"
 printf '%s  release.tar.gz\n' "$actual" >"$staged_checksums"
 
-# System tar may stop at tar EOF without consuming the gzip trailer. Drain
-# gzip separately, with a hard output bound, before inspecting/extracting tar.
-# Legacy multistream decoding is preserved; v2 framing is checked below.
+# Authenticate an independently acquired verifier before any execution. Pins
+# must come from trusted release metadata, never from an adjacent checksum file.
+[[ "$helper" == /* && -f "$helper" && ! -L "$helper" && "$helper_sha256" =~ ^[0-9a-f]{64}$ ]] || {
+  printf 'install_error: trusted helper and independent SHA-256 pin required\n' >&2; exit 1;
+}
+safe_components "$helper" || { printf 'install_error: unsafe helper path\n' >&2; exit 1; }
+[[ $(wc -c <"$helper") -le 16777216 ]] || { printf 'install_error: helper exceeds limit\n' >&2; exit 1; }
+helper_name=$(basename "$helper")
+[[ "$helper_name" =~ ^axiom-verifier-([0-9A-Za-z.+-]+)-([0-9a-f]{40})-(darwin|linux)-(amd64|arm64)$ ]] || {
+  printf 'install_error: helper asset identity invalid\n' >&2; exit 1;
+}
+helper_goos=${BASH_REMATCH[3]}; helper_arch=${BASH_REMATCH[4]}
+cp -- "$helper" "$temporary/$helper_name"
+helper="$temporary/$helper_name"
+[[ $(digest "$helper") == "$helper_sha256" ]] || { printf 'install_error: helper checksum mismatch\n' >&2; exit 1; }
+header=$(od -An -tx1 -N20 "$helper" | tr -d ' \n')
+case "$(uname -s):$(uname -m):$helper_goos:$helper_arch" in
+  Darwin:arm64:darwin:arm64) [[ "$header" == cffaedfe0c000001* ]] ;;
+  Linux:x86_64:linux:amd64) [[ "$header" == 7f454c46020101* && "${header:36:4}" == 3e00 ]] ;;
+  Linux:aarch64:linux:arm64) [[ "$header" == 7f454c46020101* && "${header:36:4}" == b700 ]] ;;
+  *) false ;;
+esac || { printf 'install_error: helper platform mismatch before execution\n' >&2; exit 1; }
+chmod 700 "$helper"
+[[ $("$helper" identity) == "$helper_name" ]] || { printf 'install_error: helper release linkage mismatch\n' >&2; exit 1; }
 staged_tar="$temporary/archive.tar"
-if ! gzip -dc "$staged_archive" | head -c 536870912 >"$staged_tar"; then
-  printf 'install_error: invalid gzip stream or archive exceeds limit\n' >&2; exit 1
-fi
+"$helper" "$staged_archive" "$staged_tar" || { printf 'install_error: strict archive verification failed\n' >&2; exit 1; }
 stream_bytes=$(wc -c <"$staged_tar" | tr -d ' ')
 [[ "$stream_bytes" -lt 536870912 ]] || { printf 'install_error: archive exceeds stream limit\n' >&2; exit 1; }
 tar_offset=0
@@ -297,40 +320,6 @@ archive_format=1
 metadata_member=$(grep -E '^axiom-[^/]+/release-metadata\.txt$' "$temporary/archive-entries" | head -n1 || true)
 if [[ -n "$metadata_member" ]] && tar -xOf "$staged_tar" "$metadata_member" 2>/dev/null | head -n1 | grep -qx 'formatVersion=2'; then archive_format=2; fi
 if [[ "$archive_format" == 2 ]]; then
-  command -v python3 >/dev/null 2>&1 || fail_v2 'python3 >= 3.6 with stdlib zlib required for v2 gzip framing'
-  if ! python3 -I -S - "$staged_archive" <<'PYTHON'
-import sys
-
-try:
-    import zlib
-    if sys.version_info < (3, 6):
-        raise ImportError("unsupported Python version")
-except ImportError:
-    sys.exit("install_error: python3 >= 3.6 with stdlib zlib required for v2 gzip framing")
-
-try:
-    decoder = zlib.decompressobj(31)
-    total = 0
-    with open(sys.argv[1], "rb") as source:
-        while not decoder.eof:
-            chunk = source.read(65536)
-            if not chunk:
-                raise ValueError("incomplete gzip member")
-            while chunk:
-                total += len(decoder.decompress(chunk, 65536))
-                if total > 301989888:
-                    raise ValueError("gzip expansion exceeds limit")
-                if decoder.eof:
-                    if decoder.unused_data or source.read(1):
-                        raise ValueError("expected exactly one gzip member and no trailing bytes")
-                    break
-                chunk = decoder.unconsumed_tail
-except (OSError, ValueError, zlib.error) as error:
-    sys.exit("install_error: invalid v2 gzip framing: " + str(error))
-PYTHON
-  then
-    fail_v2 'v2 gzip framing check failed; python3 >= 3.6 with stdlib zlib required'
-  fi
   [[ "$stream_bytes" -le 301989888 && $(wc -l <"$temporary/archive-entries") -le 192 ]] || { printf 'install_error: archive exceeds entry or stream limit\n' >&2; exit 1; }
   while IFS= read -r entry; do
     entry=${entry%/}

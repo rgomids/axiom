@@ -143,3 +143,14 @@ unsafe/unprovable association or missing required native controls still stops th
 affected work. Report remaining decisions together; independent safe work may
 continue only within that later prompt's authority. Disposable hosts, real Runtime
 sessions or privilege changes are never authorized merely by this Plan.
+
+## Versioned strict verifier amendment (2026-10-21)
+
+Rafael's approved Option A is defined by the normative
+[distribution/integrity/bootstrap v1 amendment](distribution-helper-v1.md).
+It adds three independently authenticated helper release assets and explicit
+remote/offline trust handoff, without changing archive metadata/member formats,
+legacy multistream semantics or default generation. New facade requires the
+trusted helper before execution; previous Python-only v2 framing prerequisite
+is superseded for this facade. Historical Evidence and accepted identity,
+publication and Q6 boundaries remain intact.

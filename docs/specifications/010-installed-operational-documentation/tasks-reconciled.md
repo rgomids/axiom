@@ -152,3 +152,16 @@ Existing focused Go/Apple suite PASS on inspected source; GNU/Linux and new help
 tests NOT_RUN, baseline Linux exact-SHA CI FAIL preserved. Final documentary HEAD
 CI belongs to the completion receipt, not an inferred PASS. T13–T15/Q6 remain
 deferred, T16 partial; no default-v2 promotion, acceptance or dependency changes.
+
+### Versioned Go verifier amendment r2
+
+Rafael's Option A (2026-10-21 20:44 BRT) supersedes the preceding distribution
+blocker only. T07/T09 now include the normative
+[helper distribution v1 amendment](distribution-helper-v1.md), separate
+release assets, authenticated control-plane digest and explicit offline pin,
+stdlib gzip/tar verification before candidate execution, and coordinated closed
+producer/verifier/publication inventories. T16 remains PARTIAL pending final-SHA
+checks and independent review. [r2 Evidence](evidence-v1-go-versioned-helper-amendment-r2.md)
+records technical decisions and exact verification limits. T13–T15/Q6, AC-08,
+v0.1.0 qualification and AXM-12/39 dependency status remain deferred/unproven.
+No default-v2 promotion, merge, publication or human acceptance follows.

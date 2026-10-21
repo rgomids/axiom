@@ -80,3 +80,14 @@ production dependency or selected Go adapter. Existing `golang.org/x/sys`, stdli
 `os.Root`, hashes/JSON and local confinement helpers remain the production options;
 no additional library, cryptography or generic parser is adopted. Mechanism
 selection and its bounded security assumptions require T04 and human disposition.
+
+## Versioned strict verifier amendment (2026-10-21)
+
+Rafael's approved Option A is defined by the normative
+[distribution/integrity/bootstrap v1 amendment](distribution-helper-v1.md).
+It adds three independently authenticated helper release assets and explicit
+remote/offline trust handoff, without changing archive metadata/member formats,
+legacy multistream semantics or default generation. New facade requires the
+trusted helper before execution; previous Python-only v2 framing prerequisite
+is superseded for this facade. Historical Evidence and accepted identity,
+publication and Q6 boundaries remain intact.

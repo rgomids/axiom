@@ -201,7 +201,7 @@ check_published() {
     cmp -s "$temporary/published-expected" "$temporary/expected-names" || fail 'published asset names differ from the verified set'
   fi
   while read -r sum name; do
-    [[ "$sum" =~ ^[0-9a-f]{64}$ && "$name" == "axiom-$version-"*.tar.gz ]] || fail 'published SHA256SUMS line malformed'
+    [[ "$sum" =~ ^[0-9a-f]{64}$ && ( "$name" == "axiom-$version-"*.tar.gz || "$name" == "axiom-verifier-$version-$revision-"* ) ]] || fail 'published SHA256SUMS line malformed'
     names=$(jq -c --arg name "$name" '[.assets[] | select(.name == $name)] | .[0]' <<<"$release")
     [[ $(asset_sha256 "$names") == "$sum" ]] || fail "published asset differs from SHA256SUMS: $name"
   done <"$temporary/published-sums"

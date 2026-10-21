@@ -55,7 +55,8 @@ trap 'rm -rf -- "$temporary"' EXIT
 {
   printf 'SHA256SUMS\n'
   for row in $rows; do
-    IFS=: read -r platform _ architecture <<<"$row"
+    IFS=: read -r platform goos architecture <<<"$row"
+    printf 'axiom-verifier-%s-%s-%s-%s\n' "$version" "$revision" "$goos" "$architecture"
     printf 'axiom-%s-%s-%s.tar.gz\n' "$version" "$platform" "$architecture"
   done
 } | LC_ALL=C sort >"$temporary/expected-files"
@@ -66,15 +67,20 @@ while IFS= read -r name; do
 done <"$temporary/actual-files"
 
 checksums="$directory/SHA256SUMS"
-[[ $(wc -l <"$checksums" | tr -d ' ') == 3 ]] || fail 'SHA256SUMS must list exactly the three archives'
+[[ $(wc -l <"$checksums" | tr -d ' ') == 6 ]] || fail 'SHA256SUMS must list exactly three archives and three helpers'
 grep -v '^SHA256SUMS$' "$temporary/expected-files" >"$temporary/expected-archives"
 awk '{print $2}' "$checksums" | LC_ALL=C sort >"$temporary/listed-archives"
 cmp -s "$temporary/expected-archives" "$temporary/listed-archives" || fail 'SHA256SUMS names do not match the archive set'
 while IFS= read -r line; do
-  [[ "$line" =~ ^[0-9a-f]{64}\ \ axiom-[0-9A-Za-z.-]+\.tar\.gz$ ]] || fail 'SHA256SUMS line malformed'
+  [[ "$line" =~ ^[0-9a-f]{64}\ \ axiom-[0-9A-Za-z.+-]+(\.tar\.gz)?$ ]] || fail 'SHA256SUMS line malformed'
   [[ $(digest "$directory/${line#*  }") == "${line%%  *}" ]] || fail "checksum mismatch: ${line#*  }"
 done <"$checksums"
 
+# Build one verifier from the trusted checkout for cross-row archive checks.
+local_helper="axiom-verifier-$version-$revision-$(go env GOHOSTOS)-$(go env GOHOSTARCH)"
+(cd "$repository_root" && CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X main.identity=$local_helper" -o "$temporary/$local_helper" ./cmd/axiom-archive-verify)
+export AXIOM_VERIFIER_PATH="$temporary/$local_helper"
+export AXIOM_VERIFIER_SHA256="$(digest "$AXIOM_VERIFIER_PATH")"
 printf 'evidenceVersion=1\n'
 printf 'product=Axiom\n'
 printf 'version=%s\n' "$version"
@@ -89,7 +95,7 @@ for row in $rows; do
   bundle="axiom-$version-$platform-$architecture"
   archive="$directory/$bundle.tar.gz"
 
-  if [[ "$format" == 2 ]]; then
+  if [[ "$format" == 1 || "$format" == 2 ]]; then
     # Reuse the full source shell verifier. No candidate is executed, including
     # cross-compiled rows; all persistent destinations stay absent.
     "$repository_root/scripts/install-release.sh" --verify-only --archive "$archive" --checksums "$checksums" \
@@ -153,6 +159,25 @@ for row in $rows; do
   ) >"$temporary/expected-skills" || fail "skill differs from source: $bundle"
   cmp -s "$temporary/expected-skills" "$root/skills-manifest.txt" || fail "skills-manifest.txt differs from source: $bundle"
 
+  helper="axiom-verifier-$version-$revision-$goos-$architecture"
+  [[ $(wc -c <"$directory/$helper") -le 16777216 ]] || fail 'helper size limit'
+  helper_header=$(od -An -tx1 -N20 "$directory/$helper" | tr -d ' \n')
+  case "$goos:$architecture" in
+    darwin:arm64) [[ "$helper_header" == cffaedfe0c000001* ]] ;;
+    linux:amd64) [[ "$helper_header" == 7f454c46020101* && "${helper_header:36:4}" == 3e00 ]] ;;
+    linux:arm64) [[ "$helper_header" == 7f454c46020101* && "${helper_header:36:4}" == b700 ]] ;;
+  esac || fail 'helper binary platform mismatch'
+  go version -m "$directory/$helper" >"$temporary/helper-buildinfo"
+  for expected in "GOOS=$goos" "GOARCH=$architecture" "CGO_ENABLED=0" "vcs.revision=$revision" 'vcs.modified=false'; do
+    grep -Fq -- "$expected" "$temporary/helper-buildinfo" || fail "helper source linkage missing: $expected"
+  done
+  grep -Fq 'github.com/rgomids/axiom/cmd/axiom-archive-verify' "$temporary/helper-buildinfo" || fail 'helper entrypoint mismatch'
+  if [[ $(go env GOHOSTOS):$(go env GOHOSTARCH) == "$goos:$architecture" ]]; then
+    cp "$directory/$helper" "$temporary/helper-smoke"
+    chmod 700 "$temporary/helper-smoke"
+    [[ $("$temporary/helper-smoke" identity) == "$helper" ]] || fail 'helper embedded identity mismatch'
+  fi
+  printf 'archive=%s sha256=%s helper=true\n' "$helper" "$(digest "$directory/$helper")"
   # Executable format for the declared row, read from the file header.
   header=$(od -An -tx1 -N20 "$root/$executable" | tr -d ' \n')
   case "$goos:$architecture" in

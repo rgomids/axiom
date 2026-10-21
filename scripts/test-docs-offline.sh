@@ -23,6 +23,13 @@ done
 [[ -z "$archive" && -z "$checksums" || -n "$archive" && -n "$checksums" ]] || { printf 'docs_offline_error: archive and checksums required together\n' >&2; exit 1; }
 work=$(mktemp -d)
 trap 'chmod -R u+w "$work" 2>/dev/null || true; rm -rf -- "$work"' EXIT
+
+# Trust this checkout for the test verifier, independently of fixture archives.
+helper_name="axiom-verifier-0.0.0-test-$(git -C "$repository_root" rev-parse HEAD)-$(go env GOHOSTOS)-$(go env GOHOSTARCH)"
+export AXIOM_VERIFIER_PATH="$work/$helper_name"
+(cd "$repository_root" && CGO_ENABLED=0 go build -trimpath -ldflags "-X main.identity=$helper_name" -o "$AXIOM_VERIFIER_PATH" ./cmd/axiom-archive-verify)
+export AXIOM_VERIFIER_SHA256="$(shasum -a 256 "$AXIOM_VERIFIER_PATH" | awk '{print $1}')"
+
 work=$(cd "$work" && pwd -P)
 
 case "$(uname -s):$(uname -m)" in

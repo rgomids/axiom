@@ -86,6 +86,11 @@ build_target() {
   if [[ -n "$only" && "${platform%%-*}-$arch" != "$only" ]]; then
     return
   fi
+  local helper="axiom-verifier-$version-$revision-$goos-$arch"
+  (cd "$repository_root" && GOOS="$goos" GOARCH="$arch" CGO_ENABLED=0 go build -trimpath \
+    -ldflags "-s -w -X main.identity=$helper" -o "$output/$helper" ./cmd/axiom-archive-verify)
+  chmod 600 "$output/$helper"
+  printf '%s  %s\n' "$(digest "$output/$helper")" "$helper" >>"$checksums"
   if [[ "$format" == 2 ]]; then
     build_target_v2 "${platform%%-*}" "$goos" "$arch"
     return

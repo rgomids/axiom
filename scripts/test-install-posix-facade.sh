@@ -8,6 +8,13 @@ repository_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)
 temporary=$(mktemp -d)
 temporary=$(cd "$temporary" && pwd -P)
 trap 'rm -rf -- "$temporary"' EXIT
+
+# Trust this checkout for the test verifier, independently of fixture archives.
+helper_name="axiom-verifier-0.0.0-test-$(git -C "$repository_root" rev-parse HEAD)-$(go env GOHOSTOS)-$(go env GOHOSTARCH)"
+export AXIOM_VERIFIER_PATH="$temporary/$helper_name"
+(cd "$repository_root" && CGO_ENABLED=0 go build -trimpath -ldflags "-X main.identity=$helper_name" -o "$AXIOM_VERIFIER_PATH" ./cmd/axiom-archive-verify)
+export AXIOM_VERIFIER_SHA256="$(shasum -a 256 "$AXIOM_VERIFIER_PATH" | awk '{print $1}')"
+
 facade="$repository_root/scripts/install-release.sh"
 tools="$temporary/tools"
 mkdir "$tools"
@@ -117,7 +124,7 @@ done
 ) >"$temporary/manifest"
 mv "$temporary/manifest" "$bundle/MANIFEST.sha256"
 archive="$temporary/$bundle_name.tar.gz"
-tar -czf "$archive" -C "$temporary/source" "$bundle_name"
+COPYFILE_DISABLE=1 tar -czf "$archive" -C "$temporary/source" "$bundle_name"
 checksums="$temporary/SHA256SUMS"
 printf '%s  %s.tar.gz\n' "$(digest "$archive")" "$bundle_name" >"$checksums"
 
@@ -134,11 +141,12 @@ run_facade() {
     FIXTURE_REAL_MKTEMP="$real_mktemp" FIXTURE_FORCE_TMPDIR="${6:-0}" \
     FIXTURE_LEDGER="$case_root/ledger" FIXTURE_VERSION_STATUS="$version_status" FIXTURE_INSTALL_STATUS="$install_status" \
     FIXTURE_REPLACE_INPUTS="${8:-0}" FIXTURE_ORIGINAL_ARCHIVE="$candidate_archive" FIXTURE_ORIGINAL_CHECKSUMS="$checksum_file" \
-    bash "$facade" --archive "$candidate_archive" --checksums "$checksum_file" \
+    bash "$facade" --helper "$AXIOM_VERIFIER_PATH" --helper-sha256 "$AXIOM_VERIFIER_SHA256" --archive "$candidate_archive" --checksums "$checksum_file" \
       --bin-dir "$case_root/bin with spaces" --receipt-dir "$case_root/state with spaces" \
       >"$case_root/stdout" 2>"$case_root/stderr"
   result=$?
   set -e
+  if [[ "$result" != 0 ]]; then head -c 600 "$case_root/stderr" >&2; fi
 }
 
 no_persistent_effects() {
@@ -218,7 +226,7 @@ missing_interpreter_refusal() {
   ) >"$case_root/manifest"
   mv "$case_root/manifest" "$candidate_bundle/MANIFEST.sha256"
   candidate_archive="$case_root/$bundle_name.tar.gz"
-  tar -czf "$candidate_archive" -C "$case_root/source" "$bundle_name"
+  COPYFILE_DISABLE=1 tar -czf "$candidate_archive" -C "$case_root/source" "$bundle_name"
   printf '%s  %s.tar.gz\n' "$(digest "$candidate_archive")" "$bundle_name" >"$case_root/SHA256SUMS"
   run_facade "$case_root" "$case_root/tmp" 0 0 "$case_root/SHA256SUMS" 0 "$candidate_archive"
   [[ "$result" != 0 && ! -s "$case_root/ledger" && ! -e "$case_root/ledger.candidate" ]]

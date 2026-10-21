@@ -11,8 +11,9 @@ import (
 )
 
 func TestShellArchiveIntegrityBeforeExecution(t *testing.T) {
+	helperEnv := trustedHelperEnv(t)
 	for _, version := range []int{1, 2} {
-		mutations := []string{"valid", "complete tars", "tar trailing", "zero tar tail", "zero trailing", "trailing", "truncated", "crc", "duplicate directory", "duplicate file", "path", "manifest", "metadata", "file limit", "split", "extra empty", "prefix empty"}
+		mutations := []string{"valid", "complete tars", "tar trailing", "zero tar tail", "zero trailing", "trailing", "truncated", "crc", "compress tail", "split invalid", "duplicate directory", "duplicate file", "path", "manifest", "metadata", "file limit", "split", "extra empty", "prefix empty"}
 		for _, mutation := range mutations {
 			t.Run(string(rune('0'+version))+"/"+mutation, func(t *testing.T) {
 				work := t.TempDir()
@@ -60,6 +61,10 @@ func TestShellArchiveIntegrityBeforeExecution(t *testing.T) {
 				raw := tarBytes(t, archive)
 				wire := gzipMembers(t, raw)
 				switch mutation {
+				case "compress tail":
+					wire = append(wire, 0x1f, 0x9d, 0x90)
+				case "split invalid":
+					wire = append(gzipMembers(t, raw[:17]), gzipMembers(t, raw[18:])...)
 				case "split":
 					wire = gzipMembers(t, raw, 17)
 				case "extra empty":
@@ -92,6 +97,19 @@ func TestShellArchiveIntegrityBeforeExecution(t *testing.T) {
 					wire = gzipMembers(t, append(append(append([]byte{}, raw[:end]...), raw[n:end]...), raw[end:]...))
 				}
 				replaceArchive(t, archive, sums, wire)
+				// Identical compressed bytes go to the host gzip comparator.
+				// GNU accepts zero suffixes; comparator agreement is not authority.
+				reference := exec.Command("gzip", "-t", archive)
+				referenceOut, referenceErr := reference.CombinedOutput()
+				t.Logf("host_gzip_accept=%t detail=%s", referenceErr == nil, bytes.TrimSpace(referenceOut))
+				if container := os.Getenv("AXIOM_TEST_GNU_GZIP_CONTAINER"); container != "" {
+					reference = exec.Command("docker", "run", "--rm", "--network", "none", "--read-only", "-v", filepath.Dir(archive)+":/fixtures:ro", container, "gzip", "-t", "/fixtures/"+filepath.Base(archive))
+					referenceOut, referenceErr = reference.CombinedOutput()
+					t.Logf("gnu_gzip_accept=%t detail=%s", referenceErr == nil, bytes.TrimSpace(referenceOut))
+					if bytes.Contains(referenceOut, []byte("docker:")) {
+						t.Fatalf("GNU comparator unavailable: %s", referenceOut)
+					}
+				}
 				_, goErr := LoadCandidate(archive, sums)
 				wantAccept := mutation == "valid" || mutation == "zero tar tail" || version == 1 && (mutation == "split" || mutation == "extra empty" || mutation == "prefix empty")
 				if (goErr == nil) != wantAccept {
@@ -100,6 +118,7 @@ func TestShellArchiveIntegrityBeforeExecution(t *testing.T) {
 				args := []string{"--verify-only", "--archive", archive, "--checksums", sums, "--bin-dir", filepath.Join(work, "bin"), "--receipt-dir", filepath.Join(work, "receipts")}
 				script, _ := filepath.Abs("../../scripts/install-release.sh")
 				cmd := exec.Command("bash", append([]string{script}, args...)...)
+				cmd.Env = append(os.Environ(), helperEnv...)
 				out, shellErr := cmd.CombinedOutput()
 				t.Logf("go_accept=%t shell_accept=%t shell=%s", goErr == nil, shellErr == nil, bytes.TrimSpace(out))
 				if _, err := os.Stat(marker); !os.IsNotExist(err) {
@@ -114,6 +133,7 @@ func TestShellArchiveIntegrityBeforeExecution(t *testing.T) {
 					t.Fatalf("shell/Go integrity mismatch: %v / %v", goErr, shellErr)
 				}
 				cmd = exec.Command("bash", append([]string{script}, args[1:]...)...)
+				cmd.Env = append(os.Environ(), helperEnv...)
 				cmd.CombinedOutput()
 				if goErr == nil {
 					if _, err := os.Stat(marker); err != nil {
@@ -134,7 +154,8 @@ func TestShellArchiveIntegrityBeforeExecution(t *testing.T) {
 	}
 }
 
-func TestShellV2PythonPrerequisiteBeforeExecution(t *testing.T) {
+func TestShellHelperNeedsNoPython(t *testing.T) {
+	helperEnv := trustedHelperEnv(t)
 	for _, version := range []int{1, 2} {
 		for _, prerequisite := range []string{"missing", "incompatible"} {
 			t.Run(string(rune('0'+version))+"/"+prerequisite, func(t *testing.T) {
@@ -166,7 +187,7 @@ func TestShellV2PythonPrerequisiteBeforeExecution(t *testing.T) {
 					}
 				}
 				script, _ := filepath.Abs("../../scripts/install-release.sh")
-				for _, verify := range []bool{true, false} {
+				for _, verify := range []bool{true} {
 					if version == 1 && !verify {
 						continue
 					}
@@ -175,14 +196,10 @@ func TestShellV2PythonPrerequisiteBeforeExecution(t *testing.T) {
 						args = append(args, "--verify-only")
 					}
 					cmd := exec.Command("bash", args...)
-					cmd.Env = append(os.Environ(), "PATH="+tools)
+					cmd.Env = append(append(os.Environ(), helperEnv...), "PATH="+tools)
 					out, err := cmd.CombinedOutput()
-					if version == 1 {
-						if err != nil {
-							t.Fatalf("v1 must not require Python: %v: %s", err, out)
-						}
-					} else if err == nil || !bytes.Contains(out, []byte("python3 >= 3.6 with stdlib zlib required")) {
-						t.Fatalf("missing prerequisite refusal: %v: %s", err, out)
+					if verify && err != nil {
+						t.Fatalf("helper must not require Python: %v: %s", err, out)
 					}
 					for _, path := range []string{marker, filepath.Join(work, "bin"), filepath.Join(work, "receipts")} {
 						if _, err := os.Stat(path); !os.IsNotExist(err) {
@@ -192,5 +209,63 @@ func TestShellV2PythonPrerequisiteBeforeExecution(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+func trustedHelperEnv(t *testing.T) []string {
+	t.Helper()
+	name := "axiom-verifier-1.1.0-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-" + runtime.GOOS + "-" + runtime.GOARCH
+	helper := filepath.Join(t.TempDir(), name)
+	cmd := exec.Command("go", "build", "-trimpath", "-ldflags", "-X main.identity="+name, "-o", helper, "../../cmd/axiom-archive-verify")
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("build trusted source helper: %v: %s", err, out)
+	}
+	wire, err := os.ReadFile(helper)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return []string{"AXIOM_VERIFIER_PATH=" + helper, "AXIOM_VERIFIER_SHA256=" + digest(wire)}
+}
+
+func TestShellHelperAuthenticationBeforeExecution(t *testing.T) {
+	env := trustedHelperEnv(t)
+	work := t.TempDir()
+	marker := filepath.Join(work, "executed")
+	archive, sums := newBundle("1.1.0", []byte("#!/bin/sh\ntouch '"+marker+"'\n")).write(t, work)
+	script, _ := filepath.Abs("../../scripts/install-release.sh")
+	for _, tc := range []string{"missing", "wrong-pin", "wrong-platform", "symlink"} {
+		t.Run(tc, func(t *testing.T) {
+			localEnv := append([]string{}, env...)
+			switch tc {
+			case "missing":
+				localEnv = []string{"AXIOM_VERIFIER_PATH=", "AXIOM_VERIFIER_SHA256="}
+			case "wrong-pin":
+				localEnv[1] = "AXIOM_VERIFIER_SHA256=" + strings.Repeat("0", 64)
+			case "wrong-platform":
+				fake := filepath.Join(work, "axiom-verifier-1.1.0-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-"+runtime.GOOS+"-"+runtime.GOARCH)
+				wire := []byte("#!/bin/sh\ntouch '" + marker + "'\n")
+				if err := os.WriteFile(fake, wire, 0700); err != nil {
+					t.Fatal(err)
+				}
+				localEnv = []string{"AXIOM_VERIFIER_PATH=" + fake, "AXIOM_VERIFIER_SHA256=" + digest(wire)}
+			case "symlink":
+				helper := strings.TrimPrefix(env[0], "AXIOM_VERIFIER_PATH=")
+				link := filepath.Join(t.TempDir(), filepath.Base(helper))
+				if err := os.Symlink(helper, link); err != nil {
+					t.Fatal(err)
+				}
+				localEnv[0] = "AXIOM_VERIFIER_PATH=" + link
+			}
+			cmd := exec.Command("bash", script, "--archive", archive, "--checksums", sums, "--bin-dir", filepath.Join(work, "bin"), "--receipt-dir", filepath.Join(work, "receipts"))
+			cmd.Env = append(os.Environ(), localEnv...)
+			if out, err := cmd.CombinedOutput(); err == nil {
+				t.Fatalf("untrusted helper accepted: %s", out)
+			}
+			for _, p := range []string{marker, filepath.Join(work, "bin"), filepath.Join(work, "receipts")} {
+				if _, err := os.Lstat(p); !os.IsNotExist(err) {
+					t.Fatalf("unexpected effect: %s", p)
+				}
+			}
+		})
 	}
 }

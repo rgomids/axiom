@@ -110,3 +110,14 @@ Axiom != Lingo; Project != Repository; Role != Model; Execution != Agent;
 Provider != Transport; Integration != MCP; Skill != workflow source of truth;
 Evidence != chat history. [Proposed Plan](plan-reconciled.md) and
 [Tasks](tasks-reconciled.md) describe one later authorized implementation.
+
+## Versioned strict verifier amendment (2026-10-21)
+
+Rafael's approved Option A is defined by the normative
+[distribution/integrity/bootstrap v1 amendment](distribution-helper-v1.md).
+It adds three independently authenticated helper release assets and explicit
+remote/offline trust handoff, without changing archive metadata/member formats,
+legacy multistream semantics or default generation. New facade requires the
+trusted helper before execution; previous Python-only v2 framing prerequisite
+is superseded for this facade. Historical Evidence and accepted identity,
+publication and Q6 boundaries remain intact.

@@ -32,12 +32,17 @@ When network access is unavailable, obtain the archive and its matching
 `SHA256SUMS` file through a separately trusted delivery channel. A checksum
 detects byte mismatch against that file; it does not establish who supplied the
 archive or checksum. Verify that trust before installation. Then invoke the
-release installer with absolute paths:
+release installer with absolute paths. Also obtain the separate verifier asset
+and its SHA-256 pin from trusted release API metadata or an independently
+trusted offline handoff. A helper plus an adjacent, unauthenticated checksum
+is insufficient. No network fallback, Go compiler or Python is used:
 
 ```sh
 /absolute/path/unpacked/axiom/install.sh \
   --archive /absolute/path/axiom-<version>-<platform>.tar.gz \
   --checksums /absolute/path/SHA256SUMS \
+  --helper /absolute/path/axiom-verifier-<version>-<full-commit>-<goos>-<arch> \
+  --helper-sha256 <independently-authenticated-sha256> \
   --bin-dir /absolute/user-owned/bin \
   --receipt-dir /absolute/user-owned/install-state
 ```

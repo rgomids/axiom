@@ -25,13 +25,12 @@ Older releases may lack an asset for your platform.
 
 - `sh`, `bash`, `curl`, `tar`, `gzip`, `awk`, `grep`, `mktemp`, and `sha256sum` or
   `shasum`.
-- For opt-in generation 2 archives, `python3 >= 3.6` with standard-library
-  `zlib` is also required by the bootstrap to verify exactly one gzip member
-  with no trailing bytes. Missing/incompatible Python or zlib fails closed
-  with `install_error` mentioning `v2 gzip framing` and the prerequisite,
-  before candidate execution or persistent installation writes. No pip or
-  external Python packages are used. Default generation 1 and its historical
-  multistream behavior do not require Python.
+- `jq` for remote bootstrap authentication of GitHub release API metadata.
+- A separately authenticated, versioned `axiom-verifier` asset for strict gzip
+  framing (both generations). No Python or Go compiler is required on the user
+  host. Missing or mismatched helpers fail before candidate execution. See the
+  [versioned distribution contract](specifications/010-installed-operational-documentation/distribution-helper-v1.md)
+  for trust pins, offline handoff and historical archives.
 - Network access to GitHub release metadata and assets over HTTPS.
 - A supported Runtime, installed separately, for Runtime skills. Project setup
   itself does not require a Runtime.

@@ -35,6 +35,8 @@ digest() {
 fixtures="$temporary/fixtures"
 tools="$temporary/tools"
 mkdir -p "$fixtures/releases" "$tools"
+ln -s "$(command -v jq)" "$tools/jq"
+git -C "$repository_root" rev-parse HEAD >"$fixtures/source-commit"
 cat >"$tools/curl" <<'EOF'
 #!/bin/sh
 output= write= url= arguments="$*"
@@ -47,10 +49,32 @@ while [ $# -gt 0 ]; do
     *) url=$1; shift ;;
   esac
 done
-printf '%s\n' "$url" >>"$FAKE_LEDGER"
-printf '%s\n' "$arguments" >>"$FAKE_LEDGER.arguments"
+case "$url" in
+  https://api.github.com/*|*/axiom-verifier-*) ledger=$FAKE_LEDGER.trust ;;
+  *) ledger=$FAKE_LEDGER ;;
+esac
+printf '%s\n' "$url" >>"$ledger"
+printf '%s\n' "$arguments" >>"$ledger.arguments"
 case "$url" in *"${FAKE_NETWORK_DOWN:-no-network-failure}"*) exit 7 ;; esac
 case "$url" in
+  https://api.github.com/repos/rgomids/axiom/commits/*)
+    jq -n --arg sha "$(cat "$FAKE_FIXTURES/source-commit")" '{sha:$sha}' >"$output" ;;
+  https://api.github.com/repos/rgomids/axiom/releases/tags/*)
+    tag=${url##*/}
+    sums=$FAKE_FIXTURES/releases/$tag/SHA256SUMS
+    [ -f "$sums" ] || exit 22
+    sum=$(shasum -a 256 "$sums" | awk '{print $1}')
+    jq -Rn --arg tag "$tag" --arg digest "sha256:$sum" '
+      [inputs | split("  ")[1] | {name:.,state:"uploaded"}] as $assets |
+      {tag_name:$tag,draft:false,assets:($assets + [{name:"SHA256SUMS",state:"uploaded",digest:$digest}])}
+    ' <"$sums" >"$output"
+    case "${FAKE_METADATA_MODE:-valid}" in
+      no-digest) jq 'del(.assets[-1].digest)' "$output" >"$output.changed" ;;
+      wrong-digest) jq '.assets[-1].digest = ("sha256:" + ("0" * 64))' "$output" >"$output.changed" ;;
+      foreign-asset) jq '.assets += [{name:"foreign",state:"uploaded"}]' "$output" >"$output.changed" ;;
+      *) exit 0 ;;
+    esac
+    mv "$output.changed" "$output" ;;
   https://github.com/rgomids/axiom/releases/latest)
     [ "$write" = '%{redirect_url}' ] && [ "$output" = /dev/null ] || exit 2
     cat "$FAKE_FIXTURES/latest-location"
@@ -86,7 +110,7 @@ run_bootstrap() {
   : >"$temporary/ledger"
   : >"$temporary/ledger.arguments"
   env -i HOME="$home" PATH="$tools:${EXTRA_PATH:+$EXTRA_PATH:}/usr/local/bin:/usr/bin:/bin" TMPDIR="$temporary/tmp" \
-    FAKE_FIXTURES="$fixtures" FAKE_LEDGER="$temporary/ledger" FAKE_NETWORK_DOWN="${FAKE_NETWORK_DOWN:-no-network-failure}" \
+    FAKE_METADATA_MODE="${FAKE_METADATA_MODE:-valid}" FAKE_FIXTURES="$fixtures" FAKE_LEDGER="$temporary/ledger" FAKE_NETWORK_DOWN="${FAKE_NETWORK_DOWN:-no-network-failure}" \
     $bootstrap_shell "$bootstrap" "$@" >"$temporary/stdout" 2>"$temporary/stderr"
 }
 
@@ -207,11 +231,18 @@ cp "$fixtures/releases/v1.1.0/axiom-1.1.0-$row.tar.gz" "$fixtures/releases/v6.0.
 grep -v "$row" "$fixtures/releases/v1.1.0/SHA256SUMS" >"$fixtures/releases/v6.0.0/SHA256SUMS"
 cp "$fixtures/releases/v1.1.0/axiom-1.1.0-$row.tar.gz" "$fixtures/releases/v7.0.0/axiom-7.0.0-$row.tar.gz"
 printf 'tamper\n' >>"$fixtures/releases/v7.0.0/axiom-7.0.0-$row.tar.gz"
-sed "s/axiom-1.1.0/axiom-7.0.0/g" "$fixtures/releases/v1.1.0/SHA256SUMS" | grep -v "$row" >"$fixtures/releases/v7.0.0/SHA256SUMS"
+sed "s/1.1.0/7.0.0/g" "$fixtures/releases/v1.1.0/SHA256SUMS" | grep -v "$row" >"$fixtures/releases/v7.0.0/SHA256SUMS"
 printf '%s  axiom-7.0.0-%s.tar.gz\n' "$(digest "$fixtures/releases/v1.1.0/axiom-1.1.0-$row.tar.gz")" "$row" >>"$fixtures/releases/v7.0.0/SHA256SUMS"
 cp "$fixtures/releases/v1.1.0/axiom-1.1.0-$row.tar.gz" "$fixtures/releases/v8.0.0/axiom-8.0.0-$row.tar.gz"
-sed "s/axiom-1.1.0/axiom-8.0.0/g" "$fixtures/releases/v1.1.0/SHA256SUMS" | grep -v "$row" >"$fixtures/releases/v8.0.0/SHA256SUMS"
+sed "s/1.1.0/8.0.0/g" "$fixtures/releases/v1.1.0/SHA256SUMS" | grep -v "$row" >"$fixtures/releases/v8.0.0/SHA256SUMS"
 printf '%s  axiom-8.0.0-%s.tar.gz\n' "$(digest "$fixtures/releases/v8.0.0/axiom-8.0.0-$row.tar.gz")" "$row" >>"$fixtures/releases/v8.0.0/SHA256SUMS"
+for go_row in darwin-arm64 linux-amd64 linux-arm64; do
+  helper_name="axiom-verifier-8.0.0-$(cat "$fixtures/source-commit")-$go_row"
+  GOOS=${go_row%-*} GOARCH=${go_row##*-} CGO_ENABLED=0 go build -trimpath -ldflags "-X main.identity=$helper_name" -o "$fixtures/releases/v8.0.0/$helper_name" "$repository_root/cmd/axiom-archive-verify"
+  grep -v "$helper_name" "$fixtures/releases/v8.0.0/SHA256SUMS" >"$temporary/updated-sums"
+  printf '%s  %s\n' "$(digest "$fixtures/releases/v8.0.0/$helper_name")" "$helper_name" >>"$temporary/updated-sums"
+  mv "$temporary/updated-sums" "$fixtures/releases/v8.0.0/SHA256SUMS"
+done
 printf '%s/releases/tag/v1.1.0' "$base" >"$fixtures/latest-location"
 revision12=$(git -C "$repository_root" rev-parse --verify HEAD | cut -c1-12)
 asset_sha() { awk -v name="axiom-${1#v}-$row.tar.gz" '$2 == name {print $1}' "$fixtures/releases/$1/SHA256SUMS"; }
@@ -438,6 +469,9 @@ step ambiguous-latest-redirect bash -eo pipefail -c '
 '
 step unpublished-exact-version bash -eo pipefail -c 'refused "$home" "release v9.9.9 has no published SHA256SUMS" --version v9.9.9'
 step missing-asset bash -eo pipefail -c 'refused "$home" "has no published asset axiom-3.0.0-$row.tar.gz" --version v3.0.0'
+step authenticated-metadata-no-digest bash -eo pipefail -c 'FAKE_METADATA_MODE=no-digest refused "$home" "authenticated checksum digest absent" --version v1.1.0 && ! grep -Fq ".tar.gz" "$temporary/ledger"'
+step authenticated-metadata-wrong-digest bash -eo pipefail -c 'FAKE_METADATA_MODE=wrong-digest refused "$home" "authenticated checksum inventory mismatch" --version v1.1.0 && ! grep -Fq ".tar.gz" "$temporary/ledger"'
+step authenticated-metadata-foreign-asset bash -eo pipefail -c 'FAKE_METADATA_MODE=foreign-asset refused "$home" "trusted release asset inventory mismatch" --version v1.1.0 && ! grep -Fq ".tar.gz" "$temporary/ledger"'
 step missing-checksum bash -eo pipefail -c 'refused "$home" "checksum asset set is ambiguous or incomplete" --version v6.0.0 && ! grep -Fq ".tar.gz" "$temporary/ledger"'
 step checksum-mismatch bash -eo pipefail -c 'refused "$home" "checksum mismatch for axiom-7.0.0-$row.tar.gz" --version v7.0.0'
 step mislabeled-release-asset bash -eo pipefail -c 'refused "$home" "lacks its release installer or metadata" --version v8.0.0'
