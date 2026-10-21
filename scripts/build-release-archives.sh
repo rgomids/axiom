@@ -8,6 +8,7 @@ version=
 output=
 development=false
 format=1
+only=
 
 while (($#)); do
   case "$1" in
@@ -15,6 +16,7 @@ while (($#)); do
     --output) output=${2:-}; shift 2 ;;
     --development) development=true; shift ;;
     --format) format=${2:-}; shift 2 ;;
+    --only) only=${2:-}; shift 2 ;;
     *) printf 'release_build_error: invalid argument\n' >&2; exit 1 ;;
   esac
 done
@@ -80,6 +82,9 @@ digest() {
 
 build_target() {
   local platform=$1 goos=$2 arch=$3
+  if [[ -n "$only" && "${platform%%-*}-$arch" != "$only" ]]; then
+    return
+  fi
   if [[ "$format" == 2 ]]; then
     build_target_v2 "${platform%%-*}" "$goos" "$arch"
     return

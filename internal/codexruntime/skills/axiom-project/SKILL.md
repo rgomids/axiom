@@ -488,3 +488,14 @@ when a scoped typed finding has `code: runtime_policy_unavailable`.
 `runtime_resolution_blocked` alone does not identify that cause. Preserve
 secondary blockers and warnings. Absent readiness is unknown, not ready or
 invalid; never describe all Project operations as blocked from one blocker.
+
+## Installed documentation
+
+For Axiom operational questions, run `axiom --json docs inspect` once. Only
+`state: verified` certifies installed documentation for the running binary: read
+the Markdown and man paths it returns, never a checkout, a global registry or a
+remote copy, and never repair, download or search elsewhere. Any other state is
+a refusal: report its `reason` and fall back to `axiom --help`. This skill is
+not a source of truth and never reports itself, or any skill, as loaded; the
+inspector reports `loaded` as `unknown` and reports on-disk skill facts per
+Runtime separately.

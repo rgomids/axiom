@@ -2350,6 +2350,36 @@
       "removal_condition": null
     },
     {
+      "path": "scripts/test-docs-offline.sh",
+      "kind": "script",
+      "owner": "installation",
+      "purpose": "Installs a locally built archive generation 2 into a throwaway prefix and proves docs inspect, corpus integrity, closed links and refusal of tampered, copied or modified installations without a checkout.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "bash",
+        "python3"
+      ],
+      "scope": [
+        "test"
+      ],
+      "trigger": "CI PR Checks and manual runs when installed documentation, archive generation 2 or docs inspect changes",
+      "replay_reason": null,
+      "callers": [
+        ".github/workflows/ci.yml"
+      ],
+      "inputs": "none; builds a development archive from the checkout",
+      "outputs": "bounded case results and non-zero on assertion failure",
+      "local_effects": "temporary directories only",
+      "network_effects": "none",
+      "authority": "none; local checks",
+      "tests": [],
+      "evidence": null,
+      "compatibility": [],
+      "removal_condition": null
+    },
+    {
       "path": "scripts/test-go-quality.py",
       "kind": "script",
       "owner": "ci",

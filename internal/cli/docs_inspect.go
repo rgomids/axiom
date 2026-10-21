@@ -3,6 +3,7 @@ package cli
 import (
 	"encoding/json"
 	"io"
+	"sort"
 
 	"github.com/rgomids/axiom/internal/completion"
 	"github.com/rgomids/axiom/internal/operationaldocs"
@@ -97,7 +98,18 @@ var docsReasonText = map[string]string{
 
 func ptr(value string) *string { return &value }
 
-func docsReportFor(r operationaldocs.Resolution) docsReport {
+// SkillObservation is one Runtime's read-only skill observation. Loaded is
+// never observed by this inspector and is always reported as unknown.
+type SkillObservation struct{ Runtime, Receipt, Files, ManifestSHA256 string }
+
+// SkillExpectation is the binary's own skill set, used only when it reproduces
+// the verified installation's skill manifest digest.
+type SkillExpectation struct {
+	Digests  map[string]string
+	Manifest string
+}
+
+func docsReportFor(r operationaldocs.Resolution, expectation SkillExpectation, observed []SkillObservation) docsReport {
 	report := docsReport{SchemaVersion: 1, State: r.State, Reason: r.Reason, Binary: docsBinary{ImageProof: "unavailable"}, Installation: docsInstallation{Compatibility: "unknown"}, Skills: docsSkills{Expected: []map[string]any{}, Observed: []map[string]any{}}, Man: docsMan{State: "unknown", ReaderSelected: "unknown"}, Diagnostics: []docsDiagnostic{}}
 	switch r.Reason {
 	case "source_unqualified":
@@ -117,11 +129,35 @@ func docsReportFor(r operationaldocs.Resolution) docsReport {
 		report.Paths = docsPaths{ptr(r.Locator("docs")), ptr(r.Locator("docs/text/index.md")), ptr(r.Locator("docs/inventory.tsv")), ptr(r.Locator("docs/provenance.tsv")), ptr(r.Locator("docs/man")), ptr(r.Locator("docs/man-map.tsv"))}
 		report.Integrity = docsIntegrity{ptr(r.Bundle.InventorySHA256), ptr(r.Bundle.ProvenanceSHA256), ptr(r.Bundle.ManMapSHA256), len(r.Bundle.Entries) + 3, r.Bundle.Bytes}
 		report.Skills.ExpectedManifest = ptr(b.SkillManifestSHA256)
+		if expectation.Manifest == b.SkillManifestSHA256 {
+			names := make([]string, 0, len(expectation.Digests))
+			for name := range expectation.Digests {
+				names = append(names, name)
+			}
+			sort.Strings(names)
+			for _, name := range names {
+				report.Skills.Expected = append(report.Skills.Expected, map[string]any{"name": name, "sha256": expectation.Digests[name]})
+			}
+		} else {
+			report.Diagnostics = append(report.Diagnostics, docsDiagnostic{"identity_mismatch", "The binary's skills differ from the installed skill manifest"})
+		}
 		report.Man = docsMan{"available", ptr(r.Locator("docs/man/man1/axiom.1")), "unknown"}
+		appendObserved(&report, observed)
 		return report
 	}
 	report.Diagnostics = append(report.Diagnostics, docsDiagnostic{r.Reason, docsReasonText[r.Reason]})
+	appendObserved(&report, observed)
 	return report
+}
+
+func appendObserved(report *docsReport, observed []SkillObservation) {
+	for _, o := range observed {
+		entry := map[string]any{"runtime": o.Runtime, "receipt": o.Receipt, "files": o.Files, "manifestSha256": nil, "loaded": "unknown"}
+		if o.ManifestSHA256 != "" {
+			entry["manifestSha256"] = o.ManifestSHA256
+		}
+		report.Skills.Observed = append(report.Skills.Observed, entry)
+	}
 }
 
 func docsFacts(state string) completion.Facts {
@@ -136,7 +172,7 @@ func docsFacts(state string) completion.Facts {
 
 // InspectDocs answers `docs inspect` from the supplied read-only resolution and
 // never starts a reader, a Runtime, or any write.
-func InspectDocs(args []string, source provenance.Value, output io.Writer, resolve func() operationaldocs.Resolution) (bool, int) {
+func InspectDocs(args []string, source provenance.Value, output io.Writer, resolve func() operationaldocs.Resolution, expectation SkillExpectation, observe func() []SkillObservation) (bool, int) {
 	output = withHelpGuidance(output, args)
 	mode, args := parseOutputMode(args)
 	if len(args) == 0 || args[0] != "docs" {
@@ -145,7 +181,11 @@ func InspectDocs(args []string, source provenance.Value, output io.Writer, resol
 	if len(args) != 2 || !commandMatches(args, docsInspectAction) {
 		return true, emitParserFailure(output, mode, docsInspectAction, "invalid_input", source)
 	}
-	report := docsReportFor(resolve())
+	var observed []SkillObservation
+	if observe != nil {
+		observed = observe()
+	}
+	report := docsReportFor(resolve(), expectation, observed)
 	text, next := docsReasonText[report.Reason], ""
 	if report.State != operationaldocs.StateVerified {
 		next = "Read axiom --help; this command never repairs or downloads documentation"

@@ -13,7 +13,7 @@ func inspectDocsForTest(t *testing.T, resolution operationaldocs.Resolution, arg
 	t.Helper()
 	var output bytes.Buffer
 	calls := 0
-	handled, code := InspectDocs(args, completionProvenance(t), &output, func() operationaldocs.Resolution { calls++; return resolution })
+	handled, code := InspectDocs(args, completionProvenance(t), &output, func() operationaldocs.Resolution { calls++; return resolution }, SkillExpectation{}, nil)
 	if !handled {
 		t.Fatal("not handled")
 	}
@@ -66,9 +66,43 @@ func TestDocsInspectRejectsSuffixAndExtraInput(t *testing.T) {
 		handled, code := InspectDocs(args, completionProvenance(t), &output, func() operationaldocs.Resolution {
 			t.Fatal("resolver ran for invalid input")
 			return absent
-		})
+		}, SkillExpectation{}, nil)
 		if !handled || code != 1 || strings.Contains(output.String(), `"docs":`) {
 			t.Fatalf("%v: %v %d %s", args, handled, code, output.String())
 		}
+	}
+}
+
+func TestDocsInspectReportsExpectedAndObservedSkillsWithoutLoadedClaim(t *testing.T) {
+	manifest := strings.Repeat("e", 64)
+	resolution := operationaldocs.Resolution{State: operationaldocs.StateVerified, Reason: "ok", Root: "/r", Binding: operationaldocs.Binding{SkillManifestSHA256: manifest}}
+	var output bytes.Buffer
+	expectation := SkillExpectation{Digests: map[string]string{"axiom-project": strings.Repeat("1", 64), "axiom-runtime": strings.Repeat("2", 64)}, Manifest: manifest}
+	observe := func() []SkillObservation {
+		return []SkillObservation{{"codex", "recognized", "match", manifest}, {"claude", "absent", "mismatch", ""}}
+	}
+	InspectDocs([]string{"--json", "docs", "inspect"}, completionProvenance(t), &output, func() operationaldocs.Resolution { return resolution }, expectation, observe)
+	var got struct{ Docs docsReport }
+	if err := json.Unmarshal(output.Bytes(), &got); err != nil {
+		t.Fatal(err)
+	}
+	skills := got.Docs.Skills
+	if len(skills.Expected) != 2 || skills.Expected[0]["name"] != "axiom-project" || len(skills.Observed) != 2 {
+		t.Fatalf("%s", output.String())
+	}
+	for _, entry := range skills.Observed {
+		if entry["loaded"] != "unknown" {
+			t.Fatal("loaded claimed")
+		}
+	}
+	if skills.Observed[1]["manifestSha256"] != nil {
+		t.Fatal("mismatching runtime reported a manifest")
+	}
+
+	output.Reset()
+	expectation.Manifest = strings.Repeat("0", 64)
+	InspectDocs([]string{"--json", "docs", "inspect"}, completionProvenance(t), &output, func() operationaldocs.Resolution { return resolution }, expectation, observe)
+	if json.Unmarshal(output.Bytes(), &got) != nil || len(got.Docs.Skills.Expected) != 0 || len(got.Docs.Diagnostics) != 1 {
+		t.Fatalf("unreproduced manifest must not list expected skills: %s", output.String())
 	}
 }

@@ -2,11 +2,14 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"os"
 	"path/filepath"
 	"runtime"
 	"runtime/debug"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -47,7 +50,7 @@ func main() {
 	if handled, code := cli.InspectSkill(os.Args[1:], source, os.Stdout); handled {
 		os.Exit(code)
 	}
-	if handled, code := cli.InspectDocs(os.Args[1:], source, os.Stdout, resolveDocs); handled {
+	if handled, code := cli.InspectDocs(os.Args[1:], source, os.Stdout, resolveDocs, skillExpectation(), observeSkills); handled {
 		os.Exit(code)
 	}
 	if format, ok := versionFormat(os.Args[1:]); ok {
@@ -1395,4 +1398,64 @@ func resolveDocs() operationaldocs.Resolution {
 		return operationaldocs.Resolution{State: operationaldocs.StateUnknown, Reason: "io_unavailable"}
 	}
 	return operationaldocs.Resolve(executable, operationaldocs.Compiled())
+}
+
+func skillExpectation() cli.SkillExpectation {
+	digests, err := codexruntime.EmbeddedSkillDigests()
+	if err != nil {
+		return cli.SkillExpectation{}
+	}
+	names := make([]string, 0, len(digests))
+	for name := range digests {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	var manifest strings.Builder
+	manifest.WriteString("formatVersion=1\nskillSetVersion=1\nbinaryCompatibility=1\n")
+	for _, name := range names {
+		manifest.WriteString("skill." + name + "=" + digests[name] + "\n")
+	}
+	sum := sha256.Sum256([]byte(manifest.String()))
+	return cli.SkillExpectation{Digests: digests, Manifest: hex.EncodeToString(sum[:])}
+}
+
+func observeSkills() []cli.SkillObservation {
+	observe := func(name string, service codexruntime.Service, err error, manifest string) cli.SkillObservation {
+		if err != nil {
+			return cli.SkillObservation{Runtime: name, Receipt: "unknown", Files: "unknown"}
+		}
+		result := service.Inspect(context.Background())
+		observation := cli.SkillObservation{Runtime: name, Receipt: "unknown", Files: "unknown"}
+		switch result.Receipt {
+		case codexruntime.ReceiptAbsent:
+			observation.Receipt = "absent"
+		case codexruntime.ReceiptCurrent, codexruntime.ReceiptLegacy:
+			observation.Receipt = "recognized"
+		case codexruntime.ReceiptUnrecognized:
+			observation.Receipt = "conflict"
+		}
+		if result.Status == codexruntime.Failed || len(result.Skills) == 0 {
+			return observation
+		}
+		observation.Files = "match"
+		for _, skill := range result.Skills {
+			switch skill.State {
+			case "equivalent":
+			case "unsafe":
+				observation.Files = "unknown"
+			default:
+				if observation.Files != "unknown" {
+					observation.Files = "mismatch"
+				}
+			}
+		}
+		if observation.Files == "match" {
+			observation.ManifestSHA256 = manifest
+		}
+		return observation
+	}
+	manifest := skillExpectation().Manifest
+	codex, codexErr := codexruntime.New(codexSkillsRoot())
+	claude, claudeErr := discoverRuntimeRoots().claude()
+	return []cli.SkillObservation{observe("codex", codex, codexErr, manifest), observe("claude", claude, claudeErr, manifest)}
 }
