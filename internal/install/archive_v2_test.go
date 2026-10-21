@@ -23,7 +23,12 @@ type v2Archive struct {
 	pax     map[string]string
 }
 
+var tupleOverride []string
+
 func hostTuple() (string, string, string) {
+	if tupleOverride != nil {
+		return tupleOverride[0], tupleOverride[1], tupleOverride[2]
+	}
 	if runtime.GOOS == "darwin" {
 		return "macos", "darwin", runtime.GOARCH
 	}
@@ -181,5 +186,12 @@ func TestLoadCandidateV2Refusals(t *testing.T) {
 				t.Fatal("accepted")
 			}
 		})
+	}
+}
+
+func TestPinnedV1MetadataReaderRefusesGenerationTwo(t *testing.T) {
+	a := newV2Archive(t)
+	if _, _, err := parseMetadata(a.files["release-metadata.txt"]); err == nil {
+		t.Fatal("generation 1 metadata reader accepted generation 2 metadata")
 	}
 }

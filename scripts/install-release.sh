@@ -202,7 +202,7 @@ verify_v2() {
   while IFS=$'\t' read -r output source source_commit source_sha transform extra; do
     [[ -z "${extra:-}" && "$source" =~ ^[a-zA-Z0-9][a-zA-Z0-9._/-]*$ && ${#source} -le 240 && "$source" != *..* && "$source_commit" == "$commit" && "$source_sha" =~ ^[0-9a-f]{64}$ ]] || fail_v2 'documentary provenance mismatch'
     case "$transform" in copy-v1|operational-synthesis-v1|cli-render-v1) ;; *) fail_v2 'documentary provenance mismatch' ;; esac
-    grep -q "^$output	" "$temporary/inventory.rows" || fail_v2 'documentary provenance mismatch'
+    cut -f1 "$temporary/inventory.rows" | grep -qxF -- "$output" || fail_v2 'documentary provenance mismatch'
     printf '%s\n' "$output" >>"$temporary/provenance.outputs"
   done <"$temporary/provenance.rows"
   cut -f1 "$temporary/inventory.rows" | LC_ALL=C sort >"$temporary/inventory.outputs"
@@ -211,7 +211,7 @@ verify_v2() {
   local command page anchor have_root=false
   while IFS=$'\t' read -r command page anchor extra; do
     [[ -z "${extra:-}" && "$command" =~ ^axiom(\ [a-z0-9][a-z0-9-]*)*$ && ${#command} -le 256 && "$page" == docs/man/man1/* && "$anchor" =~ ^[A-Z][A-Z0-9_-]{0,63}$ ]] || fail_v2 'documentary man map mismatch'
-    grep -q "^$page	" "$temporary/inventory.rows" && grep -qx "\.SH $anchor" "$bundle/$page" || fail_v2 'documentary man map mismatch'
+    cut -f1 "$temporary/inventory.rows" | grep -qxF -- "$page" && grep -qx "\.SH $anchor" "$bundle/$page" || fail_v2 'documentary man map mismatch'
     [[ "$command" == axiom ]] && have_root=true
   done <"$temporary/man-map.rows"
   cut -f1 "$temporary/man-map.rows" | LC_ALL=C sort -c -u 2>/dev/null || fail_v2 'documentary man map mismatch'

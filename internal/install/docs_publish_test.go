@@ -191,3 +191,38 @@ func TestV2ConflictingGenerationAndForeignFilesArePreserved(t *testing.T) {
 		t.Fatal("foreign file changed")
 	}
 }
+
+func TestV2MigratesAV1InstallationPreservingForeignFiles(t *testing.T) {
+	prior := hostRow
+	hostRow = func() string { return testRow }
+	tupleOverride = []string{"macos", "darwin", "arm64"}
+	t.Cleanup(func() { hostRow, tupleOverride = prior, nil })
+	target := v2Target(t)
+	legacy := newBundle("1.0.0", []byte("binary-v1\n"))
+	archive, checksums := legacy.write(t, privateDirectory(t, t.TempDir(), "release"))
+	v1, err := LoadCandidate(archive, checksums)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result := installV2(t, target, v1); result.ExitCode != 0 || v1.Docs != nil {
+		t.Fatal(brief(result))
+	}
+	foreign := filepath.Join(target.BinaryDir, "user-tool")
+	if err := os.WriteFile(foreign, []byte("mine\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	next := v2Candidate(t, "binary-v2", "N", "1.1.0")
+	if result := installV2(t, target, next); result.ExitCode != 0 || result.UpgradeResult.Status != "success" {
+		t.Fatal(brief(result))
+	}
+	receipt := read(t, filepath.Join(target.ReceiptDir, receiptName))
+	if !strings.HasPrefix(receipt, "formatVersion=2\n") || !strings.Contains(receipt, "version=1.1.0") {
+		t.Fatalf("receipt=%q", receipt)
+	}
+	if read(t, foreign) != "mine\n" {
+		t.Fatal("foreign file changed")
+	}
+	if again := installV2(t, target, next); again.Stdout != "install_status=unchanged\n" {
+		t.Fatal(brief(again))
+	}
+}

@@ -204,6 +204,11 @@ func resolveInstallation(executable string, d Descriptor) (Resolution, error) {
 		return zero, classify(err)
 	}
 	dir := filepath.Join(namespace, "bindings", digest)
+	for _, level := range []string{filepath.Dir(dir), dir} {
+		if _, err := privateDir(level, true); err != nil {
+			return zero, classify(err)
+		}
+	}
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return zero, classify(err)

@@ -75,6 +75,56 @@ expect_refused() {
   printf 'docs_offline_refused: %s -> %s\n' "$label" "$(field "$out" reason)"
 }
 
+pinned=4b9c4fb409b79d98e0c52e6a00384c7c8fa42bf8
+if git -C "$repository_root" cat-file -e "$pinned:scripts/install-release.sh" 2>/dev/null; then
+  git -C "$repository_root" show "$pinned:scripts/install-release.sh" >"$work/install-release.v1.sh"
+  chmod 700 "$work/install-release.v1.sh"
+  mkdir -m 700 "$work/v1bin" "$work/v1receipts"
+  if refusal=$("$work/install-release.v1.sh" --archive "$archive" --checksums "$work/release/SHA256SUMS" --bin-dir "$work/v1bin" --receipt-dir "$work/v1receipts" 2>&1); then
+    fail 'pinned v1 installer accepted a v2 archive'
+  fi
+  [[ "$refusal" == *'release metadata schema mismatch'* && ! -e "$work/v1bin/axiom" ]] || fail 'pinned v1 installer did not refuse before any effect'
+  printf 'docs_offline_refused: pinned v1 installer rejects v2 before execution\n'
+else
+  printf 'docs_offline_note: pinned v1 installer unavailable in this checkout (UNVERIFIED)\n'
+fi
+
+digest() {
+  if command -v sha256sum >/dev/null 2>&1; then sha256sum "$1" | awk '{print $1}'; else shasum -a 256 "$1" | awk '{print $1}'; fi
+}
+
+# repack_refused extracts the archive, applies one mutation, re-seals the
+# manifest so only the deeper documentary checks can catch it, and requires the
+# installer to refuse before any effect.
+repack_refused() {
+  local label=$1 mutation=$2 expected=$3 dir="$work/repack-$1" bundle out
+  mkdir -m 700 "$dir" "$dir/bin" "$dir/receipts"
+  tar -xzf "$archive" -C "$dir"
+  bundle=$(find "$dir" -mindepth 1 -maxdepth 1 -type d -not -name bin -not -name receipts)
+  (cd "$bundle" && eval "$mutation")
+  (
+    cd "$bundle"
+    find . -type d -exec chmod 700 {} +
+    find . -type f -exec chmod 600 {} +
+    chmod 700 axiom install.sh
+    find . -type f ! -name MANIFEST.sha256 -print | sed 's#^\./##' | LC_ALL=C sort | while IFS= read -r file; do
+      printf '%s  %s\n' "$(digest "$file")" "$file"
+    done >MANIFEST.sha256
+  )
+  COPYFILE_DISABLE=1 tar --format=ustar -C "$dir" -czf "$dir/$(basename "$bundle").tar.gz" "$(basename "$bundle")"
+  printf '%s  %s\n' "$(digest "$dir/$(basename "$bundle").tar.gz")" "$(basename "$bundle").tar.gz" >"$dir/SHA256SUMS"
+  if out=$("$repository_root/scripts/install-release.sh" --archive "$dir/$(basename "$bundle").tar.gz" --checksums "$dir/SHA256SUMS" --bin-dir "$dir/bin" --receipt-dir "$dir/receipts" 2>&1); then
+    fail "$label: installer accepted a resealed bad archive"
+  fi
+  [[ "$out" == *"$expected"* && ! -e "$dir/bin/axiom" ]] || fail "$label: unexpected refusal: $out"
+  printf 'docs_offline_refused: %s -> %s\n' "$label" "$expected"
+}
+
+repack_refused extra-output 'printf "x\n" >docs/text/extra.md' 'bundle contents do not match documentary inventory'
+repack_refused swapped-content 'printf "# changed\n" >docs/text/index.md' 'documentary inventory mismatch'
+repack_refused extra-root-file 'printf "x\n" >notes.txt' 'bundle contents do not match documentary inventory'
+repack_refused stale-metadata 'sed "s/^docsManMapSha256=.*/docsManMapSha256=$(printf "%064d" 0)/" release-metadata.txt >m && mv m release-metadata.txt' 'release metadata does not match bundle'
+
 mkdir -m 700 "$work/copy"
 cp -p "$work/bin/axiom" "$work/copy/axiom"
 (cd / && env -i HOME="$work/home" PATH=/usr/bin:/bin "$work/copy/axiom" --json docs inspect >/dev/null) && fail 'copied binary inspected as verified'
