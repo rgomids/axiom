@@ -2353,7 +2353,7 @@
       "path": "scripts/test-docs-offline.sh",
       "kind": "script",
       "owner": "installation",
-      "purpose": "Installs a locally built archive generation 2 into a throwaway prefix and proves docs inspect, corpus integrity, closed links and refusal of tampered, copied or modified installations without a checkout.",
+      "purpose": "Installs a local supplied or development archive generation 2 into a throwaway prefix, records artifact identity and checks docs inspect, corpus integrity, closed links and refusals. Does not enforce checkout/network denial or qualify V8/native Runtimes.",
       "lifecycle": "durable",
       "disposition": "keep",
       "disposition_ref": null,

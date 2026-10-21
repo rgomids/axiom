@@ -10,6 +10,11 @@ for part of the criterion), **NOT_RUN**, **UNVERIFIED** (no sustaining run).
 Local macOS arm64 runs are the author's host; CI runs are the PR's ubuntu amd64
 runner (`PR Checks`). Neither is the qualified native matrix of T13–T15.
 
+Post-review 7 continuation: [qualification packet and grouped decisions](qualification-post-review7.md).
+That packet records the current gate and later checks without overwriting the
+historical observations below. Review 7 resolved CR-002 only; native T13/T15 and
+AC-08 remain NOT_RUN, T14/T16 PARTIAL. No full-delivery acceptance is inferred.
+
 ## Task traceability
 
 | Task / Evidence | State | What exists and what was run |

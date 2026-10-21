@@ -1,12 +1,26 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Installs a locally built archive generation 2 into a throwaway prefix and
-# proves, with no checkout reachable from the installed binary, that
-# `docs inspect` verifies the installed documentation, every local link
-# resolves, and tampering or copying the binary is refused.
+# Installs archive generation 2 into a throwaway prefix; checks discovery,
+# corpus links/hashes and refusal. Empty environment/CWD outside the checkout
+# do not deny checkout or network access. This is development evidence, not V8.
 
 repository_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)
+archive=
+checksums=
+while (($#)); do
+  case "$1" in
+    --archive|--checksums)
+      [[ $# -ge 2 && "$2" == /* && -f "$2" ]] || { printf 'docs_offline_error: absolute existing file required\n' >&2; exit 1; }
+      if [[ "$1" == --archive ]]; then archive=$2; else checksums=$2; fi
+      shift 2 ;;
+    --help)
+      printf 'Usage: test-docs-offline.sh [--archive /path/archive.tar.gz --checksums /path/SHA256SUMS]\nLocal checks only; no network/path isolation or Runtime qualification.\n'
+      exit 0 ;;
+    *) printf 'docs_offline_error: invalid argument\n' >&2; exit 1 ;;
+  esac
+done
+[[ -z "$archive" && -z "$checksums" || -n "$archive" && -n "$checksums" ]] || { printf 'docs_offline_error: archive and checksums required together\n' >&2; exit 1; }
 work=$(mktemp -d)
 trap 'chmod -R u+w "$work" 2>/dev/null || true; rm -rf -- "$work"' EXIT
 work=$(cd "$work" && pwd -P)
@@ -20,12 +34,15 @@ esac
 
 fail() { printf 'docs_offline_error: %s\n' "$1" >&2; exit 1; }
 
-version=0.0.0-docs.offline
-"$repository_root/scripts/build-release-archives.sh" --version "$version" --output "$work/release" --format 2 --development --only "$row" >/dev/null
-archive=$(ls "$work/release"/axiom-"$version"-*.tar.gz)
+if [[ -z "$archive" ]]; then
+  version=0.0.0-docs.offline
+  "$repository_root/scripts/build-release-archives.sh" --version "$version" --output "$work/release" --format 2 --development --only "$row" >/dev/null
+  archive=$(ls "$work/release"/axiom-"$version"-*.tar.gz)
+  checksums="$work/release/SHA256SUMS"
+fi
 mkdir -m 700 "$work/bin" "$work/receipts" "$work/home"
 
-"$repository_root/scripts/install-release.sh" --archive "$archive" --checksums "$work/release/SHA256SUMS" --bin-dir "$work/bin" --receipt-dir "$work/receipts" >/dev/null
+"$repository_root/scripts/install-release.sh" --archive "$archive" --checksums "$checksums" --bin-dir "$work/bin" --receipt-dir "$work/receipts" >/dev/null
 
 inspect() { (cd / && env -i HOME="$work/home" PATH=/usr/bin:/bin "$work/bin/axiom" --json docs inspect "$@"); }
 
@@ -62,6 +79,27 @@ for path in known:
 print("docs_offline_corpus: %d files, links closed" % len(rows))
 PY
 
+python3 -I - "$archive" "$report" "$row" <<'PY'
+import hashlib, json, sys, tarfile
+with open(sys.argv[1], "rb") as source:
+    digest = hashlib.sha256()
+    for block in iter(lambda: source.read(1024 * 1024), b""):
+        digest.update(block)
+    archive_hash = digest.hexdigest()
+with tarfile.open(sys.argv[1], "r:gz") as source:
+    metadata_entries = [m for m in source.getmembers() if m.name.endswith("/release-metadata.txt")]
+    assert len(metadata_entries) == 1, "ambiguous metadata"
+    metadata = dict(line.split("=", 1) for line in source.extractfile(metadata_entries[0]).read().decode().splitlines())
+docs = json.loads(sys.argv[2])["docs"]
+print("docs_offline_artifact: " + json.dumps({
+    "hostRow": sys.argv[3], "archiveSha256": archive_hash,
+    "metadata": {k: metadata[k] for k in ("version", "revision", "sourceState", "release", "platform", "architecture")},
+    "binarySha256": docs["binary"]["sha256"], "sourceCommit": docs["binary"]["sourceCommit"],
+    "installation": docs["installation"], "integrity": docs["integrity"],
+    "networkDenial": "NOT_RUN", "sourceDenial": "NOT_RUN", "nativeRuntimes": "NOT_RUN"
+}, sort_keys=True))
+PY
+
 if command -v man >/dev/null 2>&1; then
   selected=$(MANPATH="$(field "$report" paths.manRoot):" man -w axiom 2>/dev/null || true)
   [[ -z "$selected" || "$selected" == "$(field "$report" man.page)" ]] || printf 'docs_offline_note: man selected a different page\n'
@@ -80,7 +118,7 @@ if git -C "$repository_root" cat-file -e "$pinned:scripts/install-release.sh" 2>
   git -C "$repository_root" show "$pinned:scripts/install-release.sh" >"$work/install-release.v1.sh"
   chmod 700 "$work/install-release.v1.sh"
   mkdir -m 700 "$work/v1bin" "$work/v1receipts"
-  if refusal=$("$work/install-release.v1.sh" --archive "$archive" --checksums "$work/release/SHA256SUMS" --bin-dir "$work/v1bin" --receipt-dir "$work/v1receipts" 2>&1); then
+  if refusal=$("$work/install-release.v1.sh" --archive "$archive" --checksums "$checksums" --bin-dir "$work/v1bin" --receipt-dir "$work/v1receipts" 2>&1); then
     fail 'pinned v1 installer accepted a v2 archive'
   fi
   [[ "$refusal" == *'release metadata schema mismatch'* && ! -e "$work/v1bin/axiom" ]] || fail 'pinned v1 installer did not refuse before any effect'
@@ -137,3 +175,4 @@ printf 'x' >>"$work/bin/axiom"
 expect_refused 'modified binary'
 
 printf 'docs_offline_success: %s\n' "$row"
+printf 'docs_offline_qualification: PARTIAL (network/source denial and native Runtime observation NOT_RUN)\n'
