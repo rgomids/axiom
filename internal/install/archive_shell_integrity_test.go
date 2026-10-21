@@ -12,10 +12,7 @@ import (
 
 func TestShellArchiveIntegrityBeforeExecution(t *testing.T) {
 	for _, version := range []int{1, 2} {
-		mutations := []string{"valid", "complete tars", "tar trailing", "zero tar tail", "zero trailing", "trailing", "truncated", "crc", "duplicate directory", "duplicate file", "path", "manifest", "metadata", "file limit"}
-		if version == 1 {
-			mutations = append(mutations, "split", "extra empty", "prefix empty")
-		}
+		mutations := []string{"valid", "complete tars", "tar trailing", "zero tar tail", "zero trailing", "trailing", "truncated", "crc", "duplicate directory", "duplicate file", "path", "manifest", "metadata", "file limit", "split", "extra empty", "prefix empty"}
 		for _, mutation := range mutations {
 			t.Run(string(rune('0'+version))+"/"+mutation, func(t *testing.T) {
 				work := t.TempDir()
@@ -129,6 +126,67 @@ func TestShellArchiveIntegrityBeforeExecution(t *testing.T) {
 					for _, dest := range []string{"bin", "receipts"} {
 						if _, err := os.Stat(filepath.Join(work, dest)); !os.IsNotExist(err) {
 							t.Fatal("invalid archive published destination")
+						}
+					}
+				}
+			})
+		}
+	}
+}
+
+func TestShellV2PythonPrerequisiteBeforeExecution(t *testing.T) {
+	for _, version := range []int{1, 2} {
+		for _, prerequisite := range []string{"missing", "incompatible"} {
+			t.Run(string(rune('0'+version))+"/"+prerequisite, func(t *testing.T) {
+				work := t.TempDir()
+				marker := filepath.Join(work, "candidate-executed")
+				sentinel := "#!/bin/sh\nprintf probe > '" + marker + "'\nexit 91\n"
+				var archive, sums string
+				if version == 1 {
+					archive, sums = newBundle("1.1.0", []byte(sentinel)).write(t, work)
+				} else {
+					archive, sums = newV2ArchiveFor(t, sentinel, "").write(t)
+				}
+				tools := filepath.Join(work, "tools")
+				if err := os.Mkdir(tools, 0700); err != nil {
+					t.Fatal(err)
+				}
+				for _, name := range strings.Fields("bash basename dirname wc awk tr sha256sum shasum uname stat ls id mktemp cp chmod gzip head dd od tail tar sed sort uniq grep find rm cmp cut") {
+					path, err := exec.LookPath(name)
+					if err != nil {
+						continue
+					}
+					if err := os.Symlink(path, filepath.Join(tools, name)); err != nil {
+						t.Fatal(err)
+					}
+				}
+				if prerequisite == "incompatible" {
+					if err := os.WriteFile(filepath.Join(tools, "python3"), []byte("#!/bin/sh\nexit 2\n"), 0700); err != nil {
+						t.Fatal(err)
+					}
+				}
+				script, _ := filepath.Abs("../../scripts/install-release.sh")
+				for _, verify := range []bool{true, false} {
+					if version == 1 && !verify {
+						continue
+					}
+					args := []string{script, "--archive", archive, "--checksums", sums, "--bin-dir", filepath.Join(work, "bin"), "--receipt-dir", filepath.Join(work, "receipts")}
+					if verify {
+						args = append(args, "--verify-only")
+					}
+					cmd := exec.Command("bash", args...)
+					cmd.Env = append(os.Environ(), "PATH="+tools)
+					out, err := cmd.CombinedOutput()
+					if version == 1 {
+						if err != nil {
+							t.Fatalf("v1 must not require Python: %v: %s", err, out)
+						}
+					} else if err == nil || !bytes.Contains(out, []byte("python3 >= 3.6 with stdlib zlib required")) {
+						t.Fatalf("missing prerequisite refusal: %v: %s", err, out)
+					}
+					for _, path := range []string{marker, filepath.Join(work, "bin"), filepath.Join(work, "receipts")} {
+						if _, err := os.Stat(path); !os.IsNotExist(err) {
+							t.Fatalf("unexpected effect: %s", path)
 						}
 					}
 				}
