@@ -135,3 +135,10 @@ framing refusals within the accepted host contract (or obtain a specific human
 decision if that contract must change). Only after that technical gate and a
 tested coordinated activation diff should one grouped default-activation
 authorization be requested. A pending authority gate does not waive these failures.
+
+## Follow-up: framing-seven-fails-r2
+
+[Round 2 Evidence](evidence-framing-seven-fails-r2.md) preserves this historical
+seven-FAIL result and records four repaired tar-EOF cases, three remaining v2
+member-count FAILs, regression controls and the pending host-contract decision.
+Default v1 remains unchanged; no activation preparation occurred in round 2.

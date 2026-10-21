@@ -81,3 +81,13 @@ v0.1.0 UNVERIFIED; no default activation or independent T16 acceptance follows.
 demonstrated shell gzip-integrity/duplicate/bound refusals. Its broader framing
 experiment still FAILs; coordinated activation remains unprepared and default
 v1 is preserved. Native qualification stays deferred to AXM-12; T16 is partial.
+
+[Seven framing failures r2](evidence-framing-seven-fails-r2.md) reproduces all
+seven entry failures individually and repairs four tar-EOF cases (v1/v2).
+Three v2 member-count cases remain FAIL; an explicit Python bootstrap
+prerequisite decision is pending, not inferred from bounded patch authority.
+The original 34-case experiment stays reproducible; 31 active regressions
+cover repaired boundaries and historical v1 multistream. Default v1 stays
+unchanged; activation preparation is out of scope. Native T13–T15/Q6 remain
+deferred to AXM-12 and T16 remains partial. Next: incremental review plus the
+host-contract decision for remaining framing work.
