@@ -107,3 +107,20 @@ no acceptance/status/blocker change. Remaining Linux v1 compressed-zero-tail
 CI discrepancy and isolated executiongraph FAIL are separate Evidence, not
 waived or folded into the seven-case PASS. Next: incremental review of the
 actual pushed HEAD and disposition of remaining CI evidence.
+
+### Linux v1 CI diagnostic r1 continuation
+
+[Linux v1 diagnostic Evidence](evidence-linux-v1-ci-diagnostic-r1.md) resolves
+the dispatch preflight under Rafael's sole-executor decision A and attributes
+source HEAD `630eaf7555aa10cdad494b083bf77a1cc1cbc6b6` CI FAIL to v1
+`zero_trailing`. GNU gzip accepts zeros after the compressed member; Go refuses
+the invalid next header. Local Linux reproduction reaches a harmless normal-entry
+candidate sentinel despite Go refusal, with no persistent destination creation.
+Mac integrity (34 cases) and package checks PASS; local Linux v1 subset has
+exactly one FAIL. Linux shell v2 remains NOT_RUN locally without Python; no
+dependency installed. Executiongraph PASS in that CI and 2/3 isolated Mac FAIL
+remain distinct, without a race diagnosis. All prior PASS/FAIL remain historical.
+No code/test/bootstrap change or v1 waiver: next gate is an explicit bounded v1
+framing/prerequisite decision before any repair. Default v1, opt-in v2 and legacy
+multistream remain unchanged; seven framing repairs preserved. T13–T15/Q6 stay
+deferred to AXM-12, T16 partial, AC-08/v0.1.0 unproven.
