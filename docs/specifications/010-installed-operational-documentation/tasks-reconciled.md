@@ -76,3 +76,8 @@ T02/T03/T07/T09/T12 delta to AC-01/02/03/05/06/07. The task definitions above
 remain the accepted R1 map, with their original proposal history preserved.
 The continuation retains T13/T15 NOT_RUN, T14/T16 PARTIAL, AC-04/08 NOT_RUN and
 v0.1.0 UNVERIFIED; no default activation or independent T16 acceptance follows.
+
+[Default-promotion preflight r1](evidence-v2-default-preflight-r1.md) repairs
+demonstrated shell gzip-integrity/duplicate/bound refusals. Its broader framing
+experiment still FAILs; coordinated activation remains unprepared and default
+v1 is preserved. Native qualification stays deferred to AXM-12; T16 is partial.
