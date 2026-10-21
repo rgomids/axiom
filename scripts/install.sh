@@ -319,8 +319,10 @@ trap 'exit 130' HUP INT TERM
 chmod 700 "$work"
 
 # Refuse unsafe staging ancestors before authenticating/executing any helper.
-owner_of() { if [ "$system" = Darwin ]; then stat -f %u "$1"; else stat -c %u "$1"; fi; }
-mode_of() { if [ "$system" = Darwin ]; then stat -f %Lp "$1"; else stat -c %a "$1"; fi; }
+stat_style=linux
+if stat -f %u "$work" >/dev/null 2>&1; then stat_style=darwin; fi
+owner_of() { if [ "$stat_style" = darwin ]; then stat -f %u "$1"; else stat -c %u "$1"; fi; }
+mode_of() { if [ "$stat_style" = darwin ]; then stat -f %Lp "$1"; else stat -c %a "$1"; fi; }
 [ ! -h "$work" ] && [ "$(owner_of "$work")" = "$(id -u)" ] && [ "$(mode_of "$work")" = 700 ] || fail 'unsafe private workspace'
 current=$work
 while :; do
@@ -332,7 +334,7 @@ while :; do
   if [ "$((0$mode & 0022))" -ne 0 ]; then
     [ -n "$(find "$current" -maxdepth 0 -perm -1000 -print 2>/dev/null)" ] || fail 'unsafe workspace ancestor permissions'
   fi
-  if [ "$system" = Darwin ]; then
+  if [ "$stat_style" = darwin ]; then
     [ "$(LC_ALL=C ls -lde "$current" | wc -l | tr -d ' ')" = 1 ] || fail 'unsafe workspace ACL'
   else
     LC_ALL=C ls -ld "$current" | awk 'length($1) != 10 {exit 1}' || fail 'unsafe workspace ACL'

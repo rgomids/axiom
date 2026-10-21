@@ -32,6 +32,16 @@ func TestStrictMembersAndNoOutputOnRefusal(t *testing.T) {
 	w.Close()
 	raw := b.Bytes()
 	valid := packed(t, raw)
+	var zeros bytes.Buffer
+	zw := tar.NewWriter(&zeros)
+	if err := zw.WriteHeader(&tar.Header{Name: "axiom-test/zero-file", Mode: 0600, Size: 2048}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := zw.Write(make([]byte, 2048)); err != nil {
+		t.Fatal(err)
+	}
+	// Deliberately omit tar.Writer.Close and its terminator blocks.
+	missingEOFWithZeroPayload := packed(t, zeros.Bytes())
 	crc := append([]byte{}, valid...)
 	crc[len(crc)-8] ^= 1
 	for _, tc := range []struct {
@@ -50,6 +60,7 @@ func TestStrictMembersAndNoOutputOnRefusal(t *testing.T) {
 		{"truncation", valid[:len(valid)-3], false},
 		{"split-invalid", append(packed(t, raw[:17]), packed(t, raw[18:])...), false},
 		{"tar-eof-absent", packed(t, raw[:1024]), false},
+		{"tar-eof-absent-zero-payload", missingEOFWithZeroPayload, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			dir := t.TempDir()

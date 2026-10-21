@@ -95,12 +95,6 @@ for row in $rows; do
   bundle="axiom-$version-$platform-$architecture"
   archive="$directory/$bundle.tar.gz"
 
-  if [[ "$format" == 1 || "$format" == 2 ]]; then
-    # Reuse the full source shell verifier. No candidate is executed, including
-    # cross-compiled rows; all persistent destinations stay absent.
-    "$repository_root/scripts/install-release.sh" --verify-only --archive "$archive" --checksums "$checksums" \
-      --bin-dir "$temporary/unused-bin" --receipt-dir "$temporary/unused-receipt" >"$temporary/verified"
-  fi
   # Closed entry set with regular files and directories only.
   {
     printf '%s\n' "$bundle" "$bundle/LICENSE" "$bundle/MANIFEST.sha256" "$bundle/$executable" "$bundle/$installer" \
@@ -118,6 +112,13 @@ for row in $rows; do
   cmp -s "$temporary/expected-entries" "$temporary/actual-entries" || fail "archive entries are not the closed bundle set: $bundle"
   tar -tvzf "$archive" | awk 'substr($1,1,1) != "-" && substr($1,1,1) != "d" {exit 1}' || fail "archive links or special files: $bundle"
   [[ $(tar -tvzf "$archive" | awk -v path="$bundle/$executable" '$NF == path {print $1}') == -rwx------ ]] || fail "axiom executable mode is not 0700: $bundle"
+
+  if [[ "$format" == 1 || "$format" == 2 ]]; then
+    # Reuse the full source shell verifier. No candidate is executed, including
+    # cross-compiled rows; all persistent destinations stay absent.
+    "$repository_root/scripts/install-release.sh" --verify-only --archive "$archive" --checksums "$checksums" \
+      --bin-dir "$temporary/unused-bin" --receipt-dir "$temporary/unused-receipt" >"$temporary/verified"
+  fi
 
   extracted="$temporary/extract-$platform-$architecture"
   mkdir "$extracted"

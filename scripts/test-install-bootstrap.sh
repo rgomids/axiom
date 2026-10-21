@@ -96,7 +96,7 @@ step() {
     printf 'case=%s result=pass\n' "$label"
   else
     printf 'case=%s result=fail\n' "$label"
-    sed -n '1,30p' "$temporary/step.log" | sed 's/^/  log: /'
+    tail -n 12 "$temporary/step.log" | sed 's/^/  log: /'
     failures=$((failures + 1))
   fi
 }
@@ -231,10 +231,10 @@ cp "$fixtures/releases/v1.1.0/axiom-1.1.0-$row.tar.gz" "$fixtures/releases/v6.0.
 grep -v "$row" "$fixtures/releases/v1.1.0/SHA256SUMS" >"$fixtures/releases/v6.0.0/SHA256SUMS"
 cp "$fixtures/releases/v1.1.0/axiom-1.1.0-$row.tar.gz" "$fixtures/releases/v7.0.0/axiom-7.0.0-$row.tar.gz"
 printf 'tamper\n' >>"$fixtures/releases/v7.0.0/axiom-7.0.0-$row.tar.gz"
-sed "s/1.1.0/7.0.0/g" "$fixtures/releases/v1.1.0/SHA256SUMS" | grep -v "$row" >"$fixtures/releases/v7.0.0/SHA256SUMS"
+sed "s/1.1.0/7.0.0/g" "$fixtures/releases/v1.1.0/SHA256SUMS" | grep -v "$row.tar.gz" >"$fixtures/releases/v7.0.0/SHA256SUMS"
 printf '%s  axiom-7.0.0-%s.tar.gz\n' "$(digest "$fixtures/releases/v1.1.0/axiom-1.1.0-$row.tar.gz")" "$row" >>"$fixtures/releases/v7.0.0/SHA256SUMS"
 cp "$fixtures/releases/v1.1.0/axiom-1.1.0-$row.tar.gz" "$fixtures/releases/v8.0.0/axiom-8.0.0-$row.tar.gz"
-sed "s/1.1.0/8.0.0/g" "$fixtures/releases/v1.1.0/SHA256SUMS" | grep -v "$row" >"$fixtures/releases/v8.0.0/SHA256SUMS"
+sed "s/1.1.0/8.0.0/g" "$fixtures/releases/v1.1.0/SHA256SUMS" | grep -v "$row.tar.gz" >"$fixtures/releases/v8.0.0/SHA256SUMS"
 printf '%s  axiom-8.0.0-%s.tar.gz\n' "$(digest "$fixtures/releases/v8.0.0/axiom-8.0.0-$row.tar.gz")" "$row" >>"$fixtures/releases/v8.0.0/SHA256SUMS"
 for go_row in darwin-arm64 linux-amd64 linux-arm64; do
   helper_name="axiom-verifier-8.0.0-$(cat "$fixtures/source-commit")-$go_row"
@@ -282,7 +282,7 @@ for selection in macos-arm64:Darwin:arm64 linux-amd64:Linux:x86_64 linux-arm64:L
   # Serve the exact checksum inventory but withhold all archives, so no foreign
   # binary runs even with a simulated host.
   mkdir -p "$fixtures/releases/v5.1.0"
-  sed 's/axiom-5.0.0/axiom-5.1.0/g' "$fixtures/releases/v5.0.0/SHA256SUMS" >"$fixtures/releases/v5.1.0/SHA256SUMS"
+  sed 's/5.0.0/5.1.0/g' "$fixtures/releases/v5.0.0/SHA256SUMS" >"$fixtures/releases/v5.1.0/SHA256SUMS"
   export shim selected_row
   step "v2-row-selection:$selected_row" bash -eo pipefail -c '
     EXTRA_PATH="$shim" refused "$(mktemp -d "$temporary/homes/v2-row.XXXXXX")" "has no published asset axiom-5.1.0-$selected_row.tar.gz" --version v5.1.0
@@ -291,7 +291,7 @@ for selection in macos-arm64:Darwin:arm64 linux-amd64:Linux:x86_64 linux-arm64:L
   '
 done
 mkdir -p "$fixtures/releases/v5.2.0"
-sed 's/axiom-5.0.0/axiom-5.2.0/g' "$fixtures/releases/v5.0.0/SHA256SUMS" >"$fixtures/releases/v5.2.0/SHA256SUMS"
+sed 's/5.0.0/5.2.0/g' "$fixtures/releases/v5.0.0/SHA256SUMS" >"$fixtures/releases/v5.2.0/SHA256SUMS"
 grep macos "$fixtures/releases/v5.2.0/SHA256SUMS" | sed 's/-macos-/-macos-27-/' >>"$fixtures/releases/v5.2.0/SHA256SUMS"
 step mixed-generation-checksums bash -eo pipefail -c '
   refused "$(mktemp -d "$temporary/homes/mixed.XXXXXX")" "checksum asset set is ambiguous or incomplete" --version v5.2.0

@@ -93,6 +93,11 @@ func decode(wire []byte) ([]byte, error) {
 			}
 			version2 = bytes.HasPrefix(metadata, []byte("formatVersion=2\n"))
 		}
+		// Consume payload here so Next's EOF accounting cannot mistake unread
+		// zero-filled file data for the two required tar terminator blocks.
+		if _, err := io.Copy(io.Discard, reader); err != nil {
+			return nil, fmt.Errorf("tar payload: %w", err)
+		}
 	}
 	if version2 && (members != 1 || len(raw) > 288<<20) || !version2 && entries > 64 {
 		return nil, errors.New("archive generation member/count/size limit")

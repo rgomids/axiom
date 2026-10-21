@@ -233,7 +233,7 @@ func TestShellHelperAuthenticationBeforeExecution(t *testing.T) {
 	marker := filepath.Join(work, "executed")
 	archive, sums := newBundle("1.1.0", []byte("#!/bin/sh\ntouch '"+marker+"'\n")).write(t, work)
 	script, _ := filepath.Abs("../../scripts/install-release.sh")
-	for _, tc := range []string{"missing", "wrong-pin", "wrong-platform", "symlink"} {
+	for _, tc := range []string{"missing", "wrong-pin", "wrong-platform", "wrong-linkage", "symlink"} {
 		t.Run(tc, func(t *testing.T) {
 			localEnv := append([]string{}, env...)
 			switch tc {
@@ -248,6 +248,17 @@ func TestShellHelperAuthenticationBeforeExecution(t *testing.T) {
 					t.Fatal(err)
 				}
 				localEnv = []string{"AXIOM_VERIFIER_PATH=" + fake, "AXIOM_VERIFIER_SHA256=" + digest(wire)}
+			case "wrong-linkage":
+				original := strings.TrimPrefix(env[0], "AXIOM_VERIFIER_PATH=")
+				renamed := filepath.Join(t.TempDir(), strings.Replace(filepath.Base(original), "1.1.0", "1.2.0", 1))
+				wire, err := os.ReadFile(original)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(renamed, wire, 0700); err != nil {
+					t.Fatal(err)
+				}
+				localEnv[0] = "AXIOM_VERIFIER_PATH=" + renamed
 			case "symlink":
 				helper := strings.TrimPrefix(env[0], "AXIOM_VERIFIER_PATH=")
 				link := filepath.Join(t.TempDir(), filepath.Base(helper))
