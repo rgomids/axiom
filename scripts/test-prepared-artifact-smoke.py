@@ -50,7 +50,8 @@ class SmokeContract(unittest.TestCase):
                 "--row", "linux-amd64", *extra]
         with patch.object(sys, "argv", argv), contextlib.redirect_stdout(output), \
                 patch.object(smoke.platform, "system", return_value="Linux"), \
-                patch.object(smoke.platform, "machine", return_value="x86_64"):
+                patch.object(smoke.platform, "machine", return_value="x86_64"), \
+                patch.object(smoke.platform, "platform", return_value="fixture"):
             if responder:
                 with patch.object(smoke.subprocess, "run", side_effect=responder):
                     code = smoke.main()
@@ -136,6 +137,15 @@ class SmokeContract(unittest.TestCase):
         code, summary = self.invoke()
         self.assertEqual(code, 1)
         self.assertIn("not executable", summary["error"])
+
+    def test_ambiguous_checksum_refused_before_execution(self):
+        with (self.root / "SHA256SUMS").open("a") as stream:
+            stream.write(f"{'0' * 64}  {self.archive.name}\n")
+        with patch.object(smoke.subprocess, "run") as execute:
+            code, summary = self.invoke()
+            self.assertEqual(code, 1)
+            self.assertIn("checksum mismatch", summary["error"])
+            execute.assert_not_called()
 
     def test_corrupted_archive(self):
         with self.archive.open("ab") as stream:

@@ -68,3 +68,11 @@ before. No historical unit is deleted or marked done; T04 becomes an internal
 review checkpoint, T16 remains one readiness integration. Missing qualification,
 new contract/ABI requirement, quota change or migration-floor narrowing is a
 material decision, reported together rather than a new series of C3/C4/C5 gates.
+
+## Bounded implementation continuation (2026-10-21)
+
+[v2/gzip r2 Evidence](evidence-bounded-v2-gzip-r2.md) maps the authorized
+T02/T03/T07/T09/T12 delta to AC-01/02/03/05/06/07. The task definitions above
+remain the accepted R1 map, with their original proposal history preserved.
+The continuation retains T13/T15 NOT_RUN, T14/T16 PARTIAL, AC-04/08 NOT_RUN and
+v0.1.0 UNVERIFIED; no default activation or independent T16 acceptance follows.

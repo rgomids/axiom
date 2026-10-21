@@ -15,7 +15,7 @@ repository_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)
 
 temporary=$(mktemp -d)
 temporary=$(cd "$temporary" && pwd -P)
-trap 'rm -rf -- "$temporary"' EXIT
+trap 'chmod -R u+w "$temporary" 2>/dev/null || true; rm -rf -- "$temporary"' EXIT
 bootstrap="$repository_root/scripts/install.sh"
 # BOOTSTRAP_SHELL selects the POSIX shell, e.g. "bash --posix" for macOS sh.
 bootstrap_shell=${BOOTSTRAP_SHELL:-sh}

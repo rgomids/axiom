@@ -57,7 +57,8 @@ def smoke(args, summary):
     summary["archive"] = archive.name
     summary["archiveSha256"] = digest(archive)
     checksums = (root / "SHA256SUMS").read_text().splitlines()
-    if checksums.count(f"{summary['archiveSha256']}  {archive.name}") != 1:
+    selected = [line for line in checksums if archive.name in line.split()]
+    if selected != [f"{summary['archiveSha256']}  {archive.name}"]:
         raise ValueError("prepared archive checksum mismatch")
     try:
         if archive_format == "2":
