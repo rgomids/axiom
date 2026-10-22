@@ -1,6 +1,18 @@
 # AXM-38 Real-host qualification — attempt-02, 2026-10-22
 
-## Current reconciliation — human testimony received 16:53 BRT
+## Current disposition — Rafael decision 17:04 BRT, CR-004
+
+**AXM-38 Implement accepted by Rafael; final Unicode and real-session fallback
+verification transferred to AXM-12. No further real T03 sessions in AXM-38.**
+Decision relayed by Maestro (Grok Bot, AI), confirmed by current user instruction;
+[attributed decision, failure matrix and handoff](evidence-cr004.md).
+Empirical T03/T04 graphical proof remains PARTIAL; transfer is not PASS evidence.
+Earlier remaining-work/session requests below are historical and superseded only
+in this disposition scope. E7/observed Unicode testimony and all proof limits stay
+intact. Next: independent same-PR review; no merge/release/Done.
+
+
+## Historical reconciliation — human testimony received 16:53 BRT
 
 The **Rafael Gomides** decision of **2026-10-22 16:53 BRT**, relayed by **Maestro
 (Grok Bot, AI)** in the current task message, approves the retained captures
