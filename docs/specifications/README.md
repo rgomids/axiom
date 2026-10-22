@@ -1,5 +1,31 @@
 # Specifications
 
+## 011 — Rendered Workflow presentation
+
+[Specification editorial e1](011-rendered-workflow-presentation/spec.md) and
+[Plan r1](011-rendered-workflow-presentation/plan.md) were **Approved, 2026-10-22**,
+by [exact-blob human decision](https://github.com/rgomids/axiom/pull/336#issuecomment-6345522075)
+at `5939c7aac0f05f53d94116c4ebd89fb774e36950`, for
+[AXM-38](https://linear.app/rgomids/issue/AXM-38). Historical Proposed wording and
+receipts remain preserved. [Tasks r1](011-rendered-workflow-presentation/tasks.md)
+and implementation T01–T04 were [explicitly authorized](https://github.com/rgomids/axiom/pull/336#issuecomment-6348014628)
+at reference HEAD `4bf046f79d7d5006fea25ff2b5dc4dafc8a48fdc`.
+[Implementation Evidence](011-rendered-workflow-presentation/evidence-implement.md)
+tracks offline fixtures/oracle, shared skill guidance and isolated packaging.
+[Real-host qualification attempt-02](011-rendered-workflow-presentation/evidence-qualification.md)
+records authorized Code Desktop inline SVG observations, retained Mermaid/empty-turn
+failures, dense graph checks and remaining limits. Implementation remains
+**PARTIAL**: T03 was executed; [Rafael's human E7/observed-Unicode approval,
+2026-10-22 16:53 BRT](011-rendered-workflow-presentation/human-acceptance-t03.json)
+is recorded. Real forced rendering-failure recovery remains unproven; T04 local
+packaging is verified, with graphical completion dependent on T03. The
+[current receipt](011-rendered-workflow-presentation/completion-receipt-implement.json)
+supersedes current progress claims while preserving historical receipts. Next gate: review the same PR and remaining
+qualification evidence.
+No product acceptance, merge or release is claimed. Historical
+[Tasks preparation receipt](011-rendered-workflow-presentation/completion-receipt-tasks.json)
+remains unchanged.
+
 [Specification 008](008-output-separation/spec.md) received
 [explicit human acceptance](https://github.com/rgomids/axiom/pull/328#issuecomment-6246060142)
 at `18d29a6c5446357defb2563483cfac180dcc4043` on 2026-10-18.

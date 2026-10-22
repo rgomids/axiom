@@ -1229,6 +1229,18 @@ back to the normal flow. See the
 
 ## CLI output and help
 
+Workflow definition inspection in the shared Runtime skill derives a three-level
+Workflow/Stage/Agent view from the same canonical `project workflow show` result.
+An empirically qualified host should show a rendered diagram with complementary
+text; unknown/failed rendering uses complete text with exact identity, Stage
+order, scoped dependencies and declared gates. AXM-38 observed local SVG inline
+on one exact Claude Desktop Code build; full qualification remains partial
+(see [real-host Evidence](specifications/011-rendered-workflow-presentation/evidence-qualification.md)).
+Source fences and file links alone do not prove rendering. This changes host
+conversation guidance only. Native terminal and JSON contracts remain unchanged.
+See [Spec 011 implementation Evidence](specifications/011-rendered-workflow-presentation/evidence-implement.md)
+for qualification limits and isolated packaging/rollback checks.
+
 Canonical MVP results use native terminal text by default, including TTY,
 pipes and redirection ([Spec 008](specifications/008-output-separation/spec.md),
 [ADR-0030](decisions/0030-canonical-results-terminal-and-host-presentation.md)).

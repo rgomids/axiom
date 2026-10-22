@@ -146,7 +146,15 @@ func TestOperatorBudgetAndHandoffInstructionContracts(t *testing.T) {
 func TestOperatorConversationalPresentationContracts(t *testing.T) {
 	for _, name := range []string{"axiom-project", "axiom-workflow", "axiom-work-item"} {
 		wire, _ := fs.ReadFile(skillFiles, "skills/"+name+"/SKILL.md")
-		for _, required := range []string{"Use leading `axiom --json` internally", "The host writes the normal conversational response itself", "Preserve every material", "Authority always refers to the canonical preview", "Do not repeat an operation", "real host support", "ordered\ntextual list", "Neither view changes definition\nor selection", "same already observed result", "`diagnostic`"} {
+		requiredText := []string{"Use leading `axiom --json` internally", "The host writes the normal conversational response itself", "Preserve every material", "Authority always refers to the canonical preview", "`diagnostic`"}
+		if name == "axiom-workflow" {
+			// AXM-38 replaces optional-only visualization with qualified primary
+			// rendering and complete fallback; this still checks guidance only.
+			requiredText = append(requiredText, "never\nrepeat an operation", "empirically qualified", "ordered\nStage index", "Neither\nview changes definition or selection", "same invocation")
+		} else {
+			requiredText = append(requiredText, "Do not repeat an operation", "real host support", "ordered\ntextual list", "Neither view changes definition\nor selection", "same already observed result")
+		}
+		for _, required := range requiredText {
 			if !strings.Contains(string(wire), required) {
 				t.Errorf("%s missing %q", name, required)
 			}

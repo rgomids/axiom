@@ -1,0 +1,30 @@
+%% SYNTHETIC source-only candidate; NOT_RENDERED / UNVERIFIED; no adopted format
+flowchart TD
+  subgraph overview["Definition reviewed-delivery revision 2 digest cea1c959e2d523f9ca5ae77e293da8a4db95936b8d8d789c8b06a3a576119368 source project; selected; ordered Stage progression"]
+    s0["intake"]
+    s1["specification"]
+    s2["clarification"]
+    s3["plan"]
+    s4["tasks"]
+    s5["implementation"]
+    s6["review"]
+    s7["evidence"]
+    s8["reconciliation"]
+    s9["completion"]
+    s0 --> s1
+    s1 --> s2
+    s2 --> s3
+    s3 --> s4
+    s4 --> s5
+    s5 --> s6
+    s6 --> s7
+    s7 --> s8
+    s8 --> s9
+  end
+  subgraph detail["implementation Agent dependencies; potential concurrency 2"]
+    a0["implementer"]
+    a1["reviewer"]
+    a2["integrator"]
+    a0 --> a2
+    a1 --> a2
+  end

@@ -1,0 +1,1 @@
+Historical shared skill bytes from AXM-38 baseline commit 4bf046f79d7d5006fea25ff2b5dc4dafc8a48fdc, before rendered Workflow presentation. Test-only installation fixtures; not active inventory or host evidence. All four skills retain skill-set/binary compatibility 3.

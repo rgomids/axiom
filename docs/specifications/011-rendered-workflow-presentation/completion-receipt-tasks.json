@@ -1,0 +1,191 @@
+{
+  "work_item": "AXM-38",
+  "stage": "tasks",
+  "attempt": "attempt-01",
+  "result": "PARTIAL",
+  "observed_at": "2026-10-22T16:26:45.842594+00:00",
+  "artifact_revision": "tasks-r1-sha256-3e54bea3e731c726cfbe23c682c726fd3d2012411ac8e991bf2a57abde25d53d",
+  "event_id": "AXM-38:tasks:attempt-01:3e54bea3e731c726cfbe23c682c726fd3d2012411ac8e991bf2a57abde25d53d",
+  "pr_url": "https://github.com/rgomids/axiom/pull/336",
+  "head_sha": "5939c7aac0f05f53d94116c4ebd89fb774e36950",
+  "branch": "axm-38-specify-rendered-workflow",
+  "committed": false,
+  "pushed": false,
+  "artifacts": [
+    {
+      "path": "docs/specifications/011-rendered-workflow-presentation/tasks.md",
+      "scope": "local-unpublished",
+      "sha256": "3e54bea3e731c726cfbe23c682c726fd3d2012411ac8e991bf2a57abde25d53d",
+      "git_blob": "eec14544c3e6713ae6d6a8029b9ab33363e13bc0"
+    },
+    {
+      "path": "docs/specifications/README.md",
+      "scope": "local-unpublished",
+      "sha256": "843cc984e3ef117fc9e31f72d3ddafcdbdffb9a1c3d0ee07ce0d4cfee5f26172"
+    },
+    {
+      "path": "docs/specifications/011-rendered-workflow-presentation/completion-receipt-tasks.json",
+      "scope": "local-unpublished",
+      "hash_note": "No self-referential hash; final hash supplied at handoff"
+    }
+  ],
+  "approved_inputs": [
+    {
+      "path": "docs/specifications/011-rendered-workflow-presentation/spec.md",
+      "git_blob": "ba83987e96bc31bd31778ef80ab9e4a2890b1706",
+      "sha256": "921389e131fa203366a013102dfde429df8a160f228029f995cadebf48208be1"
+    },
+    {
+      "path": "docs/specifications/011-rendered-workflow-presentation/plan.md",
+      "git_blob": "469fd7a7a94778b8dc275640839238fe9902e90a",
+      "sha256": "2418a6814b03bbc3e7472a19dd6c3052de2eb0e66bb0cd4100ec65fbaed0dd24"
+    }
+  ],
+  "authority_ref": "https://github.com/rgomids/axiom/pull/336#issuecomment-6345522075",
+  "evidence": [
+    {
+      "check": "local/remote baseline",
+      "status": "PASS",
+      "detail": "Clean initial worktree; branch and local/PR head equal 5939c7aac0f05f53d94116c4ebd89fb774e36950; PR OPEN/Draft"
+    },
+    {
+      "check": "exact approvals and idempotency",
+      "status": "PASS",
+      "detail": "GitHub comment 6345522075 and Linear bbe9f2ad/e0d2b09c read; complete Linear comments page hasNextPage=false; no prior Tasks artifact/completion/approval found; prompt/dispatch only"
+    },
+    {
+      "check": "approved inputs and historical files",
+      "status": "PASS",
+      "detail": "Spec/Plan blobs and SHA-256 match; all six existing Spec 011 files byte-identical to HEAD"
+    },
+    {
+      "check": "scope/links/JSON/coverage/DAG/whitespace",
+      "status": "PASS",
+      "detail": "4 stable Tasks; 5 acyclic causal edges including T02-to-T03 completion prerequisite; AC1-6/VP01-15/E1-10 mapped; 168 local links/anchors; JSON/hashes; exact 3 documentary paths; git diff --check plus untracked whitespace check"
+    },
+    {
+      "check": "initial ad-hoc coverage checker",
+      "status": "FAIL",
+      "detail": "Checker initially parsed only first VP in slash shorthand; corrected parser, rerun PASS. No missing coverage found."
+    },
+    {
+      "check": "bash scripts/validate-repository.sh .",
+      "status": "PASS",
+      "detail": "Exit 0; repository bootstrap/maintainer harness, automation registry, ADR governance, label policy and sensitive-file checks passed"
+    },
+    {
+      "check": "bash scripts/check-sensitive-files.sh .",
+      "status": "PASS",
+      "detail": "Worktree scan passed; not a staged scan"
+    },
+    {
+      "check": "gitleaks dir docs/specifications/011-rendered-workflow-presentation --redact --no-banner",
+      "status": "PASS",
+      "detail": "No leaks found in Spec 011 directory scan; final receipt scanned again after callback"
+    },
+    {
+      "check": "implementation tests/build/new CI",
+      "status": "NOT_RUN",
+      "detail": "Tasks-only; no product code changed or remote candidate published"
+    },
+    {
+      "check": "real host qualification/visual smoke/live install",
+      "status": "NOT_RUN",
+      "detail": "No grant; all host rendering UNVERIFIED; E1-E10 behavioral Evidence NOT_RUN"
+    },
+    {
+      "check": "commit/push/merge/release/product acceptance",
+      "status": "SKIP",
+      "detail": "No current Git publication grant; remaining effects outside Tasks scope"
+    }
+  ],
+  "technical_decisions": [
+    {
+      "id": "TASKS-TD-01",
+      "category": "TECHNICAL_LOCAL",
+      "chosen_option": "Four stable Tasks matching Plan packages; T03 final qualification rechecks final T02 bytes",
+      "alternatives": [
+        "Task per field/fixture/host",
+        "Serial host gate before all local preparation"
+      ],
+      "rationale": "Actual causal dependencies permit local preparation while preserving graphical acceptance join",
+      "evidence": [
+        "plan.md#5-incremental-implementation-order--future-not-tasks"
+      ],
+      "executor": "executor-ai",
+      "scope_impact": "none"
+    },
+    {
+      "id": "TASKS-TD-02",
+      "category": "TECHNICAL_LOCAL",
+      "chosen_option": "tasks.md plus compact preparation receipt; update owning Specifications index only",
+      "alternatives": [
+        "Additional Evidence file and mirrored task statuses",
+        "Rewrite approved Spec/Plan headers"
+      ],
+      "rationale": "Receipt holds observed preparation checks; index owns lifecycle; approved bytes and historical receipts remain immutable",
+      "evidence": [
+        "../../documentation.md",
+        "../../../.agents/skills/axiom-sdd/SKILL.md"
+      ],
+      "executor": "executor-ai",
+      "scope_impact": "none"
+    },
+    {
+      "id": "TASKS-TD-03",
+      "category": "TECHNICAL_LOCAL",
+      "chosen_option": "Manual expected fixtures plus semantic output comparisons; actual host response checked separately",
+      "alternatives": [
+        "Keyword-only skill assertions",
+        "Test-only mapper treated as runtime proof"
+      ],
+      "rationale": "Avoid circular oracle and false visual acceptance; defer reversible syntax until supported-host evidence",
+      "evidence": [
+        "plan.md#2-transient-model-and-deterministic-mapping",
+        "spec.md"
+      ],
+      "executor": "executor-ai",
+      "scope_impact": "none"
+    }
+  ],
+  "plan_differences": [
+    "No normative delta; four Tasks match Plan packages. T03 final candidate recheck clarifies dependency join. Owning index reconciles exact approvals; historical artifacts unchanged."
+  ],
+  "delegation": {
+    "used": false,
+    "reason": "Strict lower capability hierarchy not proven; bounded tightly coupled work handled directly"
+  },
+  "limitations": [
+    "Tasks prepared locally, not present in PR; Git remote write grant not established for this checkpoint",
+    "Tasks PROPOSED/unaccepted; no canonical Execution identity or lifecycle transition",
+    "Documentary checks do not satisfy product AC1-AC6; synthetic oracle and real host evidence kept separate"
+  ],
+  "remaining_work": {
+    "authorized_now": [
+      "Review local Tasks/diff and preparation Evidence",
+      "Callback published and read back; no further external action pending under current authority"
+    ],
+    "requires_human_authority": [
+      "Authorize commit/push of these three documentary paths to existing branch/PR after head recheck and pre-commit checks",
+      "Accept exact Tasks revision, then authorize implementation independently",
+      "Authorize bounded existing-host sessions for T03 and live installation if required",
+      "Merge/release/product acceptance remain independent and outside this attempt"
+    ]
+  },
+  "next_gate": "review_tasks",
+  "handoff": "Review local Tasks r1 by SHA-256; authorize only needed Git publication; reconcile remote drift before commit/push. No implementation or host session now.",
+  "linear_published": true,
+  "linear_publication_status": "PUBLISHED_READBACK_CONFIRMED",
+  "linear_comment_id": "dd79647c-71a1-4116-91a5-5844792ed563",
+  "linear_comment_url": "https://linear.app/rgomids/issue/AXM-38#comment-dd79647c",
+  "linear_readback": {
+    "status": "PASS",
+    "raw_body_equal": true,
+    "markers_and_json_equal": true,
+    "matching_event_count": 1,
+    "complete_comment_inventory": true,
+    "verification": "reported"
+  },
+  "linear_state": "In Progress",
+  "relations_mutated": false
+}

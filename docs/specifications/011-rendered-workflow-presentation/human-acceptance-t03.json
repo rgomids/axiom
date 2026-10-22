@@ -1,0 +1,54 @@
+{
+  "work_item": "AXM-38",
+  "kind": "human_visual_manual_testimony",
+  "human_author": "Rafael Gomides",
+  "decided_at": "2026-10-22T16:53:00-03:00",
+  "timezone": "America/Sao_Paulo",
+  "reported_by": {
+    "name": "Maestro",
+    "runtime": "Grok Bot",
+    "kind": "AI",
+    "human": false
+  },
+  "source": "Current user message relaying Rafael decision; no separate native human-authored message asserted",
+  "statement_reported": "Rafael revisou as capturas do T03 (qualification-t03, incl. c01b-inline-dag.png) e APROVA como testemunho humano E7 a renderização inline SVG no Claude Desktop Code; também APROVA a fidelidade Unicode observada.",
+  "qualified_source_sha": "0ee43f2117aaaea69210f75d871b3c688044e335",
+  "skill_sha256": "8b47aa65611d28395eab3695ce4ca90773e541800f72d4189838565268a7f235",
+  "host": {
+    "application": "Claude Desktop",
+    "surface": "Code / local computer",
+    "version": "2.42304.2",
+    "os": "macOS 27.0.1 (26A434)",
+    "format": "static local SVG visibly inline, Browser pane closed",
+    "settings": "C01/C01B/C02 Opus 5.5 Alto; C03/C04 observed Medio; fast off"
+  },
+  "accepted": {
+    "E7_human_visual_manual_testimony": "APPROVED",
+    "inline_SVG_rendering": "APPROVED_OBSERVED_TUPLE",
+    "Unicode_observed_fidelity": "APPROVED_BY_HUMAN"
+  },
+  "captures_reviewed_scope": "qualification-t03 captures, including c01b-inline-dag.png; individual review of every capture not separately enumerated by the relayed decision",
+  "limits": [
+    "No retroactive automated code-point/byte-equality proof",
+    "No waiver or execution of untested real renderer-failure recovery",
+    "No vendor-wide support, new host/session, domain/Execution or authority change",
+    "No merge, release, issue closure or blanket product acceptance"
+  ],
+  "artifacts": [
+    {
+      "path": "qualification-t03/c01b-inline-dag.png",
+      "sha256": "3ad394a34b015b41d9fc013cd2bd62f3152c993d4a48f32454d575d118abd2a7",
+      "github_url": "https://github.com/rgomids/axiom/blob/0ee43f2117aaaea69210f75d871b3c688044e335/docs/specifications/011-rendered-workflow-presentation/qualification-t03/c01b-inline-dag.png"
+    },
+    {
+      "path": "qualification-t03/c04-text-retrieval.png",
+      "sha256": "b9d02cb9c09e44df5639b6e97c018ef40f377e83934ce16b8eaa72029295b1c5",
+      "github_url": "https://github.com/rgomids/axiom/blob/0ee43f2117aaaea69210f75d871b3c688044e335/docs/specifications/011-rendered-workflow-presentation/qualification-t03/c04-text-retrieval.png"
+    },
+    {
+      "path": "qualification-t03/artifact-manifest.json",
+      "sha256": "4a57ee287ff849c3dadbcf8d6ee80adfcd6d75f6d27540ac0e8bba3f383264ab",
+      "github_url": "https://github.com/rgomids/axiom/blob/0ee43f2117aaaea69210f75d871b3c688044e335/docs/specifications/011-rendered-workflow-presentation/qualification-t03/artifact-manifest.json"
+    }
+  ]
+}

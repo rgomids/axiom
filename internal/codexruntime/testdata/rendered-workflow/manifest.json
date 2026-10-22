@@ -1,0 +1,42 @@
+{
+  "custom-r1.json": {
+    "classification": "SYNTHETIC",
+    "reference": {
+      "workflowId": "reviewed-delivery",
+      "revision": 1,
+      "digest": "f7ab78754566924b25855512278b1a6e3f960ad0246ebd2d479cf07a6164de01",
+      "source": "project"
+    },
+    "sha256": "793924476f2f21b736528e5bc8b7be48057bd9e1056640a1c38947084ece5316"
+  },
+  "custom-r2.json": {
+    "classification": "SYNTHETIC",
+    "reference": {
+      "workflowId": "reviewed-delivery",
+      "revision": 2,
+      "digest": "cea1c959e2d523f9ca5ae77e293da8a4db95936b8d8d789c8b06a3a576119368",
+      "source": "project"
+    },
+    "sha256": "1090fd8ff6ce50980bc5c870ff2932b7dafad600eafc1950e622b1542c01b08a"
+  },
+  "default-sdd-r1.json": {
+    "classification": "SYNTHETIC",
+    "reference": {
+      "workflowId": "default-sdd",
+      "revision": 1,
+      "digest": "e265790736a71b6bc8e698de8247ac0b1583d37e73911600ef7032dfd791ab07",
+      "source": "builtin"
+    },
+    "sha256": "445ea1413308424595a72259c982afd5e4d00ae621f50aedc9e0db491a6c766f"
+  },
+  "default-sdd-r2.json": {
+    "classification": "SYNTHETIC",
+    "reference": {
+      "workflowId": "default-sdd",
+      "revision": 2,
+      "digest": "1a7d6f56c8c60f2d562b16dc69387abcaefeafcbde488b87eaae1daa8deb4068",
+      "source": "builtin"
+    },
+    "sha256": "67eb107befe04198b57a56dbf548234dd26ad99f324aa11ad04779d8182fad81"
+  }
+}

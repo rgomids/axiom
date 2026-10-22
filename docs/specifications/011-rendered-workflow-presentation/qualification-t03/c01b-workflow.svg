@@ -1,0 +1,125 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="1390" viewBox="0 0 760 1390" font-family="Helvetica, Arial, sans-serif" role="img" aria-labelledby="t d">
+  <title id="t">Workflow Definition reviewed-delivery revision 2 (SYNTHETIC input)</title>
+  <desc id="d">Definition overview: full reference and selection, ordered ten-Stage index with mode, concurrency, Agent count and declared gates, and the implementation Stage Agent dependency graph. Declarations only; no Execution state.</desc>
+  <defs>
+    <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#334155"/>
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="760" height="1390" fill="#ffffff"/>
+
+  <!-- Identity -->
+  <text x="20" y="30" font-size="18" font-weight="bold" fill="#0f172a">Workflow Definition (not Execution) · SYNTHETIC input</text>
+  <rect x="20" y="42" width="720" height="158" rx="6" fill="#f1f5f9" stroke="#94a3b8"/>
+  <text x="32" y="62" font-size="12" font-weight="bold" fill="#0f172a">Definition reference</text>
+  <text x="32" y="80" font-size="12" fill="#0f172a">workflowId: <tspan font-family="Menlo, Consolas, monospace">reviewed-delivery</tspan></text>
+  <text x="32" y="97" font-size="12" fill="#0f172a">revision: <tspan font-family="Menlo, Consolas, monospace">2</tspan></text>
+  <text x="32" y="114" font-size="12" fill="#0f172a">digest: <tspan font-family="Menlo, Consolas, monospace" font-size="11">cea1c959e2d523f9ca5ae77e293da8a4db95936b8d8d789c8b06a3a576119368</tspan></text>
+  <text x="32" y="131" font-size="12" fill="#0f172a">source: <tspan font-family="Menlo, Consolas, monospace">project</tspan></text>
+  <text x="32" y="152" font-size="12" fill="#0f172a">Selection: all four fields equal the reference → selected (as reported in this payload)</text>
+  <text x="32" y="170" font-size="12" fill="#0f172a">Project <tspan font-family="Menlo, Consolas, monospace" font-size="11">123e4567-e89b-42d3-a456-426614174000</tspan> · projectRevision synthetic-project-revision-17</text>
+  <text x="32" y="188" font-size="12" fill="#0f172a">"Two Runtime implementation with single-agent SDD stages" · schemaVersion 1 · 10 Stages · 12 Agents</text>
+
+  <!-- Stage index -->
+  <text x="20" y="226" font-size="15" font-weight="bold" fill="#0f172a">Ordered Stage index</text>
+  <text x="20" y="244" font-size="11" fill="#475569">Arrows = ordered Stage progression only. GATE markers are declared boundaries; satisfaction not observed.</text>
+
+  <g font-size="12" fill="#0f172a">
+    <rect x="20" y="255" width="720" height="44" rx="5" fill="#ffffff" stroke="#64748b"/>
+    <text x="32" y="273" font-size="14" font-weight="bold">1 · intake</text>
+    <text x="32" y="291">phase intake · sequential · concurrency 1 · 1 agent: owner (no predecessors) · checkpoint yes</text>
+    <line x1="50" y1="299" x2="50" y2="325" stroke="#334155" stroke-width="1.5" marker-end="url(#ah)"/>
+
+    <rect x="20" y="327" width="720" height="44" rx="5" fill="#ffffff" stroke="#64748b"/>
+    <text x="32" y="345" font-size="14" font-weight="bold">2 · specification</text>
+    <text x="32" y="363">phase specification · sequential · concurrency 1 · 1 agent: owner (no predecessors) · checkpoint no</text>
+    <line x1="50" y1="371" x2="50" y2="397" stroke="#334155" stroke-width="1.5" marker-end="url(#ah)"/>
+
+    <rect x="20" y="399" width="720" height="44" rx="5" fill="#ffffff" stroke="#64748b"/>
+    <text x="32" y="417" font-size="14" font-weight="bold">3 · clarification</text>
+    <text x="32" y="435">phase specification · sequential · concurrency 1 · 1 agent: owner (no predecessors) · checkpoint yes</text>
+    <line x1="50" y1="443" x2="50" y2="469" stroke="#334155" stroke-width="1.5" marker-end="url(#ah)"/>
+    <line x1="38" y1="457" x2="62" y2="457" stroke="#b45309" stroke-width="2"/>
+    <text x="72" y="461" font-size="11" font-weight="bold" fill="#b45309">GATE before plan: planning_authority (declared)</text>
+
+    <rect x="20" y="471" width="720" height="44" rx="5" fill="#fffbeb" stroke="#b45309"/>
+    <text x="32" y="489" font-size="14" font-weight="bold">4 · plan</text>
+    <text x="32" y="507">phase planning · sequential · concurrency 1 · 1 agent: owner (no predecessors) · checkpoint no</text>
+    <line x1="50" y1="515" x2="50" y2="541" stroke="#334155" stroke-width="1.5" marker-end="url(#ah)"/>
+
+    <rect x="20" y="543" width="720" height="44" rx="5" fill="#ffffff" stroke="#64748b"/>
+    <text x="32" y="561" font-size="14" font-weight="bold">5 · tasks</text>
+    <text x="32" y="579">phase planning · sequential · concurrency 1 · 1 agent: owner (no predecessors) · checkpoint yes</text>
+    <line x1="50" y1="587" x2="50" y2="613" stroke="#334155" stroke-width="1.5" marker-end="url(#ah)"/>
+    <line x1="38" y1="601" x2="62" y2="601" stroke="#b45309" stroke-width="2"/>
+    <text x="72" y="605" font-size="11" font-weight="bold" fill="#b45309">GATE before implementation: implementation_authority (declared)</text>
+
+    <rect x="20" y="615" width="720" height="44" rx="5" fill="#eff6ff" stroke="#1d4ed8" stroke-width="1.5"/>
+    <text x="32" y="633" font-size="14" font-weight="bold">6 · implementation  (detail below)</text>
+    <text x="32" y="651">phase implementation · dag · concurrency 2 · 3 agents: implementer, reviewer, integrator · checkpoint yes</text>
+    <line x1="50" y1="659" x2="50" y2="685" stroke="#334155" stroke-width="1.5" marker-end="url(#ah)"/>
+    <line x1="38" y1="673" x2="62" y2="673" stroke="#b45309" stroke-width="2"/>
+    <text x="72" y="677" font-size="11" font-weight="bold" fill="#b45309">GATE before review: review_started (declared)</text>
+
+    <rect x="20" y="687" width="720" height="44" rx="5" fill="#fffbeb" stroke="#b45309"/>
+    <text x="32" y="705" font-size="14" font-weight="bold">7 · review</text>
+    <text x="32" y="723">phase review · sequential · concurrency 1 · 1 agent: owner (no predecessors) · checkpoint no</text>
+    <line x1="50" y1="731" x2="50" y2="757" stroke="#334155" stroke-width="1.5" marker-end="url(#ah)"/>
+
+    <rect x="20" y="759" width="720" height="44" rx="5" fill="#ffffff" stroke="#64748b"/>
+    <text x="32" y="777" font-size="14" font-weight="bold">8 · evidence</text>
+    <text x="32" y="795">phase review · sequential · concurrency 1 · 1 agent: owner (no predecessors) · checkpoint no</text>
+    <line x1="50" y1="803" x2="50" y2="829" stroke="#334155" stroke-width="1.5" marker-end="url(#ah)"/>
+
+    <rect x="20" y="831" width="720" height="44" rx="5" fill="#ffffff" stroke="#64748b"/>
+    <text x="32" y="849" font-size="14" font-weight="bold">9 · reconciliation</text>
+    <text x="32" y="867">phase review · sequential · concurrency 1 · 1 agent: owner (no predecessors) · checkpoint yes</text>
+    <line x1="50" y1="875" x2="50" y2="901" stroke="#334155" stroke-width="1.5" marker-end="url(#ah)"/>
+
+    <rect x="20" y="903" width="720" height="44" rx="5" fill="#fffbeb" stroke="#b45309"/>
+    <text x="32" y="921" font-size="14" font-weight="bold">10 · completion</text>
+    <text x="32" y="939">phase completion · sequential · concurrency 1 · 1 agent: owner (no predecessors) · checkpoint yes</text>
+    <line x1="38" y1="961" x2="62" y2="961" stroke="#b45309" stroke-width="2"/>
+    <line x1="50" y1="947" x2="50" y2="961" stroke="#b45309" stroke-width="2"/>
+    <text x="72" y="965" font-size="11" font-weight="bold" fill="#b45309">GATE after completion: human_acceptance (declared)</text>
+  </g>
+
+  <!-- Implementation detail -->
+  <line x1="20" y1="990" x2="740" y2="990" stroke="#cbd5e1"/>
+  <text x="20" y="1016" font-size="15" font-weight="bold" fill="#0f172a">Stage 6 · implementation · same-Stage Agent graph</text>
+  <text x="20" y="1036" font-size="12" fill="#0f172a">mode dag · concurrency 2 = potential parallelism, not observed · GATE before: implementation_authority</text>
+  <text x="20" y="1053" font-size="11" fill="#475569">Edges are declared dependsOn only (predecessor → Agent). No transitive reduction.</text>
+
+  <g font-size="11" fill="#0f172a">
+    <rect x="40" y="1072" width="270" height="70" rx="6" fill="#ecfdf5" stroke="#047857" stroke-width="1.5"/>
+    <text x="52" y="1092" font-size="14" font-weight="bold">implementer</text>
+    <text x="52" y="1110">predecessors: none (independent root)</text>
+    <text x="52" y="1126">runtimeConstraints: codex · output: code</text>
+
+    <rect x="450" y="1072" width="270" height="70" rx="6" fill="#ecfdf5" stroke="#047857" stroke-width="1.5"/>
+    <text x="462" y="1092" font-size="14" font-weight="bold">reviewer</text>
+    <text x="462" y="1110">predecessors: none (independent root)</text>
+    <text x="462" y="1126">runtimeConstraints: claude · output: review-notes</text>
+
+    <text x="380" y="1100" font-size="11" text-anchor="middle" fill="#475569">no edge</text>
+    <text x="380" y="1115" font-size="11" text-anchor="middle" fill="#475569">between roots</text>
+
+    <line x1="175" y1="1142" x2="300" y2="1208" stroke="#334155" stroke-width="1.5" marker-end="url(#ah)"/>
+    <line x1="585" y1="1142" x2="460" y2="1208" stroke="#334155" stroke-width="1.5" marker-end="url(#ah)"/>
+    <text x="205" y="1185" font-size="11" fill="#334155">dependsOn</text>
+    <text x="500" y="1185" font-size="11" fill="#334155">dependsOn</text>
+
+    <rect x="230" y="1210" width="300" height="70" rx="6" fill="#eff6ff" stroke="#1d4ed8" stroke-width="1.5"/>
+    <text x="242" y="1230" font-size="14" font-weight="bold">integrator</text>
+    <text x="242" y="1248">predecessors: implementer, reviewer</text>
+    <text x="242" y="1264">runtimeConstraints: codex, claude · output: result</text>
+  </g>
+
+  <g font-size="11" fill="#0f172a">
+    <text x="20" y="1306">inputs: source ← tasks/result (stage-output, required; provenance, not a scheduling edge)</text>
+    <text x="20" y="1322">           business-context ← business-context (project-context, required)</text>
+    <text x="20" y="1338">outputs: code, review-notes, result (artifact, required) · criterion valid-result → result via validate-result</text>
+    <text x="20" y="1354">validator validate-result: artifact-schema, builtin-sdd-v1 · failure: block / reconcile / retry explicit</text>
+  </g>
+  <text x="20" y="1378" font-size="11" font-style="italic" fill="#475569">Declarations only: no Execution, progress, resolved Runtime/model/Profile, validator outcome or gate satisfaction.</text>
+</svg>

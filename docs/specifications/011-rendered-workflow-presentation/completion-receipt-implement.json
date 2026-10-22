@@ -1,0 +1,180 @@
+{
+  "schema_version": 1,
+  "work_item": "AXM-38",
+  "stage": "implement",
+  "attempt": "cr004-attempt-01",
+  "event_id": "AXM-38:implement:cr004:attempt-01:aad1173cbdb305924be3b7d8f5d6df15cf9b2049:checkpoint",
+  "result": "PARTIAL",
+  "reconciled_at_human_decision": "2026-10-22T17:04:00-03:00",
+  "pr_url": "https://github.com/rgomids/axiom/pull/336",
+  "qualified_source_sha": "0ee43f2117aaaea69210f75d871b3c688044e335",
+  "head_sha_scope": "Qualified real-host source checkpoint; final documentary commit SHA and publication read-back are recorded by the matching Linear callback, avoiding a self-referential commit hash",
+  "human_acceptance_ref": "human-acceptance-t03.json",
+  "human_acceptance_sha256": "2a2ccfd5c0749a1886f4b13d3e06cdfcba2cf27ab4ec48c075566d10e86e1884",
+  "authority": "Rafael decision at 17:04 BRT, relayed by Maestro (Grok Bot, AI), Linear comment 5e8ea79a and confirmed by current user: no new AXM-38 real T03 sessions; transfer final Unicode and real-session fallback validation to AXM-12; documentary CR-004 reconciliation and normal commit/push same PR336 only.",
+  "historical_receipts": [
+    {
+      "path": "completion-receipt.json",
+      "sha256": "06d11259fffb6876ebc748e2639d58148e4967ee3dbb190b275df3a5a436e422",
+      "scope": "Historical stage checkpoint only; unchanged",
+      "github_ref": "https://github.com/rgomids/axiom/blob/0ee43f2117aaaea69210f75d871b3c688044e335/docs/specifications/011-rendered-workflow-presentation/completion-receipt.json"
+    },
+    {
+      "path": "completion-receipt-plan.json",
+      "sha256": "97438a725f2ef7853b96666672025c7abca5775b8105dc6e1d33eab7f72f338f",
+      "scope": "Historical stage checkpoint only; unchanged",
+      "github_ref": "https://github.com/rgomids/axiom/blob/0ee43f2117aaaea69210f75d871b3c688044e335/docs/specifications/011-rendered-workflow-presentation/completion-receipt-plan.json"
+    },
+    {
+      "path": "completion-receipt-tasks.json",
+      "sha256": "29082ac5924afe809e29714b1186496b50aaf801c35b4894d8d9c0185dd54a05",
+      "scope": "Historical stage checkpoint only; unchanged",
+      "github_ref": "https://github.com/rgomids/axiom/blob/0ee43f2117aaaea69210f75d871b3c688044e335/docs/specifications/011-rendered-workflow-presentation/completion-receipt-tasks.json"
+    }
+  ],
+  "evidence_refs": [
+    {
+      "path": "evidence-implement.md",
+      "sha256": "90416505517903184323543cef35adf1389ceb570d1bbf61c186374a16f87812"
+    },
+    {
+      "path": "evidence-qualification.md",
+      "sha256": "c292b25113a36033fd5c79bc33b38c2be23d8dcb6ac3ba5d6e7a9c50b0502069"
+    },
+    {
+      "path": "human-acceptance-t03.json",
+      "sha256": "2a2ccfd5c0749a1886f4b13d3e06cdfcba2cf27ab4ec48c075566d10e86e1884"
+    },
+    {
+      "path": "evidence-cr004.md",
+      "sha256": "f56b8476784b4e08773986a4391c91951133b7921315ed087eb862ec22c903ea"
+    }
+  ],
+  "tasks": {
+    "AXM38-T01": "LOCAL_COMPLETE; unchanged deterministic fixtures/oracle/bounds",
+    "AXM38-T02": "LOCAL_COMPLETE; final candidate unchanged; selected actual output comparisons and C04 purpose correction retained",
+    "AXM38-T03": "EXECUTED_PARTIAL empirically; accepted as-is by human; remaining real failure/full-text and final Unicode verification transferred AXM-12",
+    "AXM38-T04": "LOCAL_COMPLETE_GRAPHICAL_PARTIAL empirically; accepted AXM38 disposition with T03 verification transfer to AXM-12"
+  },
+  "acceptance": {
+    "AC1": "Observed default/custom inline SVG and E7 human testimony APPROVED for exact recorded host/candidate; full T03 qualification still partial",
+    "AC2": "Scoped Stage/gate/DAG/dense496 comparisons PASS; observed Unicode APPROVED_BY_HUMAN; no new automated code-point proof",
+    "AC3": "Selected real identity/absence/divergence/declared eligibility/effort observations PASS; preserve limits",
+    "AC4": "PARTIAL empirically; actual literal failure retained, other conditions simulated/unverified; final real-session fallback verification explicitly transferred AXM-12",
+    "AC5": "Local deterministic/state and selected actual comparisons PASS; E7 human testimony received, automated Unicode byte equality not claimed",
+    "AC6": "Local malformed/refusal/packaging/state and actual SVG safety PASS; no live Project/Execution/domain mutation claim"
+  },
+  "evidence_matrix": {
+    "E1": "Actual default/custom SVG inline observed; human approval received",
+    "E2": "Local oracle/sequential and actual default Stage order observed; no new host test",
+    "E3": "Actual independent roots/join and cap1 interpretation compared",
+    "E4": "Actual full references/selection/schema effort/eligibility observed",
+    "E5": "PARTIAL: actual literal failure; C03 unavailable/empty-clipped/error simulations do not establish actual recovery",
+    "E6": "Local equivalent-input and negative controls PASS; real repeated-equivalent host output not claimed",
+    "E7": "HUMAN_APPROVED: Rafael Gomides, 2026-10-22 16:53 BRT; relayed by Maestro (Grok Bot, AI)",
+    "E8": "Local read-only state/packaging PASS; isolated synthetic host writes only",
+    "E9": "Dense496 lists/matrix PASS; observed Unicode fidelity HUMAN_APPROVED; preserve automated copy limitation",
+    "E10": "Local malformed/refusal and SVG safety PASS; no new malformed-host sweep"
+  },
+  "verification": {
+    "scope": "Documentation only; hashes/history/links/diff/repository/security checks. T01/T02/local T04 tests SKIP due to no drift; real-host tests NOT_RUN and prohibited in AXM-38.",
+    "qualified_checkpoint_ci": {
+      "sha": "0ee43f2117aaaea69210f75d871b3c688044e335",
+      "status": "PASS",
+      "url": "https://github.com/rgomids/axiom/actions/runs/39841998654"
+    },
+    "documentary_checks": "See final matching Linear callback for executed JSON/hash/link/history/diff/repository/security checks",
+    "final_commit_ci": "Separate exact-head observation in callback",
+    "reviewed_checkpoint_ci": {
+      "sha": "aad1173cbdb305924be3b7d8f5d6df15cf9b2049",
+      "status": "IN_PROGRESS at initial read",
+      "url": "https://github.com/rgomids/axiom/actions/runs/39844602402"
+    }
+  },
+  "technical_decisions": [
+    {
+      "id": "RECON-TD-01",
+      "category": "TECHNICAL_LOCAL",
+      "choice": "Add current implementation receipt and dated Evidence reconciliation; keep historical receipt bytes/event payloads unchanged",
+      "rationale": "Specify/Plan/Tasks NOT_RUN was true at those stages. A current receipt plus explicit pointers prevents retroactive alteration or false current status.",
+      "github_refs": [
+        "evidence-implement.md",
+        "evidence-qualification.md",
+        "completion-receipt-implement.json"
+      ]
+    },
+    {
+      "id": "RECON-TD-02",
+      "category": "TECHNICAL_LOCAL",
+      "choice": "Record human E7/observed Unicode approval separately from automated proofs and remaining forced-fallback coverage",
+      "rationale": "Decision names witness/observed fidelity only; Tasks require actual forced rendering-failure fallback and simulations do not establish it. No new requirement or approval gate.",
+      "github_refs": [
+        "human-acceptance-t03.json",
+        "tasks.md#axm38-t03--empirical-qualification-of-an-existing-supported-host"
+      ]
+    },
+    {
+      "id": "CR004-TD-01",
+      "category": "TECHNICAL_LOCAL",
+      "choice": "Preserve historical proof and add dated reconciliation plus explicit AXM-12 transfer",
+      "rationale": "Human disposition changes remaining-work ownership, not actual empirical outcomes",
+      "refs": [
+        "evidence-cr004.md"
+      ]
+    },
+    {
+      "id": "CR004-TD-02",
+      "category": "TECHNICAL_LOCAL",
+      "choice": "No delegation",
+      "rationale": "Strictly lower model hierarchy unverifiable; bounded documentary scope handled directly",
+      "refs": [
+        "evidence-cr004.md"
+      ]
+    }
+  ],
+  "limitations": [
+    "Actual forced unknown/unavailable, empty/clipped graphic and renderer-error recovery unproven; C03 simulations retained",
+    "Human observed-Unicode approval is not a retroactive byte-equality test",
+    "Native screen-reader speech and exhaustive traversal were not performed; recorded limitations, not additional completion gates",
+    "No vendor-wide graphics claim, live install, new session, domain state or blanket acceptance",
+    "Final reconciliation CI is separate from qualified-checkpoint green CI"
+  ],
+  "remaining_work": [
+    "Independent same-PR review of CR-004 documentary reconciliation and explicit transfer",
+    "AXM-12: final-version Unicode fidelity and actual renderer-failure complete-text validation under its own exact session grant"
+  ],
+  "next_gate": "review_same_PR_with_explicit_AXM12_transfer",
+  "publication": {
+    "event_id": "AXM-38:implement:cr004:attempt-01:aad1173cbdb305924be3b7d8f5d6df15cf9b2049:checkpoint",
+    "prior_callback": "https://linear.app/rgomids/issue/AXM-38#comment-d94c278b",
+    "final_sha_ci_and_readback": "Matching cr004-attempt-01 callback on AXM-38; no historical callback edited"
+  },
+  "merge_performed": false,
+  "release_performed": false,
+  "issue_closed": false,
+  "human_disposition": {
+    "status": "AXM38_IMPLEMENT_ACCEPTED_AS_IS_WITH_EXPLICIT_TRANSFER",
+    "accepted_head_sha": "aad1173cbdb305924be3b7d8f5d6df15cf9b2049",
+    "human_author": "Rafael Gomides",
+    "reported_by": "Maestro (Grok Bot), AI, not human",
+    "source_url": "https://linear.app/rgomids/issue/AXM-38#comment-5e8ea79a",
+    "transferred_to": "AXM-12",
+    "transferred_verification": [
+      "Final-version Unicode fidelity",
+      "Actual renderer-failure complete-text fallback validation"
+    ],
+    "new_AXM38_real_sessions": "PROHIBITED",
+    "empirical_status": "PARTIAL; not converted to PASS",
+    "cr004_resolution": "Documentary reconciliation by explicit human transfer; independent review pending"
+  },
+  "deferred_findings": [
+    {
+      "id": "IMPL-DF-01",
+      "description": "Pre-existing POC link; unchanged"
+    },
+    {
+      "id": "IMPL-DF-02",
+      "description": "Baseline/candidate process-test intermittency; unchanged"
+    }
+  ]
+}
