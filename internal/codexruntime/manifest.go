@@ -301,6 +301,14 @@ var sharedSkillHistory = []skillSetRevision{
 		"axiom-work-item": "6c44a83adec8d21e1d2ba776aeda3008ffbe12b9f104634070b0ae925a0d44bd",
 		"axiom-workflow":  "40e888a35af2fdd93175ef15cad1c0155eb475a156e3e70584da501d801ca8b3",
 	}},
+	// Shared revision before AXM-38 rendered Workflow presentation. Both Runtime
+	// consumers recognize exactly these historical bytes; compatibility remains 3.
+	{skillSetVersion: "3", binaryCompatibility: "3", skills: map[string]string{
+		"axiom-project":   "a249ea87133eeefd53f7e6bccf8b5d083c2bf87802f8141ec85183d52d9a892d",
+		"axiom-runtime":   "90a725ed0ac96aa3378b3c9860f5357c8ef63b090662a19d362c24c8cc0aad0b",
+		"axiom-work-item": "ea5476f17d1962c0938968fa726a006a01c4d79913ff3988e3d11aaf64af49f3",
+		"axiom-workflow":  "580ca950da69046632543523d41447544e979f9f2237278ac39377772fc4f5e5",
+	}},
 }
 
 // currentRevision is the skill set embedded in this binary.

@@ -53,6 +53,7 @@ var publishedSharedRevisions = []string{
 	"d87a6acbe77d27f0d16a77270cfe15129fd0122efb34da0595c3ee0863963ae1",
 	"0198dbea20a157852bf131141b480938c2436120d82f87b8bc84b14fc30effb8",
 	"e87403814f57b5160254e1fccaffcb64d1b9fba4a61035db9444dc16075a38e3",
+	"508f3f1b1a31a403d5deba227cffef981bc67061812394420948290a78c03216",
 }
 
 func TestEveryPublishedSharedRevisionStaysOwned(t *testing.T) {

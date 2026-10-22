@@ -8,10 +8,16 @@ by [exact-blob human decision](https://github.com/rgomids/axiom/pull/336#issueco
 at `5939c7aac0f05f53d94116c4ebd89fb774e36950`, for
 [AXM-38](https://linear.app/rgomids/issue/AXM-38). Historical Proposed wording and
 receipts remain preserved. [Tasks r1](011-rendered-workflow-presentation/tasks.md)
-are **PROPOSED — local preparation; publication pending authority**;
-[preparation receipt](011-rendered-workflow-presentation/completion-receipt-tasks.json)
-separates documentary checks from future behavioral Evidence. Next gate: `review_tasks`.
-No implementation, native host qualification or product acceptance is delivered.
+and implementation T01–T04 were [explicitly authorized](https://github.com/rgomids/axiom/pull/336#issuecomment-6348014628)
+at reference HEAD `4bf046f79d7d5006fea25ff2b5dc4dafc8a48fdc`.
+[Implementation Evidence](011-rendered-workflow-presentation/evidence-implement.md)
+tracks offline fixtures/oracle, shared skill guidance and isolated packaging.
+Implementation remains **PARTIAL**: T03 real supported-host qualification is
+**NOT_RUN / AUTHORIZATION_REQUIRED**; T04 graphical acceptance depends on T03.
+Next gate: review the same PR and obtain bounded host-session authority.
+No product acceptance, merge or release is claimed. Historical
+[Tasks preparation receipt](011-rendered-workflow-presentation/completion-receipt-tasks.json)
+remains unchanged.
 
 [Specification 008](008-output-separation/spec.md) received
 [explicit human acceptance](https://github.com/rgomids/axiom/pull/328#issuecomment-6246060142)
