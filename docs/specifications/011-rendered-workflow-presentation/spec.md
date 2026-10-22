@@ -2,21 +2,32 @@
 
 ## Status, provenance and authority
 
-**Proposed — revision 1, specify only, 2026-10-22.** Product owner:
+**Revision 1, editorial checkpoint e1 — PROPOSED reconciliation, 2026-10-22.**
+Behavioral baseline: accepted r1 at `c2298a9ae60d32ecbfea96c19a051a7514fe78b6`;
+this edited revision requires exact re-review and human reconfirmation. Product owner:
 [AXM-38](https://linear.app/rgomids/issue/AXM-38/apresentar-workflow-como-diagrama-renderizado-com-texto-complementar).
 The user explicitly authorizes translating this card's product requirements into
 repository documentation; no unrelated provider content is imported.
-The verified operational gate is `READY_FOR_specify`, comment UUID
+The original Specify operational gate was `READY_FOR_specify`, comment UUID
 `1c7a61cd-01b9-4386-a57f-e6ba0711280f`. Prompt publication and dispatch acceptance
 are not canonical Execution start/completion. This document records no Execution
 identity or transition. Linear status and downstream AXM-39/AXM-12 remain untouched.
 
 Source baseline: `2e53228bfd27cff206c5c955f363bfff18fe745a`, clean detached HEAD
 before authoring. [Evidence](evidence-specify.md) records source checks and limits.
-This local proposal has no commit or PR of its own. Exact content checkpoint is
-recorded separately in the completion receipt. Human acceptance of that exact
-revision remains required; documentary completion does not authorize Plan,
-implementation, external host sessions, merge, release or product acceptance.
+The original pre-publication checkpoint is recorded in the immutable historical
+[completion receipt](completion-receipt.json) and [Specify Evidence](evidence-specify.md).
+Its `pr_url: null`, uncommitted state and then-next gate describe that original
+observation, not present publication. Revision 1 was subsequently published in
+[PR #336](https://github.com/rgomids/axiom/pull/336) at
+`c2298a9ae60d32ecbfea96c19a051a7514fe78b6`, blob
+`21705f315bbaa2365ac1078ad1bc868f74725555`, and received
+[explicit human approval](https://github.com/rgomids/axiom/pull/336#issuecomment-6333507483)
+for VP-01–VP-15 and P-01–P-05 within that exact text's conditions.
+That approval authorizes preparing the Plan and editorial CR-001 correction;
+it does not transfer acceptance to these edited bytes or establish native rendering,
+implementation, merge, release or product acceptance. See [Plan Evidence](evidence-plan.md)
+for exact hashes, editorial diff and publication/authority limits.
 
 Requirement origins are explicit:
 
@@ -26,7 +37,9 @@ Requirement origins are explicit:
 - `PROPOSED`: new refinement or compatibility/design option; recommendation only,
   **not a MUST or accepted AC until explicit material approval**.
 
-This whole Specification remains Proposed. No origin label accepts this revision.
+Origin and PROPOSED labels below preserve the r1 drafting vocabulary. Subsequent
+human approval applies only to the exact r1 baseline linked above; editorial e1
+remains pending reconfirmation. No requirement or refinement text is changed.
 
 ## Problem, objectives and non-goals
 
@@ -254,8 +267,9 @@ No supersession or new ADR is adopted. A later incompatible proposal must identi
 the exact clause and follow [ADR-0018](../../decisions/0018-adr-evolution-and-supersession-governance.md),
 without editing acceptance history by implication.
 
-Material proposals P-01–P-05 await review of this exact Specification, not automatic
-promotion to MUST. Recommended: conversational detail/segmentation with textual
+At the original Specify checkpoint, P-01–P-05 awaited review. The subsequent
+approval above accepts them within the exact baseline conditions, without proving
+compatibility or adopting a renderer. Original recommendation: conversational detail/segmentation with textual
 equivalence and evidence-based surface qualification. Alternative: demand one
 complete static diagram; simpler navigation, but dense maximum graphs can become
 unreadable. Renderer technology remains open; no Mermaid/SVG/native choice is
@@ -287,7 +301,9 @@ References for all three: this Specification, [Evidence](evidence-specify.md) an
 the source links above. No subagent was used: strict lower-model hierarchy was not
 proven, and bounded research did not justify delegation overhead.
 
-**Next gate: `review_specification`.** Review exact local content checkpoint,
-origins and proposed refinements; authorize repository publication if desired.
-Then obtain explicit human acceptance of an observed revision. Do not start Plan
-or implementation here. Product ACs and native host acceptance remain unfulfilled.
+**Current next gate: `review_plan` plus exact editorial reconfirmation.** The
+original `review_specification` gate was followed by publication and the linked
+human approval of r1. [Plan](plan.md) is drafted against that accepted semantic
+baseline. Review the exact Plan and editorial e1 checkpoint before human approval;
+publication remains separately authorized. Do not start Tasks or implementation
+in this Plan attempt. Product ACs and native host acceptance remain unfulfilled.

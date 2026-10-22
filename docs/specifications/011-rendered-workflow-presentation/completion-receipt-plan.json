@@ -1,0 +1,341 @@
+{
+  "work_item": "AXM-38",
+  "stage": "plan",
+  "attempt": "attempt-01",
+  "result": "partial",
+  "documentary_plan": "completed_local_proposed",
+  "pr_url": "https://github.com/rgomids/axiom/pull/336",
+  "head_sha": "c2298a9ae60d32ecbfea96c19a051a7514fe78b6",
+  "head_sha_scope": "Unchanged local/remote committed source; Plan/e1 artifacts uncommitted",
+  "artifact_refs": [
+    {
+      "path": "docs/specifications/011-rendered-workflow-presentation/plan.md",
+      "sha256": "2418a6814b03bbc3e7472a19dd6c3052de2eb0e66bb0cd4100ec65fbaed0dd24",
+      "committed": false
+    },
+    {
+      "path": "docs/specifications/011-rendered-workflow-presentation/spec.md",
+      "sha256": "921389e131fa203366a013102dfde429df8a160f228029f995cadebf48208be1",
+      "committed": false
+    },
+    {
+      "path": "docs/specifications/011-rendered-workflow-presentation/evidence-plan.md",
+      "sha256": "030e929785b2546354dfc6aad6b20237b66f89eb5e8c16285687d6e0fc2a1f75",
+      "committed": false
+    }
+  ],
+  "specification_revision": {
+    "accepted_head": "c2298a9ae60d32ecbfea96c19a051a7514fe78b6",
+    "accepted_blob": "21705f315bbaa2365ac1078ad1bc868f74725555",
+    "current_revision": "r1 editorial e1",
+    "current_sha256": "921389e131fa203366a013102dfde429df8a160f228029f995cadebf48208be1",
+    "current_blob": "ba83987e96bc31bd31778ef80ab9e4a2890b1706",
+    "status": "PROPOSED_RECONFIRMATION_REQUIRED",
+    "delta": "EDITORIAL_PROVENANCE_ONLY"
+  },
+  "cr_001": {
+    "status": "LOCAL_PATCHED_PUBLICATION_PENDING",
+    "historical_receipt_unchanged": true,
+    "historical_receipt_sha256": "06d11259fffb6876ebc748e2639d58148e4967ee3dbb190b275df3a5a436e422",
+    "review_url": "https://github.com/rgomids/axiom/pull/336#pullrequestreview-5609613349"
+  },
+  "evidence": [
+    {
+      "check": "git diff --check",
+      "status": "PASS",
+      "scope": "tracked Spec diff"
+    },
+    {
+      "check": "Ephemeral Python documentary checks",
+      "status": "PASS",
+      "scope": "local links, non-diff Markdown whitespace/fences, JSON, AC/status coverage, exact allowed paths"
+    },
+    {
+      "check": "Accepted normative section and historical receipt byte comparison",
+      "status": "PASS",
+      "scope": "exact c2298a9 source comparison; manual full Spec diff reviewed"
+    },
+    {
+      "check": "Schema and four fixture source inspection",
+      "status": "PASS",
+      "scope": "not runtime/domain or transformation test; initial wrong Stage ID lookup corrected"
+    },
+    {
+      "check": "./scripts/check-sensitive-files.sh .",
+      "status": "PASS",
+      "scope": "worktree"
+    },
+    {
+      "check": "gitleaks dir docs/specifications/011-rendered-workflow-presentation --redact --no-banner",
+      "status": "PASS",
+      "scope": "document folder"
+    },
+    {
+      "check": "Existing HEAD CI and Delivery metadata",
+      "status": "PASS",
+      "scope": "observed c2298a9 only; runs 39726025605,39726025505,39726058026"
+    },
+    {
+      "check": "New CI / native hosts / implementation behavioral tests / build",
+      "status": "NOT_RUN",
+      "scope": "outside Plan authority; no local artifact CI"
+    }
+  ],
+  "technical_decisions": [
+    {
+      "id": "PLAN-TD-01",
+      "category": "TECHNICAL_LOCAL",
+      "owner": "executor-ai",
+      "chosen_option": "Host-owned transient semantic projection; preserve typed JSON and terminal",
+      "alternatives": [
+        "Go application graph/renderer",
+        "Persisted intermediate schema"
+      ],
+      "rationale": "ADR-0030 assigns host presentation; existing WorkflowReport contains required declarations",
+      "verification": "PASS: source inventory and accepted boundary comparison; behavioral NOT_RUN",
+      "links": [
+        "../../../internal/projectapp/workflow_authoring.go",
+        "../../decisions/0030-canonical-results-terminal-and-host-presentation.md"
+      ],
+      "scope_impact": "none"
+    },
+    {
+      "id": "PLAN-TD-02",
+      "category": "TECHNICAL_LOCAL",
+      "owner": "executor-ai",
+      "chosen_option": "Stable ordinal indexing, complete declared edges and predecessor fallback; O(V+E) layering",
+      "alternatives": [
+        "Agent array interpreted as chain",
+        "Transitive reduction",
+        "One image for entire definition"
+      ],
+      "rationale": "Preserves independence/all edges at verified 32/32 bounds with bounded detail",
+      "verification": "PASS: schemas/validation and fixture inspection; algorithm/host tests NOT_RUN",
+      "links": [
+        "../../../internal/workflowdefinition/validation.go",
+        "../007-configurable-workflows/workflow-v2.schema.json"
+      ],
+      "scope_impact": "none"
+    },
+    {
+      "id": "PLAN-TD-03",
+      "category": "TECHNICAL_LOCAL",
+      "owner": "executor-ai",
+      "chosen_option": "Qualify existing surface before selecting diagram syntax; unknown uses text",
+      "alternatives": [
+        "Assume fenced Mermaid renders",
+        "Adopt cloud artifact/platform from documentation"
+      ],
+      "rationale": "Official documentation does not establish exact supported-host rendering; P-05 is conditional",
+      "verification": "PASS: official pages opened; empirical UNVERIFIED / NOT_RUN",
+      "links": [
+        "https://learn.chatgpt.com/docs/visualizations",
+        "https://code.claude.com/docs/en/desktop#preview-your-app"
+      ],
+      "scope_impact": "none"
+    }
+  ],
+  "limitations": [
+    "No current explicit commit/push authority; PR unchanged",
+    "No empirical host qualification or native/behavioral tests",
+    "Existing successful CI covers c2298a9 only, not local artifacts",
+    "No canonical Execution state inferred"
+  ],
+  "linear_published": true,
+  "next_gate": "review_plan",
+  "remaining_work": [
+    "Authorize commit/push to existing PR 336 and publish local artifacts",
+    "Documentary review and exact editorial e1 human reconfirmation",
+    "Exact Plan human approval; separately authorize later Tasks/Implement and host sessions"
+  ],
+  "requires_human_authority": [
+    "commit/push/update PR 336",
+    "exact revised Spec and Plan acceptance",
+    "later stages and external host sessions"
+  ],
+  "handoff": "Review exact local hashes; publish only to PR 336 after explicit authority and fresh HEAD check. No Tasks or Implementation now.",
+  "linear_comment_id": "fda0054d-426f-485f-a8d2-ef2822562c9b",
+  "linear_comment_url": "https://linear.app/rgomids/issue/AXM-38/apresentar-workflow-como-diagrama-renderizado-com-texto-complementar#comment-fda0054d",
+  "linear_readback": {
+    "status": "PASS",
+    "unique_event": true,
+    "markers_valid": true,
+    "json_valid": true,
+    "body_exact": true
+  },
+  "event_payload": {
+    "schema_version": 1,
+    "event_id": "AXM-38:plan:attempt-01:2418a6814b03bbc3",
+    "work_item": "AXM-38",
+    "stage": "plan",
+    "type": "stage.partial",
+    "attempt": "attempt-01",
+    "outcome": "partial",
+    "publisher": "runtime-executor",
+    "verification": "reported",
+    "head_sha": "c2298a9ae60d32ecbfea96c19a051a7514fe78b6",
+    "artifacts": {
+      "pr_url": "https://github.com/rgomids/axiom/pull/336",
+      "artifact_refs": [
+        {
+          "path": "docs/specifications/011-rendered-workflow-presentation/plan.md",
+          "sha256": "2418a6814b03bbc3e7472a19dd6c3052de2eb0e66bb0cd4100ec65fbaed0dd24",
+          "committed": false
+        },
+        {
+          "path": "docs/specifications/011-rendered-workflow-presentation/spec.md",
+          "sha256": "921389e131fa203366a013102dfde429df8a160f228029f995cadebf48208be1",
+          "committed": false
+        },
+        {
+          "path": "docs/specifications/011-rendered-workflow-presentation/evidence-plan.md",
+          "sha256": "04774bf176b656609e0cfd254b05e5eb9e1967660a64836befd0b54a38411725",
+          "committed": false
+        }
+      ],
+      "completion_receipt": {
+        "path": "docs/specifications/011-rendered-workflow-presentation/completion-receipt-plan.json",
+        "committed": false
+      },
+      "specification_revision": {
+        "accepted_head": "c2298a9ae60d32ecbfea96c19a051a7514fe78b6",
+        "accepted_blob": "21705f315bbaa2365ac1078ad1bc868f74725555",
+        "current_revision": "r1 editorial e1",
+        "current_sha256": "921389e131fa203366a013102dfde429df8a160f228029f995cadebf48208be1",
+        "current_blob": "ba83987e96bc31bd31778ef80ab9e4a2890b1706",
+        "status": "PROPOSED_RECONFIRMATION_REQUIRED",
+        "delta": "EDITORIAL_PROVENANCE_ONLY"
+      },
+      "accepted_spec_url": "https://github.com/rgomids/axiom/blob/c2298a9ae60d32ecbfea96c19a051a7514fe78b6/docs/specifications/011-rendered-workflow-presentation/spec.md",
+      "approval_url": "https://github.com/rgomids/axiom/pull/336#issuecomment-6333507483"
+    },
+    "cr_001": {
+      "status": "LOCAL_PATCHED_PUBLICATION_PENDING",
+      "historical_receipt_unchanged": true,
+      "historical_receipt_sha256": "06d11259fffb6876ebc748e2639d58148e4967ee3dbb190b275df3a5a436e422",
+      "review_url": "https://github.com/rgomids/axiom/pull/336#pullrequestreview-5609613349"
+    },
+    "evidence": [
+      {
+        "check": "git diff --check",
+        "status": "PASS",
+        "scope": "tracked Spec diff"
+      },
+      {
+        "check": "Ephemeral Python documentary checks",
+        "status": "PASS",
+        "scope": "local links, non-diff Markdown whitespace/fences, JSON, AC/status coverage, exact allowed paths"
+      },
+      {
+        "check": "Accepted normative section and historical receipt byte comparison",
+        "status": "PASS",
+        "scope": "exact c2298a9 source comparison; manual full Spec diff reviewed"
+      },
+      {
+        "check": "Schema and four fixture source inspection",
+        "status": "PASS",
+        "scope": "not runtime/domain or transformation test; initial wrong Stage ID lookup corrected"
+      },
+      {
+        "check": "./scripts/check-sensitive-files.sh .",
+        "status": "PASS",
+        "scope": "worktree"
+      },
+      {
+        "check": "gitleaks dir docs/specifications/011-rendered-workflow-presentation --redact --no-banner",
+        "status": "PASS",
+        "scope": "document folder"
+      },
+      {
+        "check": "Existing HEAD CI and Delivery metadata",
+        "status": "PASS",
+        "scope": "observed c2298a9 only; runs 39726025605,39726025505,39726058026"
+      },
+      {
+        "check": "New CI / native hosts / implementation behavioral tests / build",
+        "status": "NOT_RUN",
+        "scope": "outside Plan authority; no local artifact CI"
+      }
+    ],
+    "technical_decisions": [
+      {
+        "id": "PLAN-TD-01",
+        "category": "TECHNICAL_LOCAL",
+        "owner": "executor-ai",
+        "chosen_option": "Host-owned transient semantic projection; preserve typed JSON and terminal",
+        "alternatives": [
+          "Go application graph/renderer",
+          "Persisted intermediate schema"
+        ],
+        "rationale": "ADR-0030 assigns host presentation; existing WorkflowReport contains required declarations",
+        "verification": "PASS: source inventory and accepted boundary comparison; behavioral NOT_RUN",
+        "links": [
+          "../../../internal/projectapp/workflow_authoring.go",
+          "../../decisions/0030-canonical-results-terminal-and-host-presentation.md"
+        ],
+        "scope_impact": "none"
+      },
+      {
+        "id": "PLAN-TD-02",
+        "category": "TECHNICAL_LOCAL",
+        "owner": "executor-ai",
+        "chosen_option": "Stable ordinal indexing, complete declared edges and predecessor fallback; O(V+E) layering",
+        "alternatives": [
+          "Agent array interpreted as chain",
+          "Transitive reduction",
+          "One image for entire definition"
+        ],
+        "rationale": "Preserves independence/all edges at verified 32/32 bounds with bounded detail",
+        "verification": "PASS: schemas/validation and fixture inspection; algorithm/host tests NOT_RUN",
+        "links": [
+          "../../../internal/workflowdefinition/validation.go",
+          "../007-configurable-workflows/workflow-v2.schema.json"
+        ],
+        "scope_impact": "none"
+      },
+      {
+        "id": "PLAN-TD-03",
+        "category": "TECHNICAL_LOCAL",
+        "owner": "executor-ai",
+        "chosen_option": "Qualify existing surface before selecting diagram syntax; unknown uses text",
+        "alternatives": [
+          "Assume fenced Mermaid renders",
+          "Adopt cloud artifact/platform from documentation"
+        ],
+        "rationale": "Official documentation does not establish exact supported-host rendering; P-05 is conditional",
+        "verification": "PASS: official pages opened; empirical UNVERIFIED / NOT_RUN",
+        "links": [
+          "https://learn.chatgpt.com/docs/visualizations",
+          "https://code.claude.com/docs/en/desktop#preview-your-app"
+        ],
+        "scope_impact": "none"
+      }
+    ],
+    "next_gate": "review_plan",
+    "remaining_work": [
+      "Authorize commit/push to existing PR 336 and publish local artifacts",
+      "Documentary review and exact editorial e1 human reconfirmation",
+      "Exact Plan human approval; separately authorize later Tasks/Implement and host sessions"
+    ],
+    "requires_human_authority": [
+      "commit/push/update PR 336",
+      "exact revised Spec and Plan acceptance",
+      "later stages and external host sessions"
+    ],
+    "limitations": [
+      "No current explicit commit/push authority; PR unchanged",
+      "No empirical host qualification or native/behavioral tests",
+      "Existing successful CI covers c2298a9 only, not local artifacts",
+      "No canonical Execution state inferred"
+    ]
+  },
+  "publication_continuation": {
+    "authority": "Explicit user instruction to commit four Plan/CR-001 documentary files and push normally to existing PR 336",
+    "branch": "axm-38-specify-rendered-workflow",
+    "target_pr": 336,
+    "scope": "No merge, Tasks or implementation",
+    "historical_event_payload": "Original Linear checkpoint payload preserved; its hashes identify that earlier report",
+    "evidence_transcription_change": "Zero-context exact Spec diff removes staged whitespace; Plan/Spec hashes unchanged",
+    "status": "AUTHORIZED_PREPARATION; final SHA and CI require post-push read-back"
+  }
+}
