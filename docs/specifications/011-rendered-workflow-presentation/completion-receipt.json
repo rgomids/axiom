@@ -1,0 +1,258 @@
+{
+  "work_item": "AXM-38",
+  "stage": "specify",
+  "attempt": "attempt-01",
+  "result": "completed_documentary_local",
+  "artifact_refs": [
+    {
+      "path": "docs/specifications/011-rendered-workflow-presentation/spec.md",
+      "sha256": "9fde9a000ae1f5d96f64fcc7356575157b1b82f087b0f60fc0b20efafb5ae00a",
+      "revision": 1,
+      "status": "Proposed"
+    },
+    {
+      "path": "docs/specifications/011-rendered-workflow-presentation/evidence-specify.md",
+      "sha256": "3ca23bf92cb87e07b3f5ac205fb12b0b2d5adfc3c7c137e0a54f93cff0bf25cb"
+    },
+    {
+      "path": "docs/specifications/README.md"
+    }
+  ],
+  "pr_url": null,
+  "head_sha": "2e53228bfd27cff206c5c955f363bfff18fe745a",
+  "head_sha_scope": "Source checkout only; proposed artifacts are uncommitted",
+  "evidence": [
+    {
+      "check": "git diff --check plus new-document whitespace inspection",
+      "status": "PASS",
+      "scope": "documentation"
+    },
+    {
+      "check": "Ephemeral Python local-link and coverage check",
+      "status": "PASS",
+      "detail": "15 VP requirements, 10 Evidence rows, 5 proposed refinements; relative links exist."
+    },
+    {
+      "check": "./scripts/check-sensitive-files.sh .",
+      "status": "PASS",
+      "scope": "worktree"
+    },
+    {
+      "check": "Spec 007 / ADR-0030 local versus GitHub main blob identity",
+      "status": "PASS",
+      "detail": "d39aac703d715b27ce116de23fd77c8ed2850e48 / 25899eb789d311619ba661bc4f52c2619bfdc36d"
+    },
+    {
+      "check": "Manual documentary coherence review",
+      "status": "PASS",
+      "scope": "Specified behavior only; accepted contracts preserved."
+    },
+    {
+      "check": "Behavioral tests, installed CLI, real host/rendering/manual visual witness",
+      "status": "NOT_RUN",
+      "detail": "Outside Specify authorization; future Evidence matrix."
+    },
+    {
+      "check": "Build/CI",
+      "status": "SKIP",
+      "detail": "Documentation-only local proposal; no CI dispatched."
+    }
+  ],
+  "technical_decisions": [
+    {
+      "id": "TD-01",
+      "category": "TECHNICAL_LOCAL",
+      "chosen_option": "Separate proposed Specification 011 and bounded Evidence/index",
+      "alternatives_considered": [
+        "Amend accepted Specification 007"
+      ],
+      "rationale": "Preserves accepted contracts and history; reversible documentation-only organization.",
+      "scope_impact": "none",
+      "decision_maker": "executor-ai",
+      "artifact_refs": [
+        "docs/specifications/011-rendered-workflow-presentation/spec.md#decisions-ambiguities-and-next-gate"
+      ]
+    },
+    {
+      "id": "TD-02",
+      "category": "TECHNICAL_LOCAL",
+      "chosen_option": "Source/schema inspection and existing fixtures; no native smoke",
+      "alternatives_considered": [
+        "Run installed CLI or external hosts"
+      ],
+      "rationale": "Sufficient for syntax and documentary claims; real behavior remains unverified under Specify authority.",
+      "scope_impact": "none",
+      "decision_maker": "executor-ai",
+      "artifact_refs": [
+        "docs/specifications/011-rendered-workflow-presentation/evidence-specify.md"
+      ]
+    },
+    {
+      "id": "TD-03",
+      "category": "TECHNICAL_LOCAL",
+      "chosen_option": "Format-neutral derived information; defer renderer selection",
+      "alternatives_considered": [
+        "Choose Mermaid or SVG from documentation alone"
+      ],
+      "rationale": "Documentation cannot establish exact host rendered behavior; no new transport or platform is adopted.",
+      "scope_impact": "none",
+      "decision_maker": "executor-ai",
+      "artifact_refs": [
+        "docs/specifications/011-rendered-workflow-presentation/spec.md#compatibility-inventory--documentation-versus-observed-rendering"
+      ]
+    }
+  ],
+  "limitations": [
+    "Documentary completion only, local uncommitted proposal; not human acceptance or canonical Execution completion.",
+    "No matching AXM-38 remote branch/PR observed; commit/push/Draft PR require explicit authorization.",
+    "Host rendering UNVERIFIED; no external smoke, native session or implementation.",
+    "P-01–P-05 remain PROPOSED; AXM-39/AXM-12 untouched."
+  ],
+  "linear_published": true,
+  "linear_comment_id": "6c17341e-4b0c-49a9-9c1f-0c4702c384de",
+  "linear_comment_url": "https://linear.app/rgomids/issue/AXM-38/apresentar-workflow-como-diagrama-renderizado-com-texto-complementar#comment-6c17341e",
+  "linear_readback": {"status":"PASS","unique_event":true,"markers_valid":true,"json_valid":true,"body_exact":true},
+  "next_gate": "review_specification",
+  "remaining_work": {
+    "authorized_now": [
+      "Review the exact local Specification checkpoint"
+    ],
+    "requires_human_authority": [
+      "Commit/push/create one Draft PR if authorized, after rechecking remote state",
+      "Human acceptance of exact proposed revision and material refinements",
+      "Bounded external host tests in a later authorized stage"
+    ]
+  },
+  "handoff": "Review Specification 011 r1 at SHA-256 9fde9a000ae1f5d96f64fcc7356575157b1b82f087b0f60fc0b20efafb5ae00a. Publication requires explicit commit/push/Draft PR authorization; do not start Plan or implementation.",
+  "event_payload": {
+    "schema_version": 1,
+    "event_id": "AXM-38:specify:attempt-01:9fde9a000ae1f5d9",
+    "work_item": "AXM-38",
+    "stage": "specify",
+    "type": "stage.completed",
+    "attempt": "attempt-01",
+    "outcome": "completed",
+    "publisher": "runtime-executor",
+    "verification": "reported",
+    "artifacts": {
+      "specification": {
+        "local_path": "docs/specifications/011-rendered-workflow-presentation/spec.md",
+        "revision": 1,
+        "status": "Proposed",
+        "sha256": "9fde9a000ae1f5d96f64fcc7356575157b1b82f087b0f60fc0b20efafb5ae00a",
+        "committed": false
+      },
+      "evidence": {
+        "local_path": "docs/specifications/011-rendered-workflow-presentation/evidence-specify.md",
+        "sha256": "3ca23bf92cb87e07b3f5ac205fb12b0b2d5adfc3c7c137e0a54f93cff0bf25cb"
+      },
+      "completion_receipt": {
+        "local_path": "docs/specifications/011-rendered-workflow-presentation/completion-receipt.json"
+      },
+      "pr_url": null,
+      "source_head_sha": "2e53228bfd27cff206c5c955f363bfff18fe745a",
+      "source_refs": [
+        "https://github.com/rgomids/axiom/blob/2e53228bfd27cff206c5c955f363bfff18fe745a/docs/specifications/007-configurable-workflows/spec.md",
+        "https://github.com/rgomids/axiom/blob/2e53228bfd27cff206c5c955f363bfff18fe745a/docs/decisions/0030-canonical-results-terminal-and-host-presentation.md"
+      ]
+    },
+    "evidence": [
+      {
+        "check": "git diff --check plus new-document whitespace inspection",
+        "status": "PASS",
+        "scope": "documentation"
+      },
+      {
+        "check": "Ephemeral Python local-link and coverage check",
+        "status": "PASS",
+        "detail": "15 VP requirements, 10 Evidence rows, 5 proposed refinements; relative links exist."
+      },
+      {
+        "check": "./scripts/check-sensitive-files.sh .",
+        "status": "PASS",
+        "scope": "worktree"
+      },
+      {
+        "check": "Spec 007 / ADR-0030 local versus GitHub main blob identity",
+        "status": "PASS",
+        "detail": "d39aac703d715b27ce116de23fd77c8ed2850e48 / 25899eb789d311619ba661bc4f52c2619bfdc36d"
+      },
+      {
+        "check": "Manual documentary coherence review",
+        "status": "PASS",
+        "scope": "Specified behavior only; accepted contracts preserved."
+      },
+      {
+        "check": "Behavioral tests, installed CLI, real host/rendering/manual visual witness",
+        "status": "NOT_RUN",
+        "detail": "Outside Specify authorization; future Evidence matrix."
+      },
+      {
+        "check": "Build/CI",
+        "status": "SKIP",
+        "detail": "Documentation-only local proposal; no CI dispatched."
+      }
+    ],
+    "technical_decisions": [
+      {
+        "id": "TD-01",
+        "category": "TECHNICAL_LOCAL",
+        "chosen_option": "Separate proposed Specification 011 and bounded Evidence/index",
+        "alternatives_considered": [
+          "Amend accepted Specification 007"
+        ],
+        "rationale": "Preserves accepted contracts and history; reversible documentation-only organization.",
+        "scope_impact": "none",
+        "decision_maker": "executor-ai",
+        "artifact_refs": [
+          "docs/specifications/011-rendered-workflow-presentation/spec.md#decisions-ambiguities-and-next-gate"
+        ]
+      },
+      {
+        "id": "TD-02",
+        "category": "TECHNICAL_LOCAL",
+        "chosen_option": "Source/schema inspection and existing fixtures; no native smoke",
+        "alternatives_considered": [
+          "Run installed CLI or external hosts"
+        ],
+        "rationale": "Sufficient for syntax and documentary claims; real behavior remains unverified under Specify authority.",
+        "scope_impact": "none",
+        "decision_maker": "executor-ai",
+        "artifact_refs": [
+          "docs/specifications/011-rendered-workflow-presentation/evidence-specify.md"
+        ]
+      },
+      {
+        "id": "TD-03",
+        "category": "TECHNICAL_LOCAL",
+        "chosen_option": "Format-neutral derived information; defer renderer selection",
+        "alternatives_considered": [
+          "Choose Mermaid or SVG from documentation alone"
+        ],
+        "rationale": "Documentation cannot establish exact host rendered behavior; no new transport or platform is adopted.",
+        "scope_impact": "none",
+        "decision_maker": "executor-ai",
+        "artifact_refs": [
+          "docs/specifications/011-rendered-workflow-presentation/spec.md#compatibility-inventory--documentation-versus-observed-rendering"
+        ]
+      }
+    ],
+    "next_gate": "review_specification",
+    "limitations": [
+      "Documentary completion only, local uncommitted proposal; not human acceptance or canonical Execution completion.",
+      "No matching AXM-38 remote branch/PR observed; commit/push/Draft PR require explicit authorization.",
+      "Host rendering UNVERIFIED; no external smoke, native session or implementation.",
+      "P-01–P-05 remain PROPOSED; AXM-39/AXM-12 untouched."
+    ],
+    "remaining_work": {
+      "authorized_now": [
+        "Review the exact local Specification checkpoint"
+      ],
+      "requires_human_authority": [
+        "Commit/push/create one Draft PR if authorized, after rechecking remote state",
+        "Human acceptance of exact proposed revision and material refinements",
+        "Bounded external host tests in a later authorized stage"
+      ]
+    }
+  }
+}

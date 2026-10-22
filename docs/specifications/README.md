@@ -1,5 +1,14 @@
 # Specifications
 
+## 011 — Rendered Workflow presentation
+
+[Specification](011-rendered-workflow-presentation/spec.md) revision 1 is
+**Proposed — specify only, 2026-10-22**, for
+[AXM-38](https://linear.app/rgomids/issue/AXM-38).
+[Specify Evidence](011-rendered-workflow-presentation/evidence-specify.md)
+separates source/documentation findings from unverified host rendering. No renderer,
+Plan, implementation, native host qualification or human acceptance is delivered.
+
 [Specification 008](008-output-separation/spec.md) received
 [explicit human acceptance](https://github.com/rgomids/axiom/pull/328#issuecomment-6246060142)
 at `18d29a6c5446357defb2563483cfac180dcc4043` on 2026-10-18.
