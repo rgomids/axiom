@@ -189,3 +189,14 @@ Operation-specific payloads: `runtimeAuthoring`.
 | `profile.recover` | - | `axiom --json runtime profile recover` | local mutation | preview first; exact snapshot, digest and explicit local confirmation (`--expected-revision`, `--preview-digest`, `--authorize-local`) | only for unambiguous intent |
 
 Supported domain operations are `binding.list`, `binding.show`, `binding.create`, `binding.edit`, `binding.enable`, `binding.disable`, `binding.remove`, `binding.validate-candidate`, `binding.recover`, `profile.list`, `profile.show`, `profile.create`, `profile.edit`, `profile.enable`, `profile.disable`, `profile.remove`, `profile.validate-candidate`, and `profile.recover`.
+
+## Installed documentation
+
+For Axiom operational questions, run `axiom --json docs inspect` once. Only
+`state: verified` certifies installed documentation for the running binary: read
+the Markdown and man paths it returns, never a checkout, a global registry or a
+remote copy, and never repair, download or search elsewhere. Any other state is
+a refusal: report its `reason` and fall back to `axiom --help`. This skill is
+not a source of truth and never reports itself, or any skill, as loaded; the
+inspector reports `loaded` as `unknown` and reports on-disk skill facts per
+Runtime separately.

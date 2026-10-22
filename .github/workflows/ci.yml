@@ -69,5 +69,7 @@ jobs:
           echo "AXIOM_TEST_PROBE_STATE_ROOT=$probe_state" >> "$GITHUB_ENV"
       - name: Tests
         run: go test ./...
+      - name: Installed documentation journey
+        run: ./scripts/test-docs-offline.sh
       - name: Repository and sensitive-file checks
         run: ./scripts/validate-repository.sh .

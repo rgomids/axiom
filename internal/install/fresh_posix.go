@@ -42,7 +42,7 @@ func InstallReleasePOSIX(ctx context.Context, target Target, candidate Candidate
 		return installRefusal("invalid candidate")
 	}
 	row := candidate.Values["platform"] + ":" + candidate.Values["goos"] + ":" + candidate.Values["architecture"]
-	if hostRow() != row {
+	if !hostMatches(row, candidate) {
 		return installRefusal("unsupported host for release row " + candidate.Values["platform"] + "/" + candidate.Values["architecture"] + "; supported OS family and architecture required")
 	}
 	for _, root := range []string{target.BinaryDir, target.ReceiptDir} {
@@ -162,6 +162,12 @@ func InstallReleasePOSIX(ctx context.Context, target Target, candidate Candidate
 		if digest(current) != values["sha256"] {
 			return installRefusal("modified binary preserved")
 		}
+		if values["sha256"] == digest(candidate.Binary) && candidate.Docs != nil {
+			if verifyDocsInstallationReadOnly(binaries, receipts, target, candidate) != nil {
+				return upgrade()
+			}
+			return InstallerResult{Stdout: "install_status=unchanged\n"}
+		}
 		if values["sha256"] == digest(candidate.Binary) {
 			if !bytes.Equal(receiptWire, expectedReceipt(destination, candidate, values["installedAt"])) {
 				return installRefusal("divergent receipt preserved")
@@ -206,7 +212,37 @@ func InstallReleasePOSIX(ctx context.Context, target Target, candidate Candidate
 	if failStage == "before_binary" {
 		return InstallerResult{Stderr: "install_error: injected pre-commit interruption\n", ExitCode: 75}
 	}
-	committedBinary, err := posixPublishFresh(binaries, binaryName, binaryStage, candidate.Binary, 0o700, maxBinaryBytes)
+	var docs docsStore
+	var bound string
+	var bindHooks []func(os.FileInfo) error
+	if candidate.Docs != nil {
+		if docs, err = openDocsStore(binaries, target.BinaryDir, true); err != nil {
+			return installRefusal("unsafe destination ownership, permissions, ACL, or type")
+		}
+		defer docs.Close()
+		if err := docs.lock(); err != nil {
+			return installRefusal("concurrent installation refused")
+		}
+		if err := docs.publishGeneration(candidate.Docs); err != nil {
+			return installRefusal("documentation publication failed")
+		}
+		bindHooks = append(bindHooks, func(stage os.FileInfo) error {
+			parent, statErr := os.Lstat(target.BinaryDir)
+			if statErr != nil {
+				return statErr
+			}
+			_, wire, hash, bindErr := docsBinding(candidate, destination, parent, stage)
+			if bindErr != nil {
+				return bindErr
+			}
+			if err := docs.publishBinding(digest(candidate.Binary), hash, wire); err != nil {
+				return err
+			}
+			bound = hash
+			return docsFault("before_binary_commit")
+		})
+	}
+	committedBinary, err := posixPublishFresh(binaries, binaryName, binaryStage, candidate.Binary, 0o700, maxBinaryBytes, bindHooks...)
 	binaryCommitted = committedBinary
 	if err != nil {
 		if os.IsExist(err) {
@@ -230,7 +266,15 @@ func InstallReleasePOSIX(ctx context.Context, target Target, candidate Candidate
 	if failStage == "after_binary" {
 		return InstallerResult{Stderr: "install_status=partial\n", ExitCode: 75}
 	}
-	receiptWire := expectedReceipt(destination, candidate, time.Now().UTC().Format("2006-01-02T15:04:05Z"))
+	installedAt := time.Now().UTC().Format("2006-01-02T15:04:05Z")
+	receiptWire := expectedReceipt(destination, candidate, installedAt)
+	if candidate.Docs != nil {
+		_, _, hash, bindErr := installedBinding(candidate, target, binaries)
+		if bindErr != nil || hash != bound {
+			return InstallerResult{Stderr: "install_status=partial\n", ExitCode: 1}
+		}
+		receiptWire = expectedReceiptV2(destination, candidate, installedAt, hash)
+	}
 	if ctx.Err() != nil {
 		return InstallerResult{Stderr: "install_status=partial\n", ExitCode: 1}
 	}
@@ -241,10 +285,13 @@ func InstallReleasePOSIX(ctx context.Context, target Target, candidate Candidate
 	if err := errors.Join(posixRemoveFile(receipts, markerName, stageInfo, committed, maxReceiptBytes), receipts.Sync()); err != nil {
 		return InstallerResult{Stderr: "install_status=partial\n", ExitCode: 1}
 	}
+	if candidate.Docs != nil && verifyDocsInstallation(docs, candidate, target, binaries, receipts) != nil {
+		return InstallerResult{Stderr: "install_status=partial\n", ExitCode: 1}
+	}
 	return InstallerResult{Stdout: "install_status=installed\n"}
 }
 
-func posixPublishFresh(directory local.AnchoredDirectory, name, prefix string, wire []byte, mode os.FileMode, limit int) (bool, error) {
+func posixPublishFresh(directory local.AnchoredDirectory, name, prefix string, wire []byte, mode os.FileMode, limit int, before ...func(os.FileInfo) error) (bool, error) {
 	stage, err := directory.Stage(prefix, wire, mode)
 	if err != nil {
 		return false, err
@@ -257,6 +304,11 @@ func posixPublishFresh(directory local.AnchoredDirectory, name, prefix string, w
 	staged, err := directory.ReadFile(stage, limit)
 	if err != nil || !bytes.Equal(staged, wire) {
 		return false, local.ErrUnsafe
+	}
+	for _, hook := range before {
+		if err := hook(stageInfo); err != nil {
+			return false, err
+		}
 	}
 	if err := directory.PublishNew(stage, name); err != nil {
 		return false, err
@@ -298,6 +350,13 @@ func posixHasSymlink(path string) bool {
 // The installer shell validates field shape and timestamp only. Owned upgrade
 // applies its stronger receipt validation through Service.Preview afterwards.
 func posixReceiptSchema(wire []byte) (map[string]string, error) {
+	if bytes.HasPrefix(wire, []byte("formatVersion=2\n")) {
+		values, err := receiptValuesV2(wire)
+		if err != nil {
+			return nil, local.ErrUnsafe
+		}
+		return values, nil
+	}
 	if !strings.HasSuffix(string(wire), "\n") {
 		return nil, local.ErrUnsafe
 	}

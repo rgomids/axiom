@@ -8,6 +8,12 @@ temporary=$(mktemp -d)
 temporary=$(cd "$temporary" && pwd -P)
 trap 'rm -rf -- "$temporary"' EXIT
 
+# Trust this checkout for the test verifier, independently of fixture archives.
+helper_name="axiom-verifier-0.0.0-test-$(git -C "$repository_root" rev-parse HEAD)-$(go env GOHOSTOS)-$(go env GOHOSTARCH)"
+export AXIOM_VERIFIER_PATH="$temporary/$helper_name"
+(cd "$repository_root" && CGO_ENABLED=0 go build -trimpath -ldflags "-X main.identity=$helper_name" -o "$AXIOM_VERIFIER_PATH" ./cmd/axiom-archive-verify)
+export AXIOM_VERIFIER_SHA256="$(shasum -a 256 "$AXIOM_VERIFIER_PATH" | awk '{print $1}')"
+
 digest_file() {
   shasum -a 256 "$1" | awk '{print $1}'
 }
@@ -47,12 +53,13 @@ done
 "$repository_root/scripts/build-release-archives.sh" --version 0.0.0-s2-test --output "$temporary/release" --development >/dev/null
 
 [[ $(find "$temporary/release" -name '*.tar.gz' -type f | wc -l | tr -d ' ') == 3 ]]
-[[ $(wc -l <"$temporary/release/SHA256SUMS" | tr -d ' ') == 3 ]]
+[[ $(wc -l <"$temporary/release/SHA256SUMS" | tr -d ' ') == 6 ]]
 while read -r hash archive; do
   [[ "$hash" =~ ^[0-9a-f]{64}$ ]]
   [[ -f "$temporary/release/$archive" ]]
   actual=$(shasum -a 256 "$temporary/release/$archive" | awk '{print $1}')
   [[ "$actual" == "$hash" ]]
+  [[ "$archive" != axiom-verifier-* ]] || continue
   listing=$(tar -tzf "$temporary/release/$archive")
   executable=axiom installer=install.sh
   for expected in /"$executable" /LICENSE /"$installer" /release-metadata.txt /skills-manifest.txt /MANIFEST.sha256; do
@@ -62,7 +69,7 @@ while read -r hash archive; do
   if grep -Eq '/lingo$' <<<"$listing"; then exit 1; fi
   [[ $(tar -tvzf "$temporary/release/$archive" | awk -v exe="/$executable" 'substr($NF,length($NF)-length(exe)+1)==exe {print substr($1,1,4)}') == -rwx ]]
   grep -Eq "^[0-9a-f]{64}  ${executable//./\\.}$" <(tar -xOzf "$temporary/release/$archive" "${archive%.tar.gz}/MANIFEST.sha256")
-  [[ $(grep -c '/skills/.*/SKILL.md' <<<"$listing") == 2 ]]
+  [[ $(grep -c '/skills/.*/SKILL.md' <<<"$listing") == 4 ]]
 done <"$temporary/release/SHA256SUMS"
 
 # A release build from a clean clone of this revision carries exact version

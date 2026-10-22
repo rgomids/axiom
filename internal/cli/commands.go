@@ -55,6 +55,7 @@ func commandTree() commandDefinition {
 				leaf("session-set", "Set caller session override", "context_session-set"),
 				leaf("session-clear", "Clear caller session override", "context_session-clear"),
 				leaf("session-end", "End caller session selection", "context_session-end"))),
+		group("docs", "Inspect installed operational documentation", leaf("inspect", "Verify and locate installed documentation", docsInspectAction)),
 		group("integration", "Inspect and administer declared Integrations",
 			leaf("list", "List Integrations", integrationListAction), leaf("show", "Inspect Integration", integrationShowAction),
 			leaf("validate", "Validate static configuration", integrationValidateAction), leaf("disable", "Preview or disable local use", integrationDisableAction),
@@ -141,7 +142,7 @@ func commandFlagSet(operation action) *flag.FlagSet {
 		return workflowStageFlagSet(operation, &WorkflowStageInput{})
 	case maintenanceOperation(operation):
 		return maintenanceFlagSet(operation, &MaintenanceInput{})
-	case operation == firstRunAction || operation == codexInstallAction || operation == codexStatusAction || operation == claudeInstallAction || operation == claudeStatusAction || operation == codexAuthAction || operation == claudeAuthAction || operation == runtimeProfileValidateAction || operation == skillInspectAction || operation == "help" || operation == "version":
+	case operation == firstRunAction || operation == codexInstallAction || operation == codexStatusAction || operation == claudeInstallAction || operation == claudeStatusAction || operation == codexAuthAction || operation == claudeAuthAction || operation == runtimeProfileValidateAction || operation == skillInspectAction || operation == docsInspectAction || operation == "help" || operation == "version":
 		set := flag.NewFlagSet(string(operation), flag.ContinueOnError)
 		set.SetOutput(io.Discard)
 		return set

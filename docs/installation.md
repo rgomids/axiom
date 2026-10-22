@@ -23,8 +23,14 @@ Older releases may lack an asset for your platform.
 
 ## Prerequisites
 
-- `sh`, `bash`, `curl`, `tar`, `awk`, `grep`, `mktemp`, and `sha256sum` or
+- `sh`, `bash`, `curl`, `tar`, `gzip`, `awk`, `grep`, `mktemp`, and `sha256sum` or
   `shasum`.
+- `jq` for remote bootstrap authentication of GitHub release API metadata.
+- A separately authenticated, versioned `axiom-verifier` asset for strict gzip
+  framing (both generations). No Python or Go compiler is required on the user
+  host. Missing or mismatched helpers fail before candidate execution. See the
+  [versioned distribution contract](specifications/010-installed-operational-documentation/distribution-helper-v1.md)
+  for trust pins, offline handoff and historical archives.
 - Network access to GitHub release metadata and assets over HTTPS.
 - A supported Runtime, installed separately, for Runtime skills. Project setup
   itself does not require a Runtime.
@@ -171,8 +177,10 @@ For the complete skill set and receipt/conflict diagnostics, see
 ## Security model
 
 The bootstrap downloads over HTTPS and verifies archives against the selected
-release's `SHA256SUMS` before extraction; this relies on trust in the repository,
-bootstrap, and release publication source. Bundle metadata and manifests are
+release's `SHA256SUMS` before extraction. Its digest is authenticated against
+GitHub release API metadata, which also binds the separate verifier's digest,
+closed asset set and source commit. This relies on trust in GitHub, the
+repository, bootstrap and release publication source. Bundle metadata and manifests are
 validated before publishing installation artifacts.
 
 Ownership, permissions, ACLs, links, and ancestor directories are checked.

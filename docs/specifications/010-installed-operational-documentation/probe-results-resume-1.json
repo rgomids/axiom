@@ -1,0 +1,406 @@
+{
+  "classification": "Public sanitized experimental results only; not AC acceptance",
+  "probePythonSha256": "aec77be29864a702adf6abeab4def1d1740b197bf1674303c5341cb1c8319b5d",
+  "workflowSha256": "358036a2e044574fa1a8e0884f2d76247941768ca492e53c79249cb1668ab764",
+  "sourceSha": "9d3fd8ce27f1aa70c541f6cf35d0a1094436794f",
+  "runUrl": "https://github.com/rgomids/axiom/actions/runs/39494151218",
+  "rows": [
+    {
+      "binary_sha256": {
+        "A": "69dcf0b815ab402f47e3bf0e3b8d96d353d6c7b4b029bff596885ea4dd13f987",
+        "B": "4c2c2216a565e327062ba674d4ceb56732174c96992386badd4d0b827dbb28a6"
+      },
+      "cases": [
+        {
+          "case": "explicit",
+          "fresh_B": true,
+          "hardlink_refusal_input": false,
+          "image_survives": true,
+          "pathname_control_rejected": true,
+          "pin_matches_os_image": true
+        },
+        {
+          "case": "safe-symlink-spaces",
+          "fresh_B": true,
+          "hardlink_refusal_input": false,
+          "image_survives": true,
+          "pathname_control_rejected": true,
+          "pin_matches_os_image": true
+        },
+        {
+          "case": "switched-PATH",
+          "fresh_B": true,
+          "hardlink_refusal_input": false,
+          "image_survives": true,
+          "pathname_control_rejected": true,
+          "pin_matches_os_image": true
+        },
+        {
+          "case": "unlink",
+          "fresh_B": true,
+          "hardlink_refusal_input": false,
+          "image_survives": true,
+          "pathname_control_rejected": true,
+          "pin_matches_os_image": true
+        },
+        {
+          "case": "changed-ancestry",
+          "fresh_B": true,
+          "hardlink_refusal_input": false,
+          "image_survives": true,
+          "pathname_control_rejected": true,
+          "pin_matches_os_image": true
+        },
+        {
+          "case": "hardlink",
+          "fresh_B": true,
+          "hardlink_refusal_input": false,
+          "image_survives": true,
+          "pathname_control_rejected": true,
+          "pin_matches_os_image": true
+        },
+        {
+          "case": "relocation",
+          "fresh_B": true,
+          "hardlink_refusal_input": false,
+          "image_survives": true,
+          "pathname_control_rejected": true,
+          "pin_matches_os_image": true
+        },
+        {
+          "case": "copy",
+          "fresh_B": true,
+          "hardlink_refusal_input": false,
+          "image_survives": true,
+          "pathname_control_rejected": true,
+          "pin_matches_os_image": true
+        }
+      ],
+      "compiler": "Apple clang version 21.0.0 (clang-2100.3.34.2)",
+      "filesystem": "APFS",
+      "kernel": "27.0.0",
+      "lock": {
+        "after_release_exit": 0,
+        "busy_exit": 7,
+        "distinct_receipt_roots_contend": true,
+        "scope": "shared-file flock primitive; identity derivation/revision/production publication NOT_RUN"
+      },
+      "machine": "arm64",
+      "os": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+      "reader": {
+        "in_place_mutation_hash_rejected": true,
+        "renamed_leaf_pinned_A": true,
+        "scope": "single-file primitive; complete inventory reader NOT_RUN",
+        "unchecked_reopen_rejected": true
+      },
+      "source_sha256": "62d4e7a1bbd0ebd9130e4e2ea3ef260169f2c2ab8b942fd2c9844da9c07e1b66",
+      "environment": "native macOS host",
+      "probeStatus": "PASS (bounded primitives only)"
+    },
+    {
+      "binary_sha256": {
+        "A": "51a9fdae3ef968cdd29dbb224a38c05e4db876a7f1ebe52af346b196b0164fdf",
+        "B": "da3737751553571f5743ed8c36a708c3d33ccf12bcf43a02d84dd82060ec990c"
+      },
+      "cases": [
+        {
+          "case": "explicit",
+          "fresh_B": true,
+          "hardlink_refusal_input": false,
+          "image_survives": true,
+          "pathname_control_rejected": true,
+          "pin_matches_os_image": true
+        },
+        {
+          "case": "safe-symlink-spaces",
+          "fresh_B": true,
+          "hardlink_refusal_input": false,
+          "image_survives": true,
+          "pathname_control_rejected": true,
+          "pin_matches_os_image": true
+        },
+        {
+          "case": "switched-PATH",
+          "fresh_B": true,
+          "hardlink_refusal_input": false,
+          "image_survives": true,
+          "pathname_control_rejected": true,
+          "pin_matches_os_image": true
+        },
+        {
+          "case": "unlink",
+          "fresh_B": true,
+          "hardlink_refusal_input": false,
+          "image_survives": true,
+          "pathname_control_rejected": true,
+          "pin_matches_os_image": true
+        },
+        {
+          "case": "changed-ancestry",
+          "fresh_B": true,
+          "hardlink_refusal_input": false,
+          "image_survives": true,
+          "pathname_control_rejected": true,
+          "pin_matches_os_image": true
+        },
+        {
+          "case": "hardlink",
+          "fresh_B": true,
+          "hardlink_refusal_input": false,
+          "image_survives": true,
+          "pathname_control_rejected": true,
+          "pin_matches_os_image": true
+        },
+        {
+          "case": "relocation",
+          "fresh_B": true,
+          "hardlink_refusal_input": false,
+          "image_survives": true,
+          "pathname_control_rejected": true,
+          "pin_matches_os_image": true
+        },
+        {
+          "case": "copy",
+          "fresh_B": true,
+          "hardlink_refusal_input": false,
+          "image_survives": true,
+          "pathname_control_rejected": true,
+          "pin_matches_os_image": true
+        }
+      ],
+      "compiler": "cc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0",
+      "filesystem": "ext2/ext3",
+      "kernel": "6.17.0-1022-azure",
+      "lock": {
+        "after_release_exit": 0,
+        "busy_exit": 7,
+        "distinct_receipt_roots_contend": true,
+        "scope": "shared-file flock primitive; identity derivation/revision/production publication NOT_RUN"
+      },
+      "machine": "x86_64",
+      "os": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
+      "reader": {
+        "in_place_mutation_hash_rejected": true,
+        "renamed_leaf_pinned_A": true,
+        "scope": "single-file primitive; complete inventory reader NOT_RUN",
+        "unchecked_reopen_rejected": true
+      },
+      "source_sha256": "62d4e7a1bbd0ebd9130e4e2ea3ef260169f2c2ab8b942fd2c9844da9c07e1b66",
+      "environment": "native GitHub runner ubuntu-24.04",
+      "probeStatus": "PASS (bounded primitives only)",
+      "jobUrl": "https://github.com/rgomids/axiom/actions/runs/39494151218/job/118874687340",
+      "sourceSha": "9d3fd8ce27f1aa70c541f6cf35d0a1094436794f"
+    },
+    {
+      "binary_sha256": {
+        "A": "43d6ede7da5ac978d260c53f11a3cafbb72a7f99ba7126056d419e940ec40034",
+        "B": "79d1e57737b8f53c03499a9263987a4aa4cc067c8aede43d22769c0fc19cf135"
+      },
+      "cases": [
+        {
+          "case": "explicit",
+          "fresh_B": true,
+          "hardlink_refusal_input": false,
+          "image_survives": true,
+          "pathname_control_rejected": true,
+          "pin_matches_os_image": true
+        },
+        {
+          "case": "safe-symlink-spaces",
+          "fresh_B": true,
+          "hardlink_refusal_input": false,
+          "image_survives": true,
+          "pathname_control_rejected": true,
+          "pin_matches_os_image": true
+        },
+        {
+          "case": "switched-PATH",
+          "fresh_B": true,
+          "hardlink_refusal_input": false,
+          "image_survives": true,
+          "pathname_control_rejected": true,
+          "pin_matches_os_image": true
+        },
+        {
+          "case": "unlink",
+          "fresh_B": true,
+          "hardlink_refusal_input": false,
+          "image_survives": true,
+          "pathname_control_rejected": true,
+          "pin_matches_os_image": true
+        },
+        {
+          "case": "changed-ancestry",
+          "fresh_B": true,
+          "hardlink_refusal_input": false,
+          "image_survives": true,
+          "pathname_control_rejected": true,
+          "pin_matches_os_image": true
+        },
+        {
+          "case": "hardlink",
+          "fresh_B": true,
+          "hardlink_refusal_input": false,
+          "image_survives": true,
+          "pathname_control_rejected": true,
+          "pin_matches_os_image": true
+        },
+        {
+          "case": "relocation",
+          "fresh_B": true,
+          "hardlink_refusal_input": false,
+          "image_survives": true,
+          "pathname_control_rejected": true,
+          "pin_matches_os_image": true
+        },
+        {
+          "case": "copy",
+          "fresh_B": true,
+          "hardlink_refusal_input": false,
+          "image_survives": true,
+          "pathname_control_rejected": true,
+          "pin_matches_os_image": true
+        }
+      ],
+      "compiler": "cc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0",
+      "filesystem": "ext2/ext3",
+      "kernel": "6.17.0-1022-azure",
+      "lock": {
+        "after_release_exit": 0,
+        "busy_exit": 7,
+        "distinct_receipt_roots_contend": true,
+        "scope": "shared-file flock primitive; identity derivation/revision/production publication NOT_RUN"
+      },
+      "machine": "aarch64",
+      "os": "Linux-6.17.0-1022-azure-aarch64-with-glibc2.39",
+      "reader": {
+        "in_place_mutation_hash_rejected": true,
+        "renamed_leaf_pinned_A": true,
+        "scope": "single-file primitive; complete inventory reader NOT_RUN",
+        "unchecked_reopen_rejected": true
+      },
+      "source_sha256": "62d4e7a1bbd0ebd9130e4e2ea3ef260169f2c2ab8b942fd2c9844da9c07e1b66",
+      "environment": "native GitHub runner ubuntu-24.04-arm",
+      "probeStatus": "PASS (bounded primitives only)",
+      "jobUrl": "https://github.com/rgomids/axiom/actions/runs/39494151218/job/118874686942",
+      "sourceSha": "9d3fd8ce27f1aa70c541f6cf35d0a1094436794f"
+    },
+    {
+      "binary_sha256": {
+        "A": "298aaf0871530e3bb2546a3c1a5f82b0575d0b2437b0e833d3df47cff9ca6aef",
+        "B": "c5afb7a10b6e371cda15e85485d7a4bf1f5b53ac037ac16dedf2e64ad3447caf"
+      },
+      "cases": [
+        {
+          "case": "explicit",
+          "fresh_B": true,
+          "hardlink_refusal_input": false,
+          "image_survives": true,
+          "pathname_control_rejected": true,
+          "pin_matches_os_image": true
+        },
+        {
+          "case": "safe-symlink-spaces",
+          "fresh_B": true,
+          "hardlink_refusal_input": false,
+          "image_survives": true,
+          "pathname_control_rejected": true,
+          "pin_matches_os_image": true
+        },
+        {
+          "case": "switched-PATH",
+          "fresh_B": true,
+          "hardlink_refusal_input": false,
+          "image_survives": true,
+          "pathname_control_rejected": true,
+          "pin_matches_os_image": true
+        },
+        {
+          "case": "unlink",
+          "fresh_B": true,
+          "hardlink_refusal_input": false,
+          "image_survives": true,
+          "pathname_control_rejected": true,
+          "pin_matches_os_image": true
+        },
+        {
+          "case": "changed-ancestry",
+          "fresh_B": true,
+          "hardlink_refusal_input": false,
+          "image_survives": true,
+          "pathname_control_rejected": true,
+          "pin_matches_os_image": true
+        },
+        {
+          "case": "hardlink",
+          "fresh_B": true,
+          "hardlink_refusal_input": false,
+          "image_survives": true,
+          "pathname_control_rejected": true,
+          "pin_matches_os_image": true
+        },
+        {
+          "case": "relocation",
+          "fresh_B": true,
+          "hardlink_refusal_input": false,
+          "image_survives": true,
+          "pathname_control_rejected": true,
+          "pin_matches_os_image": true
+        },
+        {
+          "case": "copy",
+          "fresh_B": true,
+          "hardlink_refusal_input": false,
+          "image_survives": true,
+          "pathname_control_rejected": true,
+          "pin_matches_os_image": true
+        }
+      ],
+      "compiler": "cc (GCC) 14.3.0",
+      "filesystem": "overlayfs",
+      "kernel": "7.0.14-linuxkit",
+      "lock": {
+        "after_release_exit": 0,
+        "busy_exit": 7,
+        "distinct_receipt_roots_contend": true,
+        "scope": "shared-file flock primitive; identity derivation/revision/production publication NOT_RUN"
+      },
+      "machine": "aarch64",
+      "os": "Linux-7.0.14-linuxkit-aarch64-with-glibc2.36",
+      "reader": {
+        "in_place_mutation_hash_rejected": true,
+        "renamed_leaf_pinned_A": true,
+        "scope": "single-file primitive; complete inventory reader NOT_RUN",
+        "unchecked_reopen_rejected": true
+      },
+      "source_sha256": "62d4e7a1bbd0ebd9130e4e2ea3ef260169f2c2ab8b942fd2c9844da9c07e1b66",
+      "environment": "native arm64 instructions in Docker Linux VM; additional evidence",
+      "probeStatus": "PASS (bounded primitives only)"
+    }
+  ],
+  "emulatedAmd64": {
+    "status": "FAIL experimental image oracle; not native evidence",
+    "image": "gcc:14-bookworm",
+    "manifestDigest": "sha256:5e927c284bf55a7dc796262e311a0703344f62f41f5621eb56843111b1d37e15",
+    "case": "explicit replacement",
+    "before": {
+      "tag": "A",
+      "imageDevice": 63,
+      "imageInode": 60769,
+      "pinInode": 60769
+    },
+    "after": {
+      "tag": "A",
+      "imageDevice": 63,
+      "imageInode": 60770,
+      "pinInode": 60769,
+      "pathInode": 60770
+    },
+    "remainingCases": "NOT_RUN after assertion refusal"
+  },
+  "initialRun": {
+    "sourceSha": "f76885bba477f4462f282309950510c4ebc74519",
+    "runUrl": "https://github.com/rgomids/axiom/actions/runs/39494092374",
+    "status": "FAIL before image probes, GNU stat invocation error corrected in next commit"
+  }
+}

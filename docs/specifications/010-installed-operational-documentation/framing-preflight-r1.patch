@@ -1,0 +1,82 @@
+--- /dev/null
++++ b/internal/install/archive_shell_preflight_test.go
+@@ -0,0 +1,79 @@
++package install
++
++import (
++ "bytes"
++ "os"
++ "os/exec"
++ "path/filepath"
++ "testing"
++)
++
++func TestPreflightShellGoFraming(t *testing.T) {
++ for _, version := range []int{1, 2} {
++  for _, mutation := range []string{"valid", "split", "extra empty", "prefix empty", "complete tars", "trailing", "zero trailing", "tar trailing", "truncated", "crc", "duplicate directory", "duplicate file", "path", "symlink", "manifest", "metadata", "file limit"} {
++   t.Run(string(rune('0'+version))+"/"+mutation, func(t *testing.T) {
++    work := t.TempDir()
++    marker := filepath.Join(work,"candidate-executed")
++    sentinel := []byte("#!/bin/sh\nprintf probe > '"+marker+"'\nexit 91\n")
++    var archive, sums string
++    if version == 1 {
++     b := newBundle("1.1.0",sentinel)
++     switch mutation {
++     case "path": b.files["../escape"] = []byte("x")
++     case "symlink": b.links["link"] = "/foreign"
++     case "manifest": b.files["skills-manifest.txt"] = []byte("invalid\n")
++     case "metadata": b.files["release-metadata.txt"] = []byte("invalid\n")
++     case "file limit": b.files["LICENSE"] = bytes.Repeat([]byte("x"),maxBundleFile+1)
++     }
++     archive,sums = b.write(t,work)
++    } else {
++     b := newV2ArchiveFor(t,string(sentinel),"")
++     switch mutation {
++     case "path": b.files["../escape"] = []byte("x"); b.seal()
++     case "manifest": b.files["skills-manifest.txt"] = []byte("invalid\n"); b.seal()
++     case "metadata": b.files["release-metadata.txt"] = []byte("invalid\n"); b.seal()
++     case "file limit": b.files["LICENSE"] = bytes.Repeat([]byte("x"),maxBundleFile+1); b.seal()
++     }
++     archive,sums = b.write(t)
++    }
++    raw := tarBytes(t,archive)
++    wire := gzipMembers(t,raw)
++    switch mutation {
++    case "split": wire = gzipMembers(t,raw,17)
++    case "extra empty": wire = append(wire,gzipMembers(t,nil)...)
++    case "prefix empty": wire = append(gzipMembers(t,nil),wire...)
++    case "complete tars": wire = append(wire,gzipMembers(t,raw)...)
++    case "trailing": wire = append(wire,[]byte("garbage")...)
++    case "zero trailing": wire = append(wire, make([]byte,16)...)
++    case "tar trailing": wire = gzipMembers(t,append(raw,[]byte("garbage")...))
++    case "truncated": wire = wire[:len(wire)-3]
++    case "crc": wire[len(wire)-8] ^= 1
++    case "duplicate directory": wire = gzipMembers(t,append(append(append([]byte{},raw[:512]...),raw[:512]...),raw[512:]...))
++    case "duplicate file":
++     // The first regular file follows the root directory in both fixtures.
++     n:=512
++     for raw[n+156]=='5' { n+=512 }
++     end:=n+1024
++     wire=gzipMembers(t,append(append(append([]byte{},raw[:end]...),raw[n:end]...),raw[end:]...))
++    case "symlink": if version==2 { t.Skip("v1 exercises link header") }
++    }
++    replaceArchive(t,archive,sums,wire)
++    _,goErr := LoadCandidate(archive,sums)
++    args:=[]string{"--verify-only","--archive",archive,"--checksums",sums,"--bin-dir",filepath.Join(work,"bin"),"--receipt-dir",filepath.Join(work,"receipts")}
++    script,_:=filepath.Abs("../../scripts/install-release.sh")
++    cmd:=exec.Command("bash",append([]string{script},args...)...)
++    out,shellErr:=cmd.CombinedOutput()
++    t.Logf("go_accept=%t shell_accept=%t shell=%s",goErr==nil,shellErr==nil,bytes.TrimSpace(out))
++    if _,err:=os.Stat(marker); !os.IsNotExist(err) { t.Fatal("verify-only executed candidate") }
++    for _,dest:=range []string{"bin","receipts"} { if _,err:=os.Stat(filepath.Join(work,dest)); !os.IsNotExist(err) {t.Fatal("persistent destination created")} }
++    if goErr!=nil && shellErr==nil {
++     // Probe normal entrypoint too: exit 91 prevents install delegation.
++     cmd=exec.Command("bash",append([]string{script},args[1:]...)...)
++     cmd.CombinedOutput()
++     _,err:=os.Stat(marker)
++     t.Errorf("DIFFERENTIAL: shell accepted Go-refused archive; normal_candidate_probe=%t",err==nil)
++    }
++   })
++  }
++ }
++}

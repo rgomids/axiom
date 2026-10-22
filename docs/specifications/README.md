@@ -33,6 +33,37 @@ plans. Approval gates remain separate: an approved Specification permits plannin
 implementation requires an approved Plan/Tasks and explicit authorization for the
 bounded delivery unit. Technical merge does not imply human acceptance or next-Task authority.
 
+## 010 — Installed operational documentation
+
+**Reconciliation R1 — Accepted, 2026-10-20:** [exact-revision H1 record](010-installed-operational-documentation/acceptance-h1.md), [integrated decision/delta matrix](010-installed-operational-documentation/reconciliation.md), [Spec](010-installed-operational-documentation/spec-reconciled.md), [Clarification](010-installed-operational-documentation/clarify-reconciled.md), [Plan](010-installed-operational-documentation/plan-reconciled.md), [Tasks](010-installed-operational-documentation/tasks-reconciled.md), [Evidence](010-installed-operational-documentation/evidence-reconcile.md) and [ADR-0034](../decisions/0034-release-content-documentation-association.md). This is acceptance of the documentary replacement baseline only: product AC-01–08 remain unimplemented/unaccepted, historical G1 remains BLOCKED, and C2 remains FAIL. Rev.1 approvals below remain historical and are not reopened.
+
+[Specification](010-installed-operational-documentation/spec.md) rev.1 was
+[accepted](https://github.com/rgomids/axiom/pull/335#issuecomment-6292970482) on
+2026-10-20; its Proposed header is historical. Related to
+[AXM-37](https://linear.app/rgomids/issue/AXM-37).
+[Clarification rev.2](010-installed-operational-documentation/clarify.md#decision-register)
+records Q1–Q6 Accepted. [ADR-0033](../decisions/0033-installation-bound-operational-documentation.md)
+is Accepted by its exact-revision human decision.
+[Plan rev.1](010-installed-operational-documentation/plan.md) remains **Accepted
+for Tasks** at `a966510849d9dda0ab12f01eb4b396d51d7f4390` by the exact
+[human Plan/D1–D4 decision](https://github.com/rgomids/axiom/pull/335#issuecomment-6296942470).
+[Acceptance addendum](010-installed-operational-documentation/acceptance-plan.md)
+records D1/D3/D4 Accepted and D2 Accepted with qualification, preserving the complete
+historical Plan and its Proposed language. The historical P1 requirement to prove
+native executing-image identity is superseded by accepted R1; it is not reopened.
+[Tasks rev.1](010-installed-operational-documentation/tasks.md) remains **Accepted**
+at its historical revision for its defined P1–P6 units and dependency/gate and
+OD/AC/V1–V9 coverage matrices, by the [exact-revision decision](https://github.com/rgomids/axiom/pull/335#issuecomment-6298186645);
+R1 is its accepted replacement baseline.
+[Tasks Evidence](010-installed-operational-documentation/evidence-tasks.md)
+separates actual documentary checks from implementation/native tests **NOT_RUN**.
+[Plan Evidence](010-installed-operational-documentation/evidence-plan.md),
+[Specify Evidence](010-installed-operational-documentation/evidence.md) and
+[Clarification Evidence](010-installed-operational-documentation/evidence-clarify.md)
+remain historical. AC-01–AC-08 NOT_RUN; Windows withdrawal preserved. Tasks review/
+acceptance and new explicit implementation authority remain required. No canonical
+Execution advancement, product acceptance or dependent-card unblocking is inferred.
+
 ## 009 — Guided Project/Runtime configuration with feasibility preflight
 
 [Specification](009-guided-project-runtime-configuration/spec.md) rev.1: **Accepted

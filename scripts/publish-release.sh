@@ -200,8 +200,22 @@ check_published() {
   if [[ "$local_set" == true ]]; then
     cmp -s "$temporary/published-expected" "$temporary/expected-names" || fail 'published asset names differ from the verified set'
   fi
+  if grep -q '  axiom-verifier-' "$temporary/published-sums"; then
+    [[ $(wc -l <"$temporary/published-sums" | tr -d ' ') == 6 ]] || fail 'published helper inventory is not closed'
+    awk -v v="$version" '
+      $2 == "axiom-" v "-linux-amd64.tar.gz" {amd++; next}
+      $2 == "axiom-" v "-linux-arm64.tar.gz" {arm++; next}
+      $2 == "axiom-" v "-macos-27-arm64.tar.gz" || $2 == "axiom-" v "-macos-arm64.tar.gz" {mac++; next}
+      $2 ~ /^axiom-verifier-/ {next}
+      {bad=1}
+      END {if (bad || amd != 1 || arm != 1 || mac != 1) exit 1}
+    ' "$temporary/published-sums" || fail 'published archive inventory is not closed'
+    for helper_row in darwin-arm64 linux-amd64 linux-arm64; do
+      [[ $(awk -v name="axiom-verifier-$version-$revision-$helper_row" '$2 == name {n++} END {print n+0}' "$temporary/published-sums") == 1 ]] || fail 'published helper release identity mismatch'
+    done
+  fi
   while read -r sum name; do
-    [[ "$sum" =~ ^[0-9a-f]{64}$ && "$name" == "axiom-$version-"*.tar.gz ]] || fail 'published SHA256SUMS line malformed'
+    [[ "$sum" =~ ^[0-9a-f]{64}$ && ( "$name" == "axiom-$version-"*.tar.gz || "$name" == "axiom-verifier-$version-$revision-"* ) ]] || fail 'published SHA256SUMS line malformed'
     names=$(jq -c --arg name "$name" '[.assets[] | select(.name == $name)] | .[0]' <<<"$release")
     [[ $(asset_sha256 "$names") == "$sum" ]] || fail "published asset differs from SHA256SUMS: $name"
   done <"$temporary/published-sums"

@@ -149,6 +149,7 @@ usage() {
   cat <<'EOF'
 Usage: install.sh [--channel stable | --version vMAJOR.MINOR.PATCH[-rc.N]]
                   [--bin-dir <absolute-dir>] [--receipt-dir <absolute-dir>]
+                  [--helper <absolute-file> --helper-sha256 <trusted-pin>]
 
 Without a selector, or with --channel stable, the latest published stable
 release is installed. Release candidates are installed only by exact version
@@ -165,15 +166,19 @@ channel=
 version_tag=
 binary_root=
 receipt_root=
+helper=${AXIOM_VERIFIER_PATH:-}
+helper_sha256=${AXIOM_VERIFIER_SHA256:-}
 channel_seen=false
 version_seen=false
 bin_seen=false
 receipt_seen=false
 while [ $# -gt 0 ]; do
   case "$1" in
-    --channel|--version|--bin-dir|--receipt-dir)
+    --channel|--version|--bin-dir|--receipt-dir|--helper|--helper-sha256)
       [ $# -ge 2 ] || fail "$1 requires a value"
       case "$1" in
+        --helper) helper=$2 ;;
+        --helper-sha256) helper_sha256=$2 ;;
         --channel) [ "$channel_seen" = false ] || fail '--channel given more than once'; channel_seen=true; channel=$2 ;;
         --version) [ "$version_seen" = false ] || fail '--version given more than once'; version_seen=true; version_tag=$2 ;;
         --bin-dir) [ "$bin_seen" = false ] || fail '--bin-dir given more than once'; bin_seen=true; binary_root=$2 ;;
@@ -254,7 +259,7 @@ esac
 [ -n "$row" ] || fail "unsupported host $system/$machine; supported hosts are $supported_rows"
 info "checking required tools for $row"
 
-for tool in curl tar bash awk grep mktemp; do
+for tool in curl tar gzip bash awk grep mktemp jq od cut cp chmod wc tr sort cmp stat id ls dirname find; do
   command -v "$tool" >/dev/null 2>&1 || fail "required tool not found: $tool"
 done
 if command -v sha256sum >/dev/null 2>&1; then
@@ -304,8 +309,6 @@ else
     || fail 'the latest release tag is not a stable vMAJOR.MINOR.PATCH tag; use --version'
 fi
 version=${tag#v}
-asset=axiom-$version-$row.tar.gz
-bundle=axiom-$version-$row
 success "resolved $tag"
 
 work=$(mktemp -d)
@@ -314,6 +317,31 @@ cleanup() { rm -rf -- "$work"; }
 trap cleanup EXIT
 trap 'exit 130' HUP INT TERM
 chmod 700 "$work"
+
+# Refuse unsafe staging ancestors before authenticating/executing any helper.
+stat_style=linux
+if stat -f %u "$work" >/dev/null 2>&1; then stat_style=darwin; fi
+owner_of() { if [ "$stat_style" = darwin ]; then stat -f %u "$1"; else stat -c %u "$1"; fi; }
+mode_of() { if [ "$stat_style" = darwin ]; then stat -f %Lp "$1"; else stat -c %a "$1"; fi; }
+[ ! -h "$work" ] && [ "$(owner_of "$work")" = "$(id -u)" ] && [ "$(mode_of "$work")" = 700 ] || fail 'unsafe private workspace'
+current=$work
+while :; do
+  owner=$(owner_of "$current") || fail 'workspace ancestor unavailable'
+  [ "$owner" = 0 ] || [ "$owner" = "$(id -u)" ] || fail 'unsafe workspace ancestor owner'
+  [ ! -h "$current" ] || [ "$owner" = 0 ] || fail 'unsafe workspace ancestor symlink'
+  mode=$(mode_of "$current")
+  case "$mode" in *[!0-7]*|'') fail 'invalid workspace ancestor mode' ;; esac
+  if [ "$((0$mode & 0022))" -ne 0 ]; then
+    [ -n "$(find "$current" -maxdepth 0 -perm -1000 -print 2>/dev/null)" ] || fail 'unsafe workspace ancestor permissions'
+  fi
+  if [ "$stat_style" = darwin ]; then
+    [ "$(LC_ALL=C ls -lde "$current" | wc -l | tr -d ' ')" = 1 ] || fail 'unsafe workspace ACL'
+  else
+    LC_ALL=C ls -ld "$current" | awk 'length($1) != 10 {exit 1}' || fail 'unsafe workspace ACL'
+  fi
+  [ "$current" != / ] || break
+  current=$(dirname "$current")
+done
 
 download_url=$repository_url/releases/download/$tag
 info "downloading checksums for $tag"
@@ -326,6 +354,45 @@ case "$status" in
   22) fail "release $tag has no published SHA256SUMS; nothing was installed" ;;
   *) fail "network failure while downloading SHA256SUMS for $tag (curl exit $status); nothing was installed" ;;
 esac
+# GitHub API metadata is a separate authenticated control-plane channel.
+# Never trust a checksum asset merely because it accompanied the helper.
+fetch "https://api.github.com/repos/rgomids/axiom/releases/tags/$tag" "$work/release.json" 1048576 \
+  || fail 'trusted GitHub release metadata unavailable; nothing was installed'
+metadata_digest=$(jq -er --arg tag "$tag" '
+  select(.tag_name == $tag and .draft == false) |
+  [.assets[] | select(.name == "SHA256SUMS" and .state == "uploaded")] |
+  select(length == 1) | .[0].digest | select(test("^sha256:[0-9a-f]{64}$")) | sub("^sha256:"; "")
+' "$work/release.json") || fail 'authenticated checksum digest absent; nothing was installed'
+[ "$(digest "$work/SHA256SUMS")" = "$metadata_digest" ] || fail 'authenticated checksum inventory mismatch; nothing was installed'
+# The complete checksum set selects one generation, for every host. Linux
+# names are shared; the macOS token disambiguates v1/v2 without probing URLs.
+archive_format=$(awk -v v="$version" '
+  NF != 2 || length($1) != 64 || $1 ~ /[^0-9a-f]/ { bad=1; next }
+  { if (seen[$2]++) bad=1 }
+  $2 == "axiom-" v "-macos-27-arm64.tar.gz" { legacy++; next }
+  $2 == "axiom-" v "-macos-arm64.tar.gz" { current++; next }
+  $2 == "axiom-" v "-linux-amd64.tar.gz" { amd++; next }
+  $2 == "axiom-" v "-linux-arm64.tar.gz" { arm++; next }
+  $2 ~ ("^axiom-verifier-" v "-[0-9a-f]+-(darwin-arm64|linux-amd64|linux-arm64)$") {
+    n=split($2, p, "-"); commit=p[n-2]; if (length(commit) != 40 || index($2, "axiom-verifier-" v "-" commit "-") != 1) bad=1;
+    if (helpercommit != "" && helpercommit != commit) bad=1; helpercommit=commit;
+    host=p[n-1] "-" p[n]; if (helpers[host]++) bad=1; helpercount++; next
+  }
+  { bad=1 }
+  END { if (bad || (NR != 3 && NR != 6) || (helpercount != 0 && helpercount != 3) || amd != 1 || arm != 1 || legacy+current != 1) exit 1; print current ? 2 : 1 }
+' "$work/SHA256SUMS") || fail "release $tag checksum asset set is ambiguous or incomplete; nothing was installed"
+# Reject foreign or missing release assets, including duplicate asset names.
+{ printf 'SHA256SUMS\n'; awk '{print $2}' "$work/SHA256SUMS"; } | LC_ALL=C sort >"$work/expected-assets"
+jq -er '.assets[].name' "$work/release.json" | LC_ALL=C sort >"$work/actual-assets"
+cmp -s "$work/expected-assets" "$work/actual-assets" || fail 'trusted release asset inventory mismatch'
+if [ "$(wc -l <"$work/SHA256SUMS" | tr -d ' ')" = 6 ]; then
+  fetch "https://api.github.com/repos/rgomids/axiom/commits/$tag" "$work/commit.json" 1048576 || fail 'trusted release commit unavailable'
+  release_commit=$(jq -er '.sha | select(test("^[0-9a-f]{40}$"))' "$work/commit.json") || fail 'trusted release commit invalid'
+  awk -v commit="$release_commit" '$2 ~ /^axiom-verifier-/ {n=split($2,p,"-"); if (p[n-2] != commit) exit 1}' "$work/SHA256SUMS" || fail 'helper release commit mismatch'
+fi
+if [ "$archive_format" = 2 ] && [ "$row" = macos-27-arm64 ]; then row=macos-arm64; fi
+asset=axiom-$version-$row.tar.gz
+bundle=axiom-$version-$row
 expected=$(awk -v name="$asset" '$2 == name && NF == 2 {print $1}' "$work/SHA256SUMS")
 [ "$(printf '%s\n' "$expected" | grep -c .)" = 1 ] && printf '%s\n' "$expected" | grep -Eq '^[0-9a-f]{64}$' \
   || fail "release $tag publishes no single checksum for $asset; nothing was installed"
@@ -344,6 +411,41 @@ actual=$(digest "$work/$asset")
 [ "$actual" = "$expected" ] || fail "checksum mismatch for $asset; nothing was installed"
 success "verified $asset"
 
+# Resolve a verifier from the authenticated closed inventory, or an explicitly
+# pinned local verifier for historical releases which predate helper assets.
+case "$row" in macos*) helper_host=darwin-arm64 ;; *) helper_host=$row ;; esac
+if [ -z "$helper" ]; then
+  helper_name=$(awk -v host="$helper_host" '$2 ~ /^axiom-verifier-/ && $2 ~ ("-" host "$") {print $2}' "$work/SHA256SUMS")
+  [ "$(printf '%s\n' "$helper_name" | grep -c .)" = 1 ] || fail 'trusted release helper absent; supply independently pinned --helper for legacy release'
+  helper_sha256=$(awk -v name="$helper_name" '$2 == name {print $1}' "$work/SHA256SUMS")
+  fetch "$download_url/$helper_name" "$work/$helper_name" 16777216 || fail 'helper download failed'
+  helper=$work/$helper_name
+else
+  case "$helper" in /*) ;; *) fail 'absolute local helper required' ;; esac
+  current=$helper
+  while [ "$current" != / ]; do
+    [ ! -h "$current" ] || [ "$(owner_of "$current")" = 0 ] || fail 'unsafe helper ancestor symlink'
+    current=$(dirname "$current")
+  done
+  [ -f "$helper" ] && [ ! -L "$helper" ] && [ "$(wc -c <"$helper")" -le 16777216 ] || fail 'unsafe local helper'
+  helper_name=$(basename "$helper")
+  cp "$helper" "$work/$helper_name"
+  helper=$work/$helper_name
+fi
+printf '%s\n' "$helper_sha256" | grep -Eq '^[0-9a-f]{64}$' || fail 'independent helper checksum required'
+[ "$(digest "$helper")" = "$helper_sha256" ] || fail 'helper checksum mismatch before execution'
+case "$helper_name" in *-"$helper_host") ;; *) fail 'helper platform identity mismatch' ;; esac
+printf '%s\n' "$helper_name" | grep -Eq '^axiom-verifier-[0-9A-Za-z.+-]+-[0-9a-f]{40}-(darwin|linux)-(amd64|arm64)$' || fail 'helper release identity invalid'
+header=$(od -An -tx1 -N20 "$helper" | tr -d ' \n')
+case "$helper_host:$header" in
+  darwin-arm64:cffaedfe0c000001*) ;;
+  linux-amd64:7f454c46020101*) [ "$(printf '%s' "$header" | cut -c37-40)" = 3e00 ] || fail 'helper platform mismatch' ;;
+  linux-arm64:7f454c46020101*) [ "$(printf '%s' "$header" | cut -c37-40)" = b700 ] || fail 'helper platform mismatch' ;;
+  *) fail 'helper platform mismatch before execution' ;;
+esac
+chmod 700 "$helper"
+[ "$("$helper" identity)" = "$helper_name" ] || fail 'helper release linkage mismatch'
+"$helper" "$work/$asset" "$work/archive.tar" || fail 'strict archive integrity failed before installer execution'
 # Only now read the verified archive: take the bundle's release installer and
 # release metadata, regular files whose digests must match the bundle
 # manifest, and require the metadata to be the resolved version and host row
@@ -351,12 +453,12 @@ success "verified $asset"
 # Fixed member names without whitespace; expanded unquoted on purpose.
 members="$bundle/install.sh $bundle/release-metadata.txt $bundle/MANIFEST.sha256"
 info "checking verified bundle metadata"
-listing=$(tar -tvzf "$work/$asset" $members 2>/dev/null) \
+listing=$(tar -tvf "$work/archive.tar" $members 2>/dev/null) \
   || fail "verified archive lacks its release installer or metadata; nothing was installed"
 [ "$(printf '%s\n' "$listing" | awk 'substr($1,1,1) == "-"' | grep -c .)" = 3 ] \
   || fail 'release installer or metadata entry is not a regular file; nothing was installed'
 mkdir "$work/bundle"
-tar -xzf "$work/$asset" -C "$work/bundle" $members
+tar -xf "$work/archive.tar" -C "$work/bundle" $members
 for member in install.sh release-metadata.txt; do
   path=$work/bundle/$bundle/$member
   [ -f "$path" ] && [ ! -h "$path" ] || fail "bundle $member is not a regular file; nothing was installed"
@@ -364,11 +466,18 @@ for member in install.sh release-metadata.txt; do
     || fail "bundle $member does not match its manifest; nothing was installed"
 done
 metadata=$work/bundle/$bundle/release-metadata.txt
+for key in formatVersion product version sourceState release platform architecture; do
+  [ "$(awk -F= -v key="$key" '$1 == key {n++} END {print n+0}' "$metadata")" = 1 ] \
+    || fail "release metadata is ambiguous; nothing was installed"
+done
 platform=${row%-*}
 architecture=${row##*-}
-for expected_line in "product=Axiom" "version=$version" "sourceState=clean" "release=true" "platform=$platform" "architecture=$architecture"; do
+for expected_line in "formatVersion=$archive_format" "product=Axiom" "version=$version" "sourceState=clean" "release=true" "platform=$platform" "architecture=$architecture"; do
   grep -Fxq "$expected_line" "$metadata" || fail "release metadata does not match $tag for $row; nothing was installed"
 done
+if [ -n "${release_commit:-}" ]; then
+  [ "$(awk -F= '$1 == "revision" {print $2}' "$metadata")" = "$(printf '%s' "$release_commit" | cut -c1-12)" ] || fail 'archive release commit mismatch'
+fi
 installer=$work/bundle/$bundle/install.sh
 success "bundle metadata matches $tag for $row"
 
@@ -382,7 +491,7 @@ printf 'install_row=%s\n' "$row"
 info "running verified release installer"
 release_stdout=$work/release-installer.stdout
 set +e
-bash "$installer" --archive "$work/$asset" --checksums "$work/SHA256SUMS" --bin-dir "$binary_root" --receipt-dir "$receipt_root" >"$release_stdout"
+bash "$installer" --helper "$helper" --helper-sha256 "$helper_sha256" --archive "$work/$asset" --checksums "$work/SHA256SUMS" --bin-dir "$binary_root" --receipt-dir "$receipt_root" >"$release_stdout"
 status=$?
 set -e
 cat "$release_stdout"

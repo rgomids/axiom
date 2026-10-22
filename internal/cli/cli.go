@@ -503,6 +503,9 @@ func parserFailureText(operation action, issue string) (string, string) {
 	if issue == "invalid_command" {
 		return "Command is invalid", "Choose a documented command"
 	}
+	if operation == docsInspectAction {
+		return "Documentation inspection input is invalid", "Run docs inspect with only leading --json or --human"
+	}
 	if operation == skillInspectAction {
 		return "Skill inspection input is invalid", "Run skill inspect with one exact embedded skill name and no workflow arguments"
 	}

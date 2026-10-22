@@ -459,6 +459,74 @@ func (d AnchoredDirectory) Remove(name string) error {
 	return d.root.Remove(name)
 }
 
+// RemoveTree discards the directory tree name inside this anchored directory
+// (a failed publication's stage) only while it is provably the object the
+// caller created: the anchored directory and its ancestors must still be the
+// ones visible at the authorized pathname, and name must still be the same
+// real directory as expected (ErrReplaced otherwise, nothing removed). The
+// walk descends through os.Root handles and re-proves each subdirectory's
+// identity, so it never follows a symlink and never changes the mode of a
+// substituted object. A swap in the instant between the final check and the
+// unlink can only discard an empty directory, since Remove refuses a
+// non-empty one.
+func (d AnchoredDirectory) RemoveTree(name string, expected os.FileInfo) error {
+	if !safeEntryName(name) || expected == nil {
+		return ErrUnsafe
+	}
+	if err := d.StillAtPath(); err != nil {
+		return err
+	}
+	if err := removeTreeIn(d.root, name, expected); err != nil {
+		return err
+	}
+	if err := d.StillAtPath(); err != nil {
+		return err
+	}
+	return d.root.Remove(name)
+}
+
+func removeTreeIn(parent *os.Root, name string, expected os.FileInfo) error {
+	info, err := parent.Lstat(name)
+	if err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 || !os.SameFile(info, expected) {
+		return ErrReplaced
+	}
+	child, err := parent.OpenRoot(name)
+	if err != nil {
+		return ErrReplaced
+	}
+	defer child.Close()
+	if opened, err := child.Stat("."); err != nil || !os.SameFile(opened, expected) {
+		return ErrReplaced
+	}
+	if err := child.Chmod(".", 0o700); err != nil {
+		return err
+	}
+	directory, err := child.Open(".")
+	if err != nil {
+		return err
+	}
+	entries, err := directory.ReadDir(-1)
+	directory.Close()
+	if err != nil {
+		return err
+	}
+	for _, entry := range entries {
+		entryInfo, err := child.Lstat(entry.Name())
+		if err != nil {
+			return err
+		}
+		if entryInfo.IsDir() && entryInfo.Mode()&os.ModeSymlink == 0 {
+			if err := removeTreeIn(child, entry.Name(), entryInfo); err != nil {
+				return err
+			}
+		}
+		if err := child.Remove(entry.Name()); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // Sync fsyncs this anchored directory itself, to surface a reported I/O
 // error and to make a preceding create/rename/remove durable against the
 // directory entry.

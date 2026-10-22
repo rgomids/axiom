@@ -14,6 +14,7 @@ import re
 import subprocess
 import tarfile
 import tempfile
+import zlib
 
 
 def digest(path):
@@ -38,9 +39,12 @@ def smoke(args, summary):
         raise ValueError("exact semantic version required")
     if not re.fullmatch(r"[0-9a-f]{40}", args.revision):
         raise ValueError("full source revision required")
+    archive_format = getattr(args, "format", "1")
+    if args.row.startswith("macos") and args.row != ("macos-arm64" if archive_format == "2" else "macos-27-arm64"):
+        raise ValueError("row token does not match archive format")
     host = (platform.system(), platform.machine())
     expected = {"linux-amd64": ("Linux", "x86_64"), "linux-arm64": ("Linux", "aarch64"),
-                "macos-27-arm64": ("Darwin", "arm64")}
+                "macos-27-arm64": ("Darwin", "arm64"), "macos-arm64": ("Darwin", "arm64")}
     if host != expected[args.row]:
         raise ValueError("native host does not match requested row")
     root = Path(args.directory)
@@ -53,9 +57,24 @@ def smoke(args, summary):
     summary["archive"] = archive.name
     summary["archiveSha256"] = digest(archive)
     checksums = (root / "SHA256SUMS").read_text().splitlines()
-    if checksums.count(f"{summary['archiveSha256']}  {archive.name}") != 1:
+    selected = [line for line in checksums if archive.name in line.split()]
+    if selected != [f"{summary['archiveSha256']}  {archive.name}"]:
         raise ValueError("prepared archive checksum mismatch")
     try:
+        if archive_format == "2":
+            # zlib stops at the first member; bounded output and unused input
+            # reject split/extra members, garbage and corrupt/truncated trailers.
+            decoder = zlib.decompressobj(31)
+            total = 0
+            with archive.open("rb") as stream:
+                for block in iter(lambda: stream.read(65536), b""):
+                    if decoder.eof:
+                        raise ValueError("v2 requires exactly one gzip member")
+                    total += len(decoder.decompress(block, (288 << 20) - total + 1))
+                    if total > 288 << 20 or decoder.unconsumed_tail or decoder.unused_data:
+                        raise ValueError("v2 gzip bound or trailing bytes")
+            if not decoder.eof:
+                raise ValueError("truncated v2 gzip")
         with tempfile.TemporaryDirectory(prefix="axiom-release-smoke-") as temporary:
             work = Path(temporary).resolve()
             extracted = work / "extract"
@@ -75,6 +94,9 @@ def smoke(args, summary):
                 # Explicit validation above also works on hosted Python versions
                 # predating tarfile's extraction filter API.
                 source.extractall(extracted, members=members)
+            metadata = (extracted / bundle / "release-metadata.txt").read_text().splitlines()
+            if metadata.count(f"formatVersion={archive_format}") != 1 or sum(line.startswith("formatVersion=") for line in metadata) != 1:
+                raise ValueError("prepared archive format mismatch")
             binary = extracted / bundle / "axiom"
             if not binary.is_file() or not os.access(binary, os.X_OK):
                 raise ValueError("prepared binary is not executable")
@@ -152,7 +174,8 @@ def main():
     parser.add_argument("--dir", dest="directory", required=True)
     parser.add_argument("--version", required=True)
     parser.add_argument("--revision", required=True)
-    parser.add_argument("--row", choices=("linux-amd64", "linux-arm64", "macos-27-arm64"), required=True)
+    parser.add_argument("--row", choices=("linux-amd64", "linux-arm64", "macos-27-arm64", "macos-arm64"), required=True)
+    parser.add_argument("--format", choices=("1", "2"), default="1")
     args = parser.parse_args()
     summary = {
         "schema": "axiom-prepared-artifact-smoke/v1", "version": args.version,
@@ -167,7 +190,7 @@ def main():
         smoke(args, summary)
         summary["result"] = "pass"
     except (ValueError, OSError, KeyError, TypeError, AttributeError, tarfile.TarError,
-            subprocess.TimeoutExpired) as error:
+            subprocess.TimeoutExpired, zlib.error) as error:
         # No raw output, paths or inherited environment in retained Evidence.
         summary["error"] = str(error) if isinstance(error, ValueError) else type(error).__name__
     print(json.dumps(summary, sort_keys=True))

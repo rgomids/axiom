@@ -284,6 +284,28 @@ Unknown/duplicate/conflicting invocation inputs retain their validation errors;
 inspection neither validates live domain state nor authorizes any effect.
 See the [contract and evidence](specifications/004-mvp-v1-baseline/issue-131-skill-arguments.md).
 
+## Inspect installed operational documentation
+
+```sh
+axiom --json docs inspect
+axiom --human docs inspect
+```
+
+`docs inspect` is read-only. It verifies, against the descriptor compiled into the
+running binary, the documentation generation and binding published next to the
+installed binary (`.axiom-docs/axiom/`), and returns the Markdown and man paths
+only when the state is `verified`. Every other state (`absent`, `invalid`,
+`unknown`) is a refusal with a `reason`, exit 1 and no paths. Presentation flags
+go before the command words. It never repairs, downloads, starts a man reader or
+a Runtime, and reports `loaded` as `unknown`: `skills.observed` lists on-disk
+skill facts per Runtime, not session state. A release archive carries these
+documents only in archive generation 2 (`scripts/build-release-archives.sh
+--format 2`); generation 1 installations report no documentation.
+
+`scripts/test-docs-offline.sh` builds a development generation 2 archive,
+installs it into a throwaway prefix and checks verification, corpus integrity,
+closed links and refusal of tampered, copied or modified installations.
+
 ## Lingo Project lifecycle
 
 O lifecycle portátil básico é local. Comandos separados de Runtime/Work Item
@@ -760,7 +782,7 @@ structured event, as with other `axiom` commands.
 ## Build and install exact-version S2 archives
 
 A release build requires a clean checkout, an exact semantic version, and an
-absolute output directory. It emits four checksummed archives plus
+absolute output directory. It emits three checksummed archives plus
 `SHA256SUMS`:
 
 ```bash
@@ -769,11 +791,18 @@ absolute output directory. It emits four checksummed archives plus
   --output /absolute/release
 ```
 
+Archive generation 1 remains the effective default in the builder and release
+workflows. Explicit `--format 2` adds the installed operational corpus and uses
+`macos-arm64`; generation 1 retains `macos-27-arm64`. Both generations use
+`linux-amd64` and `linux-arm64`. `--only` accepts a single normalized row
+(`macos-arm64`, `linux-amd64` or `linux-arm64`) for local development builds;
+a publishable release set always contains all three rows.
+
 Each archive holds one bundle directory with the canonical public executable
 `axiom`, `LICENSE`, the release installer `install.sh`, `release-metadata.txt`,
-`skills-manifest.txt`, the three canonical Runtime skills, and a complete `MANIFEST.sha256`.
+`skills-manifest.txt`, the four canonical Runtime skills, and a complete `MANIFEST.sha256`.
 Upgrading a recognized six- or eight-skill installation retires verified
-Axiom-owned legacy entries and converges to the three canonical skills. Foreign,
+Axiom-owned legacy entries and converges to the four canonical skills. Foreign,
 modified, linked or unrecognized content is preserved and reported as conflict.
 The installer publishes `<bin-dir>/axiom`. A receipt or binary from a pre-`axiom`
 archive (which shipped `lingo`) is not recognized as owned and is preserved;
@@ -867,11 +896,12 @@ Selection:
   selector, is an input error with no effect.
 - `--channel` and `--version` are mutually exclusive and fail before any effect.
 
-The bootstrap detects the eligible row (macOS on arm64 mapped to the
-`macos-27-arm64` archive, or Linux on x86_64/aarch64 mapped to the
-`linux-amd64`/`linux-arm64` archive; the OS version is not consulted) before any
-download, fetches the release
-`SHA256SUMS` and the row's archive over HTTPS only, and verifies the digest
+The bootstrap detects the eligible OS/architecture before any download, then
+fetches `SHA256SUMS` over HTTPS. Its complete, closed three-archive inventory
+selects generation 1 (`macos-27-arm64`) or 2 (`macos-arm64`) for all hosts;
+Linux retains `linux-amd64`/`linux-arm64`. Mixed generations, duplicate names,
+unknown assets, missing rows and malformed checksums refuse before any archive
+request. It requests exactly the selected row with no fallback, and verifies its digest
 before reading the archive. It then requires the bundle's `install.sh` and
 `release-metadata.txt` to match the bundle manifest and the metadata to be the
 resolved version and row of a clean release build, and runs that release
@@ -925,7 +955,7 @@ The manually dispatched `Release artifacts` workflow
 (`.github/workflows/release-artifacts.yml`) is the PREPARE phase of the
 [Release flow](#release-flow). It takes `tag` and `revision` inputs, runs from
 `main`, checks out that exact revision, requires it to be clean and to pass
-`release-preflight.sh`, builds the four supported rows with
+`release-preflight.sh`, builds the three supported rows with
 `build-release-archives.sh`, verifies the complete set, renders the release
 notes, and retains `artifacts/`, `release-evidence.txt`, `release-notes.md`,
 `preflight.txt` and `prepare-metadata.txt` as the workflow artifact
@@ -943,6 +973,16 @@ Verify an artifact set locally from a clean checkout at its exact revision:
   --version 0.1.0-rc.2 \
   --revision "$(git rev-parse HEAD)"
 ```
+
+For generation 2, pass `--format 2` to both builder and verifier. The verifier
+keeps generation 1 as its default and rejects a set for the other generation.
+The bundled installer supports `--verify-only` with the usual absolute archive,
+checksum and destination arguments: it validates without executing the candidate,
+checking host eligibility or creating destinations. Release verification uses
+this mode for all v2 rows before source/provenance checks. The prepared-artifact
+smoke also accepts explicit `--format 2` and `--row macos-arm64`; its default
+remains generation 1. Smoke is development evidence, not native documentation
+or agent qualification.
 
 The verifier requires exactly `SHA256SUMS` plus one archive per supported row,
 correct checksums, the closed bundle entry set with a `0700` `axiom` executable,

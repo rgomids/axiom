@@ -68,7 +68,16 @@ grep -Fxq 'result=pass' "$temporary/evidence"
 for row in macos-27-arm64 linux-amd64 linux-arm64; do
   grep -Eq "^archive=axiom-0\\.1\\.0-rc\\.1-$row\\.tar\\.gz sha256=[0-9a-f]{64} " "$temporary/evidence"
 done
-[[ $(grep -c '^archive=' "$temporary/evidence") == 3 ]]
+[[ $(grep -c '^archive=axiom-[0-9]' "$temporary/evidence") == 3 ]]
+# v2 remains opt-in; the explicit verifier consumes all three cross-built
+# rows and reuses the shell verify-only seam without candidate execution.
+"$build" --version 0.1.0-rc.1 --format 2 --output "$temporary/v2" >/dev/null
+"$verify" --dir "$temporary/v2" --version 0.1.0-rc.1 --revision "$revision" --format 2 >"$temporary/v2-evidence"
+grep -Fxq 'result=pass' "$temporary/v2-evidence"
+grep -Fq 'archive=axiom-0.1.0-rc.1-macos-arm64.tar.gz' "$temporary/v2-evidence"
+expect_failure 'v2 under default verifier' 'artifact set is not exactly' "$verify" --dir "$temporary/v2" --version 0.1.0-rc.1 --revision "$revision"
+expect_failure 'v1 under v2 verifier' 'artifact set is not exactly' "$verify" --dir "$temporary/first" --version 0.1.0-rc.1 --revision "$revision" --format 2
+[[ ! -e "$temporary/unused-bin" && ! -e "$temporary/unused-receipt" ]]
 # Issue #244: execute the exact archives just built, without rebuilding in
 # smoke. The runtime provenance and persisted Project round-trip must pass.
 case "$(go env GOHOSTOS)/$(go env GOHOSTARCH)" in
@@ -121,7 +130,7 @@ expect_failure 'unsupported row' 'artifact set is not exactly' "$verify" --dir "
 
 case_dir=$(mutate missing-checksum)
 grep -v 'macos-27-arm64' "$temporary/first/SHA256SUMS" >"$case_dir/SHA256SUMS"
-expect_failure 'missing checksum line' 'SHA256SUMS must list exactly the three archives' "$verify" --dir "$case_dir" --version 0.1.0-rc.1 --revision "$revision"
+expect_failure 'missing checksum line' 'SHA256SUMS must list exactly three archives and three helpers' "$verify" --dir "$case_dir" --version 0.1.0-rc.1 --revision "$revision"
 
 case_dir=$(mutate checksum-mismatch)
 printf 'tamper\n' >>"$case_dir/axiom-0.1.0-rc.1-linux-amd64.tar.gz"

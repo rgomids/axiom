@@ -29,7 +29,7 @@ class SmokeContract(unittest.TestCase):
         self.binary = b"#!/bin/sh\nexit 1\n"
         self.pack()
 
-    def pack(self, name=None, mode=0o700, kind=tarfile.REGTYPE):
+    def pack(self, name=None, mode=0o700, kind=tarfile.REGTYPE, archive_format="1"):
         with tarfile.open(self.archive, "w:gz") as archive:
             member = tarfile.TarInfo(name or f"{self.bundle}/axiom")
             member.mode = mode
@@ -37,6 +37,11 @@ class SmokeContract(unittest.TestCase):
             member.linkname = "/outside"
             member.size = len(self.binary) if kind == tarfile.REGTYPE else 0
             archive.addfile(member, io.BytesIO(self.binary) if member.size else None)
+            metadata = f"formatVersion={archive_format}\n".encode()
+            member = tarfile.TarInfo(f"{self.bundle}/release-metadata.txt")
+            member.mode = 0o600
+            member.size = len(metadata)
+            archive.addfile(member, io.BytesIO(metadata))
         (self.root / "SHA256SUMS").write_text(f"{smoke.digest(self.archive)}  {self.archive.name}\n")
 
     def invoke(self, *extra, responder=None):
@@ -45,7 +50,8 @@ class SmokeContract(unittest.TestCase):
                 "--row", "linux-amd64", *extra]
         with patch.object(sys, "argv", argv), contextlib.redirect_stdout(output), \
                 patch.object(smoke.platform, "system", return_value="Linux"), \
-                patch.object(smoke.platform, "machine", return_value="x86_64"):
+                patch.object(smoke.platform, "machine", return_value="x86_64"), \
+                patch.object(smoke.platform, "platform", return_value="fixture"):
             if responder:
                 with patch.object(smoke.subprocess, "run", side_effect=responder):
                     code = smoke.main()
@@ -84,6 +90,28 @@ class SmokeContract(unittest.TestCase):
         self.assertTrue(summary["inputsUnchanged"])
         self.assertEqual(before, smoke.inventory(self.root))
 
+    def test_v2_smoke_and_compression_refusals_before_execution(self):
+        import gzip
+        for suffix in (b"", gzip.compress(b""), b"garbage"):
+            self.pack(archive_format="2")
+            with self.archive.open("ab") as stream:
+                stream.write(suffix)
+            (self.root / "SHA256SUMS").write_text(f"{smoke.digest(self.archive)}  {self.archive.name}\n")
+            calls = []
+            def respond(command, **kwargs):
+                calls.append(command)
+                return self.event(command, **kwargs)
+            code, _ = self.invoke("--format", "2", responder=respond)
+            self.assertEqual(code, 1 if suffix else 0)
+            self.assertEqual(bool(calls), not bool(suffix))
+
+    def test_generation_token_and_metadata_refused(self):
+        for extra in (("--format", "2"), ("--format", "2", "--row", "macos-27-arm64")):
+            with patch.object(smoke.subprocess, "run") as execute:
+                code, _ = self.invoke(*extra)
+                self.assertEqual(code, 1)
+                execute.assert_not_called()
+
     def test_wrong_version_and_revision(self):
         for field, value in (("version", "9.9.9"), ("revision", "b" * 12), ("sourceState", "dirty")):
             def wrong(command, **kwargs):
@@ -109,6 +137,15 @@ class SmokeContract(unittest.TestCase):
         code, summary = self.invoke()
         self.assertEqual(code, 1)
         self.assertIn("not executable", summary["error"])
+
+    def test_ambiguous_checksum_refused_before_execution(self):
+        with (self.root / "SHA256SUMS").open("a") as stream:
+            stream.write(f"{'0' * 64}  {self.archive.name}\n")
+        with patch.object(smoke.subprocess, "run") as execute:
+            code, summary = self.invoke()
+            self.assertEqual(code, 1)
+            self.assertIn("checksum mismatch", summary["error"])
+            execute.assert_not_called()
 
     def test_corrupted_archive(self):
         with self.archive.open("ab") as stream:

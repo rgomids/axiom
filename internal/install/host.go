@@ -1,6 +1,9 @@
 package install
 
-import "runtime"
+import (
+	"runtime"
+	"strings"
+)
 
 // hostRow reports the approved release row of the running host without
 // executing any command. Eligibility depends only on the OS family and
@@ -16,4 +19,14 @@ var hostRow = func() string {
 		return "linux:linux:" + runtime.GOARCH
 	}
 	return ""
+}
+
+// hostMatches compares the candidate row with the host. Archive generation 1
+// keeps its historical macos-27 token; generation 2 normalizes it to macos.
+func hostMatches(row string, candidate Candidate) bool {
+	host := hostRow()
+	if candidate.Docs != nil {
+		host = strings.Replace(host, "macos-27:", "macos:", 1)
+	}
+	return host != "" && host == row
 }

@@ -1,0 +1,2219 @@
+{
+  "sourceCommit": "f96d5dfb8efb4b4d6018b7a523e89532734c006f",
+  "scope": "T01 measurements and estimates only; no final operational corpus, generator, codec or production reader implemented. Existing accepted/proposed history unchanged.",
+  "host": {
+    "os": "Darwin",
+    "architecture": "arm64"
+  },
+  "coverage": {
+    "snapshot": {
+      "path": "docs/specifications/010-installed-operational-documentation/cli-coverage-proposed.json",
+      "bytes": 38084,
+      "sha256": "dba3dfee3751dd694690c3c449206f862e327647cce49a63f7f7e58efe536f53"
+    },
+    "publicLeaves": 105,
+    "flagRegistrations": 549,
+    "snapshotParity": "PASS",
+    "allHelpNodes": 124,
+    "helpBytes": 160546,
+    "leafHelpBytes": 146194,
+    "nodes": [
+      {
+        "helpBytes": 1314,
+        "helpSha256": "a1ea3d098e5c6f07f97bca7f2b7bb7792fa75a3ea4160bec60bf4b25b06e5e01",
+        "leaf": false,
+        "path": [
+          "axiom"
+        ],
+        "flagRegistrations": 0
+      },
+      {
+        "helpBytes": 278,
+        "helpSha256": "d2cbed5370db6cbdc4d3a418fe298b212f8f002712b45113278feafc0aaa9201",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "help"
+        ],
+        "flagRegistrations": 0
+      },
+      {
+        "helpBytes": 298,
+        "helpSha256": "2673fc22aa87839601117cdf2db11b023ac36d1d4e202c367576da7b54bab577",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "version"
+        ],
+        "flagRegistrations": 0
+      },
+      {
+        "helpBytes": 406,
+        "helpSha256": "17d6d437a4983bca17b5690a846e45ee892c9659eb9fb8046e87c2c8382c8dd4",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "first-run"
+        ],
+        "flagRegistrations": 0
+      },
+      {
+        "helpBytes": 347,
+        "helpSha256": "2774049df3a330f384b159623ea981bc0819855bf812d8e74497561efc412f05",
+        "leaf": false,
+        "path": [
+          "axiom",
+          "skill"
+        ],
+        "flagRegistrations": 0
+      },
+      {
+        "helpBytes": 373,
+        "helpSha256": "3868ffc34ad50d16704e0c5f44dbb0cf1c5ccf5f62585add771018425fb5ede7",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "skill",
+          "inspect"
+        ],
+        "flagRegistrations": 0
+      },
+      {
+        "helpBytes": 584,
+        "helpSha256": "062e95baebce3f057fa118828f6e5a3285a0243e3169b0e90349162de0270317",
+        "leaf": false,
+        "path": [
+          "axiom",
+          "runtime"
+        ],
+        "flagRegistrations": 0
+      },
+      {
+        "helpBytes": 534,
+        "helpSha256": "308596edc69d0fe782cacbcb75949f9358f722eb6c4a27b84c4946a53728d002",
+        "leaf": false,
+        "path": [
+          "axiom",
+          "runtime",
+          "codex"
+        ],
+        "flagRegistrations": 0
+      },
+      {
+        "helpBytes": 426,
+        "helpSha256": "edc1c4527ec6ae2bd03b68ca4b8f68df27f50fb2b6a143098bcfa30c7bac814e",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "runtime",
+          "codex",
+          "install"
+        ],
+        "flagRegistrations": 0
+      },
+      {
+        "helpBytes": 416,
+        "helpSha256": "41a79213c43b6206125ba28491d3b564f107b49556d1e573c6b2bfaa39b70e3b",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "runtime",
+          "codex",
+          "status"
+        ],
+        "flagRegistrations": 0
+      },
+      {
+        "helpBytes": 438,
+        "helpSha256": "d9a0078e75550b99f1381ba06a96a13735c7543af1217f34f8075466aaf9feec",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "runtime",
+          "codex",
+          "auth"
+        ],
+        "flagRegistrations": 0
+      },
+      {
+        "helpBytes": 537,
+        "helpSha256": "46ac41f748d3350aa60ddc275c13fefdde66f6037b7382d2dfb843a06b588b2b",
+        "leaf": false,
+        "path": [
+          "axiom",
+          "runtime",
+          "claude"
+        ],
+        "flagRegistrations": 0
+      },
+      {
+        "helpBytes": 429,
+        "helpSha256": "87830d644e6811cf1399561e18102eba1015fef367f298346c2d9c6fd0f6ccc6",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "runtime",
+          "claude",
+          "install"
+        ],
+        "flagRegistrations": 0
+      },
+      {
+        "helpBytes": 419,
+        "helpSha256": "f6a461d2bc2144e8c42aa39745fd217f1f59992d503cedf6d8353edf1a38da5c",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "runtime",
+          "claude",
+          "status"
+        ],
+        "flagRegistrations": 0
+      },
+      {
+        "helpBytes": 441,
+        "helpSha256": "6ad1d14fb50f0277f820084ba369b25cb1fe1abdf93ee5f7ec48de9d19bd7650",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "runtime",
+          "claude",
+          "auth"
+        ],
+        "flagRegistrations": 0
+      },
+      {
+        "helpBytes": 848,
+        "helpSha256": "54e6c9169337249adb26be8ce0f17539f3073d1fc6dbd3bf5ce19945e658c76d",
+        "leaf": false,
+        "path": [
+          "axiom",
+          "runtime",
+          "binding"
+        ],
+        "flagRegistrations": 0
+      },
+      {
+        "helpBytes": 695,
+        "helpSha256": "7a17191c7b62fca06e58ec77704b157dd09ce330a7d3c14309bd313d4bc9f745",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "runtime",
+          "binding",
+          "list"
+        ],
+        "flagRegistrations": 2
+      },
+      {
+        "helpBytes": 695,
+        "helpSha256": "986b8b13d9d229ff76a328a0c93ecbf461fbe034d2146a2e91c8de433056d8a7",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "runtime",
+          "binding",
+          "show"
+        ],
+        "flagRegistrations": 2
+      },
+      {
+        "helpBytes": 2010,
+        "helpSha256": "09757e08603af4b72efb6d49162f41220314a83c1452ace961bfb9757e4fd658",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "runtime",
+          "binding",
+          "create"
+        ],
+        "flagRegistrations": 11
+      },
+      {
+        "helpBytes": 2002,
+        "helpSha256": "4b9fe9049b2275b71d25f0db1188b969cf7bd7a4afefe9adaf0f880d3c3e353b",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "runtime",
+          "binding",
+          "edit"
+        ],
+        "flagRegistrations": 11
+      },
+      {
+        "helpBytes": 1149,
+        "helpSha256": "b112c7212ed58e91a2029e5d35b56898fe4e132da48313a37e6ef86e4c599c2b",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "runtime",
+          "binding",
+          "enable"
+        ],
+        "flagRegistrations": 5
+      },
+      {
+        "helpBytes": 1153,
+        "helpSha256": "3a4277dfc7e77d4f11ad2be4039694c7f95402c4fec09f9e7f41b9a2b886d102",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "runtime",
+          "binding",
+          "disable"
+        ],
+        "flagRegistrations": 5
+      },
+      {
+        "helpBytes": 1324,
+        "helpSha256": "224c9c6f694b4eacadab1850bc92f6c73305702bd109621472474349da50cac8",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "runtime",
+          "binding",
+          "remove"
+        ],
+        "flagRegistrations": 6
+      },
+      {
+        "helpBytes": 1612,
+        "helpSha256": "c9255eaf826659f839ad7e83489e315618fe62282388074592a8b1552c7487cb",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "runtime",
+          "binding",
+          "validate-candidate"
+        ],
+        "flagRegistrations": 8
+      },
+      {
+        "helpBytes": 1153,
+        "helpSha256": "b97e3c9a3b6f136ac875dcdf182e8c32b223fbb826babd26f3c8ff920589df00",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "runtime",
+          "binding",
+          "recover"
+        ],
+        "flagRegistrations": 5
+      },
+      {
+        "helpBytes": 938,
+        "helpSha256": "6924ca185a4d9bb0c7f6669d5811efb3a2393fcff2b97ca1b90afa71421771bd",
+        "leaf": false,
+        "path": [
+          "axiom",
+          "runtime",
+          "profile"
+        ],
+        "flagRegistrations": 0
+      },
+      {
+        "helpBytes": 437,
+        "helpSha256": "1b5f62c9a569161f4026cb30b2ca064ed03465fbc34ec079a5635e8c9ebc109c",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "runtime",
+          "profile",
+          "validate"
+        ],
+        "flagRegistrations": 0
+      },
+      {
+        "helpBytes": 1279,
+        "helpSha256": "82585f1971bf523ceda964d09e64cf822a4141566a98bfe78a0ce09d0a859743",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "runtime",
+          "profile",
+          "preview"
+        ],
+        "flagRegistrations": 5
+      },
+      {
+        "helpBytes": 695,
+        "helpSha256": "5c2a458a8939e26ec02477bcdcb28bb528846aeb5b20769ce409e9ac4faea525",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "runtime",
+          "profile",
+          "list"
+        ],
+        "flagRegistrations": 2
+      },
+      {
+        "helpBytes": 695,
+        "helpSha256": "eaba5007b46c3d9998207ee10c3e92e2443cb8e3de037cf1a98a1d5a593f36e4",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "runtime",
+          "profile",
+          "show"
+        ],
+        "flagRegistrations": 2
+      },
+      {
+        "helpBytes": 2010,
+        "helpSha256": "16e60a80e24ef6bd56b2665443c00c4fea31bfd204a272be32204d5bd52f7dcc",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "runtime",
+          "profile",
+          "create"
+        ],
+        "flagRegistrations": 11
+      },
+      {
+        "helpBytes": 2002,
+        "helpSha256": "6946c49c957e3bf865b0322005f0040f29ae2a4bd1d0697abe3087a52c3de2a4",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "runtime",
+          "profile",
+          "edit"
+        ],
+        "flagRegistrations": 11
+      },
+      {
+        "helpBytes": 1149,
+        "helpSha256": "077d2e6c5d0ac1994a3a332fbae6e8f13905ee59a32d51743f382fb08b41c550",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "runtime",
+          "profile",
+          "enable"
+        ],
+        "flagRegistrations": 5
+      },
+      {
+        "helpBytes": 1153,
+        "helpSha256": "bb85c63edebb0bb1b066e52b3b51ceb8bdb9c341eefd453f9e5af107a74240ee",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "runtime",
+          "profile",
+          "disable"
+        ],
+        "flagRegistrations": 5
+      },
+      {
+        "helpBytes": 1324,
+        "helpSha256": "88f5c4329de36c294f7aee9d1f380a1fb76a25edb3bcbb0ac1e72fc867e601e7",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "runtime",
+          "profile",
+          "remove"
+        ],
+        "flagRegistrations": 6
+      },
+      {
+        "helpBytes": 1612,
+        "helpSha256": "f8b5fdc37a1934045f6a26d0298a76364fcbbbee95ab52bc1f44dea75dab1258",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "runtime",
+          "profile",
+          "validate-candidate"
+        ],
+        "flagRegistrations": 8
+      },
+      {
+        "helpBytes": 1153,
+        "helpSha256": "c43d2a664e6ac4a16b8d8e2720670a4c05cd744a8657b0d6a85853d3da3b8148",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "runtime",
+          "profile",
+          "recover"
+        ],
+        "flagRegistrations": 5
+      },
+      {
+        "helpBytes": 1123,
+        "helpSha256": "4e8ea1f80f11d2cfb0bc78ae7b11b942c603049e788d3559da85de9e5763b243",
+        "leaf": false,
+        "path": [
+          "axiom",
+          "project"
+        ],
+        "flagRegistrations": 0
+      },
+      {
+        "helpBytes": 1000,
+        "helpSha256": "e458d4819bc6ad0ae60d1c87423c2fab4d6987a669826c2d5dcd440681bfddbe",
+        "leaf": false,
+        "path": [
+          "axiom",
+          "project",
+          "workflow"
+        ],
+        "flagRegistrations": 0
+      },
+      {
+        "helpBytes": 617,
+        "helpSha256": "6dd8255b848ee8f28b28a42e10e11f5f5e243117d72ef42d9a307ee0f90f91c6",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "project",
+          "workflow",
+          "list"
+        ],
+        "flagRegistrations": 1
+      },
+      {
+        "helpBytes": 1336,
+        "helpSha256": "724d1fb8313f7ffefa2b00d8224aabfc58fc7baa415f8d5c9f0fa952e50ba121",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "project",
+          "workflow",
+          "show"
+        ],
+        "flagRegistrations": 5
+      },
+      {
+        "helpBytes": 1891,
+        "helpSha256": "565cc50f1a8c0e5fc415dbce882a6e5f2a94ef4e8c20f5505ac3b2bb11f44cd3",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "project",
+          "workflow",
+          "create"
+        ],
+        "flagRegistrations": 8
+      },
+      {
+        "helpBytes": 2108,
+        "helpSha256": "7717991478b6141015c56ea1a05ab14df024d463305b57d4537758d9da526ebe",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "project",
+          "workflow",
+          "edit"
+        ],
+        "flagRegistrations": 8
+      },
+      {
+        "helpBytes": 808,
+        "helpSha256": "dcf9d3f6b6f028486d82ab1594ef4517a53752aef6b3b055db74d2f67e839eaa",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "project",
+          "workflow",
+          "validate"
+        ],
+        "flagRegistrations": 2
+      },
+      {
+        "helpBytes": 1973,
+        "helpSha256": "3419a3d44c281a85174f72fce440238b9087ff05abb3d76727ce61dd666d856f",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "project",
+          "workflow",
+          "select"
+        ],
+        "flagRegistrations": 8
+      },
+      {
+        "helpBytes": 1973,
+        "helpSha256": "02e7124a6a741b331e2ccf9735e2950ee0dbd7500e1303939c3750648155288b",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "project",
+          "workflow",
+          "remove"
+        ],
+        "flagRegistrations": 8
+      },
+      {
+        "helpBytes": 1433,
+        "helpSha256": "db0f30b5211d50989b99997a88468f88b316077bdf09fcfa7e91d83885f13ffb",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "project",
+          "workflow",
+          "recover"
+        ],
+        "flagRegistrations": 5
+      },
+      {
+        "helpBytes": 1896,
+        "helpSha256": "953dc76c1330b360e71cef77592b12321761d9eb40acd95aa129001909e01f1f",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "project",
+          "workflow",
+          "migrate"
+        ],
+        "flagRegistrations": 8
+      },
+      {
+        "helpBytes": 5237,
+        "helpSha256": "9586794f2daa89c8e3014b9dc6c5f4109f11c2146d0d6f3a78de61e40a6a0b3f",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "project",
+          "configure"
+        ],
+        "flagRegistrations": 21
+      },
+      {
+        "helpBytes": 549,
+        "helpSha256": "960ae9811a2ceb3a2542e65178bdc1d755dd135bcbebed4b84c98332d31a9959",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "project",
+          "list"
+        ],
+        "flagRegistrations": 1
+      },
+      {
+        "helpBytes": 747,
+        "helpSha256": "e55608e060ebdf76cfb33c2fe6090ef10aa1730ae49c35e0a4d96d8ecece1368",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "project",
+          "show"
+        ],
+        "flagRegistrations": 2
+      },
+      {
+        "helpBytes": 754,
+        "helpSha256": "d2146b1dfcf3daa6a43f853dec3675f9ffb73036624bc8e973d641afe08fc16f",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "project",
+          "resolve"
+        ],
+        "flagRegistrations": 2
+      },
+      {
+        "helpBytes": 870,
+        "helpSha256": "2ca786026435184afadd23c813a959aa97e6c556527d09568e0857f450e87da3",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "project",
+          "validate"
+        ],
+        "flagRegistrations": 2
+      },
+      {
+        "helpBytes": 961,
+        "helpSha256": "151b35b8aa66e944a6e52ebd263d147c1253133c6bd73ed8efd6f47709fbb437",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "project",
+          "archive"
+        ],
+        "flagRegistrations": 3
+      },
+      {
+        "helpBytes": 975,
+        "helpSha256": "a9dd7541a0b799097a403c24a3d2b98d2897fa7e7ccfbcdd2ca036222372ef93",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "project",
+          "reactivate"
+        ],
+        "flagRegistrations": 3
+      },
+      {
+        "helpBytes": 667,
+        "helpSha256": "31a8b8ab2fca38e874f46e334bde6d6053f04f47d30d1bcc4516ff23f0de4ae5",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "project",
+          "init"
+        ],
+        "flagRegistrations": 2
+      },
+      {
+        "helpBytes": 554,
+        "helpSha256": "f6b30281822cdbef419741191cd1d072782a8d8bef94c902c2c19be76a28dd1b",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "project",
+          "reopen"
+        ],
+        "flagRegistrations": 1
+      },
+      {
+        "helpBytes": 669,
+        "helpSha256": "85494a99d3075f122b670a3b585d11c80be400590d7e106cc460f009bb598141",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "project",
+          "update"
+        ],
+        "flagRegistrations": 2
+      },
+      {
+        "helpBytes": 992,
+        "helpSha256": "59b7ffc82f6a31a56e7ecb81738f7b4203cfb5b7eef471e3afb8095838858eb7",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "project",
+          "install"
+        ],
+        "flagRegistrations": 3
+      },
+      {
+        "helpBytes": 673,
+        "helpSha256": "10dcc52be9eb6e916ce461e99b7813593a1e693b6f596bd0573818a83a0b490c",
+        "leaf": false,
+        "path": [
+          "axiom",
+          "project",
+          "context"
+        ],
+        "flagRegistrations": 0
+      },
+      {
+        "helpBytes": 797,
+        "helpSha256": "70b63c6610c88eaa5679bf76e8296e751ff84613dcbfcff0c391e507693ef928",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "project",
+          "context",
+          "show"
+        ],
+        "flagRegistrations": 2
+      },
+      {
+        "helpBytes": 922,
+        "helpSha256": "fc25a5a08de95f69d79dd0129b66de2943b8af0d9efb60175790785cf86f3028",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "project",
+          "context",
+          "default-set"
+        ],
+        "flagRegistrations": 2
+      },
+      {
+        "helpBytes": 703,
+        "helpSha256": "7c121fee0433bfa74cc0b14e3a180f0f5ad19cef5e0f4c0271db9a541c81ee80",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "project",
+          "context",
+          "default-clear"
+        ],
+        "flagRegistrations": 1
+      },
+      {
+        "helpBytes": 957,
+        "helpSha256": "6324f8fd3abf4b126b1909e5838f1d53aa890cbbb325ff02b743660ce1156c7e",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "project",
+          "context",
+          "session-set"
+        ],
+        "flagRegistrations": 2
+      },
+      {
+        "helpBytes": 738,
+        "helpSha256": "c3350d1f26017a6c8026ee9227fe47d42cf43d06daeca0ed0d77083d4177996e",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "project",
+          "context",
+          "session-clear"
+        ],
+        "flagRegistrations": 1
+      },
+      {
+        "helpBytes": 731,
+        "helpSha256": "0960cb59eeb71caf426deaf1b936f03a120698865a7c1d02f82376eb210ddd65",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "project",
+          "context",
+          "session-end"
+        ],
+        "flagRegistrations": 1
+      },
+      {
+        "helpBytes": 683,
+        "helpSha256": "cc81bb41960477bf28ecc8621f0f5e6c12c175fbaee304a6d7ebb1cc86c9ac00",
+        "leaf": false,
+        "path": [
+          "axiom",
+          "integration"
+        ],
+        "flagRegistrations": 0
+      },
+      {
+        "helpBytes": 580,
+        "helpSha256": "ad51b28db096025e205e767abcc70ffcc860220ac5341794b5105416304fdb36",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "integration",
+          "list"
+        ],
+        "flagRegistrations": 1
+      },
+      {
+        "helpBytes": 724,
+        "helpSha256": "996abec7ef839d259b0425dab532905efa0b5e8c6f807f08a5e847473c021979",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "integration",
+          "show"
+        ],
+        "flagRegistrations": 2
+      },
+      {
+        "helpBytes": 745,
+        "helpSha256": "ab4bde2ddacc8a791537033d0a9566da31c1a2455e3339c4f562dee99b69b6de",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "integration",
+          "validate"
+        ],
+        "flagRegistrations": 2
+      },
+      {
+        "helpBytes": 1100,
+        "helpSha256": "3e5e624096549213563620fd0efa0fe27129b89533535a4e5a04e303db7641d5",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "integration",
+          "disable"
+        ],
+        "flagRegistrations": 4
+      },
+      {
+        "helpBytes": 1096,
+        "helpSha256": "32973b1aac2e1c7c11c7c341983f761d8a88ca13504902c4fa004577eba31cd7",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "integration",
+          "enable"
+        ],
+        "flagRegistrations": 4
+      },
+      {
+        "helpBytes": 1282,
+        "helpSha256": "72926749190da8732491188fef37fa804fbe13b9a21e7ba6ad271c8d8a4e13dd",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "integration",
+          "remove"
+        ],
+        "flagRegistrations": 5
+      },
+      {
+        "helpBytes": 825,
+        "helpSha256": "390bd128ee7d6d0756f7815c70bb622733203f10fad74df7915f568b283bf4a0",
+        "leaf": false,
+        "path": [
+          "axiom",
+          "work-item"
+        ],
+        "flagRegistrations": 0
+      },
+      {
+        "helpBytes": 4214,
+        "helpSha256": "4abba986b155b364bb6f4dde669963d223eb5ac5bc0fcbe0b7657f4846c2a91b",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "work-item",
+          "create"
+        ],
+        "flagRegistrations": 20
+      },
+      {
+        "helpBytes": 2125,
+        "helpSha256": "f9c77670ad8a79b1f03bb9c9314167dff7caff3a4604d45a37d724c6028c0bbe",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "work-item",
+          "select"
+        ],
+        "flagRegistrations": 8
+      },
+      {
+        "helpBytes": 707,
+        "helpSha256": "74ea355d38488821102c3bb3a4ef856c06eca6604fed389538d922d77792149f",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "work-item",
+          "list"
+        ],
+        "flagRegistrations": 2
+      },
+      {
+        "helpBytes": 2082,
+        "helpSha256": "451c4a316419260a11b6b9395473543ed5a5049e3c28e8428508573b33f7e80e",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "work-item",
+          "show"
+        ],
+        "flagRegistrations": 8
+      },
+      {
+        "helpBytes": 3651,
+        "helpSha256": "f57b68e03b3c04f5b9bfd47ceb26ca21faa0aa8c9ce88ab99022552636473c5f",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "work-item",
+          "update"
+        ],
+        "flagRegistrations": 17
+      },
+      {
+        "helpBytes": 2216,
+        "helpSha256": "f5f816b9a28417fab27abcff2f938d706432e123651ef827bd5b2c882384f646",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "work-item",
+          "comment"
+        ],
+        "flagRegistrations": 9
+      },
+      {
+        "helpBytes": 2096,
+        "helpSha256": "bdffcb83ebb5e979d4eab5414e744fde9a68057c01290c07862dae94c80381ac",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "work-item",
+          "close"
+        ],
+        "flagRegistrations": 8
+      },
+      {
+        "helpBytes": 2100,
+        "helpSha256": "3c59b665c064948936d34a131357010ed6ed02cd8ee63f76d1803b754cabcefa",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "work-item",
+          "reopen"
+        ],
+        "flagRegistrations": 8
+      },
+      {
+        "helpBytes": 2101,
+        "helpSha256": "c07eac50be3fdd8b69acde7e9468b85c2c23a83c1d0e0c1e5c02d589b9f2fd02",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "work-item",
+          "complete"
+        ],
+        "flagRegistrations": 8
+      },
+      {
+        "helpBytes": 1033,
+        "helpSha256": "f77b809d1318df316e5e4799c58fe5b726151ff284b226c1da9c19799c516483",
+        "leaf": false,
+        "path": [
+          "axiom",
+          "workflow"
+        ],
+        "flagRegistrations": 0
+      },
+      {
+        "helpBytes": 2639,
+        "helpSha256": "bad10997fa5f64cbf4c56312a0b4d8339495917344e50c8c2e29b1df8a213ee0",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "workflow",
+          "start"
+        ],
+        "flagRegistrations": 11
+      },
+      {
+        "helpBytes": 2879,
+        "helpSha256": "5aa9b16a39e35eaecfbbac32dfafd1ec75caa3e59bfd16c0e05c9cfb6e106763",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "workflow",
+          "advance"
+        ],
+        "flagRegistrations": 12
+      },
+      {
+        "helpBytes": 2794,
+        "helpSha256": "eddbbc166115171e9d6e4c9979f35671f16453e882cc42aa08fc3f763bdecbe8",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "workflow",
+          "fact"
+        ],
+        "flagRegistrations": 12
+      },
+      {
+        "helpBytes": 1849,
+        "helpSha256": "2ec022f1ddfc0ccf863c4ce1989106e887941694eb4e03e40d9833a6dc7629e5",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "workflow",
+          "resume"
+        ],
+        "flagRegistrations": 6
+      },
+      {
+        "helpBytes": 1622,
+        "helpSha256": "12bec7deb03fb92a52b237a7b20db48284928431acfe98e5a4d32e0d7202b791",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "workflow",
+          "status"
+        ],
+        "flagRegistrations": 5
+      },
+      {
+        "helpBytes": 1616,
+        "helpSha256": "02766815c268677c593a24387f5cc73dd4b574d3bdbd28c4a8a9a4c492cad360",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "workflow",
+          "evidence"
+        ],
+        "flagRegistrations": 5
+      },
+      {
+        "helpBytes": 709,
+        "helpSha256": "fa466a164760528171196a636689bc0af82bfb2689e58d351cf34fad4fe35b5a",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "workflow",
+          "list"
+        ],
+        "flagRegistrations": 2
+      },
+      {
+        "helpBytes": 2220,
+        "helpSha256": "594ad0037f3480f3761402771c82d3da06aaa7c6e2ff59df3932e3a6fede546b",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "workflow",
+          "reconcile"
+        ],
+        "flagRegistrations": 8
+      },
+      {
+        "helpBytes": 899,
+        "helpSha256": "30a469c2788ee880d1c85e0d69da10732217fabc6eea4becc4bfdd7559bae9c7",
+        "leaf": false,
+        "path": [
+          "axiom",
+          "workflow",
+          "delivery"
+        ],
+        "flagRegistrations": 0
+      },
+      {
+        "helpBytes": 1783,
+        "helpSha256": "fc5ccd31df898c4272665cbe80023f46dedbf844fa51d665cecc40cd14739ac8",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "workflow",
+          "delivery",
+          "packet"
+        ],
+        "flagRegistrations": 7
+      },
+      {
+        "helpBytes": 2090,
+        "helpSha256": "12b7f551858a89ce1ebf133df8c44007f3773b8e956ba6aa42b185beda179598",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "workflow",
+          "delivery",
+          "decision"
+        ],
+        "flagRegistrations": 9
+      },
+      {
+        "helpBytes": 2080,
+        "helpSha256": "de404bcd48ba30e7a8e9a36c36d0c13095691d849282163e314102f881e9f324",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "workflow",
+          "delivery",
+          "rework"
+        ],
+        "flagRegistrations": 9
+      },
+      {
+        "helpBytes": 2010,
+        "helpSha256": "07e252a159a2c6d6e840a75c61db98d97d6d9c47a766a7804f4c50923e0015eb",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "workflow",
+          "delivery",
+          "prepare"
+        ],
+        "flagRegistrations": 9
+      },
+      {
+        "helpBytes": 1997,
+        "helpSha256": "70d3874b7d3b36a8fb4aeb6d78e97848c715b30868597275e4736fc7188c4f5d",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "workflow",
+          "delivery",
+          "preview"
+        ],
+        "flagRegistrations": 9
+      },
+      {
+        "helpBytes": 2001,
+        "helpSha256": "dd5ee2001acc8bec4e84f9b62b8b4974530ad9b4bb546010c7e306d08ee7319d",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "workflow",
+          "delivery",
+          "apply"
+        ],
+        "flagRegistrations": 9
+      },
+      {
+        "helpBytes": 1748,
+        "helpSha256": "40b317d49ef073721870a2039b41dcc1789968b8d0f1d134ae6ee68604d33fb1",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "workflow",
+          "delivery",
+          "inspect"
+        ],
+        "flagRegistrations": 7
+      },
+      {
+        "helpBytes": 1751,
+        "helpSha256": "6673c4561ef00ed7def9a94b4e97871d864d33c067237df7b8da009da6dd712a",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "workflow",
+          "delivery",
+          "reconcile"
+        ],
+        "flagRegistrations": 7
+      },
+      {
+        "helpBytes": 895,
+        "helpSha256": "520630412feeef93c76650aa6341f1cc3ac977f3e118c2f0eccfa0377d2c74d7",
+        "leaf": false,
+        "path": [
+          "axiom",
+          "workflow",
+          "stage"
+        ],
+        "flagRegistrations": 0
+      },
+      {
+        "helpBytes": 2151,
+        "helpSha256": "304212d4b861f8ea1d47d13acffaeee938312b6278291e4ae5f7fe198560ec68",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "workflow",
+          "stage",
+          "plan"
+        ],
+        "flagRegistrations": 8
+      },
+      {
+        "helpBytes": 2868,
+        "helpSha256": "ee3e87f8de2b4e40520591be5bffc3a974e7863d7a22e3885a9bcd51e307b123",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "workflow",
+          "stage",
+          "run"
+        ],
+        "flagRegistrations": 12
+      },
+      {
+        "helpBytes": 1286,
+        "helpSha256": "80c71c604e2d1bd64cdfc956ae0d6bac5f21f6b36aeb2066116c885dad1406e1",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "workflow",
+          "stage",
+          "status"
+        ],
+        "flagRegistrations": 4
+      },
+      {
+        "helpBytes": 1611,
+        "helpSha256": "c4f1bc8a8a61f9527a9ebbab423d4022280c0ab90f501582ca35da8b0c553f0f",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "workflow",
+          "stage",
+          "cancel"
+        ],
+        "flagRegistrations": 6
+      },
+      {
+        "helpBytes": 2960,
+        "helpSha256": "4aa73c65fba1a58c2e2dcf69bd8cb32d8d81f0d497feb874b4b7e57f8c28e0ce",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "workflow",
+          "stage",
+          "retry"
+        ],
+        "flagRegistrations": 13
+      },
+      {
+        "helpBytes": 1930,
+        "helpSha256": "552a049c780fa7335aa5cf8947fe3bce22ff79d7e95b275817eb013bb49b3415",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "workflow",
+          "stage",
+          "reconcile"
+        ],
+        "flagRegistrations": 8
+      },
+      {
+        "helpBytes": 2412,
+        "helpSha256": "5236f8b63661df655238da6cbaf30a97e92f6831483dd4f57d0fbf73705838af",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "workflow",
+          "stage",
+          "integrate"
+        ],
+        "flagRegistrations": 10
+      },
+      {
+        "helpBytes": 636,
+        "helpSha256": "033425bc9dd600c584ac318139ee9d65bfee9a2ec7906ace9ea0d0fe64c28ab4",
+        "leaf": false,
+        "path": [
+          "axiom",
+          "workflow",
+          "coordination"
+        ],
+        "flagRegistrations": 0
+      },
+      {
+        "helpBytes": 1899,
+        "helpSha256": "c297fbb574be4fe0777faeb873cd325c1651dbffac2e82255a8596762865e8a2",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "workflow",
+          "coordination",
+          "list"
+        ],
+        "flagRegistrations": 9
+      },
+      {
+        "helpBytes": 1581,
+        "helpSha256": "28d055aaa80bb9480ba03bb135009d773abf8c1051bdfe207d85714dd37a5119",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "workflow",
+          "coordination",
+          "show"
+        ],
+        "flagRegistrations": 6
+      },
+      {
+        "helpBytes": 722,
+        "helpSha256": "9666b696e3257af9f3382b01841f83269e1089ef0a369e11f67cbce94054d18c",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "workflow",
+          "coordination",
+          "publish"
+        ],
+        "flagRegistrations": 2
+      },
+      {
+        "helpBytes": 533,
+        "helpSha256": "d4206edf26588c83a208207308b6cf774f9323d87a3677389bf6e7d57935776d",
+        "leaf": false,
+        "path": [
+          "axiom",
+          "compatibility"
+        ],
+        "flagRegistrations": 0
+      },
+      {
+        "helpBytes": 421,
+        "helpSha256": "a3ff1f3f6a64fc8f04a2e51d429432287bd7e3ee59f72278cb885afa0ef5d167",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "compatibility",
+          "inspect"
+        ],
+        "flagRegistrations": 0
+      },
+      {
+        "helpBytes": 1030,
+        "helpSha256": "dc424e24bc8ebf81f44dc98fa3608ec3a45c0dfa0d40c8472bdd9b81acd4eba6",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "compatibility",
+          "backup"
+        ],
+        "flagRegistrations": 3
+      },
+      {
+        "helpBytes": 1029,
+        "helpSha256": "fd7f930b9c1d135ae1c33c4c16d6930855c7aac32672282123fc65f789c2cce1",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "compatibility",
+          "export"
+        ],
+        "flagRegistrations": 3
+      },
+      {
+        "helpBytes": 475,
+        "helpSha256": "64c9f74e869bde4af4729d5afd015d8d802753e9238124ec7a4f7c677507108a",
+        "leaf": false,
+        "path": [
+          "axiom",
+          "artifact"
+        ],
+        "flagRegistrations": 0
+      },
+      {
+        "helpBytes": 837,
+        "helpSha256": "ea224fab67103c6d3a903b8e9a3b2be28a09517dc1b7bef99531f245146afb79",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "artifact",
+          "cleanup"
+        ],
+        "flagRegistrations": 2
+      },
+      {
+        "helpBytes": 1013,
+        "helpSha256": "bd242b7b874260ea2ee98d4d73e45bdbe165412e1c59872d2bf118be09e640ec",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "artifact",
+          "retire"
+        ],
+        "flagRegistrations": 3
+      },
+      {
+        "helpBytes": 475,
+        "helpSha256": "51a376663485c757206864a301f3b7d756db027a1435f1a80c7d4926cb1db4ff",
+        "leaf": false,
+        "path": [
+          "axiom",
+          "recovery"
+        ],
+        "flagRegistrations": 0
+      },
+      {
+        "helpBytes": 401,
+        "helpSha256": "0c1d9169775ace84bc973d64dd93c0dfda0ad1b50e173b2d483599d668f257ac",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "recovery",
+          "inspect"
+        ],
+        "flagRegistrations": 0
+      },
+      {
+        "helpBytes": 787,
+        "helpSha256": "419c01ed144f59a56049f184b4125dbd87f8acf3f322b96b203b26dabe325343",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "recovery",
+          "apply"
+        ],
+        "flagRegistrations": 2
+      },
+      {
+        "helpBytes": 1565,
+        "helpSha256": "3263ae63cbf07a95090bc6906f432116f182b6a6c898750290f7daa1391d829b",
+        "leaf": true,
+        "path": [
+          "axiom",
+          "upgrade"
+        ],
+        "flagRegistrations": 6
+      }
+    ],
+    "plannedTextOutputs": 11,
+    "plannedManOutputs": 15,
+    "plannedOutputs": 26,
+    "futureDocsInspect": "NOT_IMPLEMENTED"
+  },
+  "corpusEstimate": {
+    "sourceInputs": [
+      {
+        "path": "docs/installation.md",
+        "bytes": 10334,
+        "sha256": "cb9a1eb1c57114ab84c2280a074d55010ef9db09b228fee4e97c96ed7c5fbfcc"
+      },
+      {
+        "path": "docs/commands.md",
+        "bytes": 131165,
+        "sha256": "805019ecdaf73e99d3c87a2f1eb1bff19513d6c151b83e4341eb2f5c0f22f58f"
+      },
+      {
+        "path": "docs/product/README.md",
+        "bytes": 3547,
+        "sha256": "2ba24c683b5fd70c698107b28290784a9f69035f0c40bcaa7b970203934b8356"
+      },
+      {
+        "path": "docs/architecture/conceptual-model.md",
+        "bytes": 26982,
+        "sha256": "34c863a57cf9d6cbea9b31fde1d185ddac05c9a25ce3bd7bc20cf29ee4fffc8f"
+      },
+      {
+        "path": "docs/architecture/provider-boundaries.md",
+        "bytes": 5814,
+        "sha256": "c05af12ebbf9a2f50d9d97a82609cca6b057193a2d01094153f92f074a119385"
+      }
+    ],
+    "sourceBytes": 177842,
+    "formula": "2*sourceBytes + 4*allHelpBytes + 26*4096",
+    "estimatedBytes": 1104364,
+    "budgetBytes": 8388608,
+    "ratio": 0.13165,
+    "qualification": "Scenario estimate only: duplicates measured source text twice, help four times for reference/man/escaping, plus 4 KiB per planned output. Not a bound, final byte measurement, source-to-output map, coverage qualification or permission to freeze. Unknown authored journeys and renderer remain unmeasured. No coverage removed."
+  },
+  "v010PassiveArchives": [
+    {
+      "asset": "axiom-0.1.0-macos-27-arm64.tar.gz",
+      "url": "https://github.com/rgomids/axiom/releases/download/v0.1.0/axiom-0.1.0-macos-27-arm64.tar.gz",
+      "compressedBytes": 1979112,
+      "sha256": "f817d8550b58b8ba316909201da6fb7f0dcfcfac55db003553e0c879706d9f5e",
+      "payloadBytes": 4991947,
+      "headers": 18,
+      "regularFiles": 11,
+      "metadata": {
+        "formatVersion": "1",
+        "product": "Axiom",
+        "version": "0.1.0",
+        "revision": "084cc384d4c9",
+        "sourceState": "clean",
+        "release": "true",
+        "platform": "macos-27",
+        "goos": "darwin",
+        "architecture": "arm64",
+        "skillSetVersion": "1"
+      },
+      "skillNames": [
+        "axiom-project-configure",
+        "axiom-project-show",
+        "axiom-work-item-create",
+        "axiom-work-item-run",
+        "axiom-work-item-status"
+      ],
+      "members": [
+        {
+          "path": "LICENSE",
+          "bytes": 11358,
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        },
+        {
+          "path": "MANIFEST.sha256",
+          "bytes": 915,
+          "sha256": "1ec44828172cbdaceb579c29b457240980195d5026d65c99dad7b994b3ae8854"
+        },
+        {
+          "path": "axiom",
+          "bytes": 4947282,
+          "sha256": "f85dedb14f93b1a8c491c8e07864b4f248b3a4314361b9612ffbf96892e53a33"
+        },
+        {
+          "path": "install.sh",
+          "bytes": 22487,
+          "sha256": "390352595b8b285e734d535faf30669cb2c7ecf13b3d7b4d2429d5982bed376c"
+        },
+        {
+          "path": "release-metadata.txt",
+          "bytes": 164,
+          "sha256": "b2b5e053acda6c603b7ebb1c7eb1374d22f95d66081eac7bb71f3ba7c655b2ab"
+        },
+        {
+          "path": "skills-manifest.txt",
+          "bytes": 520,
+          "sha256": "98ba89541007cf2838fd5afeb641477ded380ee361591787bdea395617671ed2"
+        },
+        {
+          "path": "skills/axiom-project-configure/SKILL.md",
+          "bytes": 1857,
+          "sha256": "b0d16b482ca3a08c20f8c5d7154573db825a563f458b3bf5284570fa263e4ad3"
+        },
+        {
+          "path": "skills/axiom-project-show/SKILL.md",
+          "bytes": 1154,
+          "sha256": "048975860d658e8134eb498c7cd5158104338a2629dd8a8cda4a2ecb0bb99c09"
+        },
+        {
+          "path": "skills/axiom-work-item-create/SKILL.md",
+          "bytes": 2263,
+          "sha256": "85e4f4badff647a337acf59e96d07909c9a3c47ce5e8df65fac08395c8aac8c4"
+        },
+        {
+          "path": "skills/axiom-work-item-run/SKILL.md",
+          "bytes": 2381,
+          "sha256": "f0fd487fbbfcfb87bee9906244fb1fedbc0dd5bcbd1fb01594dc3df0c8e5e897"
+        },
+        {
+          "path": "skills/axiom-work-item-status/SKILL.md",
+          "bytes": 1566,
+          "sha256": "6a139090ff66759b64e630181373c32ff51ad2672d90d26184b6f81e9879b7d9"
+        }
+      ],
+      "passiveIntegrity": "PASS",
+      "candidateExecutions": 0,
+      "nativeMigration": "NOT_RUN"
+    },
+    {
+      "asset": "axiom-0.1.0-ubuntu-26.04-amd64.tar.gz",
+      "url": "https://github.com/rgomids/axiom/releases/download/v0.1.0/axiom-0.1.0-ubuntu-26.04-amd64.tar.gz",
+      "compressedBytes": 2139204,
+      "sha256": "1e4d1781959f348819eef647528c8de2e7dff0a314ad64e00776a175b34b9b12",
+      "payloadBytes": 5422878,
+      "headers": 18,
+      "regularFiles": 11,
+      "metadata": {
+        "formatVersion": "1",
+        "product": "Axiom",
+        "version": "0.1.0",
+        "revision": "084cc384d4c9",
+        "sourceState": "clean",
+        "release": "true",
+        "platform": "ubuntu-26.04",
+        "goos": "linux",
+        "architecture": "amd64",
+        "skillSetVersion": "1"
+      },
+      "skillNames": [
+        "axiom-project-configure",
+        "axiom-project-show",
+        "axiom-work-item-create",
+        "axiom-work-item-run",
+        "axiom-work-item-status"
+      ],
+      "members": [
+        {
+          "path": "LICENSE",
+          "bytes": 11358,
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        },
+        {
+          "path": "MANIFEST.sha256",
+          "bytes": 915,
+          "sha256": "076c21e91d9ef37a4d4e53ed6a037ccc58d898b9b07693faefc12de5c14e03c8"
+        },
+        {
+          "path": "axiom",
+          "bytes": 5378210,
+          "sha256": "e29007fa1aec94bab3bfe862822166c68f9c23b056b81152cd0af3815a9b6a34"
+        },
+        {
+          "path": "install.sh",
+          "bytes": 22487,
+          "sha256": "390352595b8b285e734d535faf30669cb2c7ecf13b3d7b4d2429d5982bed376c"
+        },
+        {
+          "path": "release-metadata.txt",
+          "bytes": 167,
+          "sha256": "9f782ddb049de33aca2c9bf8f2aec5922166f67100d386f4ac1610b8297bf9d0"
+        },
+        {
+          "path": "skills-manifest.txt",
+          "bytes": 520,
+          "sha256": "98ba89541007cf2838fd5afeb641477ded380ee361591787bdea395617671ed2"
+        },
+        {
+          "path": "skills/axiom-project-configure/SKILL.md",
+          "bytes": 1857,
+          "sha256": "b0d16b482ca3a08c20f8c5d7154573db825a563f458b3bf5284570fa263e4ad3"
+        },
+        {
+          "path": "skills/axiom-project-show/SKILL.md",
+          "bytes": 1154,
+          "sha256": "048975860d658e8134eb498c7cd5158104338a2629dd8a8cda4a2ecb0bb99c09"
+        },
+        {
+          "path": "skills/axiom-work-item-create/SKILL.md",
+          "bytes": 2263,
+          "sha256": "85e4f4badff647a337acf59e96d07909c9a3c47ce5e8df65fac08395c8aac8c4"
+        },
+        {
+          "path": "skills/axiom-work-item-run/SKILL.md",
+          "bytes": 2381,
+          "sha256": "f0fd487fbbfcfb87bee9906244fb1fedbc0dd5bcbd1fb01594dc3df0c8e5e897"
+        },
+        {
+          "path": "skills/axiom-work-item-status/SKILL.md",
+          "bytes": 1566,
+          "sha256": "6a139090ff66759b64e630181373c32ff51ad2672d90d26184b6f81e9879b7d9"
+        }
+      ],
+      "passiveIntegrity": "PASS",
+      "candidateExecutions": 0,
+      "nativeMigration": "NOT_RUN"
+    },
+    {
+      "asset": "axiom-0.1.0-ubuntu-26.04-arm64.tar.gz",
+      "url": "https://github.com/rgomids/axiom/releases/download/v0.1.0/axiom-0.1.0-ubuntu-26.04-arm64.tar.gz",
+      "compressedBytes": 1940126,
+      "sha256": "9ee603c679532ae30756134cb748f66ba0074f11ab17f92987dc16f172d52822",
+      "payloadBytes": 5025566,
+      "headers": 18,
+      "regularFiles": 11,
+      "metadata": {
+        "formatVersion": "1",
+        "product": "Axiom",
+        "version": "0.1.0",
+        "revision": "084cc384d4c9",
+        "sourceState": "clean",
+        "release": "true",
+        "platform": "ubuntu-26.04",
+        "goos": "linux",
+        "architecture": "arm64",
+        "skillSetVersion": "1"
+      },
+      "skillNames": [
+        "axiom-project-configure",
+        "axiom-project-show",
+        "axiom-work-item-create",
+        "axiom-work-item-run",
+        "axiom-work-item-status"
+      ],
+      "members": [
+        {
+          "path": "LICENSE",
+          "bytes": 11358,
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        },
+        {
+          "path": "MANIFEST.sha256",
+          "bytes": 915,
+          "sha256": "310a286006c2c9af4d669b29295791718b255ea2607fff48e93dfa1bff5b8db7"
+        },
+        {
+          "path": "axiom",
+          "bytes": 4980898,
+          "sha256": "df0d96566cf338895d7996a93e543bee462af6c26d67f4fe5f164f462d8505ae"
+        },
+        {
+          "path": "install.sh",
+          "bytes": 22487,
+          "sha256": "390352595b8b285e734d535faf30669cb2c7ecf13b3d7b4d2429d5982bed376c"
+        },
+        {
+          "path": "release-metadata.txt",
+          "bytes": 167,
+          "sha256": "b157ccce8126d3b709589d93e8f6700fa0a8efa32814104812d90657ce13d7b6"
+        },
+        {
+          "path": "skills-manifest.txt",
+          "bytes": 520,
+          "sha256": "98ba89541007cf2838fd5afeb641477ded380ee361591787bdea395617671ed2"
+        },
+        {
+          "path": "skills/axiom-project-configure/SKILL.md",
+          "bytes": 1857,
+          "sha256": "b0d16b482ca3a08c20f8c5d7154573db825a563f458b3bf5284570fa263e4ad3"
+        },
+        {
+          "path": "skills/axiom-project-show/SKILL.md",
+          "bytes": 1154,
+          "sha256": "048975860d658e8134eb498c7cd5158104338a2629dd8a8cda4a2ecb0bb99c09"
+        },
+        {
+          "path": "skills/axiom-work-item-create/SKILL.md",
+          "bytes": 2263,
+          "sha256": "85e4f4badff647a337acf59e96d07909c9a3c47ce5e8df65fac08395c8aac8c4"
+        },
+        {
+          "path": "skills/axiom-work-item-run/SKILL.md",
+          "bytes": 2381,
+          "sha256": "f0fd487fbbfcfb87bee9906244fb1fedbc0dd5bcbd1fb01594dc3df0c8e5e897"
+        },
+        {
+          "path": "skills/axiom-work-item-status/SKILL.md",
+          "bytes": 1566,
+          "sha256": "6a139090ff66759b64e630181373c32ff51ad2672d90d26184b6f81e9879b7d9"
+        }
+      ],
+      "passiveIntegrity": "PASS",
+      "candidateExecutions": 0,
+      "nativeMigration": "NOT_RUN"
+    }
+  ],
+  "historicalStableBaselines": [
+    {
+      "tag": "v0.1.0",
+      "commit": "084cc384d4c9de3f5244a0867d22548d350c84d5",
+      "sourcePins": {
+        "scripts/build-release-archives.sh": "0e544392bd963ed715f1ad770ecb80c05e50e63fc8a058fed99df10819d7e1e5",
+        "scripts/install-release.sh": "390352595b8b285e734d535faf30669cb2c7ecf13b3d7b4d2429d5982bed376c",
+        "internal/install/archive.go": "c9b2ff63b1044d73c9246616dd06641c574ff4070116cae3716f70273afd345c",
+        "internal/install/upgrade.go": "1bd68821f47ff5952bbcbbf743c823ce6a4d6a618c85a1d2a406f31038e0d3e8"
+      },
+      "runtimeReceiptFixtures": [
+        {
+          "path": "internal/codexruntime/testdata/published-receipts/v0.1.0/codex.receipt",
+          "bytes": 136,
+          "sha256": "6f479cf7d7db1a91bb23b115a73b289c24c6ce4c7cce21bc53b08e9b9fe5ae8a"
+        },
+        {
+          "path": "internal/codexruntime/testdata/published-receipts/v0.1.0/claude.receipt",
+          "bytes": 635,
+          "sha256": "c0faa323281321fcc0b3162a41bd42d3273da841b8ffcff623547f54f0811df0"
+        }
+      ],
+      "runtimeReceiptRecognition": "PASS",
+      "archiveNativeMigration": "UNVERIFIED",
+      "reason": "Receipt recognition is separate from a full installation receipt, exact artifact and native v1-to-v2 migration; v2 consumer does not exist."
+    },
+    {
+      "tag": "v0.1.1",
+      "commit": "0135a6b8a2a6d91d14eb75af34e4a44dbdcf73c8",
+      "sourcePins": {
+        "scripts/build-release-archives.sh": "e314e0618509f44470a0efe2a503a797f60f4877a741d200f83bae48f97539d5",
+        "scripts/install-release.sh": "3a0bbfc7e35c4e14398e9a9c8c3764990027fcdcf778996ddf4e80fa0688da09",
+        "internal/install/archive.go": "c9b2ff63b1044d73c9246616dd06641c574ff4070116cae3716f70273afd345c",
+        "internal/install/upgrade.go": "1bd68821f47ff5952bbcbbf743c823ce6a4d6a618c85a1d2a406f31038e0d3e8"
+      },
+      "runtimeReceiptFixtures": [
+        {
+          "path": "internal/codexruntime/testdata/published-receipts/v0.1.1/codex.receipt",
+          "bytes": 136,
+          "sha256": "6f479cf7d7db1a91bb23b115a73b289c24c6ce4c7cce21bc53b08e9b9fe5ae8a"
+        },
+        {
+          "path": "internal/codexruntime/testdata/published-receipts/v0.1.1/claude.receipt",
+          "bytes": 635,
+          "sha256": "c0faa323281321fcc0b3162a41bd42d3273da841b8ffcff623547f54f0811df0"
+        }
+      ],
+      "runtimeReceiptRecognition": "PASS",
+      "archiveNativeMigration": "UNVERIFIED",
+      "reason": "Receipt recognition is separate from a full installation receipt, exact artifact and native v1-to-v2 migration; v2 consumer does not exist."
+    },
+    {
+      "tag": "v0.1.2",
+      "commit": "015cdfdf04b9b93cf96334e18635b137e9b70499",
+      "sourcePins": {
+        "scripts/build-release-archives.sh": "e314e0618509f44470a0efe2a503a797f60f4877a741d200f83bae48f97539d5",
+        "scripts/install-release.sh": "3a0bbfc7e35c4e14398e9a9c8c3764990027fcdcf778996ddf4e80fa0688da09",
+        "internal/install/archive.go": "c9b2ff63b1044d73c9246616dd06641c574ff4070116cae3716f70273afd345c",
+        "internal/install/upgrade.go": "1bd68821f47ff5952bbcbbf743c823ce6a4d6a618c85a1d2a406f31038e0d3e8"
+      },
+      "runtimeReceiptFixtures": [
+        {
+          "path": "internal/codexruntime/testdata/published-receipts/v0.1.2/codex.receipt",
+          "bytes": 136,
+          "sha256": "ab86b295f5d7d025427c6af3c9aea14dc7a49806762532a389bce80b2931436e"
+        },
+        {
+          "path": "internal/codexruntime/testdata/published-receipts/v0.1.2/claude.receipt",
+          "bytes": 635,
+          "sha256": "ca0c441971ad992b03dbaf748424cc171f19588522b9550ab6fa7ce0dc9a4557"
+        }
+      ],
+      "runtimeReceiptRecognition": "PASS",
+      "archiveNativeMigration": "UNVERIFIED",
+      "reason": "Receipt recognition is separate from a full installation receipt, exact artifact and native v1-to-v2 migration; v2 consumer does not exist."
+    },
+    {
+      "tag": "v0.2.0",
+      "commit": "56fbbfdf24a28a50fceb0ec89a67ff7a74a40894",
+      "sourcePins": {
+        "scripts/build-release-archives.sh": "e314e0618509f44470a0efe2a503a797f60f4877a741d200f83bae48f97539d5",
+        "scripts/install-release.sh": "8ebdee49f7f7a566b991b5616f6cfe09ec9308855c015282d749a93dd3748be0",
+        "internal/install/archive.go": "ba9238411478ecd0f1fcc3cc07957af62510b5218fa2ac1ca3cb2abd71c9433a",
+        "internal/install/upgrade.go": "1bd68821f47ff5952bbcbbf743c823ce6a4d6a618c85a1d2a406f31038e0d3e8"
+      },
+      "runtimeReceiptFixtures": [
+        {
+          "path": "internal/codexruntime/testdata/published-receipts/v0.2.0/codex.receipt",
+          "bytes": 136,
+          "sha256": "1b598114099dd3f00a8d8530795ada6320b4cd02ab6b2daac20ccabf1d906e0f"
+        },
+        {
+          "path": "internal/codexruntime/testdata/published-receipts/v0.2.0/claude.receipt",
+          "bytes": 725,
+          "sha256": "72ba8e38c6a274e4bf1de63bb1968db1804b14f554c7300c1889f82376746a2a"
+        }
+      ],
+      "runtimeReceiptRecognition": "PASS",
+      "archiveNativeMigration": "UNVERIFIED",
+      "reason": "Receipt recognition is separate from a full installation receipt, exact artifact and native v1-to-v2 migration; v2 consumer does not exist."
+    },
+    {
+      "tag": "v0.2.1",
+      "commit": "2182b3e1fa587a110182dd11042c0298dbfe8597",
+      "sourcePins": {
+        "scripts/build-release-archives.sh": "e314e0618509f44470a0efe2a503a797f60f4877a741d200f83bae48f97539d5",
+        "scripts/install-release.sh": "8ebdee49f7f7a566b991b5616f6cfe09ec9308855c015282d749a93dd3748be0",
+        "internal/install/archive.go": "ba9238411478ecd0f1fcc3cc07957af62510b5218fa2ac1ca3cb2abd71c9433a",
+        "internal/install/upgrade.go": "1bd68821f47ff5952bbcbbf743c823ce6a4d6a618c85a1d2a406f31038e0d3e8"
+      },
+      "runtimeReceiptFixtures": [
+        {
+          "path": "internal/codexruntime/testdata/published-receipts/v0.2.1/codex.receipt",
+          "bytes": 136,
+          "sha256": "1b598114099dd3f00a8d8530795ada6320b4cd02ab6b2daac20ccabf1d906e0f"
+        },
+        {
+          "path": "internal/codexruntime/testdata/published-receipts/v0.2.1/claude.receipt",
+          "bytes": 725,
+          "sha256": "72ba8e38c6a274e4bf1de63bb1968db1804b14f554c7300c1889f82376746a2a"
+        }
+      ],
+      "runtimeReceiptRecognition": "PASS",
+      "archiveNativeMigration": "UNVERIFIED",
+      "reason": "Receipt recognition is separate from a full installation receipt, exact artifact and native v1-to-v2 migration; v2 consumer does not exist."
+    },
+    {
+      "tag": "v0.3.0",
+      "commit": "b79d3bf8cbf21247ca30cae06ff000e7f89a5adf",
+      "sourcePins": {
+        "scripts/build-release-archives.sh": "e314e0618509f44470a0efe2a503a797f60f4877a741d200f83bae48f97539d5",
+        "scripts/install-release.sh": "27a777e26fd2e175aea64e80e0f34211dc5ad0ea66a52c97c8cc857b1b34a33a",
+        "internal/install/archive.go": "ba9238411478ecd0f1fcc3cc07957af62510b5218fa2ac1ca3cb2abd71c9433a",
+        "internal/install/upgrade.go": "f719211bfe2a103ad561e81b1673593ba580716de894331875835f2af9d736c9"
+      },
+      "runtimeReceiptFixtures": [
+        {
+          "path": "internal/codexruntime/testdata/published-receipts/v0.3.0/codex.receipt",
+          "bytes": 136,
+          "sha256": "1b598114099dd3f00a8d8530795ada6320b4cd02ab6b2daac20ccabf1d906e0f"
+        },
+        {
+          "path": "internal/codexruntime/testdata/published-receipts/v0.3.0/claude.receipt",
+          "bytes": 725,
+          "sha256": "72ba8e38c6a274e4bf1de63bb1968db1804b14f554c7300c1889f82376746a2a"
+        }
+      ],
+      "runtimeReceiptRecognition": "PASS",
+      "archiveNativeMigration": "UNVERIFIED",
+      "reason": "Receipt recognition is separate from a full installation receipt, exact artifact and native v1-to-v2 migration; v2 consumer does not exist."
+    },
+    {
+      "tag": "v0.4.0",
+      "commit": "fbbdd37285e3175d6cbf10f0a13e88a2191e6cd9",
+      "sourcePins": {
+        "scripts/build-release-archives.sh": "1c41f8f7e2f463bb1dd8f5b784f6adeb4b4630b49ebb950acefa29e62208ec26",
+        "scripts/install-release.sh": "27a777e26fd2e175aea64e80e0f34211dc5ad0ea66a52c97c8cc857b1b34a33a",
+        "internal/install/archive.go": "ba9238411478ecd0f1fcc3cc07957af62510b5218fa2ac1ca3cb2abd71c9433a",
+        "internal/install/upgrade.go": "a17d260532679426a2433e773e4da21a5d5cb752e74d3a4c855c5ee6f69ae551"
+      },
+      "runtimeReceiptFixtures": [
+        {
+          "path": "internal/codexruntime/testdata/published-receipts/v0.4.0/codex.receipt",
+          "bytes": 136,
+          "sha256": "cb60a1f232323a23d174a875a97faedccd00d37a0774418eee8c5b58744e7929"
+        },
+        {
+          "path": "internal/codexruntime/testdata/published-receipts/v0.4.0/claude.receipt",
+          "bytes": 725,
+          "sha256": "fa16b47b0e050b77234bf4890075988a7ceb76b408285cdbe66404bf37ec0f06"
+        }
+      ],
+      "runtimeReceiptRecognition": "PASS",
+      "archiveNativeMigration": "UNVERIFIED",
+      "reason": "Receipt recognition is separate from a full installation receipt, exact artifact and native v1-to-v2 migration; v2 consumer does not exist."
+    },
+    {
+      "tag": "v0.4.1",
+      "commit": "15677f4c86df0f40e0c7ff6f5623ad75f537bf0e",
+      "sourcePins": {
+        "scripts/build-release-archives.sh": "1c41f8f7e2f463bb1dd8f5b784f6adeb4b4630b49ebb950acefa29e62208ec26",
+        "scripts/install-release.sh": "0bc8d39e0e8f844e08b1668270bde646fd81a1b3daff6f00815dd8ee4f2051e8",
+        "internal/install/archive.go": "ba9238411478ecd0f1fcc3cc07957af62510b5218fa2ac1ca3cb2abd71c9433a",
+        "internal/install/upgrade.go": "a17d260532679426a2433e773e4da21a5d5cb752e74d3a4c855c5ee6f69ae551"
+      },
+      "runtimeReceiptFixtures": [
+        {
+          "path": "internal/codexruntime/testdata/published-receipts/v0.4.1/codex.receipt",
+          "bytes": 136,
+          "sha256": "cb60a1f232323a23d174a875a97faedccd00d37a0774418eee8c5b58744e7929"
+        },
+        {
+          "path": "internal/codexruntime/testdata/published-receipts/v0.4.1/claude.receipt",
+          "bytes": 725,
+          "sha256": "fa16b47b0e050b77234bf4890075988a7ceb76b408285cdbe66404bf37ec0f06"
+        }
+      ],
+      "runtimeReceiptRecognition": "PASS",
+      "archiveNativeMigration": "UNVERIFIED",
+      "reason": "Receipt recognition is separate from a full installation receipt, exact artifact and native v1-to-v2 migration; v2 consumer does not exist."
+    },
+    {
+      "tag": "v0.4.2",
+      "commit": "df7eb1ab65ca1b7cb8374d00a80b8b4816f3b188",
+      "sourcePins": {
+        "scripts/build-release-archives.sh": "1c41f8f7e2f463bb1dd8f5b784f6adeb4b4630b49ebb950acefa29e62208ec26",
+        "scripts/install-release.sh": "0bc8d39e0e8f844e08b1668270bde646fd81a1b3daff6f00815dd8ee4f2051e8",
+        "internal/install/archive.go": "ba9238411478ecd0f1fcc3cc07957af62510b5218fa2ac1ca3cb2abd71c9433a",
+        "internal/install/upgrade.go": "a10e4b4699d7ac591ab2f02d6aef23680068dd1001fc23dfa53058081c118fc7"
+      },
+      "runtimeReceiptFixtures": [],
+      "runtimeReceiptRecognition": "UNVERIFIED",
+      "archiveNativeMigration": "UNVERIFIED",
+      "reason": "Receipt recognition is separate from a full installation receipt, exact artifact and native v1-to-v2 migration; v2 consumer does not exist."
+    },
+    {
+      "tag": "v0.5.0",
+      "commit": "5ad602c2327b6a6380d7fc43effc3d44858667f1",
+      "sourcePins": {
+        "scripts/build-release-archives.sh": "1c41f8f7e2f463bb1dd8f5b784f6adeb4b4630b49ebb950acefa29e62208ec26",
+        "scripts/install-release.sh": "0bc8d39e0e8f844e08b1668270bde646fd81a1b3daff6f00815dd8ee4f2051e8",
+        "internal/install/archive.go": "ba9238411478ecd0f1fcc3cc07957af62510b5218fa2ac1ca3cb2abd71c9433a",
+        "internal/install/upgrade.go": "8563a8a8e240913d00ae1e9cc6ba6c6af245a213925c9b03e39e859356d8d7dc"
+      },
+      "runtimeReceiptFixtures": [
+        {
+          "path": "internal/codexruntime/testdata/published-receipts/v0.5.0/codex.receipt",
+          "bytes": 136,
+          "sha256": "7649e3c0e998ae785afbadc2bcaf655d2a4c9e2f394945e4af5a39e6a6351e27"
+        },
+        {
+          "path": "internal/codexruntime/testdata/published-receipts/v0.5.0/claude.receipt",
+          "bytes": 725,
+          "sha256": "b095f58d2be289d6b14c637b4a19ed4b32b11382d77476485534a0076f17e78a"
+        }
+      ],
+      "runtimeReceiptRecognition": "PASS",
+      "archiveNativeMigration": "UNVERIFIED",
+      "reason": "Receipt recognition is separate from a full installation receipt, exact artifact and native v1-to-v2 migration; v2 consumer does not exist."
+    },
+    {
+      "tag": "v0.6.0",
+      "commit": "ce1de9351182a970e84973c7b583a2a2391a1b6e",
+      "sourcePins": {
+        "scripts/build-release-archives.sh": "1c41f8f7e2f463bb1dd8f5b784f6adeb4b4630b49ebb950acefa29e62208ec26",
+        "scripts/install-release.sh": "0bc8d39e0e8f844e08b1668270bde646fd81a1b3daff6f00815dd8ee4f2051e8",
+        "internal/install/archive.go": "ba9238411478ecd0f1fcc3cc07957af62510b5218fa2ac1ca3cb2abd71c9433a",
+        "internal/install/upgrade.go": "8563a8a8e240913d00ae1e9cc6ba6c6af245a213925c9b03e39e859356d8d7dc"
+      },
+      "runtimeReceiptFixtures": [
+        {
+          "path": "internal/codexruntime/testdata/published-receipts/v0.6.0/codex.receipt",
+          "bytes": 136,
+          "sha256": "957e7518d640cea822b36e9b66f5609dd8ac9eec1b314d9a6d40811234b9d5ed"
+        },
+        {
+          "path": "internal/codexruntime/testdata/published-receipts/v0.6.0/claude.receipt",
+          "bytes": 725,
+          "sha256": "bac735db3d31e96add695533af0b3438b2af4f87d70b6058f37f2d00fd7bba17"
+        }
+      ],
+      "runtimeReceiptRecognition": "PASS",
+      "archiveNativeMigration": "UNVERIFIED",
+      "reason": "Receipt recognition is separate from a full installation receipt, exact artifact and native v1-to-v2 migration; v2 consumer does not exist."
+    },
+    {
+      "tag": "v0.7.0",
+      "commit": "419523c9315afbe70ac6e244dc9908327628e241",
+      "sourcePins": {
+        "scripts/build-release-archives.sh": "1c41f8f7e2f463bb1dd8f5b784f6adeb4b4630b49ebb950acefa29e62208ec26",
+        "scripts/install-release.sh": "8025a0fc050bb661277d987b0e4c540af23fd9271d4217950a06027fafb7714c",
+        "internal/install/archive.go": "39b757cefe39d2c8dc5b964f24d422aaa33599b0c329fb9b57a181ac2ee8ae9a",
+        "internal/install/upgrade.go": "5289c6cf6205cbb3605e7db8c689415c086094c1f9c005925fe383bd259675e7"
+      },
+      "runtimeReceiptFixtures": [],
+      "runtimeReceiptRecognition": "UNVERIFIED",
+      "archiveNativeMigration": "UNVERIFIED",
+      "reason": "Receipt recognition is separate from a full installation receipt, exact artifact and native v1-to-v2 migration; v2 consumer does not exist."
+    },
+    {
+      "tag": "v0.8.0",
+      "commit": "e47890731e8dd070baa5397b643a9ca6c07f5629",
+      "sourcePins": {
+        "scripts/build-release-archives.sh": "1c41f8f7e2f463bb1dd8f5b784f6adeb4b4630b49ebb950acefa29e62208ec26",
+        "scripts/install-release.sh": "8025a0fc050bb661277d987b0e4c540af23fd9271d4217950a06027fafb7714c",
+        "internal/install/archive.go": "39b757cefe39d2c8dc5b964f24d422aaa33599b0c329fb9b57a181ac2ee8ae9a",
+        "internal/install/upgrade.go": "5289c6cf6205cbb3605e7db8c689415c086094c1f9c005925fe383bd259675e7"
+      },
+      "runtimeReceiptFixtures": [],
+      "runtimeReceiptRecognition": "UNVERIFIED",
+      "archiveNativeMigration": "UNVERIFIED",
+      "reason": "Receipt recognition is separate from a full installation receipt, exact artifact and native v1-to-v2 migration; v2 consumer does not exist."
+    },
+    {
+      "tag": "v0.9.0",
+      "commit": "b69fa837cacaa92bee865628a09edf8797777110",
+      "sourcePins": {
+        "scripts/build-release-archives.sh": "1c41f8f7e2f463bb1dd8f5b784f6adeb4b4630b49ebb950acefa29e62208ec26",
+        "scripts/install-release.sh": "8025a0fc050bb661277d987b0e4c540af23fd9271d4217950a06027fafb7714c",
+        "internal/install/archive.go": "39b757cefe39d2c8dc5b964f24d422aaa33599b0c329fb9b57a181ac2ee8ae9a",
+        "internal/install/upgrade.go": "5289c6cf6205cbb3605e7db8c689415c086094c1f9c005925fe383bd259675e7"
+      },
+      "runtimeReceiptFixtures": [],
+      "runtimeReceiptRecognition": "UNVERIFIED",
+      "archiveNativeMigration": "UNVERIFIED",
+      "reason": "Receipt recognition is separate from a full installation receipt, exact artifact and native v1-to-v2 migration; v2 consumer does not exist."
+    },
+    {
+      "tag": "v0.10.0",
+      "commit": "c7260797aad7865419f555eea94a2eef7ae78285",
+      "sourcePins": {
+        "scripts/build-release-archives.sh": "1c41f8f7e2f463bb1dd8f5b784f6adeb4b4630b49ebb950acefa29e62208ec26",
+        "scripts/install-release.sh": "8025a0fc050bb661277d987b0e4c540af23fd9271d4217950a06027fafb7714c",
+        "internal/install/archive.go": "39b757cefe39d2c8dc5b964f24d422aaa33599b0c329fb9b57a181ac2ee8ae9a",
+        "internal/install/upgrade.go": "5289c6cf6205cbb3605e7db8c689415c086094c1f9c005925fe383bd259675e7"
+      },
+      "runtimeReceiptFixtures": [],
+      "runtimeReceiptRecognition": "UNVERIFIED",
+      "archiveNativeMigration": "UNVERIFIED",
+      "reason": "Receipt recognition is separate from a full installation receipt, exact artifact and native v1-to-v2 migration; v2 consumer does not exist."
+    },
+    {
+      "tag": "v0.11.0",
+      "commit": "73dce6df0ab590b37df0e5a19b1483737bf1ca1e",
+      "sourcePins": {
+        "scripts/build-release-archives.sh": "1c41f8f7e2f463bb1dd8f5b784f6adeb4b4630b49ebb950acefa29e62208ec26",
+        "scripts/install-release.sh": "6bbea7a86720f11d8eea6c7b31ec22c1d86e6d0bd9b0fd6e4d45e87639bda69f",
+        "internal/install/archive.go": "e4d4e92b36a7e1aeaa40ec9ed5aeeaa5a784947ba23c4092a04943ef9659cc4a",
+        "internal/install/upgrade.go": "5a0933b4deff07fce26b37923f82feec8160b6e503ae11bd2657805af2a43d70"
+      },
+      "runtimeReceiptFixtures": [],
+      "runtimeReceiptRecognition": "UNVERIFIED",
+      "archiveNativeMigration": "UNVERIFIED",
+      "reason": "Receipt recognition is separate from a full installation receipt, exact artifact and native v1-to-v2 migration; v2 consumer does not exist."
+    },
+    {
+      "tag": "v0.12.0",
+      "commit": "998e763cf82c4cb443d0d4d0051c6e82bcdf8d72",
+      "sourcePins": {
+        "scripts/build-release-archives.sh": "1c41f8f7e2f463bb1dd8f5b784f6adeb4b4630b49ebb950acefa29e62208ec26",
+        "scripts/install-release.sh": "6bbea7a86720f11d8eea6c7b31ec22c1d86e6d0bd9b0fd6e4d45e87639bda69f",
+        "internal/install/archive.go": "e4d4e92b36a7e1aeaa40ec9ed5aeeaa5a784947ba23c4092a04943ef9659cc4a",
+        "internal/install/upgrade.go": "a8faa42841fa08f8614ce0493f58fe329012730336a28ec9fb389358ca6c6f2d"
+      },
+      "runtimeReceiptFixtures": [],
+      "runtimeReceiptRecognition": "UNVERIFIED",
+      "archiveNativeMigration": "UNVERIFIED",
+      "reason": "Receipt recognition is separate from a full installation receipt, exact artifact and native v1-to-v2 migration; v2 consumer does not exist."
+    },
+    {
+      "tag": "v0.13.0",
+      "commit": "b87edb62aed8deabce9d9009638e354195595122",
+      "sourcePins": {
+        "scripts/build-release-archives.sh": "1c41f8f7e2f463bb1dd8f5b784f6adeb4b4630b49ebb950acefa29e62208ec26",
+        "scripts/install-release.sh": "6bbea7a86720f11d8eea6c7b31ec22c1d86e6d0bd9b0fd6e4d45e87639bda69f",
+        "internal/install/archive.go": "e4d4e92b36a7e1aeaa40ec9ed5aeeaa5a784947ba23c4092a04943ef9659cc4a",
+        "internal/install/upgrade.go": "a8faa42841fa08f8614ce0493f58fe329012730336a28ec9fb389358ca6c6f2d"
+      },
+      "runtimeReceiptFixtures": [],
+      "runtimeReceiptRecognition": "UNVERIFIED",
+      "archiveNativeMigration": "UNVERIFIED",
+      "reason": "Receipt recognition is separate from a full installation receipt, exact artifact and native v1-to-v2 migration; v2 consumer does not exist."
+    },
+    {
+      "tag": "v0.14.0",
+      "commit": "874b24b137e68d22625518e52bec4a19939aa12f",
+      "sourcePins": {
+        "scripts/build-release-archives.sh": "1c41f8f7e2f463bb1dd8f5b784f6adeb4b4630b49ebb950acefa29e62208ec26",
+        "scripts/install-release.sh": "6bbea7a86720f11d8eea6c7b31ec22c1d86e6d0bd9b0fd6e4d45e87639bda69f",
+        "internal/install/archive.go": "e4d4e92b36a7e1aeaa40ec9ed5aeeaa5a784947ba23c4092a04943ef9659cc4a",
+        "internal/install/upgrade.go": "a8faa42841fa08f8614ce0493f58fe329012730336a28ec9fb389358ca6c6f2d"
+      },
+      "runtimeReceiptFixtures": [],
+      "runtimeReceiptRecognition": "UNVERIFIED",
+      "archiveNativeMigration": "UNVERIFIED",
+      "reason": "Receipt recognition is separate from a full installation receipt, exact artifact and native v1-to-v2 migration; v2 consumer does not exist."
+    },
+    {
+      "tag": "v0.15.0",
+      "commit": "37662730c64e077d615f110744ea86d2e897c890",
+      "sourcePins": {
+        "scripts/build-release-archives.sh": "1c41f8f7e2f463bb1dd8f5b784f6adeb4b4630b49ebb950acefa29e62208ec26",
+        "scripts/install-release.sh": "6bbea7a86720f11d8eea6c7b31ec22c1d86e6d0bd9b0fd6e4d45e87639bda69f",
+        "internal/install/archive.go": "e4d4e92b36a7e1aeaa40ec9ed5aeeaa5a784947ba23c4092a04943ef9659cc4a",
+        "internal/install/upgrade.go": "a8faa42841fa08f8614ce0493f58fe329012730336a28ec9fb389358ca6c6f2d"
+      },
+      "runtimeReceiptFixtures": [
+        {
+          "path": "internal/codexruntime/testdata/published-receipts/v0.15.0/codex.receipt",
+          "bytes": 136,
+          "sha256": "42e498dedc38e3fc4fc0ba8e38ffd7a36d89cf3d3adb4cbaf369f141db60489a"
+        },
+        {
+          "path": "internal/codexruntime/testdata/published-receipts/v0.15.0/claude.receipt",
+          "bytes": 343,
+          "sha256": "5a7f0341727746973ca3b717c2067011deeea779a988c6f5cf96ada12775b362"
+        }
+      ],
+      "runtimeReceiptRecognition": "PASS",
+      "archiveNativeMigration": "UNVERIFIED",
+      "reason": "Receipt recognition is separate from a full installation receipt, exact artifact and native v1-to-v2 migration; v2 consumer does not exist."
+    },
+    {
+      "tag": "v0.16.0",
+      "commit": "5d52327b0367ba08d872b50e804df5c7d63a3e89",
+      "sourcePins": {
+        "scripts/build-release-archives.sh": "1c41f8f7e2f463bb1dd8f5b784f6adeb4b4630b49ebb950acefa29e62208ec26",
+        "scripts/install-release.sh": "a21a9483dcd7775b75eb0c89242afb18ac6960d7e0cc7cf2f0cae574c854d3e8",
+        "internal/install/archive.go": "f5e27c4de1c2e65b3b833deaa10b044b80f066ace4097676fe914ca887fe82df",
+        "internal/install/upgrade.go": "a8faa42841fa08f8614ce0493f58fe329012730336a28ec9fb389358ca6c6f2d"
+      },
+      "runtimeReceiptFixtures": [],
+      "runtimeReceiptRecognition": "UNVERIFIED",
+      "archiveNativeMigration": "UNVERIFIED",
+      "reason": "Receipt recognition is separate from a full installation receipt, exact artifact and native v1-to-v2 migration; v2 consumer does not exist."
+    },
+    {
+      "tag": "v0.17.0",
+      "commit": "731c93e5793b22dae83628670670f71e7bd28977",
+      "sourcePins": {
+        "scripts/build-release-archives.sh": "2c3dde7ab7ddecc6945509b1e15cee02178e5708c865fdce2cde43508d8a57bc",
+        "scripts/install-release.sh": "8fa88c8d5e8e365100be019ffe0437e7f2cff8951a370cc6c856d50291cd91f6",
+        "internal/install/archive.go": "1a3933873f8512e77c803844ab5d964d2a5c4acb4715f1890704703c70a8cd39",
+        "internal/install/upgrade.go": "a8faa42841fa08f8614ce0493f58fe329012730336a28ec9fb389358ca6c6f2d"
+      },
+      "runtimeReceiptFixtures": [],
+      "runtimeReceiptRecognition": "UNVERIFIED",
+      "archiveNativeMigration": "UNVERIFIED",
+      "reason": "Receipt recognition is separate from a full installation receipt, exact artifact and native v1-to-v2 migration; v2 consumer does not exist."
+    },
+    {
+      "tag": "v0.18.0",
+      "commit": "0262c550e53e1ba8868e936d05b58fa78f67b56b",
+      "sourcePins": {
+        "scripts/build-release-archives.sh": "2c3dde7ab7ddecc6945509b1e15cee02178e5708c865fdce2cde43508d8a57bc",
+        "scripts/install-release.sh": "8fa88c8d5e8e365100be019ffe0437e7f2cff8951a370cc6c856d50291cd91f6",
+        "internal/install/archive.go": "1a3933873f8512e77c803844ab5d964d2a5c4acb4715f1890704703c70a8cd39",
+        "internal/install/upgrade.go": "a8faa42841fa08f8614ce0493f58fe329012730336a28ec9fb389358ca6c6f2d"
+      },
+      "runtimeReceiptFixtures": [],
+      "runtimeReceiptRecognition": "UNVERIFIED",
+      "archiveNativeMigration": "UNVERIFIED",
+      "reason": "Receipt recognition is separate from a full installation receipt, exact artifact and native v1-to-v2 migration; v2 consumer does not exist."
+    },
+    {
+      "tag": "v0.19.0",
+      "commit": "14cb721ac7b8ce09a7f20f2bc2175adf61b7934b",
+      "sourcePins": {
+        "scripts/build-release-archives.sh": "2c3dde7ab7ddecc6945509b1e15cee02178e5708c865fdce2cde43508d8a57bc",
+        "scripts/install-release.sh": "8fa88c8d5e8e365100be019ffe0437e7f2cff8951a370cc6c856d50291cd91f6",
+        "internal/install/archive.go": "1a3933873f8512e77c803844ab5d964d2a5c4acb4715f1890704703c70a8cd39",
+        "internal/install/upgrade.go": "a8faa42841fa08f8614ce0493f58fe329012730336a28ec9fb389358ca6c6f2d"
+      },
+      "runtimeReceiptFixtures": [],
+      "runtimeReceiptRecognition": "UNVERIFIED",
+      "archiveNativeMigration": "UNVERIFIED",
+      "reason": "Receipt recognition is separate from a full installation receipt, exact artifact and native v1-to-v2 migration; v2 consumer does not exist."
+    },
+    {
+      "tag": "v0.20.0",
+      "commit": "dd2ab51f609e405747c8e258ad00ceb98db5261f",
+      "sourcePins": {
+        "scripts/build-release-archives.sh": "2c3dde7ab7ddecc6945509b1e15cee02178e5708c865fdce2cde43508d8a57bc",
+        "scripts/install-release.sh": "8fa88c8d5e8e365100be019ffe0437e7f2cff8951a370cc6c856d50291cd91f6",
+        "internal/install/archive.go": "1a3933873f8512e77c803844ab5d964d2a5c4acb4715f1890704703c70a8cd39",
+        "internal/install/upgrade.go": "a8faa42841fa08f8614ce0493f58fe329012730336a28ec9fb389358ca6c6f2d"
+      },
+      "runtimeReceiptFixtures": [],
+      "runtimeReceiptRecognition": "UNVERIFIED",
+      "archiveNativeMigration": "UNVERIFIED",
+      "reason": "Receipt recognition is separate from a full installation receipt, exact artifact and native v1-to-v2 migration; v2 consumer does not exist."
+    }
+  ],
+  "v010ChecksumFile": {
+    "bytes": 308,
+    "sha256": "5b3b2379a5958438aa1e9f7384320d4a18b73838ae9a88ac915c7e5c31f23acf"
+  },
+  "gates": {
+    "G1": "BLOCKED",
+    "G2": "NOT_RUN",
+    "G3": "NOT_RUN"
+  },
+  "ac01Through08": "NOT_RUN"
+}
