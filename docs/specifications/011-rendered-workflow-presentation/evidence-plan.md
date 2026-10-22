@@ -1,5 +1,39 @@
 # AXM-38 — Plan Evidence, revision 1
 
+## Retrospective post-publication reconciliation — CR-002, 2026-10-22
+
+This note records the later publication state; all sections below retain their
+historical checkpoint observations. [PR #336](https://github.com/rgomids/axiom/pull/336)
+now contains Plan r1 and Spec r1 editorial e1 at the verified publication
+[HEAD `f5ab90e55c3328c4bac2eb0c1ae28428f9e6f378`](https://github.com/rgomids/axiom/commit/f5ab90e55c3328c4bac2eb0c1ae28428f9e6f378):
+[published Plan](https://github.com/rgomids/axiom/blob/f5ab90e55c3328c4bac2eb0c1ae28428f9e6f378/docs/specifications/011-rendered-workflow-presentation/plan.md),
+SHA-256 `2418a6814b03bbc3e7472a19dd6c3052de2eb0e66bb0cd4100ec65fbaed0dd24`,
+and [published Spec e1](https://github.com/rgomids/axiom/blob/f5ab90e55c3328c4bac2eb0c1ae28428f9e6f378/docs/specifications/011-rendered-workflow-presentation/spec.md),
+SHA-256 `921389e131fa203366a013102dfde429df8a160f228029f995cadebf48208be1`.
+The [review of that HEAD](https://github.com/rgomids/axiom/pull/336#pullrequestreview-5613399643)
+confirms CR-001 technically resolved in the published revision and identifies
+CR-002 as the remaining documentary reconciliation. Its COMMENT/self-review is
+not human acceptance.
+
+Specifically, `committed:false`, `PR unchanged`, `pending publication` and
+publication-authority/next-gate statements in [the Plan receipt](completion-receipt-plan.json),
+[Plan introduction and §8](plan.md#8-technical_decisions-and-gates), and the
+checkpoint/CR-001 sections below describe only their pre-publication instant.
+They do not describe current absence of these artifacts or reopen CR-001.
+Both historical receipts, including [the Specify receipt](completion-receipt.json),
+remain byte-for-byte unchanged; no old fact, hash or event is rewritten.
+
+Local documentary choice (CR002-TD-01, `TECHNICAL_LOCAL`, `executor-ai`,
+`scope_impact:none`): centralize reconciliation here rather than edit Plan r1 or
+historical receipts. The linked publication/review establishes the later state;
+one explicit note preserves exact Plan/Spec bytes and checkpoint provenance.
+No normative requirement, VP/P, AC, technical design or scope changes.
+
+Next gate: incremental CR-002 review, then exact human decision on Plan r1 and
+Spec editorial e1. Real host/renderer tests remain **NOT_RUN**, rendering
+**UNVERIFIED**; no acceptance, Tasks, implementation, real sessions, costs,
+merge or release is authorized or claimed by this correction.
+
 Date: 2026-10-22. **Local documentary checkpoint / PARTIAL publication.**
 No implementation, native session, new CI or product acceptance is claimed.
 
