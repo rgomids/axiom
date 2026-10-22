@@ -1,5 +1,27 @@
 # AXM-38 Real-host qualification — attempt-02, 2026-10-22
 
+## Current reconciliation — human testimony received 16:53 BRT
+
+The **Rafael Gomides** decision of **2026-10-22 16:53 BRT**, relayed by **Maestro
+(Grok Bot, AI)** in the current task message, approves the retained captures
+(including `c01b-inline-dag.png`) as **human E7 visual/manual testimony** of
+inline SVG in Claude Desktop Code and approves **observed Unicode fidelity**.
+See [attributed testimony and hashes](human-acceptance-t03.json) and
+[current receipt](completion-receipt-implement.json). Earlier “human witness
+NOT_RUN” and “observed Unicode UNVERIFIED” statements below are historical and
+superseded for that acceptance scope. The original AI observation/copy limitation
+and lack of automated code-point proof remain facts, not acceptance blockers.
+
+**Current result: T03 EXECUTED / PARTIAL; T04 local complete / graphical PARTIAL.**
+Actual forced unknown/unavailable, empty/clipped graphic and renderer-error recovery
+remain unproven; C03 notes were simulations. E1 rendered observation and E7 human
+testimony are now accepted for the recorded exact tuple; that does not waive the
+remaining Tasks criterion. No new session or product-wide acceptance is inferred.
+CI of source `0ee43f2117aaaea69210f75d871b3c688044e335` passed; final-SHA CI is
+reported separately by the reconciliation callback.
+
+## Historical observation checkpoint — attempt-02, before human testimony
+
 ## Authority and preserved checkpoint
 
 Continuation of [attempt-01](evidence-implement.md), baseline

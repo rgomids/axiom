@@ -1,5 +1,41 @@
 # AXM-38 Implementation Evidence — attempt-01
 
+## Current reconciliation — 2026-10-22, 16:53 BRT
+
+**T03 EXECUTED / PARTIAL; T04 local complete / graphical PARTIAL.** The historical
+attempt-01 `NOT_RUN / AUTHORIZATION_REQUIRED` statements below describe that earlier
+checkpoint, not current progress. [Real-host attempt-02](evidence-qualification.md)
+records actual default/custom inline SVG and 32-Agent/496-edge observations at
+`0ee43f2117aaaea69210f75d871b3c688044e335`.
+
+**Rafael Gomides, 2026-10-22 16:53 BRT (UTC−03:00)** reviewed the T03 captures,
+including `qualification-t03/c01b-inline-dag.png`, and **approved them as human
+E7 testimony of inline SVG rendering in Claude Desktop Code; he also approved
+the observed Unicode fidelity**. Source: current user message relayed by
+**Maestro (Grok Bot, AI), not the human witness**. Exact attributed statement,
+candidate/source and capture hashes: [human testimony record](human-acceptance-t03.json).
+This closes those two human acceptance gaps; it does not manufacture an automated
+Unicode byte-equality test or accept unexecuted cases.
+
+The remaining explicit T03 criterion is **real forced rendering-failure/fallback
+coverage**: C01 retains an actual literal-fence failure; C02 an empty turn, not an
+empty graphic; C03's unknown/unavailable, empty/clipped and renderer-error notes
+are simulations. They do not prove recovery from those actual host conditions.
+T03 therefore cannot close, and T04 retains its graphical dependency. No additional
+screen-reader, exhaustive keyboard or broad malformed-host sweep is introduced as
+a new completion gate; the existing AX/keyboard method and its limits stay recorded.
+
+[Current implementation receipt](completion-receipt-implement.json) reconciles
+Tasks/AC/Evidence with this result and links historical receipts, whose original
+stage-specific facts and event payloads remain unchanged. CI for the qualified
+checkpoint passed ([39841998654](https://github.com/rgomids/axiom/actions/runs/39841998654));
+final reconciliation SHA/CI and callback read-back belong to the new Linear event.
+No code, candidate skill, approved Spec/Plan/Tasks, capture, installation or domain
+state changes are made in this documentary reconciliation. Next gate: review this
+same PR and complete the remaining accepted T03 fallback criterion.
+
+## Historical implementation checkpoint — attempt-01
+
 ## Authority, sources and completion boundary
 
 Implementation baseline: `4bf046f79d7d5006fea25ff2b5dc4dafc8a48fdc`, existing

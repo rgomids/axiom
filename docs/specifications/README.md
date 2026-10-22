@@ -15,9 +15,12 @@ tracks offline fixtures/oracle, shared skill guidance and isolated packaging.
 [Real-host qualification attempt-02](011-rendered-workflow-presentation/evidence-qualification.md)
 records authorized Code Desktop inline SVG observations, retained Mermaid/empty-turn
 failures, dense graph checks and remaining limits. Implementation remains
-**PARTIAL**: T03 was executed; human visual testimony, exact Unicode fidelity and
-remaining empirical checks are unverified. T04 local packaging is verified;
-graphical completion depends on T03. Next gate: review the same PR and remaining
+**PARTIAL**: T03 was executed; [Rafael's human E7/observed-Unicode approval,
+2026-10-22 16:53 BRT](011-rendered-workflow-presentation/human-acceptance-t03.json)
+is recorded. Real forced rendering-failure recovery remains unproven; T04 local
+packaging is verified, with graphical completion dependent on T03. The
+[current receipt](011-rendered-workflow-presentation/completion-receipt-implement.json)
+supersedes current progress claims while preserving historical receipts. Next gate: review the same PR and remaining
 qualification evidence.
 No product acceptance, merge or release is claimed. Historical
 [Tasks preparation receipt](011-rendered-workflow-presentation/completion-receipt-tasks.json)
