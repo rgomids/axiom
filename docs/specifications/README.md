@@ -2,12 +2,16 @@
 
 ## 011 — Rendered Workflow presentation
 
-[Specification](011-rendered-workflow-presentation/spec.md) revision 1 is
-**Proposed — specify only, 2026-10-22**, for
-[AXM-38](https://linear.app/rgomids/issue/AXM-38).
-[Specify Evidence](011-rendered-workflow-presentation/evidence-specify.md)
-separates source/documentation findings from unverified host rendering. No renderer,
-Plan, implementation, native host qualification or human acceptance is delivered.
+[Specification editorial e1](011-rendered-workflow-presentation/spec.md) and
+[Plan r1](011-rendered-workflow-presentation/plan.md) were **Approved, 2026-10-22**,
+by [exact-blob human decision](https://github.com/rgomids/axiom/pull/336#issuecomment-6345522075)
+at `5939c7aac0f05f53d94116c4ebd89fb774e36950`, for
+[AXM-38](https://linear.app/rgomids/issue/AXM-38). Historical Proposed wording and
+receipts remain preserved. [Tasks r1](011-rendered-workflow-presentation/tasks.md)
+are **PROPOSED — local preparation; publication pending authority**;
+[preparation receipt](011-rendered-workflow-presentation/completion-receipt-tasks.json)
+separates documentary checks from future behavioral Evidence. Next gate: `review_tasks`.
+No implementation, native host qualification or product acceptance is delivered.
 
 [Specification 008](008-output-separation/spec.md) received
 [explicit human acceptance](https://github.com/rgomids/axiom/pull/328#issuecomment-6246060142)
