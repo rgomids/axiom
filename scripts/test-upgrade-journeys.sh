@@ -103,8 +103,21 @@ install_release() {
   local bundle archive
   bundle=$(release_bundle "$1")
   archive=$(find "$1" -maxdepth 1 -name "axiom-*-$row.tar.gz" | head -1)
-  (cd / && bash "$bundle/install.sh" --archive "$archive" --checksums "$1/SHA256SUMS" \
+  (verifier_env "$1" && cd / && bash "$bundle/install.sh" --archive "$archive" --checksums "$1/SHA256SUMS" \
     --bin-dir "$H/.local/bin" --receipt-dir "$H/.local/state/axiom/install") >"$work/install.out" 2>"$work/install.err"
+}
+
+# verifier_env DIR: exports the release's own verifier helper and its
+# SHA256SUMS pin when DIR ships one; earlier releases have none and need none.
+verifier_env() {
+  local target helper
+  case "$row" in macos-27-arm64) target=darwin-arm64 ;; *) target=$row ;; esac
+  helper=$(find "$1" -maxdepth 1 -type f -name "axiom-verifier-*-$target" | head -1)
+  unset AXIOM_VERIFIER_PATH AXIOM_VERIFIER_SHA256
+  [[ -n "$helper" ]] || return 0
+  export AXIOM_VERIFIER_PATH=$helper
+  AXIOM_VERIFIER_SHA256=$(awk -v name="$(basename "$helper")" '$2 == name {print $1}' "$1/SHA256SUMS")
+  export AXIOM_VERIFIER_SHA256
 }
 
 tree_digest() {
@@ -192,7 +205,7 @@ portable_before=$(tree_digest "$PROJECTS")
 if [[ "$previous_version" == "0.15.0" ]]; then
   legacy_before=$(tree_digest "$H")
   candidate_archive=$(find "$candidate" -maxdepth 1 -name "axiom-*-$row.tar.gz" | head -1)
-  if (cd "$H/cwd" && axiom --json upgrade --archive "$candidate_archive" --checksums "$candidate/SHA256SUMS" --bin-dir "$H/.local/bin" --receipt-dir "$H/.local/state/axiom/install") >"$work/legacy-upgrade.json" 2>&1; then
+  if (verifier_env "$candidate" && cd "$H/cwd" && axiom --json upgrade --archive "$candidate_archive" --checksums "$candidate/SHA256SUMS" --bin-dir "$H/.local/bin" --receipt-dir "$H/.local/state/axiom/install") >"$work/legacy-upgrade.json" 2>&1; then
     fail legacy-parser-refuses-three-skills
   else
     check legacy-parser-refuses-three-skills grep -q '"result":"Upgrade candidate failed verification: skill_manifest_invalid"' "$work/legacy-upgrade.json"
@@ -229,7 +242,7 @@ for index in "${!previous[@]}"; do
   check first-run bash -c 'cd "$HOME/cwd" && axiom first-run'
   check claude-ready bash -c 'cd "$HOME/cwd" && axiom runtime claude status'
   check skills-converged skills_converged
-  check rerun-unchanged bash -c "$(declare -f install_release release_bundle); row=$row work=$work H=$H; install_release '$candidate' && grep -qx install_status=unchanged '$work/install.out'"
+  check rerun-unchanged bash -c "$(declare -f install_release release_bundle verifier_env); row=$row work=$work H=$H; install_release '$candidate' && grep -qx install_status=unchanged '$work/install.out'"
 done
 
 # Journey 3: historical POC state -> N -> candidate (RecognizedPOC
