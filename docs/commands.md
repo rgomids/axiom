@@ -1233,8 +1233,10 @@ Workflow definition inspection in the shared Runtime skill derives a three-level
 Workflow/Stage/Agent view from the same canonical `project workflow show` result.
 An empirically qualified host should show a rendered diagram with complementary
 text; unknown/failed rendering uses complete text with exact identity, Stage
-order, scoped dependencies and declared gates. No AXM-38 host is qualified yet;
-source fences and file links alone do not prove rendering. This changes host
+order, scoped dependencies and declared gates. AXM-38 observed local SVG inline
+on one exact Claude Desktop Code build; full qualification remains partial
+(see [real-host Evidence](specifications/011-rendered-workflow-presentation/evidence-qualification.md)).
+Source fences and file links alone do not prove rendering. This changes host
 conversation guidance only. Native terminal and JSON contracts remain unchanged.
 See [Spec 011 implementation Evidence](specifications/011-rendered-workflow-presentation/evidence-implement.md)
 for qualification limits and isolated packaging/rollback checks.

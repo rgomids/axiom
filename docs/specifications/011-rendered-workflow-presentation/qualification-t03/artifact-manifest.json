@@ -1,0 +1,338 @@
+{
+  "recorded_at": "2026-10-22T19:37:47.426204+00:00",
+  "baseline_sha": "41670910edd8d6fec42c794bf2fb9875974ef789",
+  "observer": "executing Codex AI; not a human witness",
+  "human_witness": "NOT_RUN",
+  "real_session": "EXECUTED_PARTIAL",
+  "host_settings": "C01/C01B/C02 Opus 5.5 Alto; C03/C04 observed Medio; fast off; Manual restored",
+  "notes": [
+    "Unmodified UI screenshots; dimensions are physical PNG pixels, not inferred CSS viewport or zoom",
+    "Manifest excludes its own hash to avoid recursion",
+    "Full qualification remains partial; see evidence-qualification.md",
+    "Candidate bytes equal original final T02 and scratch copy"
+  ],
+  "inputs": [
+    {
+      "path": "internal/codexruntime/testdata/rendered-workflow/default-sdd-r2.json",
+      "sha256": "67eb107befe04198b57a56dbf548234dd26ad99f324aa11ad04779d8182fad81",
+      "kind": "SYNTHETIC",
+      "reference": {
+        "workflowId": "default-sdd",
+        "revision": 2,
+        "digest": "1a7d6f56c8c60f2d562b16dc69387abcaefeafcbde488b87eaae1daa8deb4068",
+        "source": "builtin"
+      },
+      "selection": {
+        "workflowId": "default-sdd",
+        "revision": 2,
+        "digest": "1a7d6f56c8c60f2d562b16dc69387abcaefeafcbde488b87eaae1daa8deb4068",
+        "source": "builtin"
+      },
+      "stages": 10,
+      "agents": 10,
+      "agent_edges": 0
+    },
+    {
+      "path": "internal/codexruntime/testdata/rendered-workflow/custom-r2.json",
+      "sha256": "1090fd8ff6ce50980bc5c870ff2932b7dafad600eafc1950e622b1542c01b08a",
+      "kind": "SYNTHETIC",
+      "reference": {
+        "workflowId": "reviewed-delivery",
+        "revision": 2,
+        "digest": "cea1c959e2d523f9ca5ae77e293da8a4db95936b8d8d789c8b06a3a576119368",
+        "source": "project"
+      },
+      "selection": {
+        "workflowId": "reviewed-delivery",
+        "revision": 2,
+        "digest": "cea1c959e2d523f9ca5ae77e293da8a4db95936b8d8d789c8b06a3a576119368",
+        "source": "project"
+      },
+      "stages": 10,
+      "agents": 12,
+      "agent_edges": 2
+    },
+    {
+      "path": "docs/specifications/011-rendered-workflow-presentation/qualification-t03/custom-unselected-concurrency1.json",
+      "sha256": "74cbb258996ebe53379a0ef93b849b72b848ee589c61dcfcb2bc527c18034420",
+      "kind": "SYNTHETIC",
+      "reference": {
+        "workflowId": "reviewed-delivery",
+        "revision": 2,
+        "digest": "cd1a107bbff0bf3fba9a4583f512b99d8dfd7f9d440e95e8ef30e0e10d0246d8",
+        "source": "project"
+      },
+      "selection": null,
+      "stages": 10,
+      "agents": 12,
+      "agent_edges": 2
+    },
+    {
+      "path": "docs/specifications/011-rendered-workflow-presentation/qualification-t03/custom-divergent.json",
+      "sha256": "1cf094efc01b8d6afa66d8a3c24398b49c1eb46cf86b274efc00113bcb40e0d3",
+      "kind": "SYNTHETIC",
+      "reference": {
+        "workflowId": "reviewed-delivery",
+        "revision": 3,
+        "digest": "7fdd662eb5b6cb02a09c091e25f0d6735151bdd9431d16f24cad33f27abc0eaa",
+        "source": "project"
+      },
+      "selection": {
+        "workflowId": "reviewed-delivery",
+        "revision": 2,
+        "digest": "cea1c959e2d523f9ca5ae77e293da8a4db95936b8d8d789c8b06a3a576119368",
+        "source": "project"
+      },
+      "stages": 10,
+      "agents": 12,
+      "agent_edges": 2
+    },
+    {
+      "path": "docs/specifications/011-rendered-workflow-presentation/qualification-t03/dense-32.json",
+      "sha256": "f46b046ff0e441cb967f1a6767166c3119d23a3cf65e6934a3a5f7bc99edb1e3",
+      "kind": "SYNTHETIC",
+      "reference": {
+        "workflowId": "qualification-dense",
+        "revision": 1,
+        "digest": "cd8e8a36883a853f7186da7bb28a6449ba9a89aaf6447a79f2dfd549d96366e2",
+        "source": "project"
+      },
+      "selection": null,
+      "stages": 32,
+      "agents": 63,
+      "agent_edges": 496
+    }
+  ],
+  "files": [
+    {
+      "path": "README.md",
+      "sha256": "008f5858c4adec2952871265273e90de32aa69bb1c1215611e90a9d7a24dfa83",
+      "bytes": 3279
+    },
+    {
+      "path": "c01-actual-ax.txt.gz",
+      "sha256": "1e53a1e8b530c03cd99ef55e0395027f95509fa3279c85cf7d825a5fcbecde88",
+      "bytes": 6780,
+      "uncompressed_sha256": "eb0f796d0dbf16256966a0eff60b028802288f95d6ad935fd0f3de8fba111957"
+    },
+    {
+      "path": "c01-agent-detail.png",
+      "sha256": "f94c52fedbf94f268aac01211f91473648b60bfdd97205d8171cb7fc19be0b0c",
+      "bytes": 575648,
+      "png_pixels": [
+        4718592,
+        4292935744
+      ]
+    },
+    {
+      "path": "c01-literal-mermaid.png",
+      "sha256": "8fd88066a9e4b559bd0ef6d539201992e52c2dd50bfbb22c6bef57c5c76b7e0a",
+      "bytes": 528178,
+      "png_pixels": [
+        4718592,
+        4292935744
+      ]
+    },
+    {
+      "path": "c01-prompt.txt",
+      "sha256": "2ed42290233ce5ef16ccc20d254f211e658d3a65ee151d5355d699222d8ba3ec",
+      "bytes": 1837
+    },
+    {
+      "path": "c01-table-clipping.png",
+      "sha256": "94063dba865f6d11d9fadadca94246a6a3a7c10a460e459ed42262f580ea1727",
+      "bytes": 390437,
+      "png_pixels": [
+        4718592,
+        4292935744
+      ]
+    },
+    {
+      "path": "c01b-actual-ax.txt.gz",
+      "sha256": "29feabd0aa6e8696a606baceb38b0392b1060b2f5929d66178f9a2692c3dc546",
+      "bytes": 9417,
+      "uncompressed_sha256": "b004387db0a7e3cf245791335fdde85736297a275c30a7b0e2d678757ed3d22a"
+    },
+    {
+      "path": "c01b-inline-dag.png",
+      "sha256": "3ad394a34b015b41d9fc013cd2bd62f3152c993d4a48f32454d575d118abd2a7",
+      "bytes": 622004,
+      "png_pixels": [
+        4718592,
+        4292935744
+      ]
+    },
+    {
+      "path": "c01b-inline-top.png",
+      "sha256": "24f5588ca575c11dab19229a08de46de750e29b43a70154293411d0c766fb5d8",
+      "bytes": 593456,
+      "png_pixels": [
+        4718592,
+        4292935744
+      ]
+    },
+    {
+      "path": "c01b-prompt.txt",
+      "sha256": "ee1c8fba9bdff83c85163c11ca7e8df487b4ec125f7dff75c4abefa2323cd586",
+      "bytes": 1644
+    },
+    {
+      "path": "c01b-workflow.svg",
+      "sha256": "675f9e02a16a3abce9cc9e08f7053f95560f716d6cca2cece4a5a74b3278fb48",
+      "bytes": 10470
+    },
+    {
+      "path": "c02-actual-ax.txt.gz",
+      "sha256": "18f5e2eddfec8acddd81eec79cc4b8303852e792fd3631638c90651d3c9eb29d",
+      "bytes": 11557,
+      "uncompressed_sha256": "df86f8ddfe7460276699dae1a6a57e6284e0cf02b992f14f1fae3eb28dc83d3b"
+    },
+    {
+      "path": "c02-default.svg",
+      "sha256": "e8ac120b4d92aecd46d7206d1b4a502c7291c9e5acf51b278da5091acc4eb2aa",
+      "bytes": 7645
+    },
+    {
+      "path": "c02-initial-empty-ax.txt.gz",
+      "sha256": "951bd7eb8a17ac517fc5df8a20933a7ec73dd7436d00217fd9d1232f544d76fc",
+      "bytes": 10104,
+      "uncompressed_sha256": "e573a7ec1b563a16ec8eaba7ed6c73289bef8a3cc919f6e98048c3a36d4898e2"
+    },
+    {
+      "path": "c02-inline-default-gates.png",
+      "sha256": "fffa1536b86cf2728085a6813e07710134078cd974555eea526677edd50cb111",
+      "bytes": 616539,
+      "png_pixels": [
+        4718592,
+        4292935744
+      ]
+    },
+    {
+      "path": "c02-inline-default-top.png",
+      "sha256": "3b1da00c552806b025c9acd5d69907c62b521e1262c1bb48c55f2e2c6759119a",
+      "bytes": 591662,
+      "png_pixels": [
+        4718592,
+        4292935744
+      ]
+    },
+    {
+      "path": "c02-prompt.txt",
+      "sha256": "2752cd158f52a6ac1d72d7d5802bbc324a97139d8818ce6a9f73572c47fbac9a",
+      "bytes": 1794
+    },
+    {
+      "path": "c02-selection-detail.png",
+      "sha256": "0c883adafc294edf63a1bbc122723f52a31032722f41898f8c8d0d6d41c74618",
+      "bytes": 533696,
+      "png_pixels": [
+        4718592,
+        4292935744
+      ]
+    },
+    {
+      "path": "c03-actual-ax.txt.gz",
+      "sha256": "91366dcb6142b088ef79387a23ad4c59644f90420ae6322122f082d2d7cdaa7d",
+      "bytes": 16993,
+      "uncompressed_sha256": "e3c40ae03381e0b913a566c641c6b2d274c02cb2ad64324f9c36453fd4c6dbc1"
+    },
+    {
+      "path": "c03-fallback.png",
+      "sha256": "714c4478baffd924ef653d1de2e565bc9babe69961a07caf41d9fc711e6b2547",
+      "bytes": 627560,
+      "png_pixels": [
+        4718592,
+        4292935744
+      ]
+    },
+    {
+      "path": "c03-inline-gates.png",
+      "sha256": "97b532169c5482883d684eabb0dc4ecef7bb1269025229e71417fdbdb6dc7aa0",
+      "bytes": 775829,
+      "png_pixels": [
+        4718592,
+        4292935744
+      ]
+    },
+    {
+      "path": "c03-inline-matrix.png",
+      "sha256": "ac1dab000991712c621d6f2731b037b766cf081030f9d3cb5ef4b9d79e9ef674",
+      "bytes": 633898,
+      "png_pixels": [
+        4718592,
+        4292935744
+      ]
+    },
+    {
+      "path": "c03-inline-overview-top.png",
+      "sha256": "b35c7bcb20bf1e343d3ee2ccd34c7aca9705b307f09cb5a4a76d9fea303a0061",
+      "bytes": 768952,
+      "png_pixels": [
+        4718592,
+        4292935744
+      ]
+    },
+    {
+      "path": "c03-overview.svg",
+      "sha256": "e19900cda8d7694c6f8d281c6df7f1a33e85ff9063d279c44299c7b7ebc6cf78",
+      "bytes": 8280
+    },
+    {
+      "path": "c03-prompt.txt",
+      "sha256": "9d5729aca831521863b40ee96fb2732d477388e5816bd01adba3080eca7ec9f7",
+      "bytes": 2135
+    },
+    {
+      "path": "c03-stage.svg",
+      "sha256": "f1beea87ecc415c0e91ab72b723278e8b16797f14201afc146d2d84bd5fc7750",
+      "bytes": 7259
+    },
+    {
+      "path": "c04-actual-ax.txt.gz",
+      "sha256": "822e95de04d93f83e3b387b5667dedb1e553fa21a848e50162737f32d173cdf3",
+      "bytes": 12266,
+      "uncompressed_sha256": "f38c2870b805fdc7576740e8a0647b14e48133c052b31a49993ba2d9297b7fea"
+    },
+    {
+      "path": "c04-prompt.txt",
+      "sha256": "917cb066b012aa07bcf3d0fac950798a686992f31c8205d41ca74fc9856ec6ce",
+      "bytes": 1101
+    },
+    {
+      "path": "c04-text-retrieval.png",
+      "sha256": "b9d02cb9c09e44df5639b6e97c018ef40f377e83934ce16b8eaa72029295b1c5",
+      "bytes": 784388,
+      "png_pixels": [
+        4718592,
+        4292935744
+      ]
+    },
+    {
+      "path": "custom-divergent.json",
+      "sha256": "1cf094efc01b8d6afa66d8a3c24398b49c1eb46cf86b274efc00113bcb40e0d3",
+      "bytes": 30198
+    },
+    {
+      "path": "custom-unselected-concurrency1.json",
+      "sha256": "74cbb258996ebe53379a0ef93b849b72b848ee589c61dcfcb2bc527c18034420",
+      "bytes": 30000
+    },
+    {
+      "path": "dense-32.json",
+      "sha256": "f46b046ff0e441cb967f1a6767166c3119d23a3cf65e6934a3a5f7bc99edb1e3",
+      "bytes": 125295
+    },
+    {
+      "path": "semantic-evaluation.json",
+      "sha256": "4a7a8fbd8aeec532aca7974e9e4e68435703195b5efc69aef318e70d199d814d",
+      "bytes": 83770
+    },
+    {
+      "path": "session-manifest.json",
+      "sha256": "aa05d7a802af675a0662b03959f6ed561faf1ce51185a55ca4c7d1861aa57458",
+      "bytes": 2403
+    }
+  ],
+  "shared_manifest_sha256": "508f3f1b1a31a403d5deba227cffef981bc67061812394420948290a78c03216",
+  "manifest_source_file_sha256": "515d36c20b5fdd874d7f4735927824a5079801bcd74e8a4e5f6f25bb3bd50dab"
+}

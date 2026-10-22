@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="1150" viewBox="0 0 760 1150" font-family="Helvetica, Arial, sans-serif" role="img" aria-labelledby="t d">
+  <title id="t">Workflow Definition qualification-dense revision 1 overview (SYNTHETIC input)</title>
+  <desc id="d">Full Definition reference, selection not reported, and the ordered 32-Stage index in two contiguous segments with mode, concurrency, Agent count, checkpoint and declared gate boundaries. Purposes omitted visually. Declarations only.</desc>
+  <rect x="0" y="0" width="760" height="1150" fill="#ffffff"/>
+
+  <text x="20" y="30" font-size="18" font-weight="bold" fill="#0f172a">Workflow Definition (not Execution) · SYNTHETIC input</text>
+  <rect x="20" y="42" width="720" height="158" rx="6" fill="#f1f5f9" stroke="#94a3b8"/>
+  <g font-size="12" fill="#0f172a">
+    <text x="32" y="62" font-weight="bold">Definition reference</text>
+    <text x="32" y="80">workflowId: <tspan font-family="Menlo, Consolas, monospace">qualification-dense</tspan></text>
+    <text x="32" y="97">revision: <tspan font-family="Menlo, Consolas, monospace">1</tspan></text>
+    <text x="32" y="114">digest: <tspan font-family="Menlo, Consolas, monospace" font-size="11">cd8e8a36883a853f7186da7bb28a6449ba9a89aaf6447a79f2dfd549d96366e2</tspan></text>
+    <text x="32" y="131">source: <tspan font-family="Menlo, Consolas, monospace">project</tspan></text>
+    <text x="32" y="152">Selection: NOT REPORTED in this payload → not known to be selected; no default assumed</text>
+    <text x="32" y="170">Project <tspan font-family="Menlo, Consolas, monospace" font-size="11">123e4567-e89b-42d3-a456-426614174000</tspan> · projectRevision synthetic-project-revision-17</text>
+    <text x="32" y="188">"Synthetic qualification dense DAG" · schemaVersion 2 · 32 Stages · 63 Agents</text>
+  </g>
+
+  <text x="20" y="226" font-size="15" font-weight="bold" fill="#0f172a">Ordered Stage index (source order; # = stages[index] + 1)</text>
+  <text x="20" y="244" font-size="11" fill="#475569">Order = Stage progression only. GATE lines are declared boundaries; satisfaction not observed. Purposes omitted here (see text).</text>
+
+  <!-- Segment 1 -->
+  <text x="20" y="266" font-size="12" font-weight="bold" fill="#1d4ed8">Segment 1 of 2 · Stages 1–22 · continues at Stage 23</text>
+  <rect x="20" y="274" width="720" height="470" rx="5" fill="#ffffff" stroke="#64748b"/>
+  <g font-size="11.5" fill="#0f172a">
+    <text x="32" y="292">1 · extra-00 · intake · sequential · concurrency 1 · 1 agent: owner (no predecessors) · checkpoint no</text>
+    <text x="32" y="313">2 · extra-01 · intake · sequential · concurrency 1 · 1 agent: owner (no predecessors) · checkpoint no</text>
+    <text x="32" y="334">3 · extra-02 · intake · sequential · concurrency 1 · 1 agent: owner (no predecessors) · checkpoint no</text>
+    <text x="32" y="355">4 · extra-03 · intake · sequential · concurrency 1 · 1 agent: owner (no predecessors) · checkpoint no</text>
+    <text x="32" y="376">5 · extra-04 · intake · sequential · concurrency 1 · 1 agent: owner (no predecessors) · checkpoint no</text>
+    <text x="32" y="397">6 · extra-05 · intake · sequential · concurrency 1 · 1 agent: owner (no predecessors) · checkpoint no</text>
+    <text x="32" y="418">7 · extra-06 · intake · sequential · concurrency 1 · 1 agent: owner (no predecessors) · checkpoint no</text>
+    <text x="32" y="439">8 · extra-07 · intake · sequential · concurrency 1 · 1 agent: owner (no predecessors) · checkpoint no</text>
+    <text x="32" y="460">9 · extra-08 · intake · sequential · concurrency 1 · 1 agent: owner (no predecessors) · checkpoint no</text>
+    <text x="32" y="481">10 · extra-09 · intake · sequential · concurrency 1 · 1 agent: owner (no predecessors) · checkpoint no</text>
+    <text x="32" y="502">11 · extra-10 · intake · sequential · concurrency 1 · 1 agent: owner (no predecessors) · checkpoint no</text>
+    <text x="32" y="523">12 · extra-11 · intake · sequential · concurrency 1 · 1 agent: owner (no predecessors) · checkpoint no</text>
+    <text x="32" y="544">13 · extra-12 · intake · sequential · concurrency 1 · 1 agent: owner (no predecessors) · checkpoint no</text>
+    <text x="32" y="565">14 · extra-13 · intake · sequential · concurrency 1 · 1 agent: owner (no predecessors) · checkpoint no</text>
+    <text x="32" y="586">15 · extra-14 · intake · sequential · concurrency 1 · 1 agent: owner (no predecessors) · checkpoint no</text>
+    <text x="32" y="607">16 · extra-15 · intake · sequential · concurrency 1 · 1 agent: owner (no predecessors) · checkpoint no</text>
+    <text x="32" y="628">17 · extra-16 · intake · sequential · concurrency 1 · 1 agent: owner (no predecessors) · checkpoint no</text>
+    <text x="32" y="649">18 · extra-17 · intake · sequential · concurrency 1 · 1 agent: owner (no predecessors) · checkpoint no</text>
+    <text x="32" y="670">19 · extra-18 · intake · sequential · concurrency 1 · 1 agent: owner (no predecessors) · checkpoint no</text>
+    <text x="32" y="691">20 · extra-19 · intake · sequential · concurrency 1 · 1 agent: owner (no predecessors) · checkpoint no</text>
+    <text x="32" y="712">21 · extra-20 · intake · sequential · concurrency 1 · 1 agent: owner (no predecessors) · checkpoint no</text>
+    <text x="32" y="733">22 · extra-21 · intake · sequential · concurrency 1 · 1 agent: owner (no predecessors) · checkpoint no</text>
+  </g>
+  <text x="20" y="764" font-size="11" fill="#475569">No gates declared in Segment 1. ↓ Continuation: Stage 22 extra-21 → Stage 23 intake (Segment 2).</text>
+
+  <!-- Segment 2 -->
+  <text x="20" y="794" font-size="12" font-weight="bold" fill="#1d4ed8">Segment 2 of 2 · Stages 23–32 · continued from Stage 22 extra-21</text>
+  <rect x="20" y="802" width="720" height="304" rx="5" fill="#ffffff" stroke="#64748b"/>
+  <g font-size="11.5" fill="#0f172a">
+    <text x="32" y="822">23 · intake · intake · sequential · concurrency 1 · 1 agent: owner (no predecessors) · checkpoint yes</text>
+    <text x="32" y="843">24 · specification · specification · sequential · concurrency 1 · 1 agent: owner (no predecessors) · checkpoint no</text>
+    <text x="32" y="864">25 · clarification · specification · sequential · concurrency 1 · 1 agent: owner (no predecessors) · checkpoint yes</text>
+    <text x="32" y="885" font-size="11" font-weight="bold" fill="#b45309">── GATE before plan: planning_authority (declared)</text>
+    <text x="32" y="906">26 · plan · planning · sequential · concurrency 1 · 1 agent: owner (no predecessors) · checkpoint no</text>
+    <text x="32" y="927">27 · tasks · planning · sequential · concurrency 1 · 1 agent: owner (no predecessors) · checkpoint yes</text>
+    <text x="32" y="948" font-size="11" font-weight="bold" fill="#b45309">── GATE before implementation: implementation_authority (declared)</text>
+    <text x="32" y="969" font-weight="bold" fill="#1d4ed8">28 · implementation · implementation · dag · concurrency 32 · 32 agents (see Stage image) · checkpoint yes</text>
+    <text x="32" y="990" font-size="11" font-weight="bold" fill="#b45309">── GATE before review: review_started (declared)</text>
+    <text x="32" y="1011">29 · review · review · sequential · concurrency 1 · 1 agent: owner (no predecessors) · checkpoint no</text>
+    <text x="32" y="1032">30 · evidence · review · sequential · concurrency 1 · 1 agent: owner (no predecessors) · checkpoint no</text>
+    <text x="32" y="1053">31 · reconciliation · review · sequential · concurrency 1 · 1 agent: owner (no predecessors) · checkpoint yes</text>
+    <text x="32" y="1074">32 · completion · completion · sequential · concurrency 1 · 1 agent: owner (no predecessors) · checkpoint yes</text>
+    <text x="32" y="1095" font-size="11" font-weight="bold" fill="#b45309">── GATE after completion: human_acceptance (declared)</text>
+  </g>
+
+  <text x="20" y="1132" font-size="11" font-style="italic" fill="#475569">Declarations only: no Execution, progress, resolved Runtime/model/Profile, validator outcome or gate satisfaction.</text>
+</svg>

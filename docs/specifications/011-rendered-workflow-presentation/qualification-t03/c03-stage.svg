@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="825" viewBox="0 0 760 825" font-family="Helvetica, Arial, sans-serif" role="img" aria-labelledby="t d">
+  <title id="t">Stage implementation Agent dependency matrix, qualification-dense revision 1 (SYNTHETIC input)</title>
+  <desc id="d">32 by 32 matrix in source order. A filled cell means the row Agent declares dependsOn the column Agent. All 496 declared edges are filled: every agent-NN depends on all earlier agents. Declarations only.</desc>
+  <defs>
+    <pattern id="g" x="70" y="150" width="16" height="16" patternUnits="userSpaceOnUse">
+      <path d="M16 0 L0 0 L0 16" fill="none" stroke="#94a3b8" stroke-width="0.6"/>
+    </pattern>
+  </defs>
+  <rect x="0" y="0" width="760" height="825" fill="#ffffff"/>
+
+  <g fill="#0f172a">
+    <text x="20" y="28" font-size="16" font-weight="bold">Stage implementation · same-Stage Agent dependency matrix · SYNTHETIC</text>
+    <text x="20" y="48" font-size="12">Definition qualification-dense · revision 1 · source project (selection not reported)</text>
+    <text x="20" y="64" font-size="11" font-family="Menlo, Consolas, monospace">digest cd8e8a36883a853f7186da7bb28a6449ba9a89aaf6447a79f2dfd549d96366e2</text>
+    <text x="20" y="82" font-size="11.5">mode dag · concurrency 32 (declared cap) · 32 Agents · checkpoint yes · <tspan fill="#b45309" font-weight="bold">GATE before: implementation_authority (declared)</tspan></text>
+    <text x="20" y="100" font-size="11">Filled cell = row Agent declares dependsOn column Agent. 496 of 496 declared edges filled; transitive edges included; none reduced.</text>
+    <text x="20" y="116" font-size="11">Rows and columns in source order (stages[27].agents[0..31]). Dashed diagonal = self (no self-edges). Right column = predecessor count.</text>
+  </g>
+
+  <text x="70" y="134" font-size="10" fill="#475569">predecessor (column) →</text>
+  <text x="592" y="145" font-size="10" font-weight="bold" fill="#475569">preds</text>
+
+  <!-- Filled lower triangle: rows 1..31, columns 0..r-1 -->
+  <path fill="#2563eb" fill-opacity="0.85" d="M70,166 H86 V182 H102 V198 H118 V214 H134 V230 H150 V246 H166 V262 H182 V278 H198 V294 H214 V310 H230 V326 H246 V342 H262 V358 H278 V374 H294 V390 H310 V406 H326 V422 H342 V438 H358 V454 H374 V470 H390 V486 H406 V502 H422 V518 H438 V534 H454 V550 H470 V566 H486 V582 H502 V598 H518 V614 H534 V630 H550 V646 H566 V662 H70 Z"/>
+  <rect x="70" y="150" width="512" height="512" fill="url(#g)"/>
+  <rect x="70" y="150" width="512" height="512" fill="none" stroke="#475569"/>
+  <line x1="70" y1="150" x2="582" y2="662" stroke="#94a3b8" stroke-dasharray="3 3"/>
+
+  <!-- Column labels -->
+  <g font-size="8.5" fill="#334155" text-anchor="middle">
+    <text x="78" y="146">00</text><text x="94" y="146">01</text><text x="110" y="146">02</text><text x="126" y="146">03</text>
+    <text x="142" y="146">04</text><text x="158" y="146">05</text><text x="174" y="146">06</text><text x="190" y="146">07</text>
+    <text x="206" y="146">08</text><text x="222" y="146">09</text><text x="238" y="146">10</text><text x="254" y="146">11</text>
+    <text x="270" y="146">12</text><text x="286" y="146">13</text><text x="302" y="146">14</text><text x="318" y="146">15</text>
+    <text x="334" y="146">16</text><text x="350" y="146">17</text><text x="366" y="146">18</text><text x="382" y="146">19</text>
+    <text x="398" y="146">20</text><text x="414" y="146">21</text><text x="430" y="146">22</text><text x="446" y="146">23</text>
+    <text x="462" y="146">24</text><text x="478" y="146">25</text><text x="494" y="146">26</text><text x="510" y="146">27</text>
+    <text x="526" y="146">28</text><text x="542" y="146">29</text><text x="558" y="146">30</text><text x="574" y="146">31</text>
+  </g>
+
+  <!-- Row labels -->
+  <g font-size="9.5" fill="#0f172a" text-anchor="end">
+    <text x="66" y="162">agent-00</text><text x="66" y="178">agent-01</text><text x="66" y="194">agent-02</text><text x="66" y="210">agent-03</text>
+    <text x="66" y="226">agent-04</text><text x="66" y="242">agent-05</text><text x="66" y="258">agent-06</text><text x="66" y="274">agent-07</text>
+    <text x="66" y="290">agent-08</text><text x="66" y="306">agent-09</text><text x="66" y="322">agent-10</text><text x="66" y="338">agent-11</text>
+    <text x="66" y="354">agent-12</text><text x="66" y="370">agent-13</text><text x="66" y="386">agent-14</text><text x="66" y="402">agent-15</text>
+    <text x="66" y="418">agent-16</text><text x="66" y="434">agent-17</text><text x="66" y="450">agent-18</text><text x="66" y="466">agent-19</text>
+    <text x="66" y="482">agent-20</text><text x="66" y="498">agent-21</text><text x="66" y="514">agent-22</text><text x="66" y="530">agent-23</text>
+    <text x="66" y="546">agent-24</text><text x="66" y="562">agent-25</text><text x="66" y="578">agent-26</text><text x="66" y="594">agent-27</text>
+    <text x="66" y="610">agent-28</text><text x="66" y="626">agent-29</text><text x="66" y="642">agent-30</text><text x="66" y="658">agent-31</text>
+  </g>
+
+  <!-- Predecessor counts -->
+  <g font-size="9.5" fill="#0f172a">
+    <text x="592" y="162">0 · root</text><text x="592" y="178">1</text><text x="592" y="194">2</text><text x="592" y="210">3</text>
+    <text x="592" y="226">4</text><text x="592" y="242">5</text><text x="592" y="258">6</text><text x="592" y="274">7</text>
+    <text x="592" y="290">8</text><text x="592" y="306">9</text><text x="592" y="322">10</text><text x="592" y="338">11</text>
+    <text x="592" y="354">12</text><text x="592" y="370">13</text><text x="592" y="386">14</text><text x="592" y="402">15</text>
+    <text x="592" y="418">16</text><text x="592" y="434">17</text><text x="592" y="450">18</text><text x="592" y="466">19</text>
+    <text x="592" y="482">20</text><text x="592" y="498">21</text><text x="592" y="514">22</text><text x="592" y="530">23</text>
+    <text x="592" y="546">24</text><text x="592" y="562">25</text><text x="592" y="578">26</text><text x="592" y="594">27</text>
+    <text x="592" y="610">28</text><text x="592" y="626">29</text><text x="592" y="642">30</text><text x="592" y="658">31 · last</text>
+  </g>
+
+  <g font-size="11" fill="#0f172a">
+    <text x="20" y="692" font-size="12" font-weight="bold">Derived from declared edges only (not observed execution):</text>
+    <text x="20" y="710">• Only root: agent-00. agent-NN declares every earlier agent-00 … agent-(NN−1); its predecessor count = NN.</text>
+    <text x="20" y="728">• Every pair of Agents is ordered → one chain; at most one Agent is dependency-eligible at any point.</text>
+    <text x="20" y="746">• Concurrency 32 is a declared cap only; these dependencies leave no potential same-Stage parallelism.</text>
+    <text x="20" y="764">• Last Agent agent-31: 31 predecessors · integrationOwner true · validationOwner true (agent-00…30: both false).</text>
+    <text x="20" y="782">• Stage input source ← tasks/result (I/O provenance, not a scheduling edge) · output result (artifact, required).</text>
+  </g>
+  <text x="20" y="808" font-size="11" font-style="italic" fill="#475569">Declarations only: no Execution, progress, resolved Runtime/model/Profile, validator outcome or gate satisfaction.</text>
+</svg>

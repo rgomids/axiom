@@ -1,0 +1,55 @@
+{
+  "work_item": "AXM-38",
+  "attempt": "attempt-02",
+  "baseline_sha": "41670910edd8d6fec42c794bf2fb9875974ef789",
+  "authorization": {
+    "source": "Current task message",
+    "reported_by": "Maestro (AI, Grok Bot), not human",
+    "human_authorizer_reported": "Rafael",
+    "human_authorization_time_reported": "2026-10-22T16:07:00-03:00",
+    "scope": "Real AXM38-T03 session per prompt 0bb31491 and accepted Tasks; finish T04, callback, normal commit/push PR #336",
+    "limits": [
+      "existing supported host/surface",
+      "synthetic/public inputs only",
+      "existing subscription; no new credential, paid add-on or infrastructure",
+      "no live Execution/domain mutation",
+      "no merge/release/rebase/force-push"
+    ]
+  },
+  "host_candidate": {
+    "application": "Claude",
+    "bundle_id": "com.anthropic.claudefordesktop",
+    "application_version": "2.42304.2",
+    "surface": "Code mode, local computer",
+    "os": "macOS 27.0.1 (26A434)",
+    "model_setting_observed": "Opus 5.5 Alto",
+    "binary_version_separately_observed": "Claude Code CLI 2.1.306; not asserted as Desktop embedded binary",
+    "skill_kind": "candidate bytes explicitly provided, not installed revision"
+  },
+  "inputs": [
+    {
+      "path": "internal/codexruntime/skills/axiom-workflow/SKILL.md",
+      "scratch_name": "candidate-SKILL.md",
+      "classification": "candidate-skill",
+      "sha256": "8b47aa65611d28395eab3695ce4ca90773e541800f72d4189838565268a7f235"
+    },
+    {
+      "path": "internal/codexruntime/testdata/rendered-workflow/custom-r2.json",
+      "scratch_name": "custom-r2.json",
+      "classification": "SYNTHETIC",
+      "sha256": "1090fd8ff6ce50980bc5c870ff2932b7dafad600eafc1950e622b1542c01b08a"
+    },
+    {
+      "path": "internal/codexruntime/testdata/rendered-workflow/default-sdd-r2.json",
+      "scratch_name": "default-sdd-r2.json",
+      "classification": "SYNTHETIC",
+      "sha256": "67eb107befe04198b57a56dbf548234dd26ad99f324aa11ad04779d8182fad81"
+    }
+  ],
+  "preflight_notes": [
+    "Codex app com.openai.codex denied by computer-use safety policy; no bypass",
+    "Claude Code mode observed in existing Claude desktop app; not ordinary Claude chat/artifact surface",
+    "No newer T03 grant found among current Linear comments; current task message carries reported authority",
+    "No installed skill or application support inferred from checkout alone"
+  ]
+}
