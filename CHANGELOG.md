@@ -26,6 +26,20 @@
   Projects created by `project configure` carry no policy and block until an
   authored policy is installed.
 
+## [0.21.0](https://github.com/rgomids/axiom/compare/v0.20.0...v0.21.0) (2026-10-22)
+
+
+### Features
+
+* **docs:** add installed documentation and trusted archive verifier ([#335](https://github.com/rgomids/axiom/issues/335)) ([2e53228](https://github.com/rgomids/axiom/commit/2e53228bfd27cff206c5c955f363bfff18fe745a))
+* **workflow:** add qualified visual guidance and complete fallback (AXM-38) ([#336](https://github.com/rgomids/axiom/issues/336)) ([dc81ee7](https://github.com/rgomids/axiom/commit/dc81ee7e3ec24696e4ba1b1f188a3c0721892b04))
+
+
+### Bug Fixes
+
+* **ci:** parse current provenance in upgrade journeys ([#332](https://github.com/rgomids/axiom/issues/332)) ([67223dc](https://github.com/rgomids/axiom/commit/67223dcbd47b2b2b3068bf9112b7ea64781bb963))
+* **release:** use preparation SHA for upgrade harness only ([#333](https://github.com/rgomids/axiom/issues/333)) ([de19d32](https://github.com/rgomids/axiom/commit/de19d3279b1c9cbd730ca8bb2ab2f098e1b76d12))
+
 ## [0.20.0](https://github.com/rgomids/axiom/compare/v0.19.0...v0.20.0) (2026-10-19)
 
 
