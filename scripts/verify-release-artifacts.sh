@@ -169,10 +169,10 @@ for row in $rows; do
     linux:arm64) [[ "$helper_header" == 7f454c46020101* && "${helper_header:36:4}" == b700 ]] ;;
   esac || fail 'helper binary platform mismatch'
   go version -m "$directory/$helper" >"$temporary/helper-buildinfo"
-  for expected in "GOOS=$goos" "GOARCH=$architecture" "CGO_ENABLED=0" "vcs.revision=$revision" 'vcs.modified=false'; do
-    grep -Fq -- "$expected" "$temporary/helper-buildinfo" || fail "helper source linkage missing: $expected"
+  for expected in "GOOS=$goos" "GOARCH=$architecture" "CGO_ENABLED=0" "vcs.revision=$revision" 'vcs.modified=false' '-trimpath=true'; do
+    grep -Fxq -- $'\tbuild\t'"$expected" "$temporary/helper-buildinfo" || fail "helper source linkage missing: $expected"
   done
-  grep -Fq 'github.com/rgomids/axiom/cmd/axiom-archive-verify' "$temporary/helper-buildinfo" || fail 'helper entrypoint mismatch'
+  grep -Fxq $'\tpath\tgithub.com/rgomids/axiom/cmd/axiom-archive-verify' "$temporary/helper-buildinfo" || fail 'helper entrypoint mismatch'
   if [[ $(go env GOHOSTOS):$(go env GOHOSTARCH) == "$goos:$architecture" ]]; then
     cp "$directory/$helper" "$temporary/helper-smoke"
     chmod 700 "$temporary/helper-smoke"

@@ -84,7 +84,18 @@ AXIOM_TEST_GNU_GZIP_CONTAINER=gcc:14-bookworm go test ./internal/install -run '^
 ./scripts/validate-repository.sh .
 ```
 
-Commands above define the reproducible suite, not an assertion that every command
-already passed. Exact executed outcomes, artifact URLs and remaining work are
+Pre-final source checkpoint `a7276c8df1f999afb40ada954c4a919479e5b36e`:
+release pipeline PASS (three helpers/archives, both generations, cross-build
+linkage and no-publication contract); focused expanded 38-case shell/Go matrix
+with Apple/GNU comparators PASS; helper unit and five authentication cases PASS;
+no-Python controls PASS; POSIX facade 15 cases PASS; `go vet` on affected packages
+and module tidiness PASS. Bootstrap exercised install/reinstall/upgrade, races,
+recovery and authenticated-metadata refusals; one version-substitution fixture
+corrupted checksum text and was corrected to replace only literal asset prefixes.
+Final rerun must pass before completion. Local Staticcheck binary was unavailable;
+the exact-SHA CI installs its pinned version. Repository validator PASS at the
+initial implementation checkpoint; final rerun belongs to the callback.
+
+Commands above define the reproducible suite, not a blanket PASS assertion. Exact executed outcomes, artifact URLs and remaining work are
 reported in the final callback. Independent review is the next gate only when
 implementation and exact-SHA checks pass; no human acceptance is inferred.

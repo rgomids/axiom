@@ -177,8 +177,10 @@ For the complete skill set and receipt/conflict diagnostics, see
 ## Security model
 
 The bootstrap downloads over HTTPS and verifies archives against the selected
-release's `SHA256SUMS` before extraction; this relies on trust in the repository,
-bootstrap, and release publication source. Bundle metadata and manifests are
+release's `SHA256SUMS` before extraction. Its digest is authenticated against
+GitHub release API metadata, which also binds the separate verifier's digest,
+closed asset set and source commit. This relies on trust in GitHub, the
+repository, bootstrap and release publication source. Bundle metadata and manifests are
 validated before publishing installation artifacts.
 
 Ownership, permissions, ACLs, links, and ancestor directories are checked.
