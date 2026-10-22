@@ -76,6 +76,12 @@ def acceptance(args, report):
                                   "revision": prior_metadata["revision"],
                                   "binarySha256": smoke.digest(previous / "axiom")}
             report["archiveSha256"] = checksum
+            # The installer executes only a verifier pinned by release metadata
+            # (distribution-helper-v1); take the pin from the prepared SHA256SUMS.
+            helper = roots[0] / f"axiom-verifier-{args.version}-{args.revision}-{args.row}"
+            pins = [line.split("  ", 1)[0] for line in (roots[0] / "SHA256SUMS").read_text().splitlines()
+                    if line.endswith(f"  {helper.name}")]
+            require(len(pins) == 1 and helper.is_file() and not helper.is_symlink(), "verifier helper pin missing")
             log = Path(args.log)
             log.parent.mkdir(parents=True, exist_ok=True)
             with log.open("w") as diagnostics:
@@ -110,7 +116,8 @@ def acceptance(args, report):
                                   "LINGO_PROJECTS_ROOT": str(home / "projects"),
                                   "LINGO_STATE_ROOT": str(home / "state"),
                                   "AXIOM_CODEX_SKILLS_ROOT": str(home / "skills"),
-                                  "AXIOM_GH_BIN": str(home / "unavailable-gh")}
+                                  "AXIOM_GH_BIN": str(home / "unavailable-gh"),
+                                  "AXIOM_VERIFIER_PATH": str(helper), "AXIOM_VERIFIER_SHA256": pins[0]}
                     return home, environment
 
                 home, env = environment("home with spaces")
