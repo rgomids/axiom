@@ -1,5 +1,40 @@
 # AXM-38 — Plan Evidence, revision 1
 
+## Retrospective Tasks publication reconciliation — CR-003, 2026-10-22
+
+This later note supplements the historical checkpoints below and in Tasks;
+it does not revise their observations. At the verified publication
+[commit `f0079fc9f392bcd2ddfc57a3bc2b3d3070a414c9`](https://github.com/rgomids/axiom/commit/f0079fc9f392bcd2ddfc57a3bc2b3d3070a414c9),
+[PR #336](https://github.com/rgomids/axiom/pull/336) contains the three published artifacts:
+[Tasks r1](https://github.com/rgomids/axiom/blob/f0079fc9f392bcd2ddfc57a3bc2b3d3070a414c9/docs/specifications/011-rendered-workflow-presentation/tasks.md),
+[Tasks preparation receipt](https://github.com/rgomids/axiom/blob/f0079fc9f392bcd2ddfc57a3bc2b3d3070a414c9/docs/specifications/011-rendered-workflow-presentation/completion-receipt-tasks.json),
+and [Specifications index](https://github.com/rgomids/axiom/blob/f0079fc9f392bcd2ddfc57a3bc2b3d3070a414c9/docs/specifications/README.md).
+
+The local/unpublished wording in `tasks.md` (Status, introduction and handoff),
+and `head_sha:5939c7aac0f05f53d94116c4ebd89fb774e36950`, `committed:false`,
+`pushed:false`, limitations and publication requests in the receipt describe
+only the preparation checkpoint before that publication. They do not mean
+Tasks are absent from the PR or request repetition of the completed publication.
+The [incremental review identifying CR-003](https://github.com/rgomids/axiom/pull/336#pullrequestreview-5617670144)
+is a technical COMMENT/self-review, not human Tasks acceptance.
+
+Local documentary choice (CR003-TD-01, `TECHNICAL_LOCAL`, `executor-ai`,
+`scope_impact:none`): extend this existing Evidence rather than edit Tasks r1
+or its receipt. This preserves the exact Tasks hash
+`3e54bea3e731c726cfbe23c682c726fd3d2012411ac8e991bf2a57abde25d53d`,
+historical receipt bytes, and the Spec e1/Plan r1 bytes and hashes covered by
+[their exact human approval](https://github.com/rgomids/axiom/pull/336#issuecomment-6345522075).
+No Task ID, DAG, AC, normative content or scope changes.
+
+At the local preparation checkpoint, this note awaited publication authority.
+Subsequently, Maestro (Grok Bot, AI), acting under Rafael's delegated technical
+autonomy, explicitly authorized its commit and normal push on the existing PR
+branch. The resulting Git commit and Linear callback record publication and
+remote read-back separately. Next gate: incremental review on the same PR.
+No implementation or Tasks acceptance is inferred. Host rendering remains
+**UNVERIFIED**; real host sessions and product tests remain **NOT_RUN**.
+No merge or release is claimed.
+
 ## Retrospective post-publication reconciliation — CR-002, 2026-10-22
 
 This note records the later publication state; all sections below retain their
