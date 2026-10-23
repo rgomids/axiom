@@ -381,7 +381,7 @@ python3 - "$temporary/current-profiles.json" <<'PYJSON'
 import json,sys
 r=json.load(open(sys.argv[1]))["runtimeAuthoring"]
 assert r["state"] == "active-v4" and r["revision"] == 2
-assert r["authentication"] == "unknown" and r["modelSupport"] == "unproven" and r["effortSupport"] == "unproven"
+assert r["authentication"] == "unknown" and r["modelSupport"] == "unconfirmed" and r["effortSupport"] == "unconfirmed"
 assert all(p["effort"] == {"mode":"runtime-default","value":"default"} for p in r["profiles"])
 PYJSON
 
