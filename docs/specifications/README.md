@@ -11,8 +11,10 @@ separate documentary coverage from product tests and native conversations,
 which remain NOT_RUN. [Implementation Plan r1](012-conversational-project-stage-presentation/plan.md)
 maps actual shared skills, semantic harnesses, AC/cases, dependency and installed-host
 gates, future decomposition and rollback. [Plan Evidence](012-conversational-project-stage-presentation/evidence-plan.md)
-separates documentary checks from future product validation. Specification/Plan only;
-no Tasks, implementation, new ADR, Runtime
+separates documentary checks from future product validation. [Tasks r1](012-conversational-project-stage-presentation/tasks.md)
+and [Tasks Evidence](012-conversational-project-stage-presentation/evidence-tasks.md)
+define eight causal work packages and separate native authorization gates.
+Specification/Plan/Tasks documentation only; no implementation, new ADR, Runtime
 execution, product acceptance or canonical Execution advancement.
 
 ## 011 — Rendered Workflow presentation
