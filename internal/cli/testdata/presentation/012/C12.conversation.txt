@@ -1,0 +1,1 @@
+(partial) Structure valid; execution blocked: runtime_resolution_blocked (execution): profile unavailable; repository_unavailable (secondary): binding inaccessible. prior attempt; timeout; invalid result despite exit 0. attempt_unknown; reconcile required. Confirmed effect: scratch artifact saved; Provider acknowledgement unknown. Must reconcile before retry.

@@ -309,6 +309,13 @@ var sharedSkillHistory = []skillSetRevision{
 		"axiom-work-item": "ea5476f17d1962c0938968fa726a006a01c4d79913ff3988e3d11aaf64af49f3",
 		"axiom-workflow":  "580ca950da69046632543523d41447544e979f9f2237278ac39377772fc4f5e5",
 	}},
+	// Full shared revision replaced by AXM-39 conversational presentation (012).
+	{skillSetVersion: "3", binaryCompatibility: "3", skills: map[string]string{
+		"axiom-project":   "a249ea87133eeefd53f7e6bccf8b5d083c2bf87802f8141ec85183d52d9a892d",
+		"axiom-runtime":   "90a725ed0ac96aa3378b3c9860f5357c8ef63b090662a19d362c24c8cc0aad0b",
+		"axiom-work-item": "ea5476f17d1962c0938968fa726a006a01c4d79913ff3988e3d11aaf64af49f3",
+		"axiom-workflow":  "8b47aa65611d28395eab3695ce4ca90773e541800f72d4189838565268a7f235",
+	}},
 }
 
 // currentRevision is the skill set embedded in this binary.

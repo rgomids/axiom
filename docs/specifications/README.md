@@ -1,5 +1,30 @@
 # Specifications
 
+## 012 — Conversational Project and Stage presentation
+
+[Specification revision 1](012-conversational-project-stage-presentation/spec.md)
+captures the approved [AXM-39](https://linear.app/rgomids/issue/AXM-39) Intake
+baseline: human Project identity, progressive Stage/Agent details, truthful
+Runtime/Profile and readiness presentation. [Examples/test protocol](012-conversational-project-stage-presentation/examples.md)
+and [Specify Evidence](012-conversational-project-stage-presentation/evidence-specify.md)
+preserve documentary coverage and the native protocol. [Implementation Plan r1](012-conversational-project-stage-presentation/plan.md)
+maps actual shared skills, semantic harnesses, AC/cases, dependency and installed-host
+gates, future decomposition and rollback. [Plan Evidence](012-conversational-project-stage-presentation/evidence-plan.md)
+separates documentary checks from future product validation. [Tasks r1](012-conversational-project-stage-presentation/tasks.md)
+and [Tasks Evidence](012-conversational-project-stage-presentation/evidence-tasks.md)
+define eight causal work packages and separate native authorization gates.
+[Implementation Evidence](012-conversational-project-stage-presentation/evidence-implementation.md)
+records shared guidance, synthetic C01–C16 regressions, both-root history/upgrade
+checks and partial AC/Task reconciliation. Native Codex/Claude conversations remain
+NOT_RUN: attempt-05 T07 BLOCKED_HOST_BASELINE; official owned-upgrade preview
+refuses divergent_equivalent_version. Backup/restore rehearsal and isolated
+generation-2 docs checks pass; active host retains pre-012 skills and
+source_unqualified docs. Both subscription logins observed through official
+auth in temporary child environments; usability unproven. No managed-file or
+credential mutation. T08 PARTIAL.
+No product acceptance or canonical Execution
+advancement; DF-01 remains deferred for pre-merge.
+
 ## 011 — Rendered Workflow presentation
 
 [Specification editorial e1](011-rendered-workflow-presentation/spec.md) and

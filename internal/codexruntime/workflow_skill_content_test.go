@@ -244,3 +244,29 @@ func TestGuidedConfigurationInstructionContracts(t *testing.T) {
 		})
 	}
 }
+
+// AXM-39 regression-first instruction checks. Offline: no claim of model compliance.
+func TestOperatorConversationalPresentation012Guidance(t *testing.T) {
+	for name, wants := range map[string][]string{
+		"axiom-project":  {"## Project labels and exact identity", "Nome (slug)", "Project sem nome/slug", "same full ID", "incomplete inventory", "ProjectView has no name", "unique supported slug", "control characters", "policy_unconfigured", "no-dispatch"},
+		"axiom-workflow": {"## Progressive Stage and Agent explanation", "both `intake` and `implementation`", "nenhum gate declarado", "não informado nesta fonte", "## Runtime facts and readiness", "allowed", "declared", "selected", "resolved", "observed", "codex-test", "Profile-owned", "login-only", "unknown version", "invalid result despite exit 0"},
+		"axiom-runtime":  {"## Runtime facts and readiness", "allowed", "declared", "selected", "resolved", "observed", "codex-test", "Profile-owned", "login-only", "unknown version", "invalid result despite exit 0"},
+	} {
+		wire, err := fs.ReadFile(skillFiles, "skills/"+name+"/SKILL.md")
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, want := range wants {
+			if !strings.Contains(string(wire), want) {
+				t.Errorf("%s missing %q", name, want)
+			}
+		}
+	}
+	// Work Item already separates Plan/Execution/effects and hands setup to owners.
+	wire, _ := fs.ReadFile(skillFiles, "skills/axiom-work-item/SKILL.md")
+	for _, want := range []string{"Login and successful process exit do not prove successful Stage output", "Role never selects a model", "confirmed/uncertain", "execution\nblocked", "never automatic replay"} {
+		if !strings.Contains(string(wire), want) {
+			t.Errorf("Work Item handoff missing %q", want)
+		}
+	}
+}
