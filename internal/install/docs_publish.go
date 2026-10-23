@@ -202,9 +202,8 @@ func (s docsStore) publishGeneration(bundle *operationaldocs.Bundle) (result err
 			return docsFailure(err)
 		}
 	}
-	if err := os.Chmod(stagePath, 0o500); err != nil {
-		return docsFailure(err)
-	}
+	// The generation root stays writable until published: macOS 15 refuses
+	// to rename a 0500 directory even within the same parent.
 	if err := docsFault("generation_staged"); err != nil {
 		return docsFailure(err)
 	}
@@ -221,6 +220,12 @@ func (s docsStore) publishGeneration(bundle *operationaldocs.Bundle) (result err
 		return docsFailure(err)
 	}
 	committed = true
+	if published, err := s.generations.Lstat(bundle.Generation); err != nil || !os.SameFile(published, stageInfo) {
+		return docsFailure(errors.Join(local.ErrReplaced, err))
+	}
+	if err := os.Chmod(s.generationPath(bundle.Generation), 0o500); err != nil {
+		return docsFailure(err)
+	}
 	if err := s.generations.Sync(); err != nil {
 		return docsFailure(err)
 	}
