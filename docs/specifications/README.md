@@ -1,5 +1,16 @@
 # Specifications
 
+## 012 — Conversational Project and Stage presentation
+
+[Specification revision 1](012-conversational-project-stage-presentation/spec.md)
+captures the approved [AXM-39](https://linear.app/rgomids/issue/AXM-39) Intake
+baseline: human Project identity, progressive Stage/Agent details, truthful
+Runtime/Profile and readiness presentation. [Examples/test protocol](012-conversational-project-stage-presentation/examples.md)
+and [Specify Evidence](012-conversational-project-stage-presentation/evidence-specify.md)
+separate documentary coverage from product tests and native conversations,
+which remain NOT_RUN. Specification only; no implementation, new ADR, Runtime
+execution, product acceptance or canonical Execution advancement.
+
 ## 011 — Rendered Workflow presentation
 
 [Specification editorial e1](011-rendered-workflow-presentation/spec.md) and
