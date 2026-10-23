@@ -1,0 +1,4 @@
+# Reviewed record of unpublished stable releases superseded by the next
+# version (ADR-0035). One row per version, never edited or removed:
+#   <MAJOR.MINOR.PATCH> <full release commit SHA> <reason>
+0.21.0 3c99cf14b3cf3e924cd8ce1af4192dc7d6bf3be9 native suite cannot pass at the release commit (macOS 15 docs publication, see #339); its changes ship in the next version

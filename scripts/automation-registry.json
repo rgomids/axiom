@@ -1966,6 +1966,40 @@
       "removal_condition": null
     },
     {
+      "path": "scripts/release-supersession.sh",
+      "kind": "script",
+      "owner": "release",
+      "purpose": "Sourced library of explicit release supersession (ADR-0035): reads the reviewed .github/release-supersessions.txt record and the Release Please last-release-sha pin at a revision.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "bash"
+      ],
+      "scope": [
+        "ci",
+        "maintainer"
+      ],
+      "trigger": "Sourced by the release plan, release.sh status and release notes on every release run",
+      "replay_reason": null,
+      "callers": [
+        "scripts/release-notes.sh",
+        "scripts/release-plan.sh",
+        "scripts/release.sh"
+      ],
+      "inputs": "Sourced, not executed; caller must define repository_root and fail(); reads .github/release-supersessions.txt and release-please-config.json at an explicit Git revision",
+      "outputs": "Defines superseded_commit and last_release_sha; no standalone output; malformed records fail through the caller's fail()",
+      "local_effects": "none",
+      "network_effects": "none",
+      "authority": "none; the record changes only through a reviewed PR",
+      "tests": [
+        "scripts/test-release-flow.sh"
+      ],
+      "evidence": "Plan superseded_version/superseded_release_commit, status superseded_release_prs and state=superseded, and the superseded notes section",
+      "compatibility": [],
+      "removal_condition": null
+    },
+    {
       "path": "scripts/release-tag-version.sh",
       "kind": "script",
       "owner": "release",

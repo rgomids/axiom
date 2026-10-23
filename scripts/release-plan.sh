@@ -18,7 +18,11 @@
 # - bump (release-please 17.6.0 default strategy, bump-minor-pre-major,
 #   no bump-patch-for-minor-pre-major): breaking -> major (minor while 0.x),
 #   feat -> minor, anything else -> patch; Release-As X.Y.Z forces X.Y.Z;
-# - the planned tag does not exist and is newer than every stable tag.
+# - the planned tag does not exist and is newer than every stable tag;
+# - an untagged v<manifest> is allowed only when .github/release-supersessions.txt
+#   records it as superseded at that commit and release-please-config.json pins
+#   last-release-sha to it (ADR-0035); the published release before it is then
+#   previous_tag, and the superseded range may deliver no Issue.
 # Release Please still computes the version; release.sh start and
 # release-please.yml refuse a Release PR whose version differs from this plan.
 set -euo pipefail
@@ -83,11 +87,42 @@ tag_table=$(awk '
   END { for (name in plain) print name, ((name in peeled) ? peeled[name] : plain[name]) }' <<<"$remote_tags")
 tag_commit() { awk -v name="$1" '$1 == name {print $2}' <<<"$tag_table"; }
 
+source "$repository_root/scripts/release-supersession.sh"
+superseded=none
+superseded_commit_sha=$(superseded_commit "$main" "$current")
+pinned_last_release=$(last_release_sha "$main")
+previous_version=$current
+previous_commit=$boundary
 previous_tag_commit=$(tag_commit "v$current")
-[[ -n "$previous_tag_commit" ]] \
-  || fail "release v$current is recorded on main but not published; finish it with \$axiom-release first"
-[[ "$previous_tag_commit" == "$boundary" ]] \
-  || fail "tag v$current is not at the release commit that recorded it ($boundary)"
+if [[ -z "$previous_tag_commit" && -n "$superseded_commit_sha" ]]; then
+  # ADR-0035: v<current> is recorded but explicitly superseded. The range and
+  # bump still start at its release commit (as Release Please does through
+  # last-release-sha); the published release before it must be consistent,
+  # and the superseded range may deliver no Issue (it is never released).
+  [[ "$superseded_commit_sha" == "$boundary" ]] \
+    || fail "superseded v$current is recorded at $superseded_commit_sha, not at its release commit $boundary"
+  [[ "$pinned_last_release" == "$boundary" ]] \
+    || fail "superseded v$current requires last-release-sha $boundary in release-please-config.json"
+  previous_commit=$(git_ log --first-parent --max-count=1 --format=%H "$boundary^1" -- .release-please-manifest.json)
+  [[ -n "$previous_commit" ]] || fail "no published release precedes superseded v$current"
+  previous_version=$(manifest_at "$previous_commit")
+  previous_tag_commit=$(tag_commit "v$previous_version")
+  [[ -n "$previous_tag_commit" ]] \
+    || fail "release v$previous_version before superseded v$current is not published"
+  "$repository_root/scripts/delivery-issues.sh" commits --from "$previous_commit" --to "$(git_ rev-parse "$boundary^1")" >"$temporary/superseded" \
+    2>"$temporary/superseded-error" || fail "$(sed 's/^delivery_metadata_error: //' "$temporary/superseded-error" | head -n 1)"
+  grep -Ev ' completes=none$' "$temporary/superseded" | grep -q . \
+    && fail "superseded v$current delivers Issues; it cannot be superseded without releasing them"
+  superseded=$current
+else
+  [[ -n "$previous_tag_commit" ]] \
+    || fail "release v$current is recorded on main but not published; finish it with \$axiom-release first"
+  [[ -z "$superseded_commit_sha" ]] || fail "published v$current is recorded as superseded"
+  [[ -z "$pinned_last_release" ]] \
+    || fail 'release-please-config.json pins last-release-sha but v'"$current"' is not superseded; remove it'
+fi
+[[ "$previous_tag_commit" == "$previous_commit" ]] \
+  || fail "tag v$previous_version is not at the release commit that recorded it ($previous_commit)"
 
 latest_stable=none
 while read -r name _; do
@@ -205,8 +240,10 @@ issues=$(LC_ALL=C sort -n -u "$temporary/delivered" | paste -sd, -)
 printf 'planVersion=1\n'
 printf 'main=%s\n' "$main"
 printf 'current_version=%s\n' "$current"
-printf 'previous_tag=v%s\n' "$current"
-printf 'previous_release_commit=%s\n' "$boundary"
+printf 'previous_tag=v%s\n' "$previous_version"
+printf 'previous_release_commit=%s\n' "$previous_commit"
+printf 'superseded_version=%s\n' "$superseded"
+printf 'superseded_release_commit=%s\n' "$([[ "$superseded" == none ]] && printf none || printf '%s' "$boundary")"
 printf 'latest_stable=%s\n' "$latest_stable"
 printf 'commits=%s\n' "$total"
 printf 'releasable=%s\n' "$releasable"

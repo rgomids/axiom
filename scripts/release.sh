@@ -74,6 +74,7 @@ fail() {
   printf 'release_error: %s\n' "$1" >&2
   exit 1
 }
+source "$repository_root/scripts/release-supersession.sh"
 
 export AXIOM_RELEASE_CORRECTIONS_REVISION=$corrections_revision
 export AXIOM_RELEASE_CORRECTIONS_DIGEST=$corrections_digest
@@ -499,6 +500,16 @@ status() {
     || fail 'cannot list open Release PRs'
   merged=$(gh pr list --repo "$repository" --state merged --label 'autorelease: pending' --json number,url,title,mergeCommit --limit 10) \
     || fail 'cannot list merged Release PRs'
+  # A merged Release PR whose release commit main records as superseded
+  # (ADR-0035) is never published and no longer awaits publication.
+  local superseded_prs=none pr_number pr_commit pr_version
+  while IFS=$'\t' read -r pr_number pr_commit; do
+    [[ -n "${pr_number:-}" ]] || continue
+    pr_version=$(git -C "$repository_root" show "$pr_commit:.release-please-manifest.json" 2>/dev/null | jq -r '.["."] // empty') || continue
+    [[ -n "$pr_version" && $(superseded_commit "$main" "$pr_version") == "$pr_commit" ]] || continue
+    merged=$(jq --argjson n "$pr_number" 'map(select(.number != $n))' <<<"$merged")
+    superseded_prs=$([[ "$superseded_prs" == none ]] && printf '#%s' "$pr_number" || printf '%s,#%s' "$superseded_prs" "$pr_number")
+  done < <(jq -r '.[] | [.number, .mergeCommit.oid] | @tsv' <<<"$merged")
   {
     printf 'statusVersion=2\n'
     printf 'repository=%s\n' "$repository"
@@ -511,6 +522,7 @@ status() {
     printf 'release_environment=%s\n' "$(release_environment)"
     printf 'open_release_prs=%s\n' "$(jq -r 'map("#\(.number)") | join(",") | if . == "" then "none" else . end' <<<"$open")"
     printf 'unpublished_release_prs=%s\n' "$(jq -r 'map("#\(.number)") | join(",") | if . == "" then "none" else . end' <<<"$merged")"
+    printf 'superseded_release_prs=%s\n' "$superseded_prs"
   } >>"$out"
 
   if [[ -z "$tag" ]]; then
@@ -555,7 +567,10 @@ status() {
     if [[ -z "$state" ]]; then
       if [[ "$channel" == stable ]]; then state=release_pr_merged; else state=release_candidate; fi
     fi
-    if [[ -z "$revision" ]]; then
+    if [[ "$channel" == stable && -n $(superseded_commit "$main" "$version") ]]; then
+      state=superseded; next=blocked
+      reason="$tag is recorded as superseded in .github/release-supersessions.txt (ADR-0035); it is never prepared or published"
+    elif [[ -z "$revision" ]]; then
       if [[ "$channel" == stable ]]; then
         revision=$(release_commit_for "$version")
         if [[ -z "$revision" ]]; then
