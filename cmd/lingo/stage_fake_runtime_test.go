@@ -188,7 +188,13 @@ func runFakeStageSteps(script fakeStageScript, packet runtimeadapter.TaskPacket,
 		case "sleep":
 			time.Sleep(time.Duration(step.Millis) * time.Millisecond)
 		case "stderr":
-			if _, err := io.WriteString(os.Stderr, step.Content); err != nil {
+			// Terminate the line like a real CLI so later process output (for
+			// example a coverage-instrumented exit) cannot extend it.
+			content := step.Content
+			if content != "" && !strings.HasSuffix(content, "\n") {
+				content += "\n"
+			}
+			if _, err := io.WriteString(os.Stderr, content); err != nil {
 				return 27
 			}
 		case "exit":
