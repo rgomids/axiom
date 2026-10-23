@@ -69,7 +69,7 @@ for row in macos-27-arm64 linux-amd64 linux-arm64; do
   grep -Eq "^archive=axiom-0\\.1\\.0-rc\\.1-$row\\.tar\\.gz sha256=[0-9a-f]{64} " "$temporary/evidence"
 done
 [[ $(grep -c '^archive=axiom-[0-9]' "$temporary/evidence") == 3 ]]
-# v2 remains opt-in; the explicit verifier consumes all three cross-built
+# v2 is selected explicitly (the release workflow passes --format 2); the explicit verifier consumes all three cross-built
 # rows and reuses the shell verify-only seam without candidate execution.
 "$build" --version 0.1.0-rc.1 --format 2 --output "$temporary/v2" >/dev/null
 "$verify" --dir "$temporary/v2" --version 0.1.0-rc.1 --revision "$revision" --format 2 >"$temporary/v2-evidence"
@@ -200,8 +200,12 @@ assert '${{ needs.prepare.outputs.version }}' in macos
 assert '--dir "$RUNNER_TEMP/prepared/artifacts"' in macos
 assert 'build-release-archives' not in macos and 'setup-go' not in macos
 assert 'continue-on-error' not in workflow
-for section, row in ((prepare, 'linux-amd64'), (macos, 'macos-27-arm64')):
-    assert '--row ' + row in section
+# Release workflow selects generation 2 explicitly in build, verify and both smokes.
+assert '--format 2 --version "$RELEASE_VERSION" --output' in prepare
+assert 'verify-release-artifacts.sh --format 2 ' in prepare
+assert 'macos-27' not in macos.replace('macos-27, format 1 only', '')
+for section, row in ((prepare, 'linux-amd64'), (macos, 'macos-arm64')):
+    assert '--row ' + row + ' --format 2' in section
     assert 'if: always()' in section
     assert 'name: axiom-release-smoke-' + row in section
 PYWORKFLOW

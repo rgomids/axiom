@@ -75,7 +75,12 @@ elif [[ -e "$prepared/release-recovery.txt" ]]; then
   fail 'prepared recovery metadata requires explicit correction pins'
 fi
 
-"$artifact_verifier" --dir "$prepared/artifacts" --version "$version" --revision "$revision" \
+# The prepared inventory names its own generation (macos-arm64 is format 2;
+# historical macos-27-arm64 is format 1); the selected verifier still enforces
+# that generation's closed inventory and metadata.
+verify_format=()
+if grep -Eq '^[0-9a-f]{64}  axiom-[^ ]+-macos-arm64\.tar\.gz$' "$prepared/artifacts/SHA256SUMS" 2>/dev/null; then verify_format=(--format 2); fi
+"$artifact_verifier" --dir "$prepared/artifacts" --version "$version" --revision "$revision" ${verify_format[@]+"${verify_format[@]}"} \
   >"$temporary/evidence" || fail 'prepared artifacts fail verification at this revision'
 normalize() { sed -E 's/ version_smoke=[a-z_]+$//' "$1"; }
 cmp -s <(normalize "$prepared/release-evidence.txt") <(normalize "$temporary/evidence") \

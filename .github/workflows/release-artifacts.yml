@@ -124,7 +124,7 @@ jobs:
         run: AXIOM_FREEZE_STATE_CORPUS= go test ./internal/local ./internal/compatibility -count=1
       - name: Build supported release archives
         working-directory: source
-        run: ./scripts/build-release-archives.sh --version "$RELEASE_VERSION" --output "$RUNNER_TEMP/axiom-release/artifacts"
+        run: ./scripts/build-release-archives.sh --format 2 --version "$RELEASE_VERSION" --output "$RUNNER_TEMP/axiom-release/artifacts"
       - name: Verify complete artifact set and render notes
         env:
           GH_TOKEN: ${{ github.token }}
@@ -136,7 +136,7 @@ jobs:
               --corrections-revision "$AXIOM_RELEASE_CORRECTIONS_REVISION" \
               --corrections-digest "$AXIOM_RELEASE_CORRECTIONS_DIGEST" >"$out/release-recovery.txt"
           fi
-          ./scripts/verify-release-artifacts.sh --dir "$out/artifacts" --version "$RELEASE_VERSION" --revision "$RELEASE_REVISION" >"$out/release-evidence.txt"
+          ./scripts/verify-release-artifacts.sh --format 2 --dir "$out/artifacts" --version "$RELEASE_VERSION" --revision "$RELEASE_REVISION" >"$out/release-evidence.txt"
           "$RELEASE_CONTROL_SCRIPTS/release-notes.sh" --tag "$RELEASE_TAG" --revision "$RELEASE_REVISION" --repo "$GITHUB_REPOSITORY" >"$out/release-notes.md"
           {
             printf 'tag=%s\n' "$RELEASE_TAG"
@@ -152,7 +152,7 @@ jobs:
         working-directory: source
         run: |
           python3 "$RELEASE_CONTROL_SCRIPTS/smoke-prepared-artifact.py" --dir "$RUNNER_TEMP/axiom-release/artifacts" \
-            --version "$RELEASE_VERSION" --revision "$RELEASE_REVISION" --row linux-amd64 \
+            --version "$RELEASE_VERSION" --revision "$RELEASE_REVISION" --row linux-amd64 --format 2 \
             >"$RUNNER_TEMP/smoke-linux-amd64.json"
       - name: Retain Linux smoke summary
         if: always()
@@ -192,7 +192,7 @@ jobs:
 
   smoke-macos:
     # macos-15 is the existing supported hosted arm64 environment. Legacy
-    # artifact naming macos-27 does not require numeric OS version 27.
+    # artifact naming (macos-27, format 1 only) does not require numeric OS version 27.
     needs: prepare
     runs-on: macos-15
     timeout-minutes: 10
@@ -214,13 +214,13 @@ jobs:
           RELEASE_REVISION: ${{ inputs.revision }}
         run: |
           python3 scripts/smoke-prepared-artifact.py --dir "$RUNNER_TEMP/prepared/artifacts" \
-            --version "$RELEASE_VERSION" --revision "$RELEASE_REVISION" --row macos-27-arm64 \
-            >"$RUNNER_TEMP/smoke-macos-27-arm64.json"
+            --version "$RELEASE_VERSION" --revision "$RELEASE_REVISION" --row macos-arm64 --format 2 \
+            >"$RUNNER_TEMP/smoke-macos-arm64.json"
       - name: Retain macOS smoke summary
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: axiom-release-smoke-macos-27-arm64
-          path: ${{ runner.temp }}/smoke-macos-27-arm64.json
+          name: axiom-release-smoke-macos-arm64
+          path: ${{ runner.temp }}/smoke-macos-arm64.json
           if-no-files-found: ignore
           retention-days: 30

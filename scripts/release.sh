@@ -887,8 +887,10 @@ case "$command" in
       gh release download "$tag" --repo "$repository" --dir "$temporary/artifacts" >/dev/null || fail 'cannot download release assets'
       git clone --quiet --no-hardlinks "$repository_root" "$temporary/source"
       git -C "$temporary/source" checkout --quiet --detach "$tag_sha"
+      verify_format=()
+      if grep -Eq '^[0-9a-f]{64}  axiom-[^ ]+-macos-arm64\.tar\.gz$' "$temporary/artifacts/SHA256SUMS" 2>/dev/null; then verify_format=(--format 2); fi
       "$temporary/source/scripts/verify-release-artifacts.sh" --dir "$temporary/artifacts" \
-        --version "$(value version "$temporary/preflight")" --revision "$tag_sha" >"$temporary/verified"
+        --version "$(value version "$temporary/preflight")" --revision "$tag_sha" ${verify_format[@]+"${verify_format[@]}"} >"$temporary/verified"
       grep -Ev '^(result|publication)=' "$temporary/verified"
       printf 'artifacts_verified=pass\n'
     fi

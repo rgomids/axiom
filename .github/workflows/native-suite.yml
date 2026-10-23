@@ -144,7 +144,7 @@ jobs:
           go-version-file: go.mod
           cache: true
       - name: Build the candidate release archives
-        run: ./scripts/build-release-archives.sh --version "9999.0.0-acceptance.${GITHUB_RUN_NUMBER}" --output "$RUNNER_TEMP/candidate"
+        run: ./scripts/build-release-archives.sh --format 2 --version "9999.0.0-acceptance.${GITHUB_RUN_NUMBER}" --output "$RUNNER_TEMP/candidate"
       - name: Fetch published earlier releases
         env:
           ROW: ${{ matrix.row }}

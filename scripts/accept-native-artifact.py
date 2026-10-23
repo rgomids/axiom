@@ -271,6 +271,7 @@ def main():
     parser.add_argument("--revision", required=True)
     parser.add_argument("--row", choices=("linux-arm64", "linux-amd64"), required=True)
     parser.add_argument("--log", required=True)
+    parser.add_argument("--format", choices=("1", "2"), default="1")
     args = parser.parse_args()
     report = {"schema": "axiom-native-acceptance/v1", "version": args.version,
               "revision": args.revision, "row": args.row, "result": "fail", "scenarios": [],

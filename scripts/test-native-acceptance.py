@@ -93,7 +93,7 @@ class NativeContract(unittest.TestCase):
             scripts = origin / "scripts"
             scripts.mkdir()
             builder = scripts / "build-release-archives.sh"
-            builder.write_text('#!/bin/bash\nset -eu\nmkdir -p "$4"\ngit rev-parse HEAD > "$4/source"\n')
+            builder.write_text('#!/bin/bash\nset -eu\ntest "$1 $2" = "--format 2"\nmkdir -p "$6"\ngit rev-parse HEAD > "$6/source"\n')
             harness = scripts / "test-upgrade-journeys.sh"
             harness.write_text('#!/bin/bash\nexit 17\n')
             builder.chmod(0o755)

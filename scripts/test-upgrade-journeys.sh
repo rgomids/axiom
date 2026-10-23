@@ -52,10 +52,21 @@ digest() {
   if command -v sha256sum >/dev/null 2>&1; then sha256sum "$1" | awk '{print $1}'; else shasum -a 256 "$1" | awk '{print $1}'; fi
 }
 
+# archive_in DIR: the host row archive; macOS is macos-27-arm64 in historical
+# format 1 releases and macos-arm64 in format 2, with no cross fallback beyond
+# those two closed names.
+archive_in() {
+  if [[ "$row" == macos-27-arm64 ]]; then
+    find "$1" -maxdepth 1 \( -name 'axiom-*-macos-27-arm64.tar.gz' -o -name 'axiom-*-macos-arm64.tar.gz' \) | head -1
+  else
+    find "$1" -maxdepth 1 -name "axiom-*-$row.tar.gz" | head -1
+  fi
+}
+
 # release_bundle DIR: extracts the host row archive once and prints the bundle.
 release_bundle() {
   local dir=$1 archive name
-  archive=$(find "$dir" -maxdepth 1 -name "axiom-*-$row.tar.gz" | head -1)
+  archive=$(archive_in "$dir")
   [[ -n "$archive" ]] || { printf 'upgrade_journey_error: no %s archive in %s\n' "$row" "$dir" >&2; return 1; }
   name=$(basename "$archive" .tar.gz)
   if [[ ! -d "$work/bundles/$name" ]]; then
@@ -102,7 +113,7 @@ new_home() {
 install_release() {
   local bundle archive
   bundle=$(release_bundle "$1")
-  archive=$(find "$1" -maxdepth 1 -name "axiom-*-$row.tar.gz" | head -1)
+  archive=$(archive_in "$1")
   (verifier_env "$1" && cd / && bash "$bundle/install.sh" --archive "$archive" --checksums "$1/SHA256SUMS" \
     --bin-dir "$H/.local/bin" --receipt-dir "$H/.local/state/axiom/install") >"$work/install.out" 2>"$work/install.err"
 }
@@ -204,7 +215,7 @@ portable_before=$(tree_digest "$PROJECTS")
 # before any write; the candidate installer remains the supported migration.
 if [[ "$previous_version" == "0.15.0" ]]; then
   legacy_before=$(tree_digest "$H")
-  candidate_archive=$(find "$candidate" -maxdepth 1 -name "axiom-*-$row.tar.gz" | head -1)
+  candidate_archive=$(archive_in "$candidate")
   if (verifier_env "$candidate" && cd "$H/cwd" && axiom --json upgrade --archive "$candidate_archive" --checksums "$candidate/SHA256SUMS" --bin-dir "$H/.local/bin" --receipt-dir "$H/.local/state/axiom/install") >"$work/legacy-upgrade.json" 2>&1; then
     fail legacy-parser-refuses-three-skills
   else
@@ -242,7 +253,7 @@ for index in "${!previous[@]}"; do
   check first-run bash -c 'cd "$HOME/cwd" && axiom first-run'
   check claude-ready bash -c 'cd "$HOME/cwd" && axiom runtime claude status'
   check skills-converged skills_converged
-  check rerun-unchanged bash -c "$(declare -f install_release release_bundle verifier_env); row=$row work=$work H=$H; install_release '$candidate' && grep -qx install_status=unchanged '$work/install.out'"
+  check rerun-unchanged bash -c "$(declare -f install_release release_bundle verifier_env archive_in); row=$row work=$work H=$H; install_release '$candidate' && grep -qx install_status=unchanged '$work/install.out'"
 done
 
 # Journey 3: historical POC state -> N -> candidate (RecognizedPOC

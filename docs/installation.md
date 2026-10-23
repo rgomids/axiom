@@ -52,7 +52,15 @@ validates the bundle, and invokes that release's installer. Defaults:
 - Binary: `$HOME/.local/bin/axiom`.
 - Receipt directory: `${XDG_STATE_HOME:-$HOME/.local/state}/axiom/install`.
 
-The macOS asset name retains `macos-27-arm64`; this is not an OS-version gate.
+The macOS asset name is `macos-27-arm64` for generation 1 releases (through
+v0.21.1) and `macos-arm64` for generation 2; neither is an OS-version gate.
+
+Generation 1 releases, including v0.21.1, carry no installed operational
+documentation: `axiom --json docs inspect` correctly refuses them with
+`docs.reason=source_unqualified`, and reinstalling the same release does not
+change that. Verified installed documentation and `man axiom` are delivered
+only by a generation 2 release; the inspector never substitutes checkout
+documentation.
 See [bootstrap reference](commands.md#install-a-published-release-s9t39).
 
 ## PATH configuration
