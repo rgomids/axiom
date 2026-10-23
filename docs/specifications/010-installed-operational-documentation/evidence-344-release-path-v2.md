@@ -185,3 +185,48 @@ sub-paths, and `docs` is walked as a non-directory entry). Impact is limited to 
 same-user writable tree, but spec symlink refusals and the native helper's
 `confined()` both expect refusal. Not fixed here: it changes reviewed product code
 and needs a scoped decision plus new review.
+
+## Maintainer decision and handoff (2026-10-23, America/Sao_Paulo)
+
+Decision (maintainer, human): reduce the qualification scope to conclude the
+main correction. The final E2E is run by the maintainer, not the agent. No new
+Claude credentials, root/`fs_usage`, Linux hosts or further Q6 sessions are
+requested for this round. This does not turn any unproven contract criterion
+into PASS.
+
+| item | status |
+|---|---|
+| Baseline B (release path selects format 2 explicitly) | implemented in PR #345 |
+| Hosted CI on reviewed code SHA `2ef9b7ae4103` | PASS |
+| macOS arm64 local checks and 37-step upgrade E2E (local v2 candidate, not a published release) | PASS (development) |
+| **DF-1** `generations/<g>/docs` symlink accepted by `docs inspect` | **OPEN / ACCEPTED_RISK / DEFERRED_TO [#346](https://github.com/rgomids/axiom/issues/346)** |
+| Final E2E (manual checklist below) | **OWNER: HUMAN / PENDING** |
+| Claude Q6, independent observation of positive reads (Q6-4), AC-08/V9 | NOT_RUN / UNVERIFIED |
+| Linux T13 amd64/arm64, RecognizedPOC journey, crossed skills | NOT_RUN |
+| T16 aggregate | NOT_RUN (mandatory rows missing) |
+
+DF-1 scope and severity: product code `axiom docs inspect` (Lstat guards only
+the final component of sub-paths); impact limited to a same-user writable
+installation tree (no privilege boundary crossed). It contradicts the spec's
+symlink refusal and the native helper's `confined()` expectation, and the
+Q6 symlink row stays **FAIL**. It is not fixed, hidden, suppressed or relaxed
+in this PR; the risk acceptance is a human decision by the maintainer, and full
+conformity is **not** declared.
+
+### Manual E2E checklist (maintainer)
+
+Use a clean or isolated root (`env -i`, fresh `HOME`/install prefix), cwd outside the checkout.
+
+1. Build or download the v2 candidate (`build-release-archives.sh --format 2 --only <row>`) and install it with `install-release.sh`.
+2. `axiom version` shows the expected version/commit.
+3. `axiom --json docs inspect` -> `docs.state=verified`, `man.state=available`.
+4. `man axiom` renders the matching version.
+5. Upgrade over a previous v1 install (higher version) -> `upgraded`, docs verified; same-version v1->v2 is refused atomically; downgrade refused.
+6. Functional regression: existing project/Work Item commands still behave.
+7. Record result and links in a comment on Issue #344 (PASS/FAIL per step, host, SHAs).
+
+### Pending gates before a v2 promotion
+
+- Manual E2E above (human).
+- Qualification rows NOT_RUN above remain open: promotion as "release_qualified" is not supported by current Evidence; the maintainer must either accept that scope explicitly in the release decision or run the rows. Smallest path: record an explicit scope-reduction acceptance on #344 and run the checklist.
+- No merge, release publication or Issue closure is performed by the agent.
