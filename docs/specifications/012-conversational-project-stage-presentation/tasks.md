@@ -2,16 +2,19 @@
 
 ## Implementation checkpoint — 2026-10-23
 
-Same PR/branch, implement **attempt-04 PARTIAL**. [Implementation Evidence](evidence-implementation.md#attempt-04--manual-host-update-preflight)
-records actual manual-update read-back: Axiom 0.21.1 / 921507c27c5b / clean,
-but three installed skills in both roots precede approved 012 guidance;
-Work Item matches. Docs inspection exists but refuses **source_unqualified**.
-Both Axiom auth preflights refuse environment overrides, despite direct login
-availability; inference unobserved. No installation retry or protected-state change.
+Same PR/branch, implement **attempt-05 PARTIAL**. [Implementation Evidence](evidence-implementation.md#attempt-05--transactional-host-preflight-and-official-upgrade-refusal)
+records a verified 12-file private backup and restore rehearsal, official generation-2
+development packaging and read-only upgrade refusal **divergent_equivalent_version**.
+Host remains Axiom 0.21.1 / 921507c27c5b; three skills in both roots precede 012;
+Work Item matches. Active docs remain **source_unqualified**; isolated package
+docs checks pass, without qualifying the active host. Official auth observes both
+subscription logins in temporary child environments excluding only the two reported
+overrides; parent environment and credential state unchanged, usability unproven.
+Compatibility is valid_v1, recovery has no pending plan. No managed-file mutation.
 T07 **BLOCKED_HOST_BASELINE**, both native conversations **NOT_RUN**, loaded UNKNOWN.
 T01–T06/E01–E06 historical PASS preserved; T08/E08 PARTIAL; AC1–AC5 PARTIAL,
 AC6 PASS_SCOPED_REVIEW. Next gate:
-**resume_implement_after_verified_host_baseline_and_auth**;
+**resume_implement_after_supported_owned_host_upgrade**;
 **AWAITING_EXECUTION_REPORT**. Same-attempt callback records exact pushed SHA/CI.
 Historical Tasks baseline below remains unchanged.
 

@@ -660,3 +660,186 @@ Next gate: resume_implement_after_verified_host_baseline_and_auth.
 No configured continuation into another executor verified: AWAITING_EXECUTION_REPORT.
 Completion callback is published/read back on AXM-39; publication alone does not
 start review or establish implementation completion, acceptance, merge, release or Done.
+
+
+## Attempt-05 — Transactional host preflight and official upgrade refusal
+
+2026-10-23. Local HEAD, remote branch and Draft PR #343 all matched
+`4914b28d38ab83497db37df37222eb7b1047cf6d`; clean working tree before work.
+Linear inventory returned 42 comments, hasNextPage=false; attempt-05 was latest
+prompt/dispatch, with no completion or later conflicting attempt. Current card,
+Spec/Plan/Tasks r1, prior receipts and scoped
+[host authority](https://linear.app/rgomids/issue/AXM-39#comment-1d523e01)
+checked. Authority retains Maestro's reported provenance, without independent
+human authentication. Prior implementation prompts authorize commit/push to this
+same branch/PR; no merge/release/acceptance/Done. Attempts 01–04 below their
+original headings and T01–T06 PASS scope remain historical and unchanged.
+
+### E07 — Actual baseline, backup and supported packaging
+
+Actual host Darwin arm64; Axiom 0.21.1 / 921507c27c5b / clean,
+Codex CLI 0.163.0 and Claude Code 2.1.308. Both Runtime status commands report
+compatibility 3, current receipts and equivalent files against the installed
+release. All eight installed skill digests still equal attempt-04's table;
+Project, Workflow and Runtime differ from approved PR source, Work Item matches.
+Both loaded revisions remain UNKNOWN. All four `skill inspect` operations
+are metadata inspection, not proof of loaded bytes.
+
+Official `compatibility inspect` now reports valid_v1 / v1_readable_state,
+zero findings, digest
+`beb1caaaefbcd9ea1b82d9940a042e66bf20aedcbf679aff76a8fd75cfdf2758`.
+`recovery inspect` reports no interrupted local publication or recovery plans.
+These observations do not explain or certify repair of historical state_unsafe.
+No protected compatibility state, Project, Workflow, Profile or credential read
+or edited manually. Only supported sanitized diagnostics used for state.
+
+Before candidate evaluation, 12 managed files were copied into a retained
+private backup: binary, release installation receipt, both skill receipts and
+eight SKILL.md files. Original SHA-256, UID/GID and permission modes captured;
+backup objects and manifest are 0600 inside 0700 directories. Independent
+restore rehearsal into that private backup namespace verified every hash,
+mode and UID/GID. Backup manifest SHA-256:
+`3862461b917c6b6556cecd7ca9b2b002981a1f9a63bd86bd775a58515a6e0805`.
+No backup contains vendor authentication/configuration. Actual private path is
+retained locally, omitted here. Documented [pair restoration](../../commands.md#cli-output-and-help)
+requires the complete prior managed set at original paths with matching binary;
+no restore to active roots was needed or executed. Unrelated skill content
+was neither copied into evidence nor changed.
+
+Official packaging, with version taken unchanged from source release manifest:
+
+```sh
+./scripts/build-release-archives.sh --version 0.21.1 --format 2 --development --only macos-arm64 --output <private-artifact-root>
+./scripts/install-release.sh --helper <verified-helper> --helper-sha256 <actual-helper-sha256> --verify-only --archive <archive> --checksums <SHA256SUMS> --bin-dir <existing-bin-root> --receipt-dir <existing-receipt-root>
+<candidate> --json upgrade --archive <archive> --checksums <SHA256SUMS> --bin-dir <existing-bin-root> --receipt-dir <existing-receipt-root>
+```
+
+Build and strict archive verification PASS. Archive metadata: format 2,
+release=false, sourceState=clean, revision=4914b28d38ab,
+sourceCommit=4914b28d38ab83497db37df37222eb7b1047cf6d, macos/darwin/arm64.
+All four archived skills byte-match approved input HEAD and the hashes in
+attempt-04's approved column. No new release version or fabricated descriptor.
+
+| Artifact | SHA-256 |
+| --- | --- |
+| Candidate archive | 7ff863ede6ccbf859435b08867f479b444bfcaac51532c982bd141da6d68cebc |
+| Candidate binary | 1ab9b235841f277560429dc514fe2e06db8b98341d371085b340c022f6c38a6b |
+| Active binary, before and after | 7eb8efaa69e386aa781531694f6ec93a5624d26f97d06531f224cb1e1a9023b9 |
+
+Read-only owned-upgrade preview exits 1:
+**Upgrade blocked before any effect: divergent_equivalent_version**;
+next: **Downgrade and divergent same-version replacement are not supported**.
+Existing release receipt identifies the same 0.21.1 version and exact active
+binary hash. [Version guard](../../../internal/install/upgrade.go) rejects
+same-version divergent bytes before state transition or publication. No apply,
+installer mutation, manual receipt edit, version inflation or alternate active
+state/prefix used to evade this refusal. Source installer is unsuitable: its
+separate axiom.receipt ownership and descriptor-free build do not replace this
+release-owned installation through the supported route. The three divergent
+skills therefore remain untouched in both roots, as does the matching fourth.
+
+Independent official package validation ran
+`scripts/test-docs-offline.sh --archive <archive> --checksums <SHA256SUMS>`:
+PASS macos-arm64; disposable-prefix docs verified/compatible, 26 corpus files,
+closed links, integrity inventory 29 files/413507 bytes. Descriptor produced by
+`axiom-docs-build` through generation-2 packaging, not written by hand.
+Pinned generation-1 installer rejection, extra/swapped content, stale metadata,
+tampered docs and modified binary negative checks PASS. Script's aggregate
+qualification remains PARTIAL: network/source denial and native Runtime
+observation NOT_RUN. This independent test does not replace active-host update:
+active `docs inspect` still refuses source_unqualified, returns no paths.
+
+### E07 — Official authentication and native-session boundary
+
+Parent diagnostics reproduce environment_override naming only OPENAI_API_KEY
+and CLAUDE_CODE_OAUTH_TOKEN. No values inspected or retained. Axiom's official
+diagnostic explicitly directs removal of overrides from the child environment
+before repeating auth. [OpenAI authentication](https://learn.chatgpt.com/docs/auth)
+separates cached ChatGPT login from API-key login;
+[Claude precedence](https://code.claude.com/docs/en/authentication#authentication-precedence)
+puts the environment token above saved subscription login. Credential stores
+and configuration roots were left intact. Used only process-scoped omission:
+
+```sh
+env -u OPENAI_API_KEY -u CLAUDE_CODE_OAUTH_TOKEN axiom --json runtime codex auth
+env -u OPENAI_API_KEY -u CLAUDE_CODE_OAUTH_TOKEN axiom --json runtime claude auth
+```
+
+Both exit 0, subscription_observed, evidenceKind local_observation:
+Codex method chatgpt / version 0.163.0; Claude method claude.ai / version 2.1.308.
+Both report usability unproven_until_real_dispatch and before_each_dispatch
+revalidation. Direct `codex login status` confirms ChatGPT;
+`claude auth status --json`, projected to nonidentity fields only, confirms
+loggedIn=true / claude.ai / firstParty. Parent variables still present by name;
+no persistent shell/profile/configuration or login/logout/refresh operation.
+This verifies the official isolated auth diagnostic route, not a dispatch.
+
+| Native record | Installed / loaded / auth / observed conversation | Result |
+| --- | --- | --- |
+| E07-Codex attempt-05 | predecessor skills / UNKNOWN / subscription_observed in isolated child / none | NOT_RUN; BLOCKED_HOST_BASELINE |
+| E07-Claude attempt-05 | predecessor skills / UNKNOWN / subscription_observed in isolated child / none | NOT_RUN; BLOCKED_HOST_BASELINE |
+
+No fresh conversation started, no prompt submitted, no model response,
+inference or cost incurred. No Project/Stage/Runtime case or graph/text behavior
+observed natively; no synthetic output relabelled as real conversation.
+All 12 active backup targets re-read byte-exact with original ownership/modes;
+rollback NOT_NEEDED_NO_MANAGED_CHANGE. Backup retained. Installed != loaded;
+auth observed != usable dispatch != conversation PASS.
+
+### E08 — Attempt-05 reconciliation and remaining work
+
+| AC / cases | Historical local scope | Native attempt-05 | Aggregate |
+| --- | --- | --- | --- |
+| AC1 / C01–C06,C16 | T01–T06 PASS preserved | NOT_RUN | PARTIAL |
+| AC2 / C07,C08,C15,C16 | T01–T06 PASS preserved | NOT_RUN | PARTIAL |
+| AC3 / C09,C10,C13,C14 | T01–T06 PASS preserved | NOT_RUN | PARTIAL |
+| AC4 / C11–C13 | T01–T06 PASS preserved | NOT_RUN | PARTIAL |
+| AC5 / C01–C16 | synthetic regressions PASS | both conversations NOT_RUN | PARTIAL |
+| AC6 / C01–C16 scope | scoped documentary diff review | no product effects | PASS_SCOPED_REVIEW |
+
+T07 BLOCKED_HOST_BASELINE; T08 PARTIAL. Historical T01–T06/E01–E06 retain their
+original PASS, with focused regression commands rerun successfully using
+`-count=1` (CLI 0.406s, codexruntime 0.990s). Full package suite not repeated:
+no production code changed. Input-head CI PR Checks 39966547119 and metadata
+39966547128 completed/success. Final-head CI and repository/security gates
+are recorded in attempt-05's completion callback after actual execution/read-back;
+input-head results do not establish later-head CI.
+
+Current local checks PASS: `./scripts/validate-repository.sh .`, 203 local
+Markdown path references, historical-content preservation assertions, complete
+scoped diff review, `git diff --check`, staged sensitive-file check and redacted
+Gitleaks (no leaks). Repository validator's Runtime behavioral scenarios remain
+SKIP/UNVERIFIED. These checks do not establish native acceptance or independent Review.
+
+technical_decisions[]: TECHNICAL_LOCAL, executor-ai, scope_impact:none.
+
+- IMPL5-TD-01: use supported generation-2 development packaging with manifest's
+  actual 0.21.1 version, verify-only then read-only upgrade preview. Alternative
+  manual descriptor/source-installer replacement would not preserve official
+  ownership/docs qualification. Stop on observed same-version refusal; do not
+  invent a release identity to evade the guard.
+- IMPL5-TD-02: use official child-environment guidance with only two reported
+  overrides omitted temporarily; retain legitimate saved logins and configuration.
+  Prefer this reversible diagnostic over persistent credential routing changes.
+  Both official auth reports PASS availability; usability remains unproven.
+- IMPL5-TD-03: retain/rehearse private backups before evaluation and stop host
+  effects after official refusal. Disposable-prefix package checks supply
+  independent source/descriptor evidence only; they do not qualify the active
+  installation or bypass its version guard.
+- IMPL5-TD-04: execute directly, no verified strictly lower-capability hierarchy;
+  deterministic hashes/tests provide bounded independent checks.
+
+**DF-01 DEFERRED_NOT_IMPLEMENTED:** stale predecessor Specifications summaries
+remain outside scope, unchanged; highlight at pre-merge. No additional optional
+requirement, ADR or production change introduced.
+
+Remaining work: obtain an official supported owned-upgrade path for the approved
+binary/docs/skill set, currently refused for divergent equivalent version; then
+verify both installed roots and fresh loaded revisions, recheck exact child auth,
+execute both real conversations, reconcile T07/T08 and independent Review.
+No manual compatibility-state or receipt repair authorized. No new contract or
+version policy adopted. Next gate:
+**resume_implement_after_supported_owned_host_upgrade**.
+No demonstrated continuation callback; **AWAITING_EXECUTION_REPORT**.
+No merge, release, acceptance, closure or Done. Same-AXM completion event records
+actual final HEAD, checks and read-back, without claiming Review was dispatched.
