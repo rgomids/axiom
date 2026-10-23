@@ -16,8 +16,10 @@ define eight causal work packages and separate native authorization gates.
 [Implementation Evidence](012-conversational-project-stage-presentation/evidence-implementation.md)
 records shared guidance, synthetic C01–C16 regressions, both-root history/upgrade
 checks and partial AC/Task reconciliation. Native Codex/Claude conversations remain
-NOT_RUN: attempt-03 T07 BLOCKED_HOST_BASELINE after authorized host upgrade
-refused state_unsafe; original pair preserved. No product acceptance or canonical Execution
+NOT_RUN: attempt-04 T07 BLOCKED_HOST_BASELINE; updated 0.21.1 host retains
+pre-012 skills, docs refuses source_unqualified, both auth preflights refuse
+environment overrides. No installation retry or state repair. T08 PARTIAL.
+No product acceptance or canonical Execution
 advancement; DF-01 remains deferred for pre-merge.
 
 ## 011 — Rendered Workflow presentation

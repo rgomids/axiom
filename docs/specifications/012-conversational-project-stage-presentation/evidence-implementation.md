@@ -1,8 +1,10 @@
-# AXM-39 — Implementation Evidence, attempts 01–03
+# AXM-39 — Implementation Evidence, attempts 01–04
 
-Current checkpoint: **attempt-03 PARTIAL; host upgrade BLOCKED_STATE_UNSAFE;
-T07 BLOCKED_HOST_BASELINE; native Codex/Claude NOT_RUN; T08 PARTIAL**.
-See [attempt-03 read-back](#attempt-03--authorized-host-upgrade-refused).
+Current checkpoint: **attempt-04 PARTIAL; T07 BLOCKED_HOST_BASELINE;
+native Codex/Claude NOT_RUN; T08 PARTIAL**. Manual host update observed, but
+installed skills precede this PR and docs inspection refuses `source_unqualified`.
+Both Axiom authentication preflights also refuse environment overrides.
+See [attempt-04 read-back](#attempt-04--manual-host-update-preflight).
 
 ## Historical attempt-01
 
@@ -521,3 +523,140 @@ No material architecture/product/design decision proposed. No verified continuat
 callback: **AWAITING_EXECUTION_REPORT**. Next gate:
 **resume_implement_after_host_state_reconciliation**. No merge, release, Done or
 human acceptance. Partial completion event/read-back stays on AXM-39.
+
+
+## Attempt-04 — Manual host update preflight
+
+2026-10-23, Darwin arm64. Local HEAD, exact remote branch and open Draft PR #343
+all read back as `5c985516c006b96858ba033b8154f26bbdc0a0e2` before edits;
+working tree clean. Same branch `docs/axm-39-conversational-presentation`.
+All 38 Linear comments returned, `hasNextPage: false`; current card, accepted
+baseline, receipts, attempt-04 prompt/dispatch and native/host authorities read.
+No attempt-04 completion existed. [Attempt-04 prompt](https://linear.app/rgomids/issue/AXM-39#comment-f8154bf0)
+attributes manual update to Maestro's declaration of Rafael's 10:55 BRT action;
+this preflight verifies actual observable state, not the actor or update method.
+[10:15 native authority](https://linear.app/rgomids/issue/AXM-39#comment-b3a7bcea)
+and [host authority](https://linear.app/rgomids/issue/AXM-39#comment-5e2b99c4)
+retain delegated provenance and exclusions. No installation retry, protected-state
+inspection/migration/repair or receipt mutation. Shared field-note API returned
+tool-not-found; card, comments and repository remained accessible.
+
+### E07 — Attempt-04 installed, loaded and authentication observations
+
+Commands ran on the actual Mac. Paths below use sanitized root aliases;
+no credentials, account identity or raw host inventory retained. Results describe
+this process environment, not every possible native app environment.
+
+| Actual command/read | Result | Scope |
+| --- | --- | --- |
+| `uname -sm` | Darwin arm64 | actual executor |
+| `axiom --json runtime codex status` | exit 0; 0.21.1 / 921507c27c5b / clean; compatibility 3, receipt current, four equivalent skills | compatible with this installed binary only |
+| `axiom --json runtime claude status` | exit 0; same provenance, compatibility and digests | no loaded-session proof |
+| `shasum -a 256 <installed-binary>` | `7eb8efaa69e386aa781531694f6ec93a5624d26f97d06531f224cb1e1a9023b9` | byte identity, not build attestation |
+| `axiom --json docs inspect` | exit 1; failure, state unknown, reason source_unqualified; no paths/descriptor/binding, loaded unknown for both roots | command exists; verified documentation unavailable |
+| `axiom --json skill inspect <skill>` for all four skills | exit 0; Skill arguments inspected; same 0.21.1 provenance | argument registry, not loaded content |
+| `codex --version`; `claude --version` | 0.163.0; Claude Code 2.1.308 | executable observations |
+| `codex login status` | exit 0; logged in using ChatGPT | direct login availability only |
+| `claude auth status --json` projected to loggedIn/authMethod/apiProvider | exit 0; true / oauth_token / firstParty | no identity fields retained |
+| `axiom --json runtime codex auth` | exit 1; incompatible / environment_override; override name env:OPENAI_API_KEY | subscription route not established in current environment |
+| `axiom --json runtime claude auth` | exit 1; incompatible / environment_override; override name env:CLAUDE_CODE_OAUTH_TOKEN | subscription route not established in current environment |
+
+No override values read, emitted or changed. Direct login does not override the
+Axiom preflight refusal; no successful inference, billing route or usability claimed.
+No login, refresh, environment cleanup or credential/configuration mutation.
+
+Actual SHA-256 reads of all eight installed SKILL.md files, compared with approved
+input HEAD and `git show 921507c27c5b:internal/codexruntime/skills/<skill>/SKILL.md`:
+
+| Skill | Installed, both roots; also exact 921507c27c5b source | Approved PR baseline |
+| --- | --- | --- |
+| axiom-project | a249ea87133eeefd53f7e6bccf8b5d083c2bf87802f8141ec85183d52d9a892d | 775ab63f1c428156cce595cfe587039462d8e0a713b156fcce90f61c479d158d |
+| axiom-workflow | 8b47aa65611d28395eab3695ce4ca90773e541800f72d4189838565268a7f235 | efdfbcd65cdffd3b3e3003e86caa8eb81f904ed9501c8f7bf22139a908154a76 |
+| axiom-runtime | 90a725ed0ac96aa3378b3c9860f5357c8ef63b090662a19d362c24c8cc0aad0b | 165fa61ab665ea819805b2343a00e61b24bce50a32252ee85446039f7b31636d |
+| axiom-work-item | ea5476f17d1962c0938968fa726a006a01c4d79913ff3988e3d11aaf64af49f3 | same bytes |
+
+Full installed/source hashes match the complete historical replaced set recorded
+in E05, not the new 012 set. `git show --no-patch 921507c27c5b` identifies main's
+release 0.21.1 commit, full SHA `921507c27c5b1ec5468508a6d48ce0e080e90a42`.
+Source diff against PR confirms missing Project identity section, progressive
+Stage guidance and Runtime/readiness distinctions in three installed skills.
+This is an established baseline mismatch, not a version-string objection.
+
+Diagnosis: [Resolve](../../../internal/operationaldocs/resolve.go) returns
+source_unqualified before installation resolution when the compiled descriptor
+is invalid or platform-unqualified; the reported diagnostic states this build
+carries no documentation descriptor. Exact build/install method is UNKNOWN;
+no conclusion about protected state safety follows. The previous attempt's
+state_unsafe remains historical, neither reproduced nor proved repaired.
+[Official commands](../../commands.md#inspect-installed-operational-documentation)
+require verified descriptor-bound documentation and distinguish on-disk/loaded.
+The [embedded revision owner](../../../internal/codexruntime/manifest.go) and
+[installer](../../../internal/codexruntime/runtime.go) install their binary's set:
+rerunning this binary's skill installer cannot supply approved PR bytes.
+Manual copies, receipt edits, temporary-state bypass or replacement-binary installs
+are not used. Current instruction explicitly forbids repeating installation;
+there is no demonstrated safe authorized procedure resolving both gaps here.
+No host file changed, so no new backup/rollback required or claimed.
+
+| Native record | Installed / loaded / authenticated / observed | Prompt and response | Verdict |
+| --- | --- | --- | --- |
+| E07-Codex attempt-04 | old 012-predecessor set / UNKNOWN / direct login available, Axiom route incompatible / no inference observed | none submitted; none produced | NOT_RUN; BLOCKED_HOST_BASELINE; auth override independently blocks current route |
+| E07-Claude attempt-04 | same predecessor set / UNKNOWN / direct login available, Axiom route incompatible / no inference observed | none submitted; none produced | NOT_RUN; BLOCKED_HOST_BASELINE; auth override independently blocks current route |
+
+No native session started or reloaded, no Project/Workflow selected, no approved
+prompt exercised. Identity/full operational UUID, both Stage summaries/details,
+allowed/declared/resolved/observed Runtime, blocker/success+blocked and graph/text
+fallback remain NOT_RUN in both native records. No synthetic transcript substitutes
+for these observations. Current maintainer skill catalog cannot prove a native
+product session loaded baseline bytes.
+
+### E08 — Attempt-04 reconciliation and remaining work
+
+| AC / cases / Tasks | E01–E06 synthetic/local | E07 attempt-04 | Aggregate |
+| --- | --- | --- | --- |
+| AC1 / C01–C06,C16 / T01–T03,T05–T08 | historical PASS | NOT_RUN | PARTIAL |
+| AC2 / C07,C08,C15,C16 / T02,T04–T08 | historical PASS | NOT_RUN | PARTIAL |
+| AC3 / C09,C10,C13,C14 / T02,T04,T06–T08 | historical PASS | NOT_RUN | PARTIAL |
+| AC4 / C11–C13 / T02–T04,T06–T08 | historical PASS | NOT_RUN | PARTIAL |
+| AC5 / C01–C16 / T01–T08 | historical PASS | both NOT_RUN | PARTIAL |
+| AC6 / C01–C16 scope / T01–T06,T08 | historical PASS; current documentary diff reviewed | no product effects | PASS_SCOPED_REVIEW |
+
+T01–T06 and E01–E06 retain historical PASS within original scope; native coverage
+for every C01–C16 remains NOT_RUN. T07 BLOCKED_HOST_BASELINE. E08/T08 PARTIAL:
+join complete for observed partial state, full completion requires both E07 records.
+No implementation defect established; only current checkpoint docs changed.
+Input-head CI 39964035694 and metadata 39964035696/39964105079 read back
+completed/success. Later final-head checks belong to completion receipt, not
+these prior runs. Pending CI is IN_PROGRESS, never PASS by inheritance.
+Current checks: PASS both focused regression commands from E06 with `-count=1`
+(CLI 0.384s; codexruntime 0.807s), 47 local Markdown paths, unchanged historical
+attempts 01–03 and scoped diff review. No production code changed; full package
+suite not repeated. Repository validator and staged security gates are recorded
+in the same-attempt completion receipt after actual execution.
+
+technical_decisions[] (TECHNICAL_LOCAL; executor-ai; scope_impact:none):
+
+- IMPL4-TD-01: stop dependent conversations on proven content/docs mismatch;
+  prefer truthful partial evidence over old-skill inference or unapproved install.
+  Rationale: both root hashes equal release source, missing approved guidance;
+  docs refuses. Reversible when a baseline-compatible host is legitimately available.
+- IMPL4-TD-02: record direct login and Axiom auth refusal separately; preserve
+  current environment rather than changing credential routing to force success.
+  Auth values never inspected; no claim all host surfaces share this environment.
+- IMPL4-TD-03: execute directly, serialize documentary edits; no proven strictly
+  lower-capability agent hierarchy or independent useful delegation unit.
+
+**DF-01 — DEFERRED_NOT_IMPLEMENTED:** historical predecessor Specifications index
+summaries remain outside baseline; preserve original evidence and highlight at
+pre-merge. No optional finding implemented or promoted to a requirement.
+
+Remaining work: obtain a legitimately baseline-compatible binary/four-skill pair
+with verified installed docs through a separately scoped safe operator path;
+recheck actual native child authentication without reading secrets, prove loaded
+revisions, run both E07 conversations and reconcile AC1–AC5/T07/T08; independent
+review and final-head CI. No protected-state repair or installation retry authorized
+by this partial result. No material architecture/product/design decision required.
+Next gate: resume_implement_after_verified_host_baseline_and_auth.
+No configured continuation into another executor verified: AWAITING_EXECUTION_REPORT.
+Completion callback is published/read back on AXM-39; publication alone does not
+start review or establish implementation completion, acceptance, merge, release or Done.

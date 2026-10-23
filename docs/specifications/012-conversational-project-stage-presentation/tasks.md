@@ -2,18 +2,18 @@
 
 ## Implementation checkpoint — 2026-10-23
 
-Same PR/branch, implement **attempt-03 PARTIAL**. [Implementation Evidence](evidence-implementation.md#attempt-03--authorized-host-upgrade-refused)
-records authorized host-update attempt: official generation-2 development archive
-verified at approved input SHA; owned upgrade refused **state_unsafe** before
-managed effects. All 12 backed-up binary/receipt/skill files retain hashes and
-permission modes; rollback not needed. Existing Axiom 0.20.0 and both old four-skill
-sets remain installed; docs inspect unsupported. T07 **BLOCKED_HOST_BASELINE**,
-Codex/Claude native **NOT_RUN**, loaded UNKNOWN; authentication availability
-reported by both CLIs, no secrets inspected. T01–T06 historical PASS preserved;
-T08 current reconciliation PARTIAL. AC1–AC5 PARTIAL; AC6 scoped review PASS.
-Next gate: **resume_implement_after_host_state_reconciliation**;
-**AWAITING_EXECUTION_REPORT**. Completion receipt records actual final SHA/checks
-and read-back. Historical Tasks baseline below remains unchanged.
+Same PR/branch, implement **attempt-04 PARTIAL**. [Implementation Evidence](evidence-implementation.md#attempt-04--manual-host-update-preflight)
+records actual manual-update read-back: Axiom 0.21.1 / 921507c27c5b / clean,
+but three installed skills in both roots precede approved 012 guidance;
+Work Item matches. Docs inspection exists but refuses **source_unqualified**.
+Both Axiom auth preflights refuse environment overrides, despite direct login
+availability; inference unobserved. No installation retry or protected-state change.
+T07 **BLOCKED_HOST_BASELINE**, both native conversations **NOT_RUN**, loaded UNKNOWN.
+T01–T06/E01–E06 historical PASS preserved; T08/E08 PARTIAL; AC1–AC5 PARTIAL,
+AC6 PASS_SCOPED_REVIEW. Next gate:
+**resume_implement_after_verified_host_baseline_and_auth**;
+**AWAITING_EXECUTION_REPORT**. Same-attempt callback records exact pushed SHA/CI.
+Historical Tasks baseline below remains unchanged.
 
 ## Historical Tasks baseline, scope and execution state
 
