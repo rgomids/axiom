@@ -45,7 +45,11 @@ can be explicitly superseded by the next version.
 - `release.sh status` no longer treats a merged Release PR of a superseded
   release as awaiting publication (`superseded_release_prs`), and
   `status --tag` of a superseded version is `state=superseded`,
-  `next_action=blocked`: it is never prepared or published.
+  `next_action=blocked`: it is never prepared or published. Release Please
+  aborts while any merged Release PR is still `autorelease: pending`, so
+  `release.sh start` withdraws that label from each superseded Release PR
+  before dispatching it (`effect=release_pr_unlabeled ... reason=superseded`);
+  the reviewed record, not the label, stays the provenance.
 - `release-notes.sh` appends, after the version's own CHANGELOG section, the
   sections of each directly preceding superseded release under
   `### Includes unpublished vX.Y.Z (superseded)`, so the published notes cover
@@ -58,7 +62,8 @@ can be explicitly superseded by the next version.
   gate for every release. Rejected.
 - **Remove the `autorelease: pending` label by hand.** Changes a release record
   outside the flow and does not unblock the plan, which reads the manifest.
-  Rejected.
+  Rejected; the withdrawal happens only as a recorded `start` effect, for a
+  Release PR the reviewed record supersedes.
 - **Revert the release commit on `main`.** Moves the manifest boundary away from
   the published v0.20.0 tag, which the plan refuses, and rewrites intent with
   a synthetic commit. Rejected.
