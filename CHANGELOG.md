@@ -26,6 +26,16 @@
   Projects created by `project configure` carry no policy and block until an
   authored policy is installed.
 
+## [0.21.1](https://github.com/rgomids/axiom/compare/v0.21.0...v0.21.1) (2026-10-23)
+
+
+### Bug Fixes
+
+* **release:** pin verifier helper in native and upgrade acceptance ([#338](https://github.com/rgomids/axiom/issues/338)) ([0446680](https://github.com/rgomids/axiom/commit/0446680c3dd0190ffbf2490974decf2afb2eb0ca))
+* **release:** supersede unpublished v0.21.0 explicitly ([#340](https://github.com/rgomids/axiom/issues/340)) ([8852e03](https://github.com/rgomids/axiom/commit/8852e03c420b3bc58fd630a4719f7930615cd57d))
+* **release:** withdraw pending label of superseded Release PRs on start ([#341](https://github.com/rgomids/axiom/issues/341)) ([705c957](https://github.com/rgomids/axiom/commit/705c957e26ddf90f9887729c1d5fafc79514de58))
+* restore native suite on hosted runners ([#334](https://github.com/rgomids/axiom/issues/334), [#335](https://github.com/rgomids/axiom/issues/335) regressions) ([#339](https://github.com/rgomids/axiom/issues/339)) ([cb47874](https://github.com/rgomids/axiom/commit/cb47874750de01f9ba90732a15776598786209d9))
+
 ## [0.21.0](https://github.com/rgomids/axiom/compare/v0.20.0...v0.21.0) (2026-10-22)
 
 
