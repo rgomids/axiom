@@ -54,13 +54,25 @@ digest() {
 
 # archive_in DIR: the host row archive; macOS is macos-27-arm64 in historical
 # format 1 releases and macos-arm64 in format 2, with no cross fallback beyond
-# those two closed names.
+# those two closed names. Exactly one archive of the row may exist in DIR and
+# SHA256SUMS must list it exactly once; zero, several (a mixed v1/v2
+# inventory included) or an unlisted archive fail closed.
 archive_in() {
+  local dir=$1 found=() path
   if [[ "$row" == macos-27-arm64 ]]; then
-    find "$1" -maxdepth 1 \( -name 'axiom-*-macos-27-arm64.tar.gz' -o -name 'axiom-*-macos-arm64.tar.gz' \) | head -1
+    while IFS= read -r path; do found+=("$path"); done < <(find "$dir" -maxdepth 1 -type f \( -name 'axiom-*-macos-27-arm64.tar.gz' -o -name 'axiom-*-macos-arm64.tar.gz' \) | LC_ALL=C sort)
   else
-    find "$1" -maxdepth 1 -name "axiom-*-$row.tar.gz" | head -1
+    while IFS= read -r path; do found+=("$path"); done < <(find "$dir" -maxdepth 1 -type f -name "axiom-*-$row.tar.gz" | LC_ALL=C sort)
   fi
+  if ((${#found[@]} != 1)); then
+    printf 'upgrade_journey_error: expected exactly one %s archive in %s, found %d\n' "$row" "$dir" "${#found[@]}" >&2
+    return 1
+  fi
+  if [[ $(awk -v name="$(basename "${found[0]}")" '$2 == name' "$dir/SHA256SUMS" 2>/dev/null | wc -l | tr -d ' ') != 1 ]]; then
+    printf 'upgrade_journey_error: %s is not listed exactly once in %s/SHA256SUMS\n' "$(basename "${found[0]}")" "$dir" >&2
+    return 1
+  fi
+  printf '%s\n' "${found[0]}"
 }
 
 # release_bundle DIR: extracts the host row archive once and prints the bundle.

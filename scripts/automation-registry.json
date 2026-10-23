@@ -1691,6 +1691,39 @@
       "removal_condition": null
     },
     {
+      "path": "scripts/release-archive-format.sh",
+      "kind": "script",
+      "owner": "release",
+      "purpose": "Sourced library that names the archive generation (format 1 or 2) a release SHA256SUMS inventory declares and fails closed on unreadable or ambiguous inventories.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "bash"
+      ],
+      "scope": [
+        "ci",
+        "maintainer"
+      ],
+      "trigger": "Sourced when a prepared or published release set is verified (verify-prepared-release.sh, release.sh verify --download)",
+      "replay_reason": null,
+      "callers": [
+        "scripts/release.sh",
+        "scripts/verify-prepared-release.sh"
+      ],
+      "inputs": "Sourced, not executed; release_archive_format takes the path of a SHA256SUMS file",
+      "outputs": "Prints 1 or 2; on an unreadable inventory or one that does not name exactly one macOS row, writes release_archive_format_error to stderr and returns 1",
+      "local_effects": "none",
+      "network_effects": "none",
+      "authority": "none; read-only",
+      "tests": [
+        "scripts/test-release-pipeline.sh"
+      ],
+      "evidence": "Selects the explicit --format flag the strict artifact verifier receives; never relaxes its closed inventory",
+      "compatibility": [],
+      "removal_condition": null
+    },
+    {
       "path": "scripts/release-corrections.sh",
       "kind": "script",
       "owner": "release",

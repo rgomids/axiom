@@ -148,6 +148,32 @@ def acceptance(args, report):
 
                 scenario("fresh-install", lambda: require("install_status=installed" in install(candidate, archive), "fresh status"))
                 scenario("discovery-provenance", lambda: version(args.version, args.revision))
+                def installed_docs():
+                    # Fresh installed binary, cwd outside any checkout, local
+                    # inspection only: it never reads the source tree or network.
+                    docs = cli("docs", "inspect")["docs"]
+                    require(docs["state"] == "verified" and docs["reason"] == "ok", "installed documentation not verified")
+                    require(docs["binary"]["sha256"] == report["binarySha256"]
+                            and docs["binary"]["sourceCommit"].startswith(args.revision), "documentation binding differs from artifact")
+                    root = Path(docs["paths"]["root"])
+                    require(root.is_absolute() and home.resolve() in root.resolve().parents
+                            and not root.resolve().is_relative_to(Path(__file__).resolve().parent.parent),
+                            "documentation root outside installation or inside checkout")
+                    for key in ("index", "inventory", "provenance", "manMap"):
+                        path = Path(docs["paths"][key])
+                        require(path.is_file() and not path.is_symlink() and root.resolve() in path.resolve().parents,
+                                f"documentation path missing: {key}")
+                    require(Path(docs["paths"]["manRoot"]).is_dir(), "man root missing")
+                    require(docs["man"]["state"] == "available" and Path(docs["man"]["page"]).is_file(),
+                            "installed man page not verified")
+                    require(docs["integrity"]["files"] > 0 and not docs["diagnostics"], "documentation integrity empty or diagnosed")
+                    report["installedDocs"] = {"state": docs["state"], "reason": docs["reason"],
+                                               "files": docs["integrity"]["files"], "bytes": docs["integrity"]["bytes"],
+                                               "inventorySha256": docs["integrity"]["inventorySha256"],
+                                               "manState": docs["man"]["state"], "network": "NOT_RUN", "q6": "NOT_RUN"}
+
+                if args.format == "2":
+                    scenario("installed-docs-verified", installed_docs)
                 scenario("private-permissions", lambda: require(binary.stat().st_mode & 0o777 == 0o700
                          and (receipt / "installation.receipt").stat().st_mode & 0o777 == 0o600, "unsafe permissions"))
                 configuration = ("project", "configure", "--slug", "native", "--name", "Native",

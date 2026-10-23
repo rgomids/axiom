@@ -131,6 +131,21 @@ class NativeContract(unittest.TestCase):
                                  {"FAIL_JOURNEY": "23"}).returncode, 23)
             self.assertEqual(git("rev-parse", "HEAD", cwd=checkout), release)
 
+    def test_format_two_asserts_installed_documentation(self):
+        source = Path(native.__file__).read_text()
+        self.assertIn('if args.format == "2":\n                    scenario("installed-docs-verified", installed_docs)', source)
+        body = source.split("def installed_docs():")[1].split('if args.format == "2":')[0]
+        for needle in ('"docs", "inspect"', 'docs["state"] == "verified"', 'docs["reason"] == "ok"',
+                       'report["binarySha256"]', "sourceCommit", "manRoot", '"index", "inventory", "provenance", "manMap"',
+                       'docs["man"]["state"] == "available"', "is_symlink", "NOT_RUN"):
+            self.assertIn(needle, body)
+        # Refusal negative cases and bounds stay in every format.
+        for scenario in ("corrupt-artifact-refused", "foreign-binary-preserved", "symlink-destination-refused",
+                         "install-interruption-recovery", "genuine-prior-upgrade-state-reinstall"):
+            self.assertIn(f'scenario("{scenario}"', source)
+        self.assertIn("timeout=60", source)
+        self.assertIn("len(members) <= 256", source)
+
     def test_strict_gate_and_no_publication(self):
         root = Path(__file__).resolve().parent.parent
         prepare = (root / ".github/workflows/release-artifacts.yml").read_text()
