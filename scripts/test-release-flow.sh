@@ -411,7 +411,7 @@ git -C "$fixture" config user.email release-test@example.invalid
 git -C "$fixture" config user.name 'Release Test'
 git -C "$fixture" config commit.gpgsign false
 mkdir -p "$fixture/scripts" "$fixture/.github/rulesets"
-for script in release-tag-version.sh release-preflight.sh release-plan.sh release-notes.sh publish-release.sh release.sh verify-prepared-release.sh delivery-issues.sh delivery-github.sh release-corrections.sh release-recovery.sh release-repair.sh; do
+for script in release-tag-version.sh release-preflight.sh release-plan.sh release-notes.sh publish-release.sh release.sh verify-prepared-release.sh delivery-issues.sh delivery-github.sh release-corrections.sh release-recovery.sh release-repair.sh release-supersession.sh; do
   cp "$repository_root/scripts/$script" "$fixture/scripts/$script"
 done
 cp "$repository_root/.github/rulesets/main.json" "$fixture/.github/rulesets/main.json"
@@ -2393,6 +2393,34 @@ git -C "$sfix" checkout -q -B case-unpublished "$s0"
 scommit 'chore(main): release 0.2.0 (#2)' '' 0.2.0 >/dev/null
 scommit 'fix(cli): repair (#3)' "$meta" >/dev/null
 expect_failure 'plan: the previous release must be published first' 'release v0.2.0 is recorded on main but not published' splan
+# ADR-0035: an unpublished release is superseded only by a reviewed record
+# plus the matching Release Please last-release-sha pin.
+git -C "$sfix" checkout -q -B case-superseded "$s0"
+scommit 'feat(cli): add (#2)' "$meta" >/dev/null
+sup=$(scommit 'chore(main): release 0.2.0 (#3)' '' 0.2.0)
+scommit 'fix(cli): repair (#4)' "$meta" >/dev/null
+supersede() { # supersede RECORD_SHA PIN_SHA
+  printf '# reviewed\n0.2.0 %s cannot pass its release gate\n' "$1" >"$sfix/.github/release-supersessions.txt"
+  if [[ -n "$2" ]]; then printf '{"last-release-sha": "%s"}\n' "$2" >"$sfix/release-please-config.json"; else rm -f "$sfix/release-please-config.json"; fi
+  scommit 'fix(release): supersede 0.2.0 (#5)' "$meta" >/dev/null
+}
+supersede "$sup" ''
+expect_failure 'plan: a superseded release requires the Release Please last-release-sha pin' "superseded v0.2.0 requires last-release-sha $sup" splan
+supersede "$s0" "$sup"
+expect_failure 'plan: a supersession row must name the release commit of that version' "superseded v0.2.0 is recorded at $s0, not at its release commit $sup" splan
+supersede "$sup" "$sup"
+out=$(splan)
+check 'plan: a recorded supersession plans the next version from the superseded release commit' bash -c "grep -Fxq planned_version=0.2.1 <<<'$out' && grep -Fxq previous_tag=v0.1.0 <<<'$out' && grep -Fxq previous_release_commit=$s0 <<<'$out' && grep -Fxq superseded_version=0.2.0 <<<'$out' && grep -Fxq superseded_release_commit=$sup <<<'$out' && grep -Fxq commits=4 <<<'$out'"
+git -C "$sfix" checkout -q -B case-superseded-issues "$s0"
+scommit 'feat(cli): add (#2)' 'Related-Issues: #9\nCompletes-Issues: #9\n' >/dev/null
+sup=$(scommit 'chore(main): release 0.2.0 (#3)' '' 0.2.0)
+supersede "$sup" "$sup"
+expect_failure 'plan: a superseded release that delivers Issues cannot be superseded' 'superseded v0.2.0 delivers Issues' splan
+git -C "$sfix" checkout -q -B case-stale-pin "$s0"
+printf '{"last-release-sha": "%s"}\n' "$s0" >"$sfix/release-please-config.json"
+scommit 'fix(cli): repair (#2)' "$meta" >/dev/null
+expect_failure 'plan: a last-release-sha pin without a superseded release must be removed' 'pins last-release-sha but v0.1.0 is not superseded' splan
+rm -f "$sfix/release-please-config.json" "$sfix/.github/release-supersessions.txt"
 git -C "$sfix" checkout -q -B case-tag "$s0"
 scommit 'fix(cli): repair (#2)' "$meta" >/dev/null
 git -C "$sfix" push -q origin "$s0:refs/tags/v0.1.1"
@@ -2440,6 +2468,29 @@ stage_published 50 v0.1.0 "$s0"
 release status >"$temporary/sstatus"
 check 'no release in progress: status plans the next release without effects' bash -c "grep -Fxq state=no_release_in_progress '$temporary/sstatus' && grep -Fxq next_action=start_release '$temporary/sstatus' && grep -Fxq planned_version=0.2.0 '$temporary/sstatus' && grep -Fxq planned_tag=v0.2.0 '$temporary/sstatus' && grep -Fxq plan.issues=5 '$temporary/sstatus' && [[ \$(grep -Ec '^(POST|PATCH|DELETE|UPLOAD|LABEL|workflow)' '$state/ledger' || true) == 0 ]]"
 check 'start_release is offered only over a published previous GitHub Release' grep -Fxq previous_release_state=published "$temporary/sstatus"
+# ADR-0035: a merged Release PR of a superseded release no longer awaits
+# publication, and its tag is never prepared.
+ssup=$(scommit 'chore(main): release 0.2.0 (#9)' '' 0.2.0)
+printf '0.2.0 %s superseded for the test\n' "$ssup" >"$sfix/.github/release-supersessions.txt"
+printf '{"last-release-sha": "%s"}\n' "$ssup" >"$sfix/release-please-config.json"
+scommit 'fix(release): supersede 0.2.0 (#10)' "$meta" >/dev/null
+git -C "$sfix" push -q origin main
+printf '[{"number":9,"url":"https://github.com/rgomids/axiom/pull/9","title":"chore(main): release 0.2.0","mergeCommit":{"oid":"%s"}}]\n' "$ssup" >"$state/pr-merged.json"
+release status >"$temporary/sstatus"
+check 'a superseded merged Release PR no longer awaits publication' bash -c "grep -Fxq superseded_release_prs=#9 '$temporary/sstatus' && grep -Fxq unpublished_release_prs=none '$temporary/sstatus' && grep -Fxq state=no_release_in_progress '$temporary/sstatus'"
+check 'a superseded range that delivers Issues blocks the next start' bash -c "grep -Fxq next_action=blocked '$temporary/sstatus' && grep -Fq 'superseded v0.2.0 delivers Issues' '$temporary/sstatus'"
+release status --tag v0.2.0 >"$temporary/sstatus"
+check 'a superseded tag is never prepared or published' bash -c "grep -Fxq state=superseded '$temporary/sstatus' && grep -Fxq next_action=blocked '$temporary/sstatus' && grep -Fq 'v0.2.0 is recorded as superseded' '$temporary/sstatus'"
+expect_failure 'a superseded tag cannot be prepared' 'recorded as superseded' release prepare --tag v0.2.0
+printf '# Changelog\n\n## [0.2.1](https://example.invalid) (2026-10-23)\n\n### Bug Fixes\n\n* supersede\n\n## [0.2.0](https://example.invalid) (2026-10-22)\n\n### Features\n\n* add feature\n\n%s' "$(sed -n '3,$p' "$sfix/CHANGELOG.md")" >"$sfix/CHANGELOG.md"
+snext=$(scommit 'chore(main): release 0.2.1 (#11)' '' 0.2.1)
+"$sfix/scripts/release-notes.sh" --tag v0.2.1 --revision "$snext" --repo rgomids/axiom >"$temporary/snotes"
+check 'notes of the release after a superseded one include its unpublished changes' bash -c "grep -Fxq '### Includes unpublished v0.2.0 (superseded)' '$temporary/snotes' && grep -Fxq '#### Features' '$temporary/snotes' && grep -Fxq '* add feature' '$temporary/snotes' && [[ \$(grep -c 'Includes unpublished' '$temporary/snotes') == 1 ]]"
+rm "$state/pr-merged.json" "$sfix/.github/release-supersessions.txt" "$sfix/release-please-config.json"
+git -C "$sfix" reset -q --hard "$sfeat"
+git -C "$sfix" push -q -f origin main
+release status >"$temporary/sstatus"
+check 'removing the superseded fixture restores the planned start' grep -Fxq next_action=start_release "$temporary/sstatus"
 rm "$state/checks-$sfeat.json"
 release status >"$temporary/sstatus"
 check 'red or missing CI on main blocks the start' bash -c "grep -Fxq next_action=blocked '$temporary/sstatus' && grep -Fq 'required CI on main' '$temporary/sstatus'"

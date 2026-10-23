@@ -49,6 +49,24 @@ if [[ "$channel" == stable ]]; then
   ' <<<"$changelog")
   [[ -n "${section//[[:space:]]/}" ]] || fail "CHANGELOG.md has no Release Please section for $version"
   printf '%s\n' "$section" | sed -e '/./,$!d'
+  # ADR-0035: the changes of each directly preceding superseded (never
+  # published) release ship here, so their sections follow.
+  source "$repository_root/scripts/release-supersession.sh"
+  earlier=$(git -C "$repository_root" log --first-parent --max-count=1 --format=%H "$revision^1" -- .release-please-manifest.json)
+  while [[ -n "$earlier" ]]; do
+    earlier_version=$(git -C "$repository_root" show "$earlier:.release-please-manifest.json" | jq -r '.["."] // empty')
+    [[ -n "$earlier_version" && $(superseded_commit "$revision" "$earlier_version") == "$earlier" ]] || break
+    earlier_section=$(awk -v version="$earlier_version" '
+      BEGIN { plain = "## " version " "; linked = "## [" version "]" }
+      found && /^## / { exit }
+      found { print; next }
+      index($0, plain) == 1 || index($0, linked) == 1 { found = 1 }
+    ' <<<"$changelog")
+    [[ -n "${earlier_section//[[:space:]]/}" ]] || fail "CHANGELOG.md has no Release Please section for superseded $earlier_version"
+    printf '\n### Includes unpublished v%s (superseded)\n' "$earlier_version"
+    printf '%s\n' "$earlier_section" | sed -e 's/^### /#### /'
+    earlier=$(git -C "$repository_root" log --first-parent --max-count=1 --format=%H "$earlier^1" -- .release-please-manifest.json)
+  done
   # An Issue title change after preparation changes these notes and so the
   # authorized envelope: publication then refuses as a changed preview.
   titles=$("$repository_root/scripts/delivery-github.sh" titles --repo "$repository" --tag "$tag" --revision "$revision") \

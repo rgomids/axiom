@@ -92,7 +92,10 @@ Never infer or reuse a repair selection for another release without authority.
      A `previous_release_state` other than `published` (its tag exists but its
      GitHub Release is missing, a draft or bound elsewhere) means the previous
      release is unfinished: continue it with `$axiom-release <previous_tag>`;
-     no new release starts before it.
+     no new release starts before it. `state=superseded` means that version is
+     recorded in `.github/release-supersessions.txt` (ADR-0035) and is never
+     prepared or published; a supersession is only added by a reviewed PR
+     after a human decision, never by this skill.
      `publication_state=orphan_conflict` means a release of this candidate
      exists without its tag (for example `untagged-*`). Report its id and
      assets and ask for a human decision. Never delete, edit or re-tag it.

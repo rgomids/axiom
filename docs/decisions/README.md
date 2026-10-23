@@ -4,6 +4,7 @@ Este diretório registra decisões técnicas duráveis e difíceis de reverter.
 
 ## Index
 
+- [ADR-0035 — Explicit supersession of an unpublished stable release](0035-supersede-unpublished-stable-release.md) — **Proposed**; a reviewed record plus a Release Please `last-release-sha` pin let the next version ship an unpublished release's changes; the superseded tag is never prepared or published. Merging with its implementation accepts it.
 - [ADR-0034 — Release-content documentation association](0034-release-content-documentation-association.md) — **Accepted, 2026-10-20**, by [exact-revision H1](https://github.com/rgomids/axiom/pull/335#issuecomment-6304042497); compiled documentary descriptor and validated installation association. Partially supersedes only ADR-0033's original whole-file/mapped-image proof clauses. R1 product ACs remain unimplemented and unaccepted; original C2 remains FAIL.
 - [ADR-0033 — Installation-bound operational documentation](0033-installation-bound-operational-documentation.md) — **Accepted**; one binary-to-generation contract for private installation assets, explicit package evolution, publication/return and read-only CLI/skills/man discovery. Q1–Q6 directions accepted separately; [exact-revision architectural acceptance](https://github.com/rgomids/axiom/pull/335#issuecomment-6296075261), 2026-10-20. Partially superseded by [ADR-0034](0034-release-content-documentation-association.md): only original whole-file/mapped-image proof semantics; all other decisions remain in force.
 

@@ -520,7 +520,15 @@ subject and declared (or reviewed, committed) delivery metadata. It also
 requires the tag of the previous release at its release commit and the
 planned tag to be absent and newer than every stable tag; `release.sh` also
 requires that previous release to be a published (non-draft) GitHub Release
-bound to that tag and commit, so a tag alone never lets a new release start. One inconsistent
+bound to that tag and commit, so a tag alone never lets a new release start.
+A recorded release that can never be published (for example, its own source
+cannot pass preparation) is superseded only explicitly
+([ADR-0035](docs/decisions/0035-supersede-unpublished-stable-release.md)): a
+reviewed row in [`.github/release-supersessions.txt`](.github/release-supersessions.txt)
+plus `last-release-sha` in `release-please-config.json` pinned to its release
+commit. The next version then starts from that commit, its notes include the
+superseded section, and the superseded tag is never prepared or published; the
+pin is removed by a normal PR once the next release is recorded. One inconsistent
 commit stops the release, for example
 `release_error: ... commit <sha> has no delivery metadata`, before any Release
 PR, artifact, tag or release exists. The workflow requires `main` to still be
