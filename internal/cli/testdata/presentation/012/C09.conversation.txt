@@ -1,0 +1,1 @@
+(success) Agent runtimeConstraints allowed codex, claude. Agent profileRef declared policy-default. Project policy declares codex-test. selection unknown; resolution unknown; model/effort unknown. inspection; read-only.

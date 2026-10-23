@@ -1,0 +1,1 @@
+(success) Structure valid; execution blocked: runtime_policy_unavailable (execution): policy_unconfigured. Execution not ready and not performed; no-dispatch confirmed. Next: inspect policy through axiom-project; authority required for repair. inspection; read-only.

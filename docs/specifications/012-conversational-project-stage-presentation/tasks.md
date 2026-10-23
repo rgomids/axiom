@@ -1,6 +1,17 @@
 # Specification 012 — Tasks r1 (AXM-39)
 
-## Baseline, scope and execution state
+## Implementation checkpoint — 2026-10-23
+
+Same PR/branch, implement attempt-01. [Implementation Evidence](evidence-implementation.md)
+records actual results: T01–T06 local PASS; T06 exact-head CI is recorded separately;
+T07 **BLOCKED_AUTHORIZATION** (protocol/fixtures/checklist prepared, native
+Codex/Claude **NOT_RUN**); T08 safe reconciliation/handoff **PARTIAL**.
+AC1–AC5 remain PARTIAL pending native Evidence; AC6 scoped review PASS.
+No claim all Tasks complete. Completion receipt carries exact published head,
+actual CI, Linear read-back and remaining work. Historical Tasks-stage status
+below describes its original baseline, not current implementation progress.
+
+## Historical Tasks baseline, scope and execution state
 
 2026-10-23; TASKS / attempt-01. Decomposition of [Spec 012 r1](spec.md),
 [C01–C16](examples.md) and [Implementation Plan r1](plan.md), preserving six AC.

@@ -1,0 +1,1 @@
+(success) Plan revision 18 resolved codex / codex-test. Profile revision 4 model sample-model effort runtime-default. Auth observation login-only: not an attempt; billing unknown; acceptance unknown. inspection; read-only.

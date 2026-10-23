@@ -7,15 +7,17 @@ captures the approved [AXM-39](https://linear.app/rgomids/issue/AXM-39) Intake
 baseline: human Project identity, progressive Stage/Agent details, truthful
 Runtime/Profile and readiness presentation. [Examples/test protocol](012-conversational-project-stage-presentation/examples.md)
 and [Specify Evidence](012-conversational-project-stage-presentation/evidence-specify.md)
-separate documentary coverage from product tests and native conversations,
-which remain NOT_RUN. [Implementation Plan r1](012-conversational-project-stage-presentation/plan.md)
+preserve documentary coverage and the native protocol. [Implementation Plan r1](012-conversational-project-stage-presentation/plan.md)
 maps actual shared skills, semantic harnesses, AC/cases, dependency and installed-host
 gates, future decomposition and rollback. [Plan Evidence](012-conversational-project-stage-presentation/evidence-plan.md)
 separates documentary checks from future product validation. [Tasks r1](012-conversational-project-stage-presentation/tasks.md)
 and [Tasks Evidence](012-conversational-project-stage-presentation/evidence-tasks.md)
 define eight causal work packages and separate native authorization gates.
-Specification/Plan/Tasks documentation only; no implementation, new ADR, Runtime
-execution, product acceptance or canonical Execution advancement.
+[Implementation Evidence](012-conversational-project-stage-presentation/evidence-implementation.md)
+records shared guidance, synthetic C01–C16 regressions, both-root history/upgrade
+checks and partial AC/Task reconciliation. Native Codex/Claude conversations remain
+NOT_RUN: T07 BLOCKED_AUTHORIZATION. No product acceptance or canonical Execution
+advancement; DF-01 remains deferred for pre-merge.
 
 ## 011 — Rendered Workflow presentation
 

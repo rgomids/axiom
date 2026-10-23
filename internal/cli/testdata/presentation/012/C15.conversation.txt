@@ -1,0 +1,6 @@
+Definition reviewed-delivery revision 2, digest cea1c959e2d523f9ca5ae77e293da8a4db95936b8d8d789c8b06a3a576119368, source project; selection selected.
+renderer unavailable; complete text fallback:
+intake -> specification -> clarification -> plan -> tasks -> implementation -> review -> evidence -> reconciliation -> completion
+Within implementation: independent implementer and reviewer; implementation/implementer -> implementation/integrator; implementation/reviewer -> implementation/integrator. Array order creates no extra edge.
+Declared gates, satisfaction unobserved: plan/planning_authority/before; implementation/implementation_authority/before; review/review_started/before; completion/human_acceptance/after.
+No Stage dispatched or authority granted. Agent and Stage details remain accessible from this exact revision.

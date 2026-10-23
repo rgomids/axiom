@@ -1,0 +1,1 @@
+(success) Órbita\u000A$(echo hostile) (orbita). Incomplete inventory; ID unavailable; label is inert. Stop: inspect exact identity before action.
