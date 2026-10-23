@@ -724,6 +724,19 @@ case "$command" in
     planned=$(value planned_version "$temporary/status")
     main=$(value main "$temporary/status")
     [[ "$planned" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ && "$main" =~ ^[0-9a-f]{40}$ ]] || fail 'release plan has no planned version'
+    # ADR-0035: Release Please aborts while a merged Release PR is still
+    # `autorelease: pending`; a superseded one is never published, so its
+    # pending label is withdrawn (the reviewed record stays the provenance).
+    superseded_prs=$(value superseded_release_prs "$temporary/status")
+    if [[ -n "$superseded_prs" && "$superseded_prs" != none ]]; then
+      for pr in ${superseded_prs//,/ }; do
+        pr=${pr#\#}
+        [[ "$pr" =~ ^[1-9][0-9]*$ ]] || fail 'invalid superseded Release PR'
+        gh api --method DELETE "repos/$repository/issues/$pr/labels/autorelease%3A%20pending" >/dev/null \
+          || fail "cannot withdraw autorelease: pending from superseded Release PR #$pr"
+        printf 'effect=release_pr_unlabeled pr=%s label=autorelease:pending reason=superseded\n' "$pr"
+      done
+    fi
     dispatched_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
     gh workflow run "$start_workflow" --repo "$repository" --ref main -f "planned_version=$planned" -f "main=$main" >/dev/null \
       || fail 'Release Please dispatch failed'

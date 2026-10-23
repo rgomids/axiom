@@ -2491,6 +2491,29 @@ git -C "$sfix" reset -q --hard "$sfeat"
 git -C "$sfix" push -q -f origin main
 release status >"$temporary/sstatus"
 check 'removing the superseded fixture restores the planned start' grep -Fxq next_action=start_release "$temporary/sstatus"
+# A clean superseded range: start withdraws the pending label of the
+# superseded Release PR (Release Please aborts on it) before dispatching.
+git -C "$sfix" reset -q --hard "$s0"
+scommit 'fix(cli): repair (#12)' "$meta" >/dev/null
+ssup=$(scommit 'chore(main): release 0.2.0 (#13)' '' 0.2.0)
+printf '0.2.0 %s superseded for the test\n' "$ssup" >"$sfix/.github/release-supersessions.txt"
+printf '{"last-release-sha": "%s"}\n' "$ssup" >"$sfix/release-please-config.json"
+smain=$(scommit 'fix(release): supersede 0.2.0 (#14)' "$meta")
+git -C "$sfix" push -q -f origin main
+green "$smain"
+printf '[{"number":13,"url":"https://github.com/rgomids/axiom/pull/13","title":"chore(main): release 0.2.0","mergeCommit":{"oid":"%s"},"labels":[{"name":"autorelease: pending"}]}]\n' "$ssup" >"$state/pr-merged.json"
+[[ ! -e "$state/pulls.json" ]] || cp "$state/pulls.json" "$temporary/spulls-saved"
+cp "$state/pr-merged.json" "$state/pulls.json"
+: >"$state/ledger"
+release status >"$temporary/sstatus"
+check 'a clean superseded range plans the next patch over the published release before it' bash -c "grep -Fxq next_action=start_release '$temporary/sstatus' && grep -Fxq planned_version=0.2.1 '$temporary/sstatus' && grep -Fxq plan.previous_tag=v0.1.0 '$temporary/sstatus' && grep -Fxq superseded_release_prs=#13 '$temporary/sstatus'"
+release start >"$temporary/sstart" 2>&1 || true
+check 'start withdraws the pending label of the superseded Release PR before dispatching Release Please' bash -c "grep -Fxq 'effect=release_pr_unlabeled pr=13 label=autorelease:pending reason=superseded' '$temporary/sstart' && grep -n 'LABEL remove 13' '$state/ledger' | head -1 | grep -q '^1:' && grep -q '^workflow run release-please.yml' '$state/ledger'"
+rm -f "$state/pr-merged.json" "$state/pulls.json" "$sfix/.github/release-supersessions.txt" "$sfix/release-please-config.json"
+[[ ! -e "$temporary/spulls-saved" ]] || mv "$temporary/spulls-saved" "$state/pulls.json"
+git -C "$sfix" reset -q --hard "$sfeat"
+git -C "$sfix" push -q -f origin main
+: >"$state/ledger"
 rm "$state/checks-$sfeat.json"
 release status >"$temporary/sstatus"
 check 'red or missing CI on main blocks the start' bash -c "grep -Fxq next_action=blocked '$temporary/sstatus' && grep -Fq 'required CI on main' '$temporary/sstatus'"
