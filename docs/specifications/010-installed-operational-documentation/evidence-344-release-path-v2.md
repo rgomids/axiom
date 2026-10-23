@@ -73,3 +73,27 @@ qualification, merge, release or default promotion in scripts.
 - NOT_RUN: executing the native scenario on Linux, hosted CI for the new HEAD
   until it runs, test-upgrade-journeys.sh end to end, native T13-T16, Q6, AC-08,
   actual release. No native qualification is claimed.
+
+## Native qualification 01 (HEAD 2ef9b7ae4103, macOS arm64 host only)
+
+Host: macOS 27.0.1 arm64, go1.26.1, 2026-10-23 America/Sao_Paulo. Artifacts are
+local development builds (`build-release-archives.sh --only macos-arm64`,
+versions `0.21.2-qual.1` and `0.21.3-qual.1`), not published assets. Roots are
+isolated temp dirs with `env -i`, cwd with spaces; no network used for docs.
+
+| case | host/runtime | artifact SHA | method/command | observed result | status | evidence link | limitation |
+|---|---|---|---|---|---|---|---|
+| T14 v2 install + `docs inspect` | macos-arm64 / none | archive `ad46bdd0e0cf…`, binary `7df4648c4307…` | `install-release.sh` into root A; `axiom --json docs inspect` from other cwd | `docs.state=verified`, 29 files, generation `13de7501a060…`, manRoot/page confined, `man axiom` renders matching version/commit | PASS (development) | this file | no network/source denial observed |
+| T14 offline suite | macos-arm64 | same | `test-docs-offline.sh --archive … --checksums …` | corpus 26 files links closed; 7 refusals (extra-output, swapped, stale metadata, tamper, modified binary, v1 installer rejects v2) | PASS (development) | this file | script states network/source denial NOT_RUN |
+| A/B independence | macos-arm64 | A `13de…`, B `8ad2…` | two roots, install B after A | A generation unchanged after B operations | PASS | this file | one host |
+| v1 install | macos-arm64 | binary `0d84b20f7b83…` | install v1 archive into root B | installed; `docs.state=unknown` (no docs) | PASS | this file | |
+| v1→v2 same version | macos-arm64 | v2 0.21.2 over v1 0.21.2 | `install-release.sh` | refused atomically `divergent_equivalent_version`, binary unchanged | PASS (refusal) | this file | |
+| v1→v2 upgrade | macos-arm64 | v2 0.21.3 `937bbe73b952…` | install over v1 | `upgraded`; receipt version/sha updated; docs verified, new generation `8ad2322ed1f4…` | PASS | this file | fresh helper, not published assets |
+| reinstall / downgrade | macos-arm64 | same / 0.21.2 | repeat install | `unchanged`; downgrade `downgrade_refused`, state intact | PASS | this file | |
+| tampered installed doc | macos-arm64 | — | append byte to installed man page | `docs.state=invalid` | PASS | this file | inspector not relaxed |
+| `test-native-acceptance.py` | macos-arm64 | — | run | see Issue receipt | PASS if exit 0 | this file | |
+| T13 Linux amd64/arm64 | none available | — | — | no host | NOT_RUN | — | no authorized hosts |
+| `test-upgrade-journeys.sh` E2E, v0.1.0 floor | — | — | — | needs published releases/network | NOT_RUN | — | authority required |
+| T15/E15 Q6, AC-08, V9 | — | — | — | real Codex/Claude inference + OS observation not authorized | NOT_RUN | — | AUTHORIZATION_REQUIRED |
+| symlink/foreign/crossed-docs negatives, PATH/man switch | macos-arm64 | — | — | not exercised beyond tamper | NOT_RUN | — | |
+| T16 aggregate | — | — | — | mandatory rows missing | NOT_RUN | — | no overall PASS |
