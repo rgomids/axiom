@@ -54,3 +54,22 @@ qualification, merge, release or default promotion in scripts.
   test-prepared-artifact-smoke.py, test-docs-offline.sh, validate-repository.sh
   (registry), ADR governance. NOT_RUN: executing the new native scenario on
   Linux, test-upgrade-journeys.sh end to end, hosted CI, native T13-T16, Q6.
+
+## Review correction (CR-345-04, base 26c3e80d5a72)
+
+- CR-345-04: `installed_docs()` now requires `docs.paths.manRoot` and
+  `docs.man.page` to pass `confined()` (new narrow helper in
+  `accept-native-artifact.py`): absolute, no `..`, strictly inside the
+  installed documentation root (page also inside the man root), no symlink on
+  any component from the root down, and the expected kind (dir/file). The
+  inspector's own strict checks are unchanged and remain independent.
+- Tests: `test-native-acceptance.py::test_confined_man_paths` executes the real
+  helper on a temp fixture: valid root/page pass; external man root/page,
+  relative, traversal, wrong kind, root itself, symlinked man root (ancestor of
+  the page) and symlinked page fail. Static scenario assertion also requires
+  `confined(`.
+- PASS (host macOS arm64): `python3 scripts/test-native-acceptance.py` (6 tests).
+  Other suites: see the Issue #344 receipt for exact results.
+- NOT_RUN: executing the native scenario on Linux, hosted CI for the new HEAD
+  until it runs, test-upgrade-journeys.sh end to end, native T13-T16, Q6, AC-08,
+  actual release. No native qualification is claimed.

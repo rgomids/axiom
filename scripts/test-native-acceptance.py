@@ -137,7 +137,7 @@ class NativeContract(unittest.TestCase):
         body = source.split("def installed_docs():")[1].split('if args.format == "2":')[0]
         for needle in ('"docs", "inspect"', 'docs["state"] == "verified"', 'docs["reason"] == "ok"',
                        'report["binarySha256"]', "sourceCommit", "manRoot", '"index", "inventory", "provenance", "manMap"',
-                       'docs["man"]["state"] == "available"', "is_symlink", "NOT_RUN"):
+                       'docs["man"]["state"] == "available"', "is_symlink", "confined(", "NOT_RUN"):
             self.assertIn(needle, body)
         # Refusal negative cases and bounds stay in every format.
         for scenario in ("corrupt-artifact-refused", "foreign-binary-preserved", "symlink-destination-refused",
@@ -145,6 +145,35 @@ class NativeContract(unittest.TestCase):
             self.assertIn(f'scenario("{scenario}"', source)
         self.assertIn("timeout=60", source)
         self.assertIn("len(members) <= 256", source)
+
+    def test_confined_man_paths(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            base = Path(temporary).resolve()
+            root = base / "home/docs"
+            (root / "man/man1").mkdir(parents=True)
+            page = root / "man/man1/axiom.1"
+            page.write_text(".TH AXIOM 1\n")
+            outside = base / "outside"
+            (outside / "man1").mkdir(parents=True)
+            (outside / "man1/axiom.1").write_text("x")
+            self.assertTrue(native.confined(str(root / "man"), root, "dir"))
+            self.assertTrue(native.confined(str(page), root, "file"))
+            self.assertTrue(native.confined(str(page), root / "man", "file"))
+            # External, relative, traversal, wrong kind, the root itself.
+            for value, kind in ((outside, "dir"), (outside / "man1/axiom.1", "file"), ("docs/man", "dir"),
+                                (root / "man/../man", "dir"), (root / "man/man1/../man1/axiom.1", "file"),
+                                (root / "man", "file"), (page, "dir"), (root, "dir"), (root / "absent", "dir")):
+                with self.subTest(value=str(value), kind=kind):
+                    self.assertFalse(native.confined(str(value), root, kind))
+            # Symlinked man root (ancestor of the page) and symlinked page.
+            link_root = base / "link/docs"
+            link_root.mkdir(parents=True)
+            (link_root / "man").symlink_to(outside)
+            self.assertFalse(native.confined(str(link_root / "man"), link_root, "dir"))
+            self.assertFalse(native.confined(str(link_root / "man/man1/axiom.1"), link_root, "file"))
+            (root / "man/man1/linked.1").symlink_to(outside / "man1/axiom.1")
+            self.assertFalse(native.confined(str(root / "man/man1/linked.1"), root, "file"))
+            self.assertFalse(native.confined(str(root / "man"), root / "man", "dir"))
 
     def test_strict_gate_and_no_publication(self):
         root = Path(__file__).resolve().parent.parent

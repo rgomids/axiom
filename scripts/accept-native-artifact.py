@@ -52,6 +52,27 @@ def extract(root, version, row, destination):
     return bundle, archive, checksum, metadata
 
 
+def confined(value, root, kind):
+    """Absolute, traversal-free, symlink-free `kind` ("dir"/"file") strictly inside `root`.
+
+    Every component from `root` down to the path is checked, so a symlinked
+    ancestor (man root) is refused as well as a symlinked leaf.
+    """
+    path = Path(value)
+    if not path.is_absolute() or ".." in path.parts or not root.is_absolute() or path == root:
+        return False
+    try:
+        relative = path.relative_to(root)
+    except ValueError:
+        return False
+    walk = root
+    for part in relative.parts:
+        walk = walk / part
+        if walk.is_symlink():
+            return False
+    return path.is_dir() if kind == "dir" else path.is_file()
+
+
 def acceptance(args, report):
     binary_name = "axiom"
     directory_mode = 0o700
@@ -163,9 +184,11 @@ def acceptance(args, report):
                         path = Path(docs["paths"][key])
                         require(path.is_file() and not path.is_symlink() and root.resolve() in path.resolve().parents,
                                 f"documentation path missing: {key}")
-                    require(Path(docs["paths"]["manRoot"]).is_dir(), "man root missing")
-                    require(docs["man"]["state"] == "available" and Path(docs["man"]["page"]).is_file(),
-                            "installed man page not verified")
+                    require(not root.is_symlink() and confined(docs["paths"]["manRoot"], root, "dir"),
+                            "man root missing, external or symlinked")
+                    require(docs["man"]["state"] == "available" and confined(docs["man"]["page"], root, "file")
+                            and confined(docs["man"]["page"], Path(docs["paths"]["manRoot"]), "file"),
+                            "installed man page not verified, external or symlinked")
                     require(docs["integrity"]["files"] > 0 and not docs["diagnostics"], "documentation integrity empty or diagnosed")
                     report["installedDocs"] = {"state": docs["state"], "reason": docs["reason"],
                                                "files": docs["integrity"]["files"], "bytes": docs["integrity"]["bytes"],
