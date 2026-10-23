@@ -1,4 +1,8 @@
-# AXM-39 — Implementation Evidence, attempt-01
+# AXM-39 — Implementation Evidence, attempts 01–02
+
+Current checkpoint: **attempt-02 PARTIAL; T07 BLOCKED_HOST_BASELINE; native Codex/Claude NOT_RUN; T08 PARTIAL**. See [attempt-02 read-back](#attempt-02--native-preflight-and-reconciliation).
+
+## Historical attempt-01
 
 2026-10-23. Baseline: [Specification r1](spec.md), [Plan r1](plan.md),
 [Tasks r1](tasks.md), unchanged [C01–C16/native protocol](examples.md).
@@ -251,3 +255,109 @@ No proven authorized continuation callback available. Handoff checkpoint:
 **AWAITING_EXECUTION_REPORT**, next_gate **review_partial_implementation** with
 **T07_AUTHORIZATION_REQUIRED** gate on native work only. Continue safe review;
 no ceremonial human continue request, fabricated callback or merge/readiness claim.
+
+
+## Attempt-02 — Native preflight and reconciliation
+
+2026-10-23. Resume only T07/T08; T01–T06 preserved. Input local, remote and
+Draft PR #343 HEAD verified as `4d2f5e96d586316381d0947abfcd1b4057a45614`;
+clean tree, same branch. Linear returned 31 comments, no next page: one attempt-02
+prompt and its dispatch, no attempt-02 completion or second observed execution.
+Process executable inventory and scoped open-file check found no observed writer
+on these two documents; this is bounded observation, not an ownership lease.
+[Previous receipt](https://linear.app/rgomids/issue/AXM-39#comment-1e2513b3)
+remains historical. Shared field-note API returned tool-not-found; issue/event
+and repository sources remained available.
+
+### E07 — Actual installed-host read-back, conversations NOT_RUN
+
+[Specific T07 authorization](https://linear.app/rgomids/issue/AXM-39#comment-b3a7bcea)
+was read back: Rafael's authorization communicated by delegated AI Maestro,
+declared 2026-10-23 10:15 BRT, without independent human authentication. Current
+user instruction authorizes these native conversations using existing legitimate
+access; it does not authorize replacing this host's binary/skills or repairing
+receipts. E07's installation/update gate and T07's no-host-path-edits limit remain.
+
+Host: actual executor, Darwin arm64; commands executed outside maintainer checkout.
+Existing standalone Codex CLI reports `0.163.0`; Claude Code reports `2.1.308`.
+Existing local Axiom executable SHA-256:
+`d33992f315c3d72d999cce200b46eb62187096d13e6ef76c2f8adf192fbe6699`.
+Its supported status/skill inspection provenance reports Axiom `0.20.0`, revision
+`dd2ab51f609e`, sourceState `clean`. `axiom --version` is unsupported; provenance
+above comes from actual JSON, not inferred from that failed command.
+
+| Read | Actual result | Interpretation |
+| --- | --- | --- |
+| `axiom --json runtime codex status` | success; skill-set 3, compatibility 3, four equivalent skills, receipt current | compatible with installed old binary only |
+| `axiom --json runtime claude status` | success; same four digests and compatibility, receipt current | compatible with installed old binary only |
+| `axiom --json docs inspect` | error / invalid_command / operation unknown; next: review supported inputs | required installed documentation read-back unavailable |
+| `axiom --json skill inspect` for Project, Workflow, Runtime and Work Item | success, same 0.20.0 provenance | argument registry inspected; does not prove loaded skill revision |
+| Targeted four-skill file hashes in each actual Runtime root | both equal status digests below | installed bytes observed, no broader host inventory imported |
+
+Complete content identity (SHA-256); approved source is input PR HEAD, not an
+installed or loaded revision:
+
+| Skill | Actual installed, both roots | Approved source |
+| --- | --- | --- |
+| axiom-project | `95bbbbb7190759a7c12f262f826f048db50d000fd5480c1764753e8a5345bdfe` | `775ab63f1c428156cce595cfe587039462d8e0a713b156fcce90f61c479d158d` |
+| axiom-workflow | `5148e83308b8927aeb98cc027a6d8cbd0c2c5539b3a335f39cb6b72f2781b36e` | `efdfbcd65cdffd3b3e3003e86caa8eb81f904ed9501c8f7bf22139a908154a76` |
+| axiom-runtime | `596876d7ad5d36a2feac834475dd7487ef2d72e2aa3bbd88eb0ac9be53ec184a` | `165fa61ab665ea819805b2343a00e61b24bce50a32252ee85446039f7b31636d` |
+| axiom-work-item | `99e4063d95ec80dccea30efe4c3d8abce8f8302c9d373cee34e124fc8f339b2e` | `ea5476f17d1962c0938968fa726a006a01c4d79913ff3988e3d11aaf64af49f3` |
+
+| Record | Authorized / installed / loaded / authenticated | Conversation | Result |
+| --- | --- | --- | --- |
+| E07-Codex attempt-02 | conversation authorized / older pair observed / UNKNOWN / NOT_CHECKED | no prompt submitted, no response | NOT_RUN; BLOCKED_HOST_BASELINE |
+| E07-Claude attempt-02 | conversation authorized / older pair observed / UNKNOWN / NOT_CHECKED | no prompt submitted, no response | NOT_RUN; BLOCKED_HOST_BASELINE |
+
+No native conversation started: old compatible installation lacks approved skill
+content and required docs surface. No canonical Project/Workflow input selected,
+no model preference assumed, no claims about native identity, summaries/details,
+blockers, Runtime resolution or graph rendering tested. Prompts remain exactly
+those prepared in historical E07; there are no executed prompts or visible answers
+to sanitize. Maintainer context is not evidence of a loaded product session.
+No auth inspection, credential reads, bootstrap, install/update, receipt repair,
+inference, dispatch or rollback executed. No defect in approved guidance proved.
+
+### E08 — Attempt-02 reconciliation and next gate
+
+Historical E01–E06 and C01–C16 synthetic results remain attributed to attempt-01;
+behavioral suites were not rerun for this documentation-only checkpoint.
+Historical crosswalk above retains AC/Case/Task links unchanged. Current results:
+
+| AC / Tasks | Synthetic / local | Native attempt-02 | Aggregate |
+| --- | --- | --- | --- |
+| AC1 / C01–C06,C16 / T01–T03,T05–T08 | historical PASS | NOT_RUN | PARTIAL |
+| AC2 / C07,C08,C15,C16 / T02,T04–T08 | historical PASS | NOT_RUN | PARTIAL |
+| AC3 / C09,C10,C13,C14 / T02,T04,T06–T08 | historical PASS | NOT_RUN | PARTIAL |
+| AC4 / C11–C13 / T02–T04,T06–T08 | historical PASS | NOT_RUN | PARTIAL |
+| AC5 / C01–C16 / T01–T08 | historical PASS | both NOT_RUN | PARTIAL |
+| AC6 / C01–C16 scope / T01–T06,T08 | historical PASS; current diff documentation only | no product effect | PASS within reviewed scope |
+
+T07 authorization gap resolved for conversations; installed-baseline gap remains.
+T08 current crosswalk and partial handoff reconciled; full completion still PARTIAL.
+Input-head [CI](https://github.com/rgomids/axiom/actions/runs/39957542043) and
+[Delivery metadata](https://github.com/rgomids/axiom/actions/runs/39957632827)
+were read through GitHub API: completed/success, exact input head. These reads do
+not certify a later documentation commit; final-head checks and publication
+read-back belong to attempt-02 completion event. Local documentary/security
+validation results likewise belong to that event after actual execution.
+
+Technical decision **IMPL2-TD-01** (TECHNICAL_LOCAL; executor-ai; scope_impact none):
+question: proceed against old pair, replace host installation, or hold conversations?
+Chosen: hold both dependent conversations and reconcile documentary Evidence.
+Alternatives: old-pair conversation cannot validate approved content; automatic
+replacement exceeds E07's explicit update gate. Evidence: actual read-back and
+hash comparison above, [T07](tasks.md#axm39-t07--two-native-conversations-external-authorization-boundary),
+[protocol](examples.md#two-native-conversations--future-protocol-not_run).
+Reversible: rerun preflight on a legitimately available baseline-compatible host.
+No material architecture/product/design decision introduced.
+
+**DF-01 DEFERRED_NOT_IMPLEMENTED** remains unchanged: stale predecessor index
+summaries, historical source above; no optional work implemented.
+Remaining work: obtain an authorized baseline-compatible installed host/pair and
+supported docs read-back (specific update permission if host replacement is needed),
+observe loaded revisions and legitimate auth availability, execute both real E07
+conversations, reconcile AC1–AC5/T07/T08, independent review.
+Next gate: **resume_implement_after_host_baseline**; safe independent review may
+proceed. No configured continuation callback verified: **AWAITING_EXECUTION_REPORT**.
+No merge, release, acceptance, Done or readiness claim.

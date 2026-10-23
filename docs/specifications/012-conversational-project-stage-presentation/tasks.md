@@ -2,14 +2,17 @@
 
 ## Implementation checkpoint — 2026-10-23
 
-Same PR/branch, implement attempt-01. [Implementation Evidence](evidence-implementation.md)
-records actual results: T01–T06 local PASS; T06 exact-head CI is recorded separately;
-T07 **BLOCKED_AUTHORIZATION** (protocol/fixtures/checklist prepared, native
-Codex/Claude **NOT_RUN**); T08 safe reconciliation/handoff **PARTIAL**.
-AC1–AC5 remain PARTIAL pending native Evidence; AC6 scoped review PASS.
-No claim all Tasks complete. Completion receipt carries exact published head,
-actual CI, Linear read-back and remaining work. Historical Tasks-stage status
-below describes its original baseline, not current implementation progress.
+Same PR/branch, implement **attempt-02 PARTIAL**. [Implementation Evidence](evidence-implementation.md#attempt-02--native-preflight-and-reconciliation)
+records actual installed-host read-back. T01–T06 historical PASS preserved;
+input-head CI rechecked PASS. T07 conversation authority confirmed through
+[delegated declaration](https://linear.app/rgomids/issue/AXM-39#comment-b3a7bcea),
+but **BLOCKED_HOST_BASELINE**: installed Axiom 0.20.0 and both four-skill sets
+predate approved content; required docs inspection unsupported. Native Codex/Claude
+**NOT_RUN**, loaded revision UNKNOWN, authentication NOT_CHECKED. No host update
+or conversation executed. T08 current partial reconciliation/handoff updated;
+full completion **PARTIAL**. AC1–AC5 PARTIAL; AC6 scoped review PASS.
+Completion receipt records actual final SHA/checks/read-back. Historical Tasks
+baseline below is preserved; it does not describe current implementation progress.
 
 ## Historical Tasks baseline, scope and execution state
 
