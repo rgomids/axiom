@@ -8,7 +8,11 @@ baseline: human Project identity, progressive Stage/Agent details, truthful
 Runtime/Profile and readiness presentation. [Examples/test protocol](012-conversational-project-stage-presentation/examples.md)
 and [Specify Evidence](012-conversational-project-stage-presentation/evidence-specify.md)
 separate documentary coverage from product tests and native conversations,
-which remain NOT_RUN. Specification only; no implementation, new ADR, Runtime
+which remain NOT_RUN. [Implementation Plan r1](012-conversational-project-stage-presentation/plan.md)
+maps actual shared skills, semantic harnesses, AC/cases, dependency and installed-host
+gates, future decomposition and rollback. [Plan Evidence](012-conversational-project-stage-presentation/evidence-plan.md)
+separates documentary checks from future product validation. Specification/Plan only;
+no Tasks, implementation, new ADR, Runtime
 execution, product acceptance or canonical Execution advancement.
 
 ## 011 — Rendered Workflow presentation
