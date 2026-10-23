@@ -97,3 +97,91 @@ isolated temp dirs with `env -i`, cwd with spaces; no network used for docs.
 | T15/E15 Q6, AC-08, V9 | — | — | — | real Codex/Claude inference + OS observation not authorized | NOT_RUN | — | AUTHORIZATION_REQUIRED |
 | symlink/foreign/crossed-docs negatives, PATH/man switch | macos-arm64 | — | — | not exercised beyond tamper | NOT_RUN | — | |
 | T16 aggregate | — | — | — | mandatory rows missing | NOT_RUN | — | no overall PASS |
+
+## Native qualification 02 (HEAD 08012db6d126, macOS arm64 host only)
+
+Host: macOS 27.0.1 arm64, 2026-10-23 America/Sao_Paulo. Authority: Issue #344
+[grant](https://github.com/rgomids/axiom/issues/344#issuecomment-6375188966).
+All roots are isolated temp dirs (`env -i`, cwd with spaces); no source-checkout
+or maintainer-home path was an allowed documentary source. Linux was not
+touched; T13 Linux amd64/arm64 stay **NOT_RUN**. Nothing here is merge, release
+or default promotion, and full release readiness is **not established**.
+
+### A. Published-release upgrade journeys (`test-upgrade-journeys.sh`, end to end)
+
+Published inputs (macOS rows; downloaded with `gh release download`, then checked
+against `SHA256SUMS` and the GitHub API asset `digest`; both matched; no
+attestation exists for any of them, so provenance is checksum + API digest only):
+
+| release | tag commit | archive sha256 | SHA256SUMS sha256 |
+|---|---|---|---|
+| v0.21.1 (N) | `921507c27c5b` | `4ea306d19591…` | `6d707c19d483…` (+ verifier helper `21300f58fc83…`, API digest matched) |
+| v0.15.0 | `37662730c64e` | `3ca48fb132a9…` | `66e3a69aad3c…` |
+| v0.1.0 (floor) | `084cc384d4c9` | `f817d8550b58…` | `5b3b2379a595…` |
+
+Candidate: **local** release-mode build, not a published asset
+(`build-release-archives.sh --version 0.21.2-qual.2 --format 2 --only macos-arm64`
+from clean HEAD `08012db6d126`; archive `bcbf1fe55e14…`, binary `e3b99dad9957…`).
+
+Result: `exit=0`, 37 `result=pass` steps, `failures=0`, journeys
+`v1-state-v0.21.1` (v1→v2), `skills-v0.15.0` (incl. PD-3 legacy refusal),
+`skills-v0.1.0` (floor), including upgrade, version, state preservation, Runtime
+readiness and idempotent rerun. Status: **PASS (macOS arm64, local v2 candidate)**.
+Not covered: RecognizedPOC journey (`--poc-binary`; `v0.1.0-poc.1` publishes no
+assets, a local build was not substituted) = **NOT_RUN**; Linux rows = NOT_RUN.
+Two earlier attempts were input errors, not product defects: v0.21.1 needs its
+published verifier helper asset; a `--development` candidate reports version
+`development` and fails the version assertion by design.
+
+### B. Q6 / AC-08 / V9 — Codex native sessions (Claude NOT_RUN)
+
+Runtime: codex-cli 0.163.0 (binary `8813367285…`), fresh `exec --ephemeral`
+sessions with an isolated `CODEX_HOME` (copied `auth.json` only, web search
+disabled), HOME/TMPDIR/cwd under the run root, installed A or B bundle skills.
+Control: `sandbox-exec` profile denying `file-read-data` on the maintainer home,
+`/private/tmp`, `/Users/Shared`, `/Volumes` except the installation roots and
+session dirs; all outbound network denied except a local logging CONNECT proxy
+allowing only `chatgpt.com` (inference/auth transport). Documentary retrieval was
+not requested or permitted: the proxy denied `ab.chatgpt.com` and
+`*.oaiusercontent.com` in every session.
+
+Observers actually available: Unified Log kernel `Sandbox: … deny` events
+(unprivileged, per operation/pid/path), the proxy log, a 0.3 s `ps` sampler.
+**Not available:** `fs_usage`/`eslogger` (root required, `sudo` needs a password),
+`sandbox-exec (trace)` (produced no output). Consequently **successful reads are
+not independently observed**; only denials are. Short-lived children fall between
+samples, so PID-tree attribution is partial (denials are also listed unattributed
+by time window). No air-gap or zero server-side retrieval claim is made.
+
+| case | runtime | identity | method | observed | status | limitation |
+|---|---|---|---|---|---|---|
+| Q6-1 identities/versions | codex | A `e63f8fb4d0dc`/`e3b99dad9957`, B `55593c409303`/`ece2efc9bcb9`, same version 0.21.2-qual.2 | install.sh into roots A/B | recorded | PASS | B is a scratch-clone same-version build (extra beacon line), never pushed |
+| Q6-2 AC-01, no Runtime, network denied | none | A | `docs inspect` + index link closure, cwd with spaces, `curl` denied | verified/ok, 10 links closed, curl exit 6 | PASS (native macOS) | file reads not observer-confirmed |
+| Q6-3/4 effective denial controls | codex+descendants | — | `neg` session: read checkout AGENTS.md, canary, `~/.claude`; curl via proxy to example.com; `curl --noproxy`; python socket | exits 1,1,1,56,6,1; kernel denies for cat, cat, ls, curl, Python; proxy denied example.com | PASS for denial controls | does not prove absence of other reads |
+| Q6-4 positive-read observation of installed docs | codex | — | none available | tool transcript shows reads; no OS-level record | **UNVERIFIED** | no root observer |
+| Q6-6 A positive | codex | A | `a-pos` | state verified, gen `e63f8fb4d0dc`, beacon NONE, docFile `text/cli.md`, `man -w` in A | PASS (functional only) | Q6-4 gap |
+| Q6-6 B via PATH switch | codex | B | `b-switch` | gen `55593c409303`, quotes beacon QUAL-B-4471 from B docs | PASS (functional only) | same |
+| Q6-6 man selection differs | codex | A bin, B MANPATH | `man-mismatch` | docs gen A, beacon NONE, `man -w` reports B path | PASS (functional only) | session did not flag mismatch unprompted |
+| Q6-6 explicit A/B + broken | codex | six explicit paths | `explicit` | A, B verified; crossed `invalid/inventory_mismatch`, absent `absent/binding_absent`, tampered `invalid/hash_mismatch` all REFUSED without fallback | PASS (functional only) | same |
+| Q6-6 symlinked docs root | codex | A with `generations/<g>/docs` → `docs.real` | `explicit` | `docs inspect` returned verified/ok and the session read docs through the symlink | **FAIL** | see deferred finding DF-1 |
+| Q6-6 crossed skills | — | — | — | skills carry no docs binding at this HEAD | NOT_RUN | |
+| Q6 any row, Claude | claude | — | — | only credential is an expired OAuth token in the maintainer keychain; use forces refresh-token rotation that can invalidate the maintainer login; new enrolment not authorized | **NOT_RUN** | AUTHORIZATION_REQUIRED |
+| AC-08 / V9 aggregate | codex+claude | — | — | Codex functional rows pass; observation incomplete; Claude absent | **UNVERIFIED** | |
+
+Inference was bounded to 5 Codex sessions plus 2 smoke runs; real `auth.json`
+digest was unchanged afterwards (no refresh). Raw logs, proxy logs and process
+samples stay in the local scratch area, not in Git.
+
+### C. T13/T14 macOS-only, repo tests, T16
+
+Local suites on this host, all exit 0: `test-native-acceptance.py`, `test-release-pipeline.sh`, `test-release-flow.sh`, `test-install-bootstrap.sh`, `test-prepared-artifact-smoke.py`, `test-docs-offline.sh` (candidate archive; script still reports PARTIAL for source/network denial), `validate-repository.sh`, and `go test` for operationaldocs, cli, install and axiom-archive-verify. T14 macOS
+installed-docs refusals now also cover crossed, absent, tampered (PASS) and
+symlinked docs root (FAIL, DF-1). **T16 aggregate: NOT_RUN/blocked** — Linux
+T13, Claude Q6, positive-read observation and DF-1 are open.
+
+Deferred finding DF-1: `axiom docs inspect` accepts a generation whose `docs`
+directory is a symlink (the check Lstat-guards only the final component of
+sub-paths, and `docs` is walked as a non-directory entry). Impact is limited to a
+same-user writable tree, but spec symlink refusals and the native helper's
+`confined()` both expect refusal. Not fixed here: it changes reviewed product code
+and needs a scoped decision plus new review.
