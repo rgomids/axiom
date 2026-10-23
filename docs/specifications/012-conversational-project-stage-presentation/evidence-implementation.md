@@ -1,6 +1,8 @@
-# AXM-39 — Implementation Evidence, attempts 01–02
+# AXM-39 — Implementation Evidence, attempts 01–03
 
-Current checkpoint: **attempt-02 PARTIAL; T07 BLOCKED_HOST_BASELINE; native Codex/Claude NOT_RUN; T08 PARTIAL**. See [attempt-02 read-back](#attempt-02--native-preflight-and-reconciliation).
+Current checkpoint: **attempt-03 PARTIAL; host upgrade BLOCKED_STATE_UNSAFE;
+T07 BLOCKED_HOST_BASELINE; native Codex/Claude NOT_RUN; T08 PARTIAL**.
+See [attempt-03 read-back](#attempt-03--authorized-host-upgrade-refused).
 
 ## Historical attempt-01
 
@@ -361,3 +363,161 @@ conversations, reconcile AC1–AC5/T07/T08, independent review.
 Next gate: **resume_implement_after_host_baseline**; safe independent review may
 proceed. No configured continuation callback verified: **AWAITING_EXECUTION_REPORT**.
 No merge, release, acceptance, Done or readiness claim.
+
+## Attempt-03 — Authorized host upgrade refused
+
+2026-10-23. Same Draft PR #343 and branch; clean input local/remote/PR HEAD
+`03b54d3cb400d7058aedde20235f5091e54e3dee`. Spec 012 r1, Plan r1, historical
+Tasks r1, examples and E01–E06 preserved. Full Linear comment inventory returned
+`hasNextPage: false`: one attempt-03 prompt/accepted dispatch, no later competing
+dispatch or completion at entry. Scoped process executable observation found no
+second Claude/installer; existing Codex processes do not establish another Task
+execution. This bounded observation is not a global ownership lease.
+
+[Host/skills authority](https://linear.app/rgomids/issue/AXM-39#comment-5e2b99c4)
+confirmed: Maestro's delegated declaration of Rafael's 10:35 BRT authorization,
+without independent human authentication. Grants existing-host Axiom/four-skill
+update and T07/T08, not state migration/repair, credentials, extraordinary expense,
+merge, release or acceptance. Shared field-note call again returned tool-not-found;
+canonical source/events remained available. Direct sequential execution: no proven
+lower-capability hierarchy or useful independent writer unit.
+
+### E07 — Candidate, backup, refusal and actual host read-back
+
+Actual host: Darwin arm64, Codex CLI 0.163.0, Claude Code 2.1.308. Before update,
+Axiom reported 0.20.0/dd2ab51f609e/clean; `docs inspect` returned invalid_command.
+Both Runtime statuses reported compatibility 3/current receipt, but all eight
+installed skill files retained the older digests in attempt-02's table.
+
+Official source installer was inspected but **not run**: it requires
+`axiom.receipt`; existing installation has release `installation.receipt`.
+No receipt conversion or ownership bypass attempted. Official generation-2
+archive route supports documentation read-back and existing owned upgrades:
+
+```sh
+./scripts/build-release-archives.sh --version 0.21.1 --output <private-archive-dir> --format 2 --development --only macos-arm64
+./scripts/install-release.sh --helper <independently-built-helper> --helper-sha256 <actual-helper-sha256> --verify-only --archive <archive> --checksums <SHA256SUMS> --bin-dir <existing-bin-root> --receipt-dir <existing-receipt-root>
+# Same verified arguments, without --verify-only, attempted the owned upgrade.
+```
+
+Commands above are sanitized records, not literal commands with usable paths.
+Version 0.21.1 comes from the input commit's `.release-please-manifest.json`;
+`--development` records **release=false**, not a published release or new version.
+Candidate metadata: full source commit `03b54d3cb400d7058aedde20235f5091e54e3dee`,
+revision `03b54d3cb400`, clean, generation 2, darwin/arm64. Archive SHA-256
+`a94604c94b1658fb377d1d125566ae5b005b9fe10c25061d3cc9573ed3fea9b1`;
+candidate binary `174911796d7ecbe7686369b99d8c1393009a48b390a065b1054f1bf2404f3d34`.
+All four archive skill bytes were compared directly with approved source; each
+matches the approved SHA-256 in attempt-02's table. Candidate is **not installed**.
+
+A first verify-only invocation lacked the required independently pinned helper
+and refused before installation. Corrected using a helper built from the same
+approved checkout with the official `cmd/axiom-archive-verify` identity convention;
+its SHA-256 supplied explicitly. Actual verify-only then exited 0:
+`archive_verify_success: format=2 platform=macos architecture=arm64`.
+
+Before the effectful call, 12 targeted regular non-symlink files were copied with
+metadata preserved to a private, retained host backup: binary, installation
+receipt, two skill receipts and eight SKILL.md files. SHA-256 and permission modes
+recorded locally. No credentials, unrelated installations or broad host inventory
+were backed up or imported. HEAD/worktree rechecked unchanged immediately before
+installer execution.
+
+**Owned upgrade exited 1**:
+
+```text
+install_error: owned upgrade refused: Upgrade blocked before any effect: state_unsafe
+install_next: Existing Axiom state is unrecognized, modified, ambiguous, or unsafe; nothing was changed, so preserve it for operator review
+```
+
+This is the installer's compatibility-state refusal, not evidence of a defective
+012 presentation rule. Exact offending state object/cause **UNKNOWN**; no state
+contents, credentials or repair were inspected. Source mapping was reviewed in
+`cmd/lingo/install_posix.go` and `internal/install/upgrade.go`: preview refuses
+before applying managed effects. No isolated-state override, receipt fabrication,
+manual binary replacement or migration used to bypass the refusal.
+
+A following status batch also invoked `runtime codex install` and `runtime claude
+install` on the unchanged old binary. Both returned `already_configured` with old
+hashes/current receipts, **not** a baseline update. These dependent calls should
+have been gated on installer success; subsequent file read-back confirmed no
+managed-content change. No candidate skill installer was invoked.
+
+| Actual post-attempt check | Result |
+| --- | --- |
+| Binary SHA-256 before/after | `d33992f315c3d72d999cce200b46eb62187096d13e6ef76c2f8adf192fbe6699`, unchanged |
+| Binary/version | 0.20.0/dd2ab51f609e/clean, unchanged |
+| All 12 backup targets | Exact original SHA-256 and permission modes retained |
+| Four skills, both roots | Older attempt-02 digests retained; approved content not installed |
+| Installed documentation | `docs inspect` still invalid_command; no `.axiom-docs` directory created |
+| Rollback | NOT_NEEDED_NO_MANAGED_CHANGE; backup retained, restore not executed |
+| Codex authentication availability | `codex login status`: logged in using ChatGPT; no secret inspected |
+| Claude authentication availability | `claude auth status --json`: loggedIn=true, oauth_token, firstParty; identity fields not emitted or retained |
+
+Authentication status is an availability observation, not successful inference.
+No existing session was restarted. Installed != loaded != authenticated != observed.
+
+| Native record | Installed / loaded / authentication | Prompt / answer | Result |
+| --- | --- | --- | --- |
+| E07-Codex attempt-03 | Older pair / UNKNOWN / availability reported | None submitted / none produced | NOT_RUN; BLOCKED_HOST_BASELINE after state_unsafe |
+| E07-Claude attempt-03 | Older pair / UNKNOWN / availability reported | None submitted / none produced | NOT_RUN; BLOCKED_HOST_BASELINE after state_unsafe |
+
+No live Project/Workflow selected, no conversational UUID, Stage, Runtime state,
+blocker, success+blocked or graph/text rendering case executed. Prepared E07
+prompts remain historical; no synthetic transcript substitutes for a native run.
+
+### E08 — Attempt-03 reconciliation and remaining work
+
+| AC / cases / Tasks | Historical synthetic | Native attempt-03 | Current aggregate |
+| --- | --- | --- | --- |
+| AC1 / C01–C06,C16 / T01–T03,T05–T08 | PASS, attempt-01 | NOT_RUN | PARTIAL |
+| AC2 / C07,C08,C15,C16 / T02,T04–T08 | PASS, attempt-01 | NOT_RUN | PARTIAL |
+| AC3 / C09,C10,C13,C14 / T02,T04,T06–T08 | PASS, attempt-01 | NOT_RUN | PARTIAL |
+| AC4 / C11–C13 / T02–T04,T06–T08 | PASS, attempt-01 | NOT_RUN | PARTIAL |
+| AC5 / C01–C16 / T01–T08 | PASS, attempt-01 | Both NOT_RUN | PARTIAL |
+| AC6 / C01–C16 scope / T01–T06,T08 | Historical PASS; current scoped documentary review | No native conversation | PASS_SCOPED_REVIEW |
+
+T01–T06/E01–E06 remain historical PASS, not rerun. T07 **BLOCKED_HOST_BASELINE**
+with actual update refusal **BLOCKED_STATE_UNSAFE**. T08 **PARTIAL**, current
+AC/case/Evidence join reconciled; full completion awaits both native records.
+Input-head CI and both metadata runs re-read completed/success (39960629686,
+39960629774, 39960719716); these do not certify this later documentary commit.
+Actual local validation and final-head CI/SHA belong to attempt-03's completion
+receipt, published after execution/read-back, never inferred from prior runs.
+
+Current local checks: PASS `./scripts/validate-repository.sh .` (native Runtime
+behavioral scenarios SKIP/UNVERIFIED), 43 local Markdown paths, `git diff --check`,
+scoped complete diff review, `./scripts/check-sensitive-files.sh --staged .` and
+`gitleaks git --staged --redact --no-banner` (no leaks). No Go behavior changed;
+archive build compiled the exact candidate, historical behavior suites not repeated.
+This self-review is not independent review or native acceptance.
+
+Technical decisions (TECHNICAL_LOCAL, executor-ai, scope_impact:none):
+
+- **IMPL3-TD-01:** choose official generation-2 development archive at approved
+  commit over source installer or latest stable; rationale: existing release
+  ownership and installed-doc binding require the supported archive route, while
+  latest stable cannot establish approved 012 skill content. Version comes from
+  source manifest; archive build publishes nothing. Evidence: command reference
+  installed-doc/source-install sections, archive metadata and verified hashes above.
+- **IMPL3-TD-02:** stop dependent native runs after state_unsafe; retain original
+  pair and backup instead of forcing replacement or redirecting state roots.
+  Rationale: refusal precedes managed effects; repairing unidentified protected
+  state or testing old skills cannot establish approved native behavior. Reversal:
+  retry official preflight after separately scoped state reconciliation.
+- **IMPL3-TD-03:** execute directly; no advantageous independent unit with proven
+  strictly lower capability. Deterministic tools own archive/hash/read-back checks.
+
+**DF-01 DEFERRED_NOT_IMPLEMENTED:** stale predecessor summaries in Specifications
+index remain outside scope; show prominently at pre-merge. Only current 012 index
+checkpoint reconciled; no predecessor history changed. No optional finding promoted
+to a requirement; state_unsafe is a required-action blocker, not DF-01.
+
+Remaining work: scoped diagnosis/reconciliation of the existing installer's
+compatibility-state refusal, without widening this update grant; retry official
+host update; verify installed docs, both skill sets and loaded session identity;
+run both real E07 conversations; reconcile AC1–AC5/T07/T08 and independent review.
+No material architecture/product/design decision proposed. No verified continuation
+callback: **AWAITING_EXECUTION_REPORT**. Next gate:
+**resume_implement_after_host_state_reconciliation**. No merge, release, Done or
+human acceptance. Partial completion event/read-back stays on AXM-39.

@@ -2,17 +2,18 @@
 
 ## Implementation checkpoint — 2026-10-23
 
-Same PR/branch, implement **attempt-02 PARTIAL**. [Implementation Evidence](evidence-implementation.md#attempt-02--native-preflight-and-reconciliation)
-records actual installed-host read-back. T01–T06 historical PASS preserved;
-input-head CI rechecked PASS. T07 conversation authority confirmed through
-[delegated declaration](https://linear.app/rgomids/issue/AXM-39#comment-b3a7bcea),
-but **BLOCKED_HOST_BASELINE**: installed Axiom 0.20.0 and both four-skill sets
-predate approved content; required docs inspection unsupported. Native Codex/Claude
-**NOT_RUN**, loaded revision UNKNOWN, authentication NOT_CHECKED. No host update
-or conversation executed. T08 current partial reconciliation/handoff updated;
-full completion **PARTIAL**. AC1–AC5 PARTIAL; AC6 scoped review PASS.
-Completion receipt records actual final SHA/checks/read-back. Historical Tasks
-baseline below is preserved; it does not describe current implementation progress.
+Same PR/branch, implement **attempt-03 PARTIAL**. [Implementation Evidence](evidence-implementation.md#attempt-03--authorized-host-upgrade-refused)
+records authorized host-update attempt: official generation-2 development archive
+verified at approved input SHA; owned upgrade refused **state_unsafe** before
+managed effects. All 12 backed-up binary/receipt/skill files retain hashes and
+permission modes; rollback not needed. Existing Axiom 0.20.0 and both old four-skill
+sets remain installed; docs inspect unsupported. T07 **BLOCKED_HOST_BASELINE**,
+Codex/Claude native **NOT_RUN**, loaded UNKNOWN; authentication availability
+reported by both CLIs, no secrets inspected. T01–T06 historical PASS preserved;
+T08 current reconciliation PARTIAL. AC1–AC5 PARTIAL; AC6 scoped review PASS.
+Next gate: **resume_implement_after_host_state_reconciliation**;
+**AWAITING_EXECUTION_REPORT**. Completion receipt records actual final SHA/checks
+and read-back. Historical Tasks baseline below remains unchanged.
 
 ## Historical Tasks baseline, scope and execution state
 
