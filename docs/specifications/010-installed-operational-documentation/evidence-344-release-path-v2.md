@@ -230,3 +230,64 @@ Use a clean or isolated root (`env -i`, fresh `HOME`/install prefix), cwd outsid
 - Manual E2E above (human).
 - Qualification rows NOT_RUN above remain open: promotion as "release_qualified" is not supported by current Evidence; the maintainer must either accept that scope explicitly in the release decision or run the rows. Smallest path: record an explicit scope-reduction acceptance on #344 and run the checklist.
 - No merge, release publication or Issue closure is performed by the agent.
+
+## Agent-executed qualification 03 (2026-10-23, America/Sao_Paulo)
+
+The maintainer explicitly requested execution of the pending tests and comment
+remediation in this chat, superseding the earlier reservation of test execution
+to the human. This is test/correction authority, not human acceptance, merge,
+publication or a waiver of qualification gates. DF-1 remains deferred to #346.
+
+### Observed failures and bounded corrections
+
+Non-publishing [qualification run 40049521022](https://github.com/rgomids/axiom/actions/runs/40049521022)
+on `e618cc0f2e50dccdd1204d5abffa968281353ef2` exposed two harness defects:
+
+- Linux/macOS upgrade jobs downloaded the prior v0.21.1 archive without its
+  checksum-pinned standalone verifier. Installation failed before CLI startup.
+  `native-suite.yml` now fetches the host verifier named by that release's
+  checksum inventory; legacy releases without a helper stay supported. Missing,
+  ambiguous or unsafe helper acquisition fails closed.
+- Linux arm64 fresh install and `installed-docs-verified` passed (29 files,
+  `manState=available`), but `reinstall-idempotent` rejected the expected v2
+  `.axiom-docs` directory. The check now requires the exact format-specific
+  directory entries and compares the entire binary/documentation tree plus
+  receipts before/after, retaining persisted Project/state comparisons.
+
+`python3 scripts/test-native-acceptance.py`: **8 tests PASS**, including executed
+workflow-download fixtures for Linux/macOS, a missing-helper failure, legacy
+no-helper inventory and documentary mutation/foreign-entry refusal. New
+regressions reject the original harness. No inspector or product code changed.
+
+### macOS arm64 results at input HEAD e618cc0
+
+Candidate: local release-mode format 2 build `0.21.2-qual.3`, clean source;
+not published. Archive SHA256:
+`35c10aa73c177736be3dc4f289aba0d317b3767e47559a19aab3ac47a97b79b9`.
+Binary SHA256:
+`8c8b52c758c71adfe57fc8a1f5d413f16eb5dd70e1ab2b29e6da09598fa3f58a`.
+
+- Fresh isolated install, version/commit, `docs inspect` verified, 29 files,
+  selected `man axiom` page and actual rendering with matching version/commit:
+  **PASS**. CWD `/`, fresh HOME, installation path contains spaces.
+- Reinstall unchanged; downgrade to genuine published v0.21.1 refused without
+  binary mutation; same-version v1-to-v2 refused with
+  `divergent_equivalent_version`, binary preserved: **PASS**.
+- Project/Work Item help and non-empty persisted-state upgrade regression:
+  **PASS**. `test-upgrade-journeys.sh --candidate <local-v2> --previous
+  <published-v0.21.1> --poc-binary <historical-build>`: **41 steps, 0 failures**,
+  including RecognizedPOC preservation/rebuild/reconfiguration. POC built from
+  exact tag commit `242d67c4cf2d4c3efe534dd894cb56a05558e139` (`cmd/lingo`);
+  source replay evidence, not a nonexistent published POC asset.
+- `test-docs-offline.sh` against those exact candidate bytes: **PASS** (corpus,
+  local links and refusal cases); independent network/source denial **NOT_RUN**.
+- Native-acceptance regressions, prepared-artifact smoke (13), release pipeline,
+  targeted Go tests (`internal/operationaldocs`, `internal/cli`, `internal/install`,
+  `cmd/axiom-archive-verify`), `go vet ./...`, `go build ./...`, repository
+  validation: **PASS**. These are bounded test results, not full Q6/T13/T16.
+
+The executable checklist is now agent-tested; human acceptance remains pending.
+Hosted qualification after the harness corrections and Claude functional probe
+results are recorded in the follow-up receipt. Independent positive-read
+observation still lacks required host privileges; AC-08/V9 and T16 must not be
+marked PASS on the strength of functional sessions or generic CI alone.

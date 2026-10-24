@@ -158,6 +158,16 @@ jobs:
             for asset in SHA256SUMS "axiom-$version-$ROW.tar.gz"; do
               curl -fsSL --retry 4 -o "$dir/$asset" "https://github.com/$GITHUB_REPOSITORY/releases/download/$tag/$asset"
             done
+            # Current v1 releases pin a standalone verifier; old releases do not.
+            # Fetch only the helper named by this release's checksum inventory.
+            target=$ROW
+            [[ "$ROW" != macos-27-arm64 ]] || target=darwin-arm64
+            helper=$(awk -v prefix="axiom-verifier-$version-" -v suffix="-$target" \
+              'index($2, prefix) == 1 && substr($2, length($2)-length(suffix)+1) == suffix {print $2}' "$dir/SHA256SUMS")
+            if [[ -n "$helper" ]]; then
+              [[ "$helper" =~ ^axiom-verifier-[0-9A-Za-z.+-]+$ ]] || { echo 'invalid or ambiguous verifier inventory' >&2; exit 1; }
+              curl -fsSL --retry 4 -o "$dir/$helper" "https://github.com/$GITHUB_REPOSITORY/releases/download/$tag/$helper"
+            fi
             printf 'PREVIOUS_%s=%s\n' "${tag//./_}" "$dir" >>"$GITHUB_ENV"
           done
           printf 'PREVIOUS_LATEST=%s\n' "$RUNNER_TEMP/previous-$latest" >>"$GITHUB_ENV"

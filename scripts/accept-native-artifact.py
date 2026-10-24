@@ -73,6 +73,13 @@ def confined(value, root, kind):
     return path.is_dir() if kind == "dir" else path.is_file()
 
 
+def installation_snapshot(binary, receipt, archive_format):
+    expected = [".axiom-docs", binary.name] if archive_format == "2" else [binary.name]
+    require(sorted(p.name for p in binary.parent.iterdir()) == expected,
+            "unexpected installed directory entries")
+    return smoke.inventory(binary.parent), smoke.inventory(receipt)
+
+
 def acceptance(args, report):
     binary_name = "axiom"
     directory_mode = 0o700
@@ -214,10 +221,9 @@ def acceptance(args, report):
 
                 scenario("configuration-cli", lambda: (configure(), readable()))
                 state = smoke.inventory(home / "projects"), smoke.inventory(home / "state")
-                owned = smoke.digest(binary), smoke.inventory(receipt)
+                owned = installation_snapshot(binary, receipt, args.format)
                 scenario("reinstall-idempotent", lambda: require("install_status=unchanged" in install(candidate, archive)
-                         and owned == (smoke.digest(binary), smoke.inventory(receipt))
-                         and sorted(p.name for p in binary.parent.iterdir()) == [binary_name]
+                         and owned == installation_snapshot(binary, receipt, args.format)
                          and state == (smoke.inventory(home / "projects"), smoke.inventory(home / "state")), "reinstall changed state"))
                 scenario("invalid-arguments", lambda: cli("project", "show", "--unsupported", expected=None))
                 scenario("missing-project", lambda: cli("project", "show", "--selector", "absent", expected=None))
