@@ -337,3 +337,42 @@ requires root, unavailable to this session. No claim of complete confinement,
 network-route coverage, server-side retrieval visibility, Q6-4, AC-08/V9 or T16
 PASS is made. Raw runtime/proxy/test logs stay private outside Git; only this
 bounded summary is published. Human acceptance and DF-1/#346 remain unchanged.
+
+### Privileged observer follow-up (maintainer authorization in this chat)
+
+The maintainer subsequently authorized root. Administrator authentication used
+macOS's secure system dialog; no password was requested or handled in chat.
+Root `eslogger` was still rejected by TCC: its responsible process needs Full
+Disk Access. Root authority alone does not supply that privacy permission.
+
+A bounded 60-second root `fs_usage` trace selected the actual native Claude PID,
+paused until the tracer was armed, then resumed for a fresh Read-only session.
+The stricter source/home/tmp sandbox worked after directing Claude's own temp
+state into the fresh run root (`CLAUDE_CODE_TMPDIR` / `CLAUDE_TMPDIR`). Observed:
+
+- 35 trace records referencing the installed generation's `docs/text/cli.md`,
+  including successful `openat` calls; version/commit and `project validate`
+  syntax correlate with the native Read tool result.
+- 17 records referencing the forbidden checkout's `AGENTS.md`, including
+  `openat` errno 1 (EPERM), correlated with the Read tool's refusal and no
+  fallback. No lost/dropped marker occurred in this scoped trace.
+- The first trace selected only the wrapper and contained no documentary read;
+  it is not counted as positive-read evidence. The successful trace selected
+  the native executable itself. Raw traces remain private outside Git.
+
+**Bounded positive-open/negative-open calibration: PASS for this Claude process.**
+**Full Q6-4 remains PARTIAL/UNVERIFIED:** this PID trace does not establish
+complete descendant coverage or absence of lost events; long path prefixes are
+truncated by the tracer. `eslogger` remains blocked by Full Disk Access. Full
+Claude/Codex A/B matrices, V8/V9, complete T13 and T16 are not certified by this
+calibration. The earlier statement that root was unavailable is superseded by
+this authorized follow-up; no contract or qualification requirement is waived.
+
+Hosted run [40050267387](https://github.com/rgomids/axiom/actions/runs/40050267387)
+is now terminal: **all positive jobs PASS**, including full Linux/macOS Go
+suites with race detection, static/build/repository/dogfood checks, contracts,
+both upgrade journeys, macOS smoke and the 15-scenario arm64 acceptance.
+**verify-propagation PASS**, corruption rejection **FAIL** and promotion
+**SKIPPED** as designed. GitHub's overall run conclusion is **failure** because
+of that deliberate negative job; it must not be represented as an overall
+SUCCESS. PR Checks and delivery metadata independently passed on `cf65b92`.
