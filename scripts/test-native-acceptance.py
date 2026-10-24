@@ -93,7 +93,7 @@ class NativeContract(unittest.TestCase):
             scripts = origin / "scripts"
             scripts.mkdir()
             builder = scripts / "build-release-archives.sh"
-            builder.write_text('#!/bin/bash\nset -eu\nmkdir -p "$4"\ngit rev-parse HEAD > "$4/source"\n')
+            builder.write_text('#!/bin/bash\nset -eu\ntest "$1 $2" = "--format 2"\nmkdir -p "$6"\ngit rev-parse HEAD > "$6/source"\n')
             harness = scripts / "test-upgrade-journeys.sh"
             harness.write_text('#!/bin/bash\nexit 17\n')
             builder.chmod(0o755)
@@ -130,6 +130,126 @@ class NativeContract(unittest.TestCase):
             self.assertEqual(run(command("Upgrade journeys"), checkout / "harness",
                                  {"FAIL_JOURNEY": "23"}).returncode, 23)
             self.assertEqual(git("rev-parse", "HEAD", cwd=checkout), release)
+
+    def test_format_two_asserts_installed_documentation(self):
+        source = Path(native.__file__).read_text()
+        self.assertIn('if args.format == "2":\n                    scenario("installed-docs-verified", installed_docs)', source)
+        body = source.split("def installed_docs():")[1].split('if args.format == "2":')[0]
+        for needle in ('"docs", "inspect"', 'docs["state"] == "verified"', 'docs["reason"] == "ok"',
+                       'report["binarySha256"]', "sourceCommit", "manRoot", '"index", "inventory", "provenance", "manMap"',
+                       'docs["man"]["state"] == "available"', "is_symlink", "confined(", "NOT_RUN"):
+            self.assertIn(needle, body)
+        # Refusal negative cases and bounds stay in every format.
+        for scenario in ("corrupt-artifact-refused", "foreign-binary-preserved", "symlink-destination-refused",
+                         "install-interruption-recovery", "genuine-prior-upgrade-state-reinstall"):
+            self.assertIn(f'scenario("{scenario}"', source)
+        self.assertIn("timeout=60", source)
+        self.assertIn("len(members) <= 256", source)
+
+    def test_confined_man_paths(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            base = Path(temporary).resolve()
+            root = base / "home/docs"
+            (root / "man/man1").mkdir(parents=True)
+            page = root / "man/man1/axiom.1"
+            page.write_text(".TH AXIOM 1\n")
+            outside = base / "outside"
+            (outside / "man1").mkdir(parents=True)
+            (outside / "man1/axiom.1").write_text("x")
+            self.assertTrue(native.confined(str(root / "man"), root, "dir"))
+            self.assertTrue(native.confined(str(page), root, "file"))
+            self.assertTrue(native.confined(str(page), root / "man", "file"))
+            # External, relative, traversal, wrong kind, the root itself.
+            for value, kind in ((outside, "dir"), (outside / "man1/axiom.1", "file"), ("docs/man", "dir"),
+                                (root / "man/../man", "dir"), (root / "man/man1/../man1/axiom.1", "file"),
+                                (root / "man", "file"), (page, "dir"), (root, "dir"), (root / "absent", "dir")):
+                with self.subTest(value=str(value), kind=kind):
+                    self.assertFalse(native.confined(str(value), root, kind))
+            # Symlinked man root (ancestor of the page) and symlinked page.
+            link_root = base / "link/docs"
+            link_root.mkdir(parents=True)
+            (link_root / "man").symlink_to(outside)
+            self.assertFalse(native.confined(str(link_root / "man"), link_root, "dir"))
+            self.assertFalse(native.confined(str(link_root / "man/man1/axiom.1"), link_root, "file"))
+            (root / "man/man1/linked.1").symlink_to(outside / "man1/axiom.1")
+            self.assertFalse(native.confined(str(root / "man/man1/linked.1"), root, "file"))
+            self.assertFalse(native.confined(str(root / "man"), root / "man", "dir"))
+
+    def test_reinstall_inventory_includes_format_two_docs(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            binary = root / "bin/axiom"
+            binary.parent.mkdir()
+            binary.write_bytes(b"binary")
+            receipt = root / "receipt"
+            receipt.mkdir()
+            (receipt / "installation.receipt").write_text("receipt")
+            native.installation_snapshot(binary, receipt, "1")
+            docs = binary.parent / ".axiom-docs"
+            docs.mkdir()
+            page = docs / "page"
+            page.write_text("original")
+            before = native.installation_snapshot(binary, receipt, "2")
+            self.assertEqual(before, native.installation_snapshot(binary, receipt, "2"))
+            page.write_text("tampered")
+            self.assertNotEqual(before, native.installation_snapshot(binary, receipt, "2"))
+            with self.assertRaisesRegex(ValueError, "unexpected installed directory entries"):
+                native.installation_snapshot(binary, receipt, "1")
+            (binary.parent / "foreign").write_text("foreign")
+            with self.assertRaisesRegex(ValueError, "unexpected installed directory entries"):
+                native.installation_snapshot(binary, receipt, "2")
+
+    def test_workflow_fetches_inventory_pinned_previous_verifier(self):
+        root = Path(__file__).resolve().parent.parent
+        workflow = (root / ".github/workflows/native-suite.yml").read_text()
+        step = workflow.split("      - name: Fetch published earlier releases\n", 1)[1].split("      - name:", 1)[0]
+        command = textwrap.dedent(step.split("        run: |\n", 1)[1])
+        with tempfile.TemporaryDirectory() as temporary:
+            tmp = Path(temporary)
+            fakebin = tmp / "fakebin"
+            fakebin.mkdir()
+            (fakebin / "git").write_text("#!/bin/sh\nprintf 'v0.21.1\\nv0.1.1\\n'\n")
+            (fakebin / "curl").write_text("""#!/bin/bash
+set -eu
+while (($#)); do
+  case "$1" in
+    -o) output=$2; shift 2 ;;
+    --retry) shift 2 ;;
+    -*) shift ;;
+    *) url=$1; shift ;;
+  esac
+done
+asset=${url##*/}
+if [[ "$asset" == SHA256SUMS ]]; then
+  case "$url" in
+    */v0.21.1/*) printf '%064d  axiom-verifier-0.21.1-abcdef-%s\\n' 0 "$TARGET" >"$output" ;;
+    *) printf '%064d  old-archive.tar.gz\\n' 0 >"$output" ;;
+  esac
+elif [[ "$asset" == axiom-verifier-* && "${REJECT_HELPER:-0}" == 1 ]]; then
+  exit 22
+else
+  printf fixture >"$output"
+fi
+""")
+            for executable in fakebin.iterdir():
+                executable.chmod(0o755)
+            for row, target in (("linux-amd64", "linux-amd64"), ("macos-27-arm64", "darwin-arm64")):
+                for reject in ("0", "1"):
+                    with self.subTest(row=row, reject=reject):
+                        work = tmp / (row + reject)
+                        work.mkdir()
+                        env = {"PATH": str(fakebin) + ":/usr/bin:/bin", "ROW": row, "TARGET": target,
+                               "RUNNER_TEMP": str(work), "GITHUB_ENV": str(work / "env"),
+                               "GITHUB_REPOSITORY": "fixture/repo", "REJECT_HELPER": reject}
+                        result = subprocess.run(["bash", "-eo", "pipefail", "-c", command], env=env,
+                                                capture_output=True, text=True)
+                        if reject == "1":
+                            self.assertEqual(result.returncode, 22, result.stderr)
+                        else:
+                            self.assertEqual(result.returncode, 0, result.stderr)
+                            helper = work / "previous-v0.21.1" / ("axiom-verifier-0.21.1-abcdef-" + target)
+                            self.assertEqual(helper.read_text(), "fixture")
+                            self.assertFalse(list((work / "previous-v0.1.1").glob("axiom-verifier-*")))
 
     def test_strict_gate_and_no_publication(self):
         root = Path(__file__).resolve().parent.parent

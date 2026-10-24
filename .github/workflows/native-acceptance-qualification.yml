@@ -24,9 +24,9 @@ jobs:
           set -euo pipefail
           python3 scripts/test-prepared-artifact-smoke.py
           python3 scripts/test-native-acceptance.py
-          ./scripts/build-release-archives.sh --version 9999.0.0-acceptance --output "$RUNNER_TEMP/prepared/artifacts"
+          ./scripts/build-release-archives.sh --format 2 --version 9999.0.0-acceptance --output "$RUNNER_TEMP/prepared/artifacts"
           python3 scripts/smoke-prepared-artifact.py --dir "$RUNNER_TEMP/prepared/artifacts" \
-            --version 9999.0.0-acceptance --revision "$GITHUB_SHA" --row linux-amd64
+            --version 9999.0.0-acceptance --revision "$GITHUB_SHA" --row linux-amd64 --format 2
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: native-qualification-candidate
@@ -56,7 +56,7 @@ jobs:
       - name: Preserve native macOS smoke
         run: |
           python3 scripts/smoke-prepared-artifact.py --dir "$RUNNER_TEMP/prepared/artifacts" \
-            --version 9999.0.0-acceptance --revision "$GITHUB_SHA" --row macos-27-arm64 > "$RUNNER_TEMP/macos.json"
+            --version 9999.0.0-acceptance --revision "$GITHUB_SHA" --row macos-arm64 --format 2 > "$RUNNER_TEMP/macos.json"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:

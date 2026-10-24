@@ -52,6 +52,34 @@ def extract(root, version, row, destination):
     return bundle, archive, checksum, metadata
 
 
+def confined(value, root, kind):
+    """Absolute, traversal-free, symlink-free `kind` ("dir"/"file") strictly inside `root`.
+
+    Every component from `root` down to the path is checked, so a symlinked
+    ancestor (man root) is refused as well as a symlinked leaf.
+    """
+    path = Path(value)
+    if not path.is_absolute() or ".." in path.parts or not root.is_absolute() or path == root:
+        return False
+    try:
+        relative = path.relative_to(root)
+    except ValueError:
+        return False
+    walk = root
+    for part in relative.parts:
+        walk = walk / part
+        if walk.is_symlink():
+            return False
+    return path.is_dir() if kind == "dir" else path.is_file()
+
+
+def installation_snapshot(binary, receipt, archive_format):
+    expected = [".axiom-docs", binary.name] if archive_format == "2" else [binary.name]
+    require(sorted(p.name for p in binary.parent.iterdir()) == expected,
+            "unexpected installed directory entries")
+    return smoke.inventory(binary.parent), smoke.inventory(receipt)
+
+
 def acceptance(args, report):
     binary_name = "axiom"
     directory_mode = 0o700
@@ -148,6 +176,34 @@ def acceptance(args, report):
 
                 scenario("fresh-install", lambda: require("install_status=installed" in install(candidate, archive), "fresh status"))
                 scenario("discovery-provenance", lambda: version(args.version, args.revision))
+                def installed_docs():
+                    # Fresh installed binary, cwd outside any checkout, local
+                    # inspection only: it never reads the source tree or network.
+                    docs = cli("docs", "inspect")["docs"]
+                    require(docs["state"] == "verified" and docs["reason"] == "ok", "installed documentation not verified")
+                    require(docs["binary"]["sha256"] == report["binarySha256"]
+                            and docs["binary"]["sourceCommit"].startswith(args.revision), "documentation binding differs from artifact")
+                    root = Path(docs["paths"]["root"])
+                    require(root.is_absolute() and home.resolve() in root.resolve().parents
+                            and not root.resolve().is_relative_to(Path(__file__).resolve().parent.parent),
+                            "documentation root outside installation or inside checkout")
+                    for key in ("index", "inventory", "provenance", "manMap"):
+                        path = Path(docs["paths"][key])
+                        require(path.is_file() and not path.is_symlink() and root.resolve() in path.resolve().parents,
+                                f"documentation path missing: {key}")
+                    require(not root.is_symlink() and confined(docs["paths"]["manRoot"], root, "dir"),
+                            "man root missing, external or symlinked")
+                    require(docs["man"]["state"] == "available" and confined(docs["man"]["page"], root, "file")
+                            and confined(docs["man"]["page"], Path(docs["paths"]["manRoot"]), "file"),
+                            "installed man page not verified, external or symlinked")
+                    require(docs["integrity"]["files"] > 0 and not docs["diagnostics"], "documentation integrity empty or diagnosed")
+                    report["installedDocs"] = {"state": docs["state"], "reason": docs["reason"],
+                                               "files": docs["integrity"]["files"], "bytes": docs["integrity"]["bytes"],
+                                               "inventorySha256": docs["integrity"]["inventorySha256"],
+                                               "manState": docs["man"]["state"], "network": "NOT_RUN", "q6": "NOT_RUN"}
+
+                if args.format == "2":
+                    scenario("installed-docs-verified", installed_docs)
                 scenario("private-permissions", lambda: require(binary.stat().st_mode & 0o777 == 0o700
                          and (receipt / "installation.receipt").stat().st_mode & 0o777 == 0o600, "unsafe permissions"))
                 configuration = ("project", "configure", "--slug", "native", "--name", "Native",
@@ -165,10 +221,9 @@ def acceptance(args, report):
 
                 scenario("configuration-cli", lambda: (configure(), readable()))
                 state = smoke.inventory(home / "projects"), smoke.inventory(home / "state")
-                owned = smoke.digest(binary), smoke.inventory(receipt)
+                owned = installation_snapshot(binary, receipt, args.format)
                 scenario("reinstall-idempotent", lambda: require("install_status=unchanged" in install(candidate, archive)
-                         and owned == (smoke.digest(binary), smoke.inventory(receipt))
-                         and sorted(p.name for p in binary.parent.iterdir()) == [binary_name]
+                         and owned == installation_snapshot(binary, receipt, args.format)
                          and state == (smoke.inventory(home / "projects"), smoke.inventory(home / "state")), "reinstall changed state"))
                 scenario("invalid-arguments", lambda: cli("project", "show", "--unsupported", expected=None))
                 scenario("missing-project", lambda: cli("project", "show", "--selector", "absent", expected=None))
@@ -208,7 +263,7 @@ def acceptance(args, report):
                 with bad.open("ab") as stream:
                     stream.write(b"corrupt")
                 scenario("corrupt-artifact-refused", lambda: (install(candidate, bad, expected=None),
-                         require(owned == (smoke.digest(binary), smoke.inventory(receipt)), "corruption mutated install")))
+                         require(owned == installation_snapshot(binary, receipt, args.format), "corruption mutated install")))
                 foreign = work / "foreign"
                 foreign.mkdir(mode=directory_mode)
                 (foreign / "bin").mkdir(mode=directory_mode)
@@ -218,7 +273,7 @@ def acceptance(args, report):
                 link = work / "linked"
                 link.symlink_to(home, target_is_directory=True)
                 scenario("symlink-destination-refused", lambda: (install(candidate, archive, target=link, expected=None),
-                         require(owned == (smoke.digest(binary), smoke.inventory(receipt)), "symlink mutated install")))
+                         require(owned == installation_snapshot(binary, receipt, args.format), "symlink mutated install")))
 
                 # A pre-binary interruption may be safely retried; after-binary
                 # fresh-install recovery intentionally requires guided recovery.
@@ -271,6 +326,7 @@ def main():
     parser.add_argument("--revision", required=True)
     parser.add_argument("--row", choices=("linux-arm64", "linux-amd64"), required=True)
     parser.add_argument("--log", required=True)
+    parser.add_argument("--format", choices=("1", "2"), default="1")
     args = parser.parse_args()
     report = {"schema": "axiom-native-acceptance/v1", "version": args.version,
               "revision": args.revision, "row": args.row, "result": "fail", "scenarios": [],
