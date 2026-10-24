@@ -291,3 +291,49 @@ Hosted qualification after the harness corrections and Claude functional probe
 results are recorded in the follow-up receipt. Independent positive-read
 observation still lacks required host privileges; AC-08/V9 and T16 must not be
 marked PASS on the strength of functional sessions or generic CI alone.
+
+### Follow-up corrections and runtime results
+
+Commit `014a66a` also applies the full installation snapshot to corrupt-archive
+and symlink-destination refusal checks. The previous intermediate commit changed
+the snapshot shape without updating those two comparisons; hosted run
+[40049956846](https://github.com/rgomids/axiom/actions/runs/40049956846)
+correctly caught that harness regression. It was corrected before acceptance.
+Linux and macOS hosted upgrade journeys and macOS exact-byte smoke passed in
+that run; aggregate qualification did not pass.
+
+The corrected acceptance helper was executed in a native-architecture Linux
+arm64 container (Docker Linux VM, Python 3.12, no network, no host home/config,
+read-only source mount, disposable executable tmpfs), using unchanged candidate
+bytes downloaded from run 40049956846 and the genuine v0.10.0 arm64 baseline:
+**15 scenarios PASS**, including docs verified, reinstall, malformed/missing
+configuration, corruption refusal, foreign/symlink preservation, interruption
+recovery and genuine-prior upgrade. `inputsUnchanged=true`. This is container
+lifecycle evidence, not the entire native T13 or observer matrix.
+
+Fresh non-publishing hosted qualification of code SHA
+`014a66a` was dispatched as
+[run 40050267387](https://github.com/rgomids/axiom/actions/runs/40050267387).
+Its terminal status is recorded in the Issue #344 receipt; dispatch alone is
+not a PASS.
+
+**Claude functional smoke:** Claude Code 2.1.310 / `claude-haiku-5-5`, fresh HOME
+and config, no session persistence, only Bash/Read tools, inference through a
+logging CONNECT proxy allowing `api.anthropic.com`. Existing process credential
+used only in memory; no keychain read or credential copy. Tool results confirm
+`axiom version`, `docs inspect` verified, installed `text/cli.md` read, correct
+`project validate --project` explanation and `man -w axiom` matching the reported
+page. Checkout read and maintainer `.claude` listing were OS-denied (exit 1);
+example.com was proxy-denied (curl 56); direct no-proxy attempt failed DNS
+(curl 6). These observations are **PASS for this bounded functional smoke**.
+
+**Q6 remains incomplete:** four preceding probes could not execute Bash under
+the stricter temporary-directory policy (EPERM); the successful smoke uses
+narrower source denials and does not exclude every prior temporary source.
+Skills were not installed/bound in that smoke (`skillFiles` mismatch), and the
+full A/B, same-label, crossed/absent/tampered matrix was not executed for Claude.
+Independent positive-read/descendant coverage is absent: `fs_usage` explicitly
+requires root, unavailable to this session. No claim of complete confinement,
+network-route coverage, server-side retrieval visibility, Q6-4, AC-08/V9 or T16
+PASS is made. Raw runtime/proxy/test logs stay private outside Git; only this
+bounded summary is published. Human acceptance and DF-1/#346 remain unchanged.
