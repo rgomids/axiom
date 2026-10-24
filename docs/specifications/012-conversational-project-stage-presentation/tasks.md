@@ -2,28 +2,31 @@
 
 ## Implementation checkpoint — 2026-10-24
 
-Same PR/branch, implement **attempt-07 BLOCKED**.
-[Implementation Evidence](evidence-implementation.md#attempt-07--verified-backup-and-supported-downgrade-refusal)
-records actual host 0.21.2 / c52f1ff78c91 / clean, verified docs and valid_v1.
-Project, Workflow and Runtime MISMATCH in both roots; Work Item MATCH.
-Loaded UNKNOWN. Both subscription logins remain historical attempt-06 observations,
-not current authentication or inference proof. New scoped authorization preserves
-supported version/ownership gates. Private backup of 42 managed files plus
-restoration rehearsal PASS; official generation-2 PR archive 0.21.1 verified.
-Actual read-only upgrade preview exits 1: **downgrade_refused before any effect**.
-All 42 files and 18 directories unchanged after refusal, including hashes,
-ownership, modes and exact inventory. No apply or live restore performed.
-Supported PR pair installation remains TECHNICALLY_BLOCKED; bypass, version
-inflation and mixed pairs remain outside authority. Backup does not create an
-automatic rollback facility. Release-current does not prove PR-qualified.
-T07 **BLOCKED_HOST_BASELINE / TECHNICALLY_BLOCKED**, both conversations **NOT_RUN**.
-T01–T06/E01–E06 historical PASS preserved; T08/E08 PARTIAL; AC1–AC5 PARTIAL,
-AC6 PASS_SCOPED_REVIEW. DF-01 DEFERRED_NOT_IMPLEMENTED unchanged.
-Next gate **SUPPORTED_OWNED_PR_PAIR_REQUIRED**: supported authorized owned installation of PR pair,
-backup/rollback, installed/loaded read-back, exact auth, two native conversations,
-AC reconciliation and independent Review. Same-attempt callback records pushed
-SHA and actual checks/CI. Handoff **AWAITING_EXECUTION_REPORT**.
-Historical Tasks baseline below and attempts 01–06 Evidence remain unchanged.
+Same PR/branch, implement **attempt-08 PARTIAL**.
+[Implementation Evidence](evidence-implementation.md#attempt-08--qualified-local-candidate-and-native-authentication-failure)
+and [sanitized native input/observations](evidence-native-attempt08.md) record
+qualified unpublished local candidate **0.21.3-axm39.8 / e045cac1e3fd / clean**.
+Existing builder atomically supplied candidate version; stable release ledger
+unchanged. Release=false trial disqualified for unknown informational provenance;
+existing clean-candidate mode verified, no tag/publication or contract change.
+NEW private backup **42 files/22 directories** and restoration rehearsal PASS.
+Exact-digest owned upgrade PASS; supported Claude owned install PASS. Docs
+verified/ok; eight skills match PR; both receipts current. No live restore.
+Codex real conversation exit 0: actual skill-read/hash revision evidence, empty
+live Project list and labelled public C01–C16 replay. C08/C16 PARTIAL; other
+cases PASS_SCOPED_REPLAY. Specific model UNKNOWN; complete context retention
+not independently attested. No live configured show/validate or graphical proof.
+Claude actual native invocation exit 1, OAuth expired/could not refresh: loaded
+UNKNOWN, C01–C16 NOT_RUN. Prior subscription_observed diagnostic was not usable
+inference proof. No credential mutation/retry. T07 **PARTIAL / BLOCKED_CLAUDE_AUTH**;
+T08 PARTIAL; AC1–AC5 PARTIAL, AC6 PASS_SCOPED_REVIEW. T01–T06 historical scoped
+PASS preserved; focused/package checks fresh. DF-01 DEFERRED_NOT_IMPLEMENTED;
+GitHub #346 separate. Next gate **CLAUDE_SUBSCRIPTION_USABILITY_REQUIRED**,
+then bounded native coverage/loading gaps, AC reconciliation and independent
+Review when ready. Same-attempt callback records actual pushed Evidence HEAD/CI.
+Handoff AWAITING_EXECUTION_REPORT. Host retains unpublished qualified candidate;
+backup retained privately. No merge, release publication, acceptance or Done.
+Historical Tasks baseline and attempts 01–07 Evidence remain unchanged.
 
 ## Historical Tasks baseline, scope and execution state
 

@@ -1168,3 +1168,252 @@ Review when ready. Next gate **SUPPORTED_OWNED_PR_PAIR_REQUIRED**.
 One new same-AXM attempt-07 stage.blocked callback supplies final pushed SHA,
 actual CI, tests and ledger; no continuation watcher verified.
 Handoff **AWAITING_EXECUTION_REPORT**. No merge, release, acceptance, close or Done.
+
+## Attempt-08 — Qualified local candidate and native authentication failure
+
+2026-10-24; **PARTIAL**, same open Draft PR #343 and branch. Initial local,
+remote and PR HEAD `e045cac1e3fdcd1bd8bfba925ddcfd135ce1e8f6`, clean tree.
+All 51 Linear comments read, hasNextPage=false; no attempt-08 completion found.
+[Current continuation/authority report](https://linear.app/rgomids/issue/AXM-39#comment-26e395da)
+and [dispatch receipt](https://linear.app/rgomids/issue/AXM-39#comment-58b99763)
+match this task. Delegated authorization is Maestro's reported Rafael grant
+(2026-10-24 approximately 20:13 BRT), not independently authenticated human-session
+proof. Applied only to supported local candidate qualification, complete-pair
+installation and two native calls. No writer observed on scoped files or skill
+locks; no concurrent source change observed. Strictly lower delegation capability
+unverified: executor worked directly, no subagents or independent Review claimed.
+Linear agent-context tool was advertised but returned tool-not-found; issue and
+complete comment read-back succeeded. No private provider transcript imported.
+Spec 012 r1, Plan r1, historical Tasks r1, AC1–AC6 and C01–C16 unchanged.
+Four pillars: accepted scope, canonical product contracts and architecture/security
+preserved; DESIGN NOT_APPLICABLE, no new visual surface.
+
+### E07 — Version semantics, official candidate and exact provenance
+
+Source release ledger remains 0.21.1, last changed by release commit
+`921507c27c5b1ec5468508a6d48ce0e080e90a42`; installed stable source was
+`c52f1ff78c915f00f7b9c4fea1e399bf1ee87b5e` / 0.21.2. Merge-base is the former.
+Read the actual host-release range: release-delivery scripts/workflows differ,
+but `internal/install` and `scripts/build-release-archives.sh` are byte-identical
+between host source and this PR. No host release fixes silently imported.
+
+Candidate version **0.21.3-axm39.8** is a private, unpublished next-patch candidate:
+0.21.3 follows the current stable 0.21.2 patch under [existing version rules](../../../CONTRIBUTING.md#commit-messages);
+`axm39.8` distinguishes this Work Item/attempt. Changed backward-compatible
+presentation guidance supplies candidate content; exact source commit identifies
+it independently of version ordering. This is not a recorded stable release or
+claim that this source contains all later release-delivery changes. The [official
+builder](../../../scripts/build-release-archives.sh) accepts the candidate through
+its existing `--version` parameter and atomically propagates it to binary build
+identity, archive name, docs descriptor/provenance and release metadata/checksums.
+No hand-edited artifact, manifest, receipt, release ledger or changelog heading.
+Changing `.release-please-manifest.json` would misstate release history; not done.
+Numeric alignment alone was never used as compatibility proof.
+
+First built official generation-2 archive with `--development`. Four skill
+comparisons and temporary docs installation passed, but actual `--json version`
+reported **development / unavailable / unknown**. [Provenance](../../../internal/provenance/provenance.go)
+requires literal `development` for non-release informational identity; a SemVer
+injected with release=false falls back to unknown provenance. [ADR-0016](../../decisions/0016-candidate-derived-skill-set-receipt.md)
+and `Build.isCandidate` also reject receipt derivation from release=false.
+This candidate was **DISQUALIFIED**, never applied to the real host. Archive
+`9f855b95ce65753a32a78adaaf74666991b8477f2f968fb8b7c0c5454131b18a`;
+binary `b261d0b0633ced1972df41122c064d657999181a36de7c01750a0154a2503384`.
+Temporary docs success did not override that failure.
+
+Resolved locally through existing clean-candidate build mode, omitting
+`--development`, without changing code or provenance rules:
+
+```sh
+./scripts/build-release-archives.sh --version 0.21.3-axm39.8 --format 2 --only macos-arm64 --output <private-candidate-root>
+./scripts/test-docs-offline.sh --archive <candidate-archive> --checksums <SHA256SUMS>
+./scripts/install-release.sh --verify-only --helper <independently-built-helper> --helper-sha256 <actual-pin> --archive <candidate-archive> --checksums <SHA256SUMS> --bin-dir <owned-bin-root> --receipt-dir <owned-receipt-root>
+```
+
+All exit 0. This mode sets `release=true` for qualified clean SemVer identity;
+it only builds local files, creates no tag/GitHub Release and makes no publication
+or acceptance claim. No release workflow dispatched. Clean exact source
+`e045cac1e3fdcd1bd8bfba925ddcfd135ce1e8f6`, revision `e045cac1e3fd`, generation 2,
+macos/darwin/arm64. Four archived skills exactly equal PR source/embedded content;
+path/type inventory checked before extraction, strict pinned verifier PASS.
+
+| Qualified artifact identity | SHA-256 |
+| --- | --- |
+| archive | `24b70b602db63bc55d06b4a8b9617ab487d4abcef120645e4e558c0a5cf8caf3` |
+| binary | `d6582d9851e7a138b8b9a91085bfede35fe20f068ee84e5fbc1b78b346dc8683` |
+| separately built verifier | `16298cfb6b18186711086506996fad5589681a41555159ed166c6bda313ac580` |
+| docs inventory | `9982146a5e9c6793023c3178109188ed6bf0115c7c22d4e2f180f733c728e3ee` |
+| docs provenance | `9f341d988b48fa9c651e963f89f5895acca6e0234492080d53ded5970ae87eab` |
+| installed current four-skill manifest | `3471519797b11ddef021d1dea536538137f8747d9faaf2f96c110cf7d86fab50` |
+
+The archive source is the input PR commit above. Later attempt-08 changes contain
+Evidence/checkpoint documents only; they are not represented as a newly installed
+binary source SHA. Final pushed Evidence HEAD and CI are recorded in the callback.
+No historical PASS is reassigned to newly changed bytes.
+
+### E07 — New backup, supported preview/apply and both-root read-back
+
+Before apply, fresh actual host read-back again confirmed 0.21.2 / c52f1ff78c91 /
+clean, docs verified/ok, valid_v1, current receipts. Read every installed skill:
+Project/Workflow/Runtime mismatched PR in BOTH roots, Work Item matched.
+A NEW private backup records **42 files and 22 directories**, SHA-256, UID/GID,
+modes and exact docs inventory: binary, installation receipt, both skill receipts,
+eight skills, complete active docs and binding. Extra directory scope includes
+docs structural directories; count differs from attempt-07, not a rewritten
+historical inventory. Backup objects 0600/private directories 0700; no credential
+or unrelated skill content copied. Manifest SHA-256
+`3c1cb1dd99b191e30cdc43d6eb26018efca467997a9f0788e21c184d3d0af57a`.
+Isolated restoration rehearsal re-read ALL file hashes/UID/GID/modes and directory
+UID/GID/modes: PASS. Fresh live comparison immediately before apply: PASS.
+Backup retained privately; no live restoration or automatic rollback claimed.
+Recovery plan remains the documented complete-pair preservation/restoration;
+no force replacement, downgrade or receipt reconstruction authorized/performed.
+
+Strict verify-only PASS and actual read-only candidate `upgrade` preview exit 0:
+source 0.21.2 → target 0.21.3-axm39.8; direct/compatible, no persisted state to
+transition, no leftovers. Preview classified persisted state absent_v1; earlier
+installed compatibility inspection valid_v1 includes current skills, not Project
+records. Digest:
+`724d58bc8d771e58b3b5ed83f32ab1680f2a8f28ed9d1e6686b55eedd49b6591`.
+Eight reviewed effects: docs generation/binding, binary, installation receipt,
+three Codex skill updates, Codex skill receipt. Applied through the verified
+candidate's supported `upgrade`, exact digest plus `--authorize-local`; exit 0,
+all eight ledger effects confirmed, skills matches, skillReceipt current.
+Then supported `axiom --json runtime claude install`, exit 0, converged Claude's
+recognized owned skills/receipt. No cross-root atomicity claimed.
+
+Fresh installed `version`, `docs inspect`, both Runtime `status` exit 0:
+0.21.3-axm39.8 / e045cac1e3fd / clean; docs verified/ok/compatible; skill-set and
+binaryCompatibility 3; receipts current. All EIGHT disk skills re-read and exactly
+match PR source. Expected digests: Project `775ab63f1c428156cce595cfe587039462d8e0a713b156fcce90f61c479d158d`,
+Work Item `ea5476f17d1962c0938968fa726a006a01c4d79913ff3988e3d11aaf64af49f3`,
+Workflow `efdfbcd65cdffd3b3e3003e86caa8eb81f904ed9501c8f7bf22139a908154a76`,
+Runtime `165fa61ab665ea819805b2343a00e61b24bce50a32252ee85446039f7b31636d`.
+Of original backup scope, exactly 10 expected files changed; 32 remained exact,
+including all old docs/binding and both Work Item files. All original file
+UID/GID/modes preserved. Negative tests cover foreign/unrecognized ownership;
+no blanket claim that every unrelated user file was independently inventoried.
+Rollback **NOT_NEEDED_INSTALL_SUCCEEDED**, live restore NOT_RUN. Host intentionally
+retains qualified unpublished candidate, not stable 0.21.2.
+
+### E07 — Actual native conversations, loading and authentication
+
+[Sanitized exact prompt/replay input and observed excerpts](evidence-native-attempt08.md)
+record scope and gaps. Executions used real installed subscription CLIs outside
+maintainer checkout, without model override/delegation/credential edits. Omitted
+only existing `OPENAI_API_KEY` and `CLAUDE_CODE_OAUTH_TOKEN` in child environments;
+no value read/persisted. Immediately before invocation, both official
+`runtime <runtime> auth` diagnostics exit 0, subscription_observed, local_observation,
+usability unproven_until_real_dispatch. Codex method chatgpt, CLI 0.163.0; Claude
+method claude.ai, CLI 2.1.310. This is NOT inference proof.
+
+| Native record | Installed / loading / actual authentication and conversation |
+| --- | --- |
+| Codex | Exact pair above; actual four-skill file-read and SHA256 tool evidence identifies observed revision. Grouped reads truncated; individual Project/Work Item/Workflow reads repeated; complete Runtime context retention not independently attested. Native process exit 0, completed model response: subscription inference observed. Specific model/effort UNKNOWN, not present in consulted event metadata. |
+| Claude | Exact pair above; loaded UNKNOWN. Real invocation exit 1: `Failed to authenticate: OAuth session expired and could not be refreshed`. Init names `claude-sonnet-5-5`, apiKeySource none; no successful inference or skill tool call. Subscription observation did not establish usability. |
+
+Codex actual read-only Project list: success, `projects: []`. No configured
+Project exists for live show/validate; none created/selected. Public Workflow r2
+fixture and synthetic C01–C16 replay were supplied to this SAME real conversation;
+replay is not fabricated model output and not live configured Project/Execution
+Evidence. Historical fixture provenance preserved and explicitly distinguished.
+One Codex and one Claude invocation only; no auth workaround, alternate key,
+login/logout/refresh or retry after Claude failure. No Stage dispatch, external
+Provider effect, visual rendering, AXM-12 E2E or human acceptance claimed.
+
+| Case | Codex real conversation over labelled replay | Claude |
+| --- | --- | --- |
+| C01 | PASS_SCOPED_REPLAY; name+slug and structural-valid/readiness split | NOT_RUN |
+| C02 | PASS_SCOPED_REPLAY; name-only/slug-only preserved | NOT_RUN |
+| C03 | PASS_SCOPED_REPLAY; absent labels/full ID reason | NOT_RUN |
+| C04 | PASS_SCOPED_REPLAY; both full IDs/collision/authority preserved | NOT_RUN |
+| C05 | PASS_SCOPED_REPLAY; exact ID, command and full digest | NOT_RUN |
+| C06 | PASS_SCOPED_REPLAY; partial inventory and hostile label inert | NOT_RUN |
+| C07 | PASS_SCOPED_REPLAY; both summaries and advanced Agent details | NOT_RUN |
+| C08 | PARTIAL; blockers promoted, concrete recovery next step missing | NOT_RUN |
+| C09 | PASS_SCOPED_REPLAY; allowed/declared/unresolved/model unknown | NOT_RUN |
+| C10 | PASS_SCOPED_REPLAY; resolved plan/login/no attempt separated | NOT_RUN |
+| C11 | PASS_SCOPED_REPLAY; success/blocked/diagnostics and next inspection | NOT_RUN |
+| C12 | PASS_SCOPED_REPLAY; exit-zero/invalid/effects unknown/reconcile | NOT_RUN |
+| C13 | PASS_SCOPED_REPLAY; stale/truncated/inaccessible facts retained | NOT_RUN |
+| C14 | PASS_SCOPED_REPLAY; unknown version alone no certification gate | NOT_RUN |
+| C15 | PASS_SCOPED_REPLAY; sequential/DAG fallback, no rendering claim | NOT_RUN |
+| C16 | PARTIAL; same-answer comparison, no separate explicit-entry turn/surface | NOT_RUN |
+
+C08/C16 gaps remain baseline validation work, not optional deferred requirements.
+Codex native real configured show/validate and actual graphical/narrow surface
+behavior NOT_RUN. Installed inspector's loaded unknown is not overwritten or
+forged by this separate session observation. Model-context completeness and exact
+Codex model remain limitations, despite observed read-command/digest evidence.
+
+### E08 — Actual validation, technical decisions and partial handoff
+
+| Actual command/check | Result |
+| --- | --- |
+| `go test ./internal/cli -run 'Test(OutputSeparation\|WorkflowShowSynthetic\|Presentation)' -count=1` | PASS |
+| `go test ./internal/codexruntime -run 'Test(RenderedWorkflow\|OperatorConversational\|WorkflowSkill)' -count=1` | PASS |
+| Focused `internal/install` downgrade/conflict/stale-authority/interruption/SemVer/foreign-generation tests | PASS |
+| Focused candidate receipt/embedded-identity `internal/install` tests | PASS |
+| `go test ./internal/provenance ./internal/install -count=1` | PASS; complete two packages |
+| Official generation-2 build, strict verification, four-skill archive equality | PASS; development candidate separately disqualified as above |
+| `./scripts/test-docs-offline.sh --archive <archive> --checksums <SHA256SUMS>` | PASS for BOTH candidates; temporary-root docs/refusal only, native/network/source denial NOT_RUN |
+| `./scripts/validate-repository.sh .` | PASS before Evidence edits; final document checks below/callback; behavioral Runtime scenarios SKIP/UNVERIFIED |
+
+| AC | Current scoped evidence | Aggregate |
+| --- | --- | --- |
+| AC1 | Historical E01–E06 plus actual Codex replay C01–C06/C16; empty live list; Claude gap | PARTIAL |
+| AC2 | Codex replay summary/detail and fallback; C08/C16 gaps; Claude absent | PARTIAL |
+| AC3 | Codex provenance/Runtime replay; no Claude response | PARTIAL |
+| AC4 | Codex blocked/effects-unknown replay; C08 next-step gap; Claude absent | PARTIAL |
+| AC5 | Local regressions PASS; one Codex completed response, Claude auth failure | PARTIAL |
+| AC6 | Evidence-only diff; production contracts/history unchanged | PASS_SCOPED_REVIEW |
+
+T01–T06 historical scoped PASS remain historical; current focused/package tests
+above are fresh. T07 **PARTIAL / BLOCKED_CLAUDE_AUTH**, T08 **PARTIAL**. Completion
+requires remaining native coverage and review; no request for independent Review
+while full readiness is absent. Exact pushed-head CI is read after push, never
+inferred from input-head SUCCESS. Input CI run 40139652086 and Delivery metadata
+40139652122/40139688503 were SUCCESS at e045cac.
+
+technical_decisions[] (TECHNICAL_LOCAL; executor-ai):
+
+- IMPL8-TD-01: assign private next-patch prerelease `0.21.3-axm39.8` through the
+  existing official builder's atomic version parameter; keep stable release ledger
+  untouched. Sources: builder, CONTRIBUTING version rules, actual archive metadata.
+  Same 0.21.2/+metadata would be divergent-equivalent; 0.21.2 prerelease would be
+  downgrade. Version is provenance for changed candidate bytes, not a compatibility
+  promise or public release. Exact source, embedded skills and protected preview
+  independently qualify it.
+- IMPL8-TD-02: reject release=false candidate after actual unknown-provenance
+  observation; use existing clean candidate mode per ADR-0016. No provenance or
+  receipt bypass, code change, published release or new compatibility contract.
+- IMPL8-TD-03: complete new 42-file/22-directory private backup and isolated
+  restoration rehearsal, then exact-digest supported upgrade and owned Claude
+  install. Retain old docs and matching backup; no automatic rollback claim.
+- IMPL8-TD-04: empty real Project inventory means labelled public replay, not
+  Project creation or fabricated live facts; record C08/C16 and loading/model gaps.
+  Native Codex output is actual inference, distinct from synthetic input.
+- IMPL8-TD-05: stop Claude after one actual OAuth failure despite local login
+  observation; no credential mutation/alternate auth/retry. This is an operational
+  authentication gate, not a material SDD/architecture decision or tooling question.
+
+DF-01 **DEFERRED_NOT_IMPLEMENTED**, stale predecessor Specifications index,
+remains separate; existing [#346](https://github.com/rgomids/axiom/issues/346)
+unchanged/out of scope. No optional issue implemented or newly created.
+remaining_work[]: restore usable existing Claude subscription through its owner;
+revalidate exact child auth and run native conversation with exact installed
+revision evidence; close C08/C16 and model/loading validation gaps with bounded
+native coverage; reconcile T07/T08/AC1–AC5; independent Review only when ready.
+No auth renewal performed. Candidate backup retained; host remains installed at
+0.21.3-axm39.8. Next gate **CLAUDE_SUBSCRIPTION_USABILITY_REQUIRED**.
+One same-AXM stage.partial callback records actual pushed Evidence HEAD, CI,
+checks and this ledger with raw comment read-back. Handoff
+**AWAITING_EXECUTION_REPORT**; no automatic continuation watcher established.
+No merge, release publication, acceptance, close or Done.
+
+Final documentary verification: complete scoped diff reviewed; 65 local Markdown
+paths checked; historical attempts 01–07 are an exact byte prefix and historical
+Tasks baseline byte-preserved. `git diff --check` PASS. Final repository validator,
+staged sensitive-file scan and redacted Gitleaks results are read back before
+commit and included in the exact pushed-head callback. Evidence-only commit does
+not retag, rebuild or replace the already qualified source candidate.
