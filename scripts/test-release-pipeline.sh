@@ -69,7 +69,7 @@ for row in macos-27-arm64 linux-amd64 linux-arm64; do
   grep -Eq "^archive=axiom-0\\.1\\.0-rc\\.1-$row\\.tar\\.gz sha256=[0-9a-f]{64} " "$temporary/evidence"
 done
 [[ $(grep -c '^archive=axiom-[0-9]' "$temporary/evidence") == 3 ]]
-# v2 remains opt-in; the explicit verifier consumes all three cross-built
+# v2 is selected explicitly (the release workflow passes --format 2); the explicit verifier consumes all three cross-built
 # rows and reuses the shell verify-only seam without candidate execution.
 "$build" --version 0.1.0-rc.1 --format 2 --output "$temporary/v2" >/dev/null
 "$verify" --dir "$temporary/v2" --version 0.1.0-rc.1 --revision "$revision" --format 2 >"$temporary/v2-evidence"
@@ -78,6 +78,85 @@ grep -Fq 'archive=axiom-0.1.0-rc.1-macos-arm64.tar.gz' "$temporary/v2-evidence"
 expect_failure 'v2 under default verifier' 'artifact set is not exactly' "$verify" --dir "$temporary/v2" --version 0.1.0-rc.1 --revision "$revision"
 expect_failure 'v1 under v2 verifier' 'artifact set is not exactly' "$verify" --dir "$temporary/first" --version 0.1.0-rc.1 --revision "$revision" --format 2
 [[ ! -e "$temporary/unused-bin" && ! -e "$temporary/unused-receipt" ]]
+
+# Format auto-detection (release-archive-format.sh, used by verify-prepared-release.sh and
+# release.sh verify --download) selects the generation the inventory names, and
+# the strict verifier refuses any inventory that disagrees or is corrupt; the
+# format is never silently changed to make an invalid set pass.
+source "$repository_root/scripts/release-archive-format.sh"
+[[ $(release_archive_format "$temporary/first/SHA256SUMS") == 1 ]]
+[[ $(release_archive_format "$temporary/v2/SHA256SUMS") == 2 ]]
+detected_verify() {
+  local dir=$1 format
+  format=$(release_archive_format "$dir/SHA256SUMS") || return 1
+  "$verify" --dir "$dir" --version 0.1.0-rc.1 --revision "$revision" ${format:+--format "$format"}
+}
+detected_verify "$temporary/first" >/dev/null
+detected_verify "$temporary/v2" >/dev/null
+fmt_case() { rm -rf -- "$temporary/fmt"; cp -R "$1" "$temporary/fmt"; }
+# Mixed v1/v2 inventory: detection refuses; neither explicit verifier accepts it.
+fmt_case "$temporary/v2"
+grep 'macos-27-arm64' "$temporary/first/SHA256SUMS" >>"$temporary/fmt/SHA256SUMS"
+expect_failure 'mixed inventory detection' 'does not name exactly one macOS row' release_archive_format "$temporary/fmt/SHA256SUMS"
+cp "$temporary/first/axiom-0.1.0-rc.1-macos-27-arm64.tar.gz" "$temporary/fmt/"
+expect_failure 'mixed inventory under v2 verifier' 'artifact set is not exactly' "$verify" --dir "$temporary/fmt" --version 0.1.0-rc.1 --revision "$revision" --format 2
+expect_failure 'mixed inventory under v1 verifier' 'artifact set is not exactly' "$verify" --dir "$temporary/fmt" --version 0.1.0-rc.1 --revision "$revision"
+# Corrupt inventories: unreadable, duplicated or removed macOS row, or edited digest.
+expect_failure 'missing inventory detection' 'inventory unreadable' release_archive_format "$temporary/fmt/absent"
+fmt_case "$temporary/v2"
+grep -v 'macos-arm64' "$temporary/v2/SHA256SUMS" >"$temporary/fmt/SHA256SUMS"
+expect_failure 'inventory without a macOS row' 'does not name exactly one macOS row' release_archive_format "$temporary/fmt/SHA256SUMS"
+expect_failure 'v2 set missing its macOS row under strict verifier' 'SHA256SUMS must list exactly' "$verify" --dir "$temporary/fmt" --version 0.1.0-rc.1 --revision "$revision" --format 2
+fmt_case "$temporary/v2"
+grep 'macos-arm64' "$temporary/v2/SHA256SUMS" >>"$temporary/fmt/SHA256SUMS"
+expect_failure 'duplicated macOS row detection' 'does not name exactly one macOS row' release_archive_format "$temporary/fmt/SHA256SUMS"
+expect_failure 'duplicated macOS row under strict verifier' 'SHA256SUMS must list exactly' "$verify" --dir "$temporary/fmt" --version 0.1.0-rc.1 --revision "$revision" --format 2
+fmt_case "$temporary/v2"
+sed -E 's/^[0-9a-f]{64}(  axiom-[^ ]+-macos-arm64)/0000000000000000000000000000000000000000000000000000000000000000\1/' "$temporary/v2/SHA256SUMS" >"$temporary/fmt/SHA256SUMS"
+[[ $(release_archive_format "$temporary/fmt/SHA256SUMS") == 2 ]]
+expect_failure 'corrupt digest under detected v2' 'checksum' detected_verify "$temporary/fmt"
+fmt_case "$temporary/v2"
+printf 'not a checksum line\n' >>"$temporary/fmt/SHA256SUMS"
+expect_failure 'garbage inventory line under detected v2' 'SHA256SUMS must list exactly' detected_verify "$temporary/fmt"
+# test-upgrade-journeys.sh archive_in picks the host-row archive per directory
+# and fails closed on zero, several (mixed v1/v2) or unlisted matches.
+eval "$(sed -n '/^archive_in() {$/,/^}$/p' "$repository_root/scripts/test-upgrade-journeys.sh")"
+inventory_dir() { # DIR NAME... : empty archives plus a SHA256SUMS listing exactly NAMES
+  local dir=$1; shift; rm -rf -- "$dir"; mkdir -p "$dir"; : >"$dir/SHA256SUMS"
+  for name in "$@"; do : >"$dir/$name"; printf '%064d  %s\n' 0 "$name" >>"$dir/SHA256SUMS"; done
+}
+v1_name=axiom-0.10.0-macos-27-arm64.tar.gz
+v2_name=axiom-0.21.2-macos-arm64.tar.gz
+row=macos-27-arm64
+inventory_dir "$temporary/ai-v1" "$v1_name" axiom-0.10.0-linux-amd64.tar.gz
+inventory_dir "$temporary/ai-v2" "$v2_name" axiom-0.21.2-linux-amd64.tar.gz
+[[ $(archive_in "$temporary/ai-v1") == "$temporary/ai-v1/$v1_name" ]]
+[[ $(archive_in "$temporary/ai-v2") == "$temporary/ai-v2/$v2_name" ]]
+inventory_dir "$temporary/ai-mixed" "$v1_name" "$v2_name"
+expect_failure 'mixed v1/v2 macOS archives' 'expected exactly one' archive_in "$temporary/ai-mixed"
+inventory_dir "$temporary/ai-two-v2" "$v2_name" axiom-0.21.3-macos-arm64.tar.gz
+expect_failure 'two archives of one row' 'expected exactly one' archive_in "$temporary/ai-two-v2"
+inventory_dir "$temporary/ai-none" axiom-0.21.2-linux-amd64.tar.gz
+expect_failure 'no host-row archive' 'found 0' archive_in "$temporary/ai-none"
+inventory_dir "$temporary/ai-unlisted" "$v2_name"
+grep -v macos "$temporary/ai-unlisted/SHA256SUMS" >"$temporary/ai-unlisted/s" || true
+mv "$temporary/ai-unlisted/s" "$temporary/ai-unlisted/SHA256SUMS"
+expect_failure 'archive absent from SHA256SUMS' 'not listed exactly once' archive_in "$temporary/ai-unlisted"
+inventory_dir "$temporary/ai-dup" "$v2_name"
+printf '%064d  %s\n' 0 "$v2_name" >>"$temporary/ai-dup/SHA256SUMS"
+expect_failure 'archive listed twice' 'not listed exactly once' archive_in "$temporary/ai-dup"
+row=linux-amd64
+inventory_dir "$temporary/ai-linux" axiom-0.10.0-linux-amd64.tar.gz "$v2_name"
+[[ $(archive_in "$temporary/ai-linux") == "$temporary/ai-linux/axiom-0.10.0-linux-amd64.tar.gz" ]]
+inventory_dir "$temporary/ai-linux2" axiom-0.10.0-linux-amd64.tar.gz axiom-0.21.2-linux-amd64.tar.gz
+expect_failure 'two Linux archives' 'expected exactly one' archive_in "$temporary/ai-linux2"
+
+# Both callers use the shared detector and keep the strict flag explicit.
+for caller in verify-prepared-release.sh release.sh; do
+  grep -Fq 'release_archive_format ' "$repository_root/scripts/$caller"
+  grep -Fq 'verify_format=(--format 2)' "$repository_root/scripts/$caller"
+  ! grep -Eq "grep -Eq .*macos-arm64" "$repository_root/scripts/$caller"
+done
 # Issue #244: execute the exact archives just built, without rebuilding in
 # smoke. The runtime provenance and persisted Project round-trip must pass.
 case "$(go env GOHOSTOS)/$(go env GOHOSTARCH)" in
@@ -200,8 +279,12 @@ assert '${{ needs.prepare.outputs.version }}' in macos
 assert '--dir "$RUNNER_TEMP/prepared/artifacts"' in macos
 assert 'build-release-archives' not in macos and 'setup-go' not in macos
 assert 'continue-on-error' not in workflow
-for section, row in ((prepare, 'linux-amd64'), (macos, 'macos-27-arm64')):
-    assert '--row ' + row in section
+# Release workflow selects generation 2 explicitly in build, verify and both smokes.
+assert '--format 2 --version "$RELEASE_VERSION" --output' in prepare
+assert 'verify-release-artifacts.sh --format 2 ' in prepare
+assert 'macos-27' not in macos.replace('macos-27, format 1 only', '')
+for section, row in ((prepare, 'linux-amd64'), (macos, 'macos-arm64')):
+    assert '--row ' + row + ' --format 2' in section
     assert 'if: always()' in section
     assert 'name: axiom-release-smoke-' + row in section
 PYWORKFLOW
