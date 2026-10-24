@@ -1,22 +1,25 @@
 # Specification 012 — Tasks r1 (AXM-39)
 
-## Implementation checkpoint — 2026-10-23
+## Implementation checkpoint — 2026-10-24
 
-Same PR/branch, implement **attempt-05 PARTIAL**. [Implementation Evidence](evidence-implementation.md#attempt-05--transactional-host-preflight-and-official-upgrade-refusal)
-records a verified 12-file private backup and restore rehearsal, official generation-2
-development packaging and read-only upgrade refusal **divergent_equivalent_version**.
-Host remains Axiom 0.21.1 / 921507c27c5b; three skills in both roots precede 012;
-Work Item matches. Active docs remain **source_unqualified**; isolated package
-docs checks pass, without qualifying the active host. Official auth observes both
-subscription logins in temporary child environments excluding only the two reported
-overrides; parent environment and credential state unchanged, usability unproven.
-Compatibility is valid_v1, recovery has no pending plan. No managed-file mutation.
-T07 **BLOCKED_HOST_BASELINE**, both native conversations **NOT_RUN**, loaded UNKNOWN.
+Same PR/branch, implement **attempt-06 PARTIAL**.
+[Implementation Evidence](evidence-implementation.md#attempt-06--stable-release-read-back-and-pr-baseline-mismatch)
+records actual host 0.21.2 / c52f1ff78c91 / clean, verified docs, valid_v1,
+four release-current skills per root and both subscription logins observed in
+isolated auth children. All eight installed files compared against approved PR:
+Project, Workflow and Runtime MISMATCH in both roots; Work Item MATCH.
+Loaded UNKNOWN. Release-current does not prove AXM-39 installed or loaded.
+Branch manifest/candidate 0.21.1 precedes host 0.21.2; source upgrade guard refuses
+downgrade. No supported authorized PR pair installation established; no new
+upgrade preview/apply or managed-host mutation. No fake version or mixed pair.
+T07 **BLOCKED_HOST_BASELINE / TECHNICALLY_BLOCKED**, both conversations **NOT_RUN**.
 T01–T06/E01–E06 historical PASS preserved; T08/E08 PARTIAL; AC1–AC5 PARTIAL,
-AC6 PASS_SCOPED_REVIEW. Next gate:
-**resume_implement_after_supported_owned_host_upgrade**;
-**AWAITING_EXECUTION_REPORT**. Same-attempt callback records exact pushed SHA/CI.
-Historical Tasks baseline below remains unchanged.
+AC6 PASS_SCOPED_REVIEW. DF-01 DEFERRED_NOT_IMPLEMENTED unchanged.
+Next gate **RESUME_IMPLEMENT**: supported authorized owned installation of PR pair,
+backup/rollback, installed/loaded read-back, exact auth, two native conversations,
+AC reconciliation and independent Review. Same-attempt callback records pushed
+SHA and actual checks/CI. Handoff **AWAITING_EXECUTION_REPORT**.
+Historical Tasks baseline below and attempts 01–05 Evidence remain unchanged.
 
 ## Historical Tasks baseline, scope and execution state
 
