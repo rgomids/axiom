@@ -1005,3 +1005,166 @@ One attempt-06 stage.partial callback supplies actual pushed HEAD, final-head CI
 checks, technical decisions, limitations and remaining work with raw Linear read-back.
 No demonstrated authorized automatic continuation callback beyond that stage report;
 bounded handoff **AWAITING_EXECUTION_REPORT**.
+
+## Attempt-07 — Verified backup and supported downgrade refusal
+
+2026-10-24, actual Mac Darwin arm64. Local branch, remote branch and open Draft
+PR #343 matched input HEAD `1d40aabe4a1a8a34a42d219e08cccb985e3db671`; tree clean.
+Current Linear issue and all 48 comments read, hasNextPage=false; no attempt-07
+completion found. [Continuation and scoped authority](https://linear.app/rgomids/issue/AXM-39#comment-78b7c91f)
+and [dispatch receipt](https://linear.app/rgomids/issue/AXM-39#comment-919289ef)
+read back. Authority is Maestro's delegated report of Rafael's 24/10/2026
+approximately 19:33 BRT authorization, not independently authenticated human
+consent. It permits supported alignment with backup/rollback and the previously
+authorized two conversations; it does not override version/ownership gates.
+Spec/Plan/Tasks r1, six AC, C01–C16, DESIGN NOT_APPLICABLE and non-goals retained.
+
+### E07 — Actual host, ownership and complete private backup
+
+Read-only `axiom --json version`, `compatibility inspect`, `docs inspect` and
+both `runtime <runtime> status` commands PASS within their installation scope:
+0.21.2 / c52f1ff78c91 / clean; valid_v1; docs verified/ok and compatible;
+both receipts current, four equivalent skills, skillSetVersion/binaryCompatibility 3.
+Binary SHA-256 `21a0d6884b97d5ca7b43634024d622532c51da3e3e3dfa8f75195d5e67c02057`;
+installed manifest `1f59038c225cc47709eab44fad41a6257e00894003920e9c7a49aad2582b8cc5`.
+Loaded revision remains UNKNOWN in both Runtimes. No native session started.
+
+All eight installed files were read and compared, not inferred from receipts.
+Each installed digest below applies independently to Codex and Claude:
+
+| Skill | Installed SHA-256 in each root | PR SHA-256 | Comparison |
+| --- | --- | --- | --- |
+| axiom-project | a249ea87133eeefd53f7e6bccf8b5d083c2bf87802f8141ec85183d52d9a892d | 775ab63f1c428156cce595cfe587039462d8e0a713b156fcce90f61c479d158d | MISMATCH |
+| axiom-work-item | ea5476f17d1962c0938968fa726a006a01c4d79913ff3988e3d11aaf64af49f3 | ea5476f17d1962c0938968fa726a006a01c4d79913ff3988e3d11aaf64af49f3 | MATCH |
+| axiom-workflow | 8b47aa65611d28395eab3695ce4ca90773e541800f72d4189838565268a7f235 | efdfbcd65cdffd3b3e3003e86caa8eb81f904ed9501c8f7bf22139a908154a76 | MISMATCH |
+| axiom-runtime | 90a725ed0ac96aa3378b3c9860f5357c8ef63b090662a19d362c24c8cc0aad0b | 165fa61ab665ea819805b2343a00e61b24bce50a32252ee85446039f7b31636d | MISMATCH |
+
+Neither skill lock had an open holder at observation. Release-state inventory
+contained only installation.receipt; no interrupted-operation marker observed.
+No symlinks, foreign owners or group/other-writable objects in backed-up scope.
+A new retained PRIVATE backup contains 42 managed files: binary, installation
+receipt, both skill receipts, eight skill files, installed docs and binding.
+Manifest records exact source locations, SHA-256, UID/GID and modes, plus 18
+directory records; raw paths and backup content remain private. Manifest SHA-256:
+`67671b70e4ada94edbdae815aedf35a9a372a418acf844b522b5a111e841cf56`.
+Backup files are 0600 under 0700 directories. Independent restoration rehearsal
+into a private namespace verified all 42 hashes, UID/GID and original file modes.
+Vendor credentials/configuration and unrelated skills were excluded.
+
+[Pair restoration](../../commands.md#cli-output-and-help) requires stopping use,
+preserving any upgraded root and restoring complete prior roots/receipts at
+original paths with their matching binary, then checking status/digests.
+This rehearsal is backup preparation, not an executed live rollback or a new
+rollback guarantee. [Installer documentation](../../operational/installation.md)
+explicitly provides no automatic rollback/downgrade or cross-root transaction.
+Any later mutation still requires a supported complete-pair restoration plan.
+
+### E07 — Official candidate verification and refusal
+
+Inspected current [installer](../../../scripts/install-release.sh),
+[source installer](../../../scripts/install-axiom.sh),
+[upgrade guard](../../../internal/install/upgrade.go) and installation/ownership
+references. Source install cannot preserve the release-owned complete docs pair.
+Skill-only install/first-run from stable cannot supply PR content; PR-only skills
+would mix baselines. A larger fabricated version or receipt edit is forbidden.
+No supported route to align this exact PR pair on the current host was found.
+
+Built the official generation-2 development archive from clean input HEAD,
+using unchanged source manifest version 0.21.1, release=false, macos/darwin/arm64:
+
+```sh
+./scripts/build-release-archives.sh --version 0.21.1 --format 2 --development --only macos-arm64 --output <private-artifact-root>
+./scripts/install-release.sh --verify-only --helper <verified-helper> --helper-sha256 <actual-helper-sha256> --archive <archive> --checksums <SHA256SUMS> --bin-dir <existing-bin-root> --receipt-dir <existing-receipt-root>
+<verified-candidate> --json upgrade --archive <archive> --checksums <SHA256SUMS> --bin-dir <existing-bin-root> --receipt-dir <existing-receipt-root>
+```
+
+Build, pinned strict verifier and four archived/source skill comparisons PASS.
+SourceCommit is the exact input HEAD; archive SHA-256
+`e1f6f404fcb577653dba5004e683c1bd6d3dbfe02d84e227a6e2eeaa303cd9a7`;
+candidate binary `b28f56501ee8b0338e8a37ad00dcee4115b21254411c304c92e863708e63b13d`;
+verifier `08d184851d9b1a126bdb0480f16f2429dc814629877eb29e6875d45d10175bc0`.
+The trusted local helper was built from the reviewed checkout, not trusted
+merely through an adjacent checksum. No release artifact was published.
+
+Actual read-only preview exits **1**, result **validation_failure**:
+**Upgrade blocked before any effect: downgrade_refused**; next:
+**Downgrade and divergent same-version replacement are not supported**.
+Returned preview has no effects/digest; no apply attempted. Its error-envelope
+provenance says development/unavailable/unknown, so it is not candidate build
+qualification; archive metadata supplies the candidate identity above.
+After refusal, all 42 managed files and 18 directories retain original hashes,
+UID/GID, modes and exact inventory; no partial publication or marker.
+Rollback **NOT_NEEDED_NO_MANAGED_CHANGE**. Stable host preserved.
+
+| Native record | Installed / loaded / authentication | Actual observations |
+| --- | --- | --- |
+| E07-Codex attempt-07 | stable 0.21.2, three PR mismatches / UNKNOWN / NOT_REVALIDATED; attempt-06 subscription_observed only | NOT_RUN; no prompts, responses, inference or rendering |
+| E07-Claude attempt-07 | stable 0.21.2, three PR mismatches / UNKNOWN / NOT_REVALIDATED; attempt-06 subscription_observed only | NOT_RUN; no prompts, responses, inference or rendering |
+
+For EACH Runtime, C01, C02, C03, C04, C05, C06, C07, C08, C09, C10, C11, C12,
+C13, C14, C15 and C16 are individually **NOT_RUN**. No synthetic transcript
+substitutes for either conversation. No auth process was invoked after refusal;
+no credential value viewed or persistent auth change made. Before later dispatch,
+revalidate subscription login using only documented child-process omission of
+OPENAI_API_KEY and CLAUDE_CODE_OAUTH_TOKEN if needed. Login is not inference.
+
+### E08 — Reconciliation, technical decisions and blocked handoff
+
+| AC / cases | Historical E01–E06 | Attempt-07 native | Aggregate |
+| --- | --- | --- | --- |
+| AC1 / C01–C06,C16 | PASS scoped | Codex/Claude NOT_RUN | PARTIAL |
+| AC2 / C07,C08,C15,C16 | PASS scoped | Codex/Claude NOT_RUN | PARTIAL |
+| AC3 / C09,C10,C13,C14 | PASS scoped | Codex/Claude NOT_RUN | PARTIAL |
+| AC4 / C11–C13 | PASS scoped | Codex/Claude NOT_RUN | PARTIAL |
+| AC5 / C01–C16 | synthetic regressions PASS | both conversations NOT_RUN | PARTIAL |
+| AC6 / unchanged contracts | PASS historical | two-document scoped review | PASS_SCOPED_REVIEW |
+
+T01–T06/E01–E06 historical scoped PASS preserved; T07/E07
+**BLOCKED_HOST_BASELINE / TECHNICALLY_BLOCKED**; T08/E08 **PARTIAL**.
+Outcome **BLOCKED**, because the indispensable supported host route is absent.
+Concrete excluded actions remain AUTHORIZATION_REQUIRED and outside this grant:
+forcing downgrade/version guard, fabricating version, editing receipts or mixing
+stable binary/docs with PR skills. Additional permission alone cannot make an
+unsupported route supported. No material architecture/product/design decision
+was created; SDD remains closed at its approved revisions.
+
+| Actual local validation | Result |
+| --- | --- |
+| `go test ./internal/cli -run 'Test(OutputSeparation\|WorkflowShowSynthetic\|Presentation)' -count=1` | PASS |
+| `go test ./internal/codexruntime -run 'Test(RenderedWorkflow\|OperatorConversational\|WorkflowSkill)' -count=1` | PASS |
+| `go test ./internal/install -run 'Test(UpgradeRefusalsHaveZeroEffects\|UpgradeSkillStaleAuthorityAndConcurrentInstallHaveZeroEffects\|UpgradeInterruptionAtEachOrderedEffectResumes\|SemverPrecedence)$' -count=1` | PASS |
+| `./scripts/validate-repository.sh .` | PASS; Runtime behavioral scenarios SKIP/UNVERIFIED |
+| Local Markdown paths and historical preservation assertions | PASS; 57 paths; attempts 01–06 and historical Tasks r1 byte-preserved |
+| `git diff --check`; complete two-document scoped diff review | PASS |
+| `./scripts/check-sensitive-files.sh --staged .` | PASS |
+| `gitleaks git --staged --redact --no-banner` | PASS; no leaks |
+
+Full suite not repeated for documentation-only changes. Final staged security
+checks repeated after reconciliation. Input-head CI and Delivery metadata
+SUCCESS; final pushed HEAD CI is recorded separately in the completion callback.
+Runtime validator SKIP/UNVERIFIED remains distinct from native E07.
+
+technical_decisions[] (TECHNICAL_LOCAL; executor-ai; scope_impact:none):
+
+- IMPL7-TD-01: use Python 3 stdlib for private 42-file backup and isolated restore
+  rehearsal, rather than a skill-only backup; includes docs/binding and receipts.
+  Verified every file hash/owner/mode; no live restoration or credentials copied.
+- IMPL7-TD-02: test the actual official 0.21.1 preview, then stop dependent work;
+  alternatives (skill-only replacement, version inflation, source installation)
+  violate complete-pair/ownership/version constraints. Official downgrade refusal
+  and unchanged managed inventory verify this choice without scope expansion.
+- IMPL7-TD-03: execute directly with deterministic tools; a strictly lower model
+  capability hierarchy is unverified. No delegation or independent Review claimed.
+
+**DF-01 DEFERRED_NOT_IMPLEMENTED:** stale predecessor Specifications index
+summaries remain untouched; highlight at pre-merge. Existing [#346](https://github.com/rgomids/axiom/issues/346)
+remains separate and NOT_IMPLEMENTED here. No optional implementation added.
+
+remaining_work[]: establish supported authorized owned installation/restoration
+for the complete PR binary/docs/four-skill pair on this host; qualify installed
+and fresh loaded revisions; revalidate exact auth; run one native conversation
+per Runtime with C01–C16; finish T07/T08/AC1–AC5, final-head CI and independent
+Review when ready. Next gate **SUPPORTED_OWNED_PR_PAIR_REQUIRED**.
+One new same-AXM attempt-07 stage.blocked callback supplies final pushed SHA,
+actual CI, tests and ledger; no continuation watcher verified.
+Handoff **AWAITING_EXECUTION_REPORT**. No merge, release, acceptance, close or Done.

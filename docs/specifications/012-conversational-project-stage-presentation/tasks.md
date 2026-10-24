@@ -2,24 +2,28 @@
 
 ## Implementation checkpoint — 2026-10-24
 
-Same PR/branch, implement **attempt-06 PARTIAL**.
-[Implementation Evidence](evidence-implementation.md#attempt-06--stable-release-read-back-and-pr-baseline-mismatch)
-records actual host 0.21.2 / c52f1ff78c91 / clean, verified docs, valid_v1,
-four release-current skills per root and both subscription logins observed in
-isolated auth children. All eight installed files compared against approved PR:
+Same PR/branch, implement **attempt-07 BLOCKED**.
+[Implementation Evidence](evidence-implementation.md#attempt-07--verified-backup-and-supported-downgrade-refusal)
+records actual host 0.21.2 / c52f1ff78c91 / clean, verified docs and valid_v1.
 Project, Workflow and Runtime MISMATCH in both roots; Work Item MATCH.
-Loaded UNKNOWN. Release-current does not prove AXM-39 installed or loaded.
-Branch manifest/candidate 0.21.1 precedes host 0.21.2; source upgrade guard refuses
-downgrade. No supported authorized PR pair installation established; no new
-upgrade preview/apply or managed-host mutation. No fake version or mixed pair.
+Loaded UNKNOWN. Both subscription logins remain historical attempt-06 observations,
+not current authentication or inference proof. New scoped authorization preserves
+supported version/ownership gates. Private backup of 42 managed files plus
+restoration rehearsal PASS; official generation-2 PR archive 0.21.1 verified.
+Actual read-only upgrade preview exits 1: **downgrade_refused before any effect**.
+All 42 files and 18 directories unchanged after refusal, including hashes,
+ownership, modes and exact inventory. No apply or live restore performed.
+Supported PR pair installation remains TECHNICALLY_BLOCKED; bypass, version
+inflation and mixed pairs remain outside authority. Backup does not create an
+automatic rollback facility. Release-current does not prove PR-qualified.
 T07 **BLOCKED_HOST_BASELINE / TECHNICALLY_BLOCKED**, both conversations **NOT_RUN**.
 T01–T06/E01–E06 historical PASS preserved; T08/E08 PARTIAL; AC1–AC5 PARTIAL,
 AC6 PASS_SCOPED_REVIEW. DF-01 DEFERRED_NOT_IMPLEMENTED unchanged.
-Next gate **RESUME_IMPLEMENT**: supported authorized owned installation of PR pair,
+Next gate **SUPPORTED_OWNED_PR_PAIR_REQUIRED**: supported authorized owned installation of PR pair,
 backup/rollback, installed/loaded read-back, exact auth, two native conversations,
 AC reconciliation and independent Review. Same-attempt callback records pushed
 SHA and actual checks/CI. Handoff **AWAITING_EXECUTION_REPORT**.
-Historical Tasks baseline below and attempts 01–05 Evidence remain unchanged.
+Historical Tasks baseline below and attempts 01–06 Evidence remain unchanged.
 
 ## Historical Tasks baseline, scope and execution state
 
