@@ -263,7 +263,7 @@ def acceptance(args, report):
                 with bad.open("ab") as stream:
                     stream.write(b"corrupt")
                 scenario("corrupt-artifact-refused", lambda: (install(candidate, bad, expected=None),
-                         require(owned == (smoke.digest(binary), smoke.inventory(receipt)), "corruption mutated install")))
+                         require(owned == installation_snapshot(binary, receipt, args.format), "corruption mutated install")))
                 foreign = work / "foreign"
                 foreign.mkdir(mode=directory_mode)
                 (foreign / "bin").mkdir(mode=directory_mode)
@@ -273,7 +273,7 @@ def acceptance(args, report):
                 link = work / "linked"
                 link.symlink_to(home, target_is_directory=True)
                 scenario("symlink-destination-refused", lambda: (install(candidate, archive, target=link, expected=None),
-                         require(owned == (smoke.digest(binary), smoke.inventory(receipt)), "symlink mutated install")))
+                         require(owned == installation_snapshot(binary, receipt, args.format), "symlink mutated install")))
 
                 # A pre-binary interruption may be safely retried; after-binary
                 # fresh-install recovery intentionally requires guided recovery.
