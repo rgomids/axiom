@@ -26,6 +26,14 @@
   Projects created by `project configure` carry no policy and block until an
   authored policy is installed.
 
+## [0.21.2](https://github.com/rgomids/axiom/compare/v0.21.1...v0.21.2) (2026-10-24)
+
+
+### Bug Fixes
+
+* **release:** deliver installed docs via generation 2 release path ([#344](https://github.com/rgomids/axiom/issues/344)) ([#345](https://github.com/rgomids/axiom/issues/345)) ([08af192](https://github.com/rgomids/axiom/commit/08af192b6313ae2a56d8a0817af52109a958f943))
+* **release:** remove obsolete supersession pin ([#347](https://github.com/rgomids/axiom/issues/347)) ([7c6fadf](https://github.com/rgomids/axiom/commit/7c6fadf714606ed5d9e79ed42dde7eae1b405ec8))
+
 ## [0.21.1](https://github.com/rgomids/axiom/compare/v0.21.0...v0.21.1) (2026-10-23)
 
 
