@@ -5,6 +5,23 @@ description: Inspect, configure and recover machine-local Axiom Runtime bindings
 
 # Axiom Runtime
 
+## Answer from the scoped observation
+
+Each independent case starts a new fact scope: attribute every claim to its own
+source, target and revision, never another case's Project policy. A resolved
+Profile `codex-test` does not prove a Project declaration. `runtimeConstraints:
+codex/claude` is allowed; `profileRef: policy-default` is declared resolver intent.
+No observed attempt is not evidence that Codex is unused. Keep allowed, declared,
+selected, resolved, login, attempt, compatibility, billing and acceptance separate;
+NOT_OBSERVED never means FALSE, nor does command success mean effective readiness.
+
+Preserve observed `capability_mapping_missing` and
+`runtime_policy_unavailable / policy_unconfigured` with their scope. NEXT:
+inspect the corresponding owner/configuration first; only then prepare any
+change with its own preview and authority. Do not invent Runtime approval as a
+prerequisite. Confirmed no dispatch covers that observation only; preserve unknown
+historical attempts/effects and reconcile before separately authorized retry.
+
 Run `axiom --json skill inspect axiom-runtime` before collecting configuration inputs.
 Present its `skill` payload and stop when inspection was requested. The binary
 owns executable commands, argument forms and authority metadata. Use only

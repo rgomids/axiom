@@ -5,6 +5,39 @@ description: Configure Axiom Project workflow definitions and inspect Runtime/Pr
 
 # Axiom Workflow
 
+## Answer from the scoped observation
+
+Each independent case starts a new fact scope: bind claims to that case's source,
+target and revision. Do not import Project policy, Profile declarations or gates
+from another case/turn. A Profile resolved to `codex-test` does not establish a
+Project declaration of that name; state it only when that source declares it.
+`runtimeConstraints: codex/claude` means allowed; `profileRef: policy-default`
+means declared resolver intent. No attempt is not evidence that Codex is unused.
+Keep allowed, declared, selected, resolved, login, attempt, compatibility, billing
+and acceptance distinct. NOT_OBSERVED never becomes FALSE or readiness.
+
+For each inspected Stage summarize purpose, source and input/output meaning,
+human gate kind/timing (or explicit absence), Agent/Role, Runtime constraints,
+validator and completion: output existence AND correlation with the expected
+result are required where declared, not merely successful process exit. Recover
+advanced details from the same revision. Promote unavailable validators, timeout,
+effect uncertainty and blocking limits immediately. Do not transfer a validator from an example
+to an installed definition: name each source's validator separately. Unavailable
+validation is a gap, not a failed result or proof of a pending/approved gate.
+
+Give complete sequential Stage order and each same-Stage Agent's predecessors,
+including independent branches, plus declared human-gate presence/absence. Preserve
+AXM-38 full identity/revision/digest and selection. Without an observed renderer,
+provide textual fallback; do not invent graph evidence or inter-Stage DAG edges.
+Use the same actual inputs for natural and explicit entry, including Unicode
+human label, state, source provenance, blockers and next safe gate. Plain text
+parity, Skill launch and full installed-file reading are different observations;
+neither proves graphical/narrow rendering or hidden resolver behavior.
+
+For blocked readiness, inspect the corresponding owner/configuration first;
+only then propose a separately authorized preview/change. A read never grants
+Runtime approval. Scope no-dispatch to its observation, preserving unknown history.
+
 To inspect supported operations and accepted arguments before execution, run
 `axiom --json skill inspect axiom-workflow` and present its `skill` payload.
 Inspection stops there: do not collect inputs or execute an operation. The binary
