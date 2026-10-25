@@ -243,7 +243,9 @@ Every Pull Request has two required checks in the `main` ruleset
 
 Linux/macOS `go test -race`, release contracts and upgrade journeys run in the
 [native suite](.github/workflows/native-suite.yml): nightly, on manual dispatch
-and in every release preparation, where a failure blocks publication.
+and in every release preparation, where a failure blocks publication. A
+release starts only from a `main` commit whose native suite succeeded
+([ADR-0036](docs/decisions/0036-native-qualification-gates-release-start.md)).
 
 CI has a read-only token and never publishes anything. Renaming a job changes a
 required check: update the ruleset file and the repository ruleset together.
@@ -545,7 +547,10 @@ inconsistent commit
 blocks it, a releasable commit merged after it was built reports
 `refresh_release_pr` (`$axiom-release` re-validates and refreshes it), and
 validated hidden commits only need the branch update that the ruleset
-requires before merge.
+requires before merge. Starting or refreshing a Release PR also requires the
+native suite to have succeeded at the exact `main` SHA; `release.sh qualify`
+runs it when it never ran there
+([ADR-0036](docs/decisions/0036-native-qualification-gates-release-start.md)).
 
 Merging the Release PR is a normal reviewed squash merge. It records the
 versioned state on `main` (that squash commit is the *release commit*) and

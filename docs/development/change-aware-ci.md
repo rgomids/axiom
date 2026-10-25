@@ -41,7 +41,7 @@ It runs from three callers; a failed job fails the calling run:
 
 | Caller | Trigger | Role |
 | --- | --- | --- |
-| `nightly.yml` | daily schedule and `workflow_dispatch` | visible native regression signal on the default branch or a dispatched ref |
+| `nightly.yml` | daily schedule and `workflow_dispatch` (also by `release.sh qualify`) | visible native regression signal on the default branch or a dispatched ref; a success at the exact `main` SHA is required to start or refresh a release ([ADR-0036](../decisions/0036-native-qualification-gates-release-start.md)) |
 | `native-acceptance-qualification.yml` | `workflow_dispatch` | non-publishing qualification; `verify-propagation` requires the native suite to succeed |
 | `release-artifacts.yml` | release preparation | gates publication: `verify-prepared-release.sh` accepts only a fully successful run, so a failed or missing native suite at the release revision blocks the preview and publication |
 
