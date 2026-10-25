@@ -145,34 +145,46 @@ jobs:
           cache: true
       - name: Build the candidate release archives
         run: ./scripts/build-release-archives.sh --format 2 --version "9999.0.0-acceptance.${GITHUB_RUN_NUMBER}" --output "$RUNNER_TEMP/candidate"
-      - name: Fetch published earlier releases
+      - name: Check the candidate as a previous release and fetch published earlier releases
         env:
           ROW: ${{ matrix.row }}
         run: |
+          # select_assets SHA256SUMS VERSION prints the host archive and, when the
+          # inventory pins one, the standalone verifier a later release fetches
+          # from VERSION. macOS is macos-27-arm64 in format 1 releases and
+          # macos-arm64 in format 2; a missing or ambiguous name fails.
+          select_assets() {
+            local sums=$1 version=$2 names archive target helper
+            names="axiom-$version-$ROW.tar.gz"
+            [[ "$ROW" != macos-27-arm64 ]] || names="$names axiom-$version-macos-arm64.tar.gz"
+            archive=$(awk -v names="$names" 'BEGIN {n = split(names, list, " "); for (i = 1; i <= n; i++) want[list[i]] = 1} ($2 in want) {print $2}' "$sums")
+            [[ -n "$archive" && "$archive" != *$'\n'* ]] || { echo "missing or ambiguous host archive in $version inventory" >&2; return 1; }
+            target=$ROW
+            [[ "$ROW" != macos-27-arm64 ]] || target=darwin-arm64
+            helper=$(awk -v prefix="axiom-verifier-$version-" -v suffix="-$target" \
+              'index($2, prefix) == 1 && substr($2, length($2)-length(suffix)+1) == suffix {print $2}' "$sums")
+            if [[ -n "$helper" ]]; then
+              [[ "$helper" =~ ^axiom-verifier-[0-9A-Za-z.+-]+$ ]] || { echo 'invalid or ambiguous verifier inventory' >&2; return 1; }
+            fi
+            printf '%s\n' "$archive" $helper
+          }
+          # The candidate is the next release's previous: the same selection must
+          # resolve its own inventory to files it built, so a naming or format
+          # change fails here instead of in the next release preparation.
+          candidate_assets=$(select_assets "$RUNNER_TEMP/candidate/SHA256SUMS" "9999.0.0-acceptance.${GITHUB_RUN_NUMBER}")
+          for asset in $candidate_assets; do
+            [[ -f "$RUNNER_TEMP/candidate/$asset" ]] || { echo "candidate inventory names $asset, which was not built" >&2; exit 1; }
+          done
           # Tags exist only for published releases; N is the newest stable one.
           latest=$(git for-each-ref --format='%(refname:short)' 'refs/tags/v*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n 1)
           for tag in "$latest" v0.1.1; do
             dir="$RUNNER_TEMP/previous-$tag"
             mkdir -p "$dir"
-            version=${tag#v}
             curl -fsSL --retry 4 -o "$dir/SHA256SUMS" "https://github.com/$GITHUB_REPOSITORY/releases/download/$tag/SHA256SUMS"
-            # Take the host archive name from this release's checksum inventory:
-            # macOS is macos-27-arm64 in format 1 releases and macos-arm64 in format 2.
-            names="axiom-$version-$ROW.tar.gz"
-            [[ "$ROW" != macos-27-arm64 ]] || names="$names axiom-$version-macos-arm64.tar.gz"
-            archive=$(awk -v names="$names" 'BEGIN {n = split(names, list, " "); for (i = 1; i <= n; i++) want[list[i]] = 1} ($2 in want) {print $2}' "$dir/SHA256SUMS")
-            [[ -n "$archive" && "$archive" != *$'\n'* ]] || { echo "missing or ambiguous host archive in $tag inventory" >&2; exit 1; }
-            curl -fsSL --retry 4 -o "$dir/$archive" "https://github.com/$GITHUB_REPOSITORY/releases/download/$tag/$archive"
-            # Current v1 releases pin a standalone verifier; old releases do not.
-            # Fetch only the helper named by this release's checksum inventory.
-            target=$ROW
-            [[ "$ROW" != macos-27-arm64 ]] || target=darwin-arm64
-            helper=$(awk -v prefix="axiom-verifier-$version-" -v suffix="-$target" \
-              'index($2, prefix) == 1 && substr($2, length($2)-length(suffix)+1) == suffix {print $2}' "$dir/SHA256SUMS")
-            if [[ -n "$helper" ]]; then
-              [[ "$helper" =~ ^axiom-verifier-[0-9A-Za-z.+-]+$ ]] || { echo 'invalid or ambiguous verifier inventory' >&2; exit 1; }
-              curl -fsSL --retry 4 -o "$dir/$helper" "https://github.com/$GITHUB_REPOSITORY/releases/download/$tag/$helper"
-            fi
+            assets=$(select_assets "$dir/SHA256SUMS" "${tag#v}")
+            for asset in $assets; do
+              curl -fsSL --retry 4 -o "$dir/$asset" "https://github.com/$GITHUB_REPOSITORY/releases/download/$tag/$asset"
+            done
             printf 'PREVIOUS_%s=%s\n' "${tag//./_}" "$dir" >>"$GITHUB_ENV"
           done
           printf 'PREVIOUS_LATEST=%s\n' "$RUNNER_TEMP/previous-$latest" >>"$GITHUB_ENV"
