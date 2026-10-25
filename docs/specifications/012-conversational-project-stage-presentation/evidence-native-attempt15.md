@@ -165,8 +165,9 @@ executor paused only its own controller, let its already launched case finish,
 then stopped that controller before C08/C11–C16 input. The deliberate held-input
 stop produced FileNotFoundError; it was not a failed native inference or a model
 availability error. Same thread continued once with explicit supported config
-above; contexts 06–08 positively recorded read-only/never. No model or permission
-fallback, ambient config mutation or replay-for-PASS. Audit of **all nine tool
+above; contexts 06–08 positively recorded read-only/never. No model fallback,
+ambient config mutation or replay-for-PASS. The earlier sandbox discrepancy remains
+an actual control limitation despite successful commands. Audit of **all nine tool
 calls**: four installed `cat` reads and five exact Axiom read commands only.
 No write/dispatch/provider action observed. Earlier turns are not retrospectively
 certified read-only sandboxed; that limitation remains part of E07.
