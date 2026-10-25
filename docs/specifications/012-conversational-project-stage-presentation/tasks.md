@@ -1,5 +1,20 @@
 # Specification 012 — Tasks r1 (AXM-39)
 
+## Current implementation checkpoint — attempt-11
+
+**BLOCKED attempt / PARTIAL Implement.** [Attempt-11 E07/E08](evidence-native-attempt11.md):
+one zero-user-message preflight pinned `claude-haiku-5-5`; no init/resolved-model
+metadata or error emitted, stdout/stderr empty, exit 0 after bounded 15.43 seconds.
+No inference requested, native loading or replay observed, retry or model fallback.
+Claude C01–C16 NOT_RUN; Codex historical C01–C15 PASS_SCOPED_REPLAY/C16 PARTIAL
+preserved. Installed inspector state unchanged; no current-session loading proof.
+T01–T06 historical scoped PASS; T07/T08 PARTIAL, AC1–AC5 PARTIAL,
+AC6 PASS_SCOPED_REVIEW. E07-Claude NOT_RUN; E08 PARTIAL. Next gate
+**HAIKU_5_5_MODEL_REFUSED_OR_UNVERIFIED**. No independent Review readiness.
+DF-01 deferred; #346 separate. No host, contract, merge/release/acceptance/Done
+change. Final-head checks and one stage.blocked callback/read-back recorded in
+same-AXM receipt; AWAITING_EXECUTION_REPORT. All following history preserved.
+
 ## Current implementation checkpoint — attempt-10
 
 **PARTIAL.** Same Draft PR/branch; [attempt-10 E07/E08](evidence-native-attempt10.md)

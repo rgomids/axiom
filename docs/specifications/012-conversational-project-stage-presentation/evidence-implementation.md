@@ -1650,3 +1650,26 @@ C01–C16; resolve/retain C16 surface gaps; reconcile T07/T08/AC/CI, independent
 only after readiness. Next gate **RESUME_IMPLEMENT /
 MODEL_PRESERVING_NATIVE_CLAUDE_REQUIRED**; no ceremonial continue or fake callback.
 Handoff AWAITING_EXECUTION_REPORT. No merge/release/acceptance/Done.
+
+## Attempt-11 — Haiku 5.5 model gate unverified
+
+[Native gate ledger and E07/E08 reconciliation](evidence-native-attempt11.md).
+Input HEAD `9c213665bf258aeb3f8ccf41fe8a83aca5ee9fb3`, same Draft PR #343.
+One CLI 2.1.310 process pinned `claude-haiku-5-5`; zero user messages submitted.
+No init/model metadata or error emitted, stdout/stderr empty; bounded collector
+terminated/drained process, exit 0, elapsed 15.43 seconds. Requested flag alone
+does not prove effective model. No provider refusal fabricated, no retry/fallback.
+No native loading/replay observed; Claude C01–C16 NOT_RUN. Historical Codex scoped
+passes/C16 PARTIAL and attempt-10 drifted-session loading remain historical.
+Official installed inspectors still report candidate 0.21.3-axm39.8 / e045cac,
+docs verified, current receipts, matching files, loaded unknown.
+
+Attempt BLOCKED / overall Implement PARTIAL; T07/T08 and AC1–AC5 PARTIAL,
+AC6 PASS_SCOPED_REVIEW for unchanged contracts. E07-Claude NOT_RUN, E08 PARTIAL.
+Technical decisions IMPL11-TD-01–03 in linked Evidence: exact model ID, zero-input
+bounded metadata gate, append-only evidence without speculative fixes.
+Next gate HAIKU_5_5_MODEL_REFUSED_OR_UNVERIFIED; qualified entry/loading/replay,
+C16 gaps and final reconciliation remain. No independent Review readiness,
+new scope/host/auth/contract changes, merge/release/acceptance/Done.
+DF-01 deferred; #346 separate. Final-head validation/CI and root callback raw
+read-back belong to attempt-11 receipt; AWAITING_EXECUTION_REPORT.
