@@ -22,7 +22,11 @@ name: Delivery metadata
 # validates no metadata (a Release PR delivers no Issue). It passes only for
 # the head of the open bot-authored Release PR dispatched by the bot, when
 # that PR would close no Issue at merge; any other dispatch fails, it is
-# never skipped. Like every required check, its integrity rests on
+# never skipped. delivery-correction.yml opens correction PRs the same way and
+# dispatches this workflow on their delivery-correction/<sha> branch; that
+# dispatch passes only for the bot-authored correction PR head that only
+# appends to .github/delivery-corrections.txt and declares no Issue
+# (scripts/delivery-correction.sh pr-head). Like every required check, its integrity rests on
 # code-owner review of .github/workflows/**: this file comes from the PR or
 # dispatched ref, only the script comes from the base or default branch.
 
@@ -64,7 +68,7 @@ jobs:
         with:
           ref: ${{ github.event.repository.default_branch }}
           persist-credentials: false
-      - name: Accept only the bot-authored Release PR head
+      - name: Accept only the bot-authored Release PR or correction PR head
         if: github.event_name == 'workflow_dispatch'
         env:
           GH_TOKEN: ${{ github.token }}
@@ -72,8 +76,13 @@ jobs:
           DISPATCH_SHA: ${{ github.sha }}
           DISPATCH_ACTOR: ${{ github.actor }}
         run: |
-          ./scripts/delivery-github.sh release-pr-head --repo "$GITHUB_REPOSITORY" --branch "$DISPATCH_BRANCH" \
-            --sha "$DISPATCH_SHA" --actor "$DISPATCH_ACTOR" | tee -a "$GITHUB_STEP_SUMMARY"
+          if [[ "$DISPATCH_BRANCH" == delivery-correction/* ]]; then
+            ./scripts/delivery-correction.sh pr-head --repo "$GITHUB_REPOSITORY" --branch "$DISPATCH_BRANCH" \
+              --sha "$DISPATCH_SHA" --actor "$DISPATCH_ACTOR" | tee -a "$GITHUB_STEP_SUMMARY"
+          else
+            ./scripts/delivery-github.sh release-pr-head --repo "$GITHUB_REPOSITORY" --branch "$DISPATCH_BRANCH" \
+              --sha "$DISPATCH_SHA" --actor "$DISPATCH_ACTOR" | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
       - if: github.event_name == 'pull_request'
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:

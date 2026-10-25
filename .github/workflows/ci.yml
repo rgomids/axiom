@@ -60,7 +60,7 @@ jobs:
       - name: Quality gate regression contracts
         run: python3 scripts/test-go-quality.py
       - name: Delivery metadata regression contracts
-        run: ./scripts/test-delivery.sh
+        run: ./scripts/test-delivery.sh && ./scripts/test-delivery-correction.sh
       - name: Build
         run: go build ./...
       - name: Private synthetic probe state

@@ -1,0 +1,54 @@
+name: Delivery correction
+# Proposes the reviewed delivery correction of a squash commit on main that
+# lost the Related-Issues/Completes-Issues lines its PR declared (a custom
+# squash message at merge). delivery-sync.yml fails on such a commit before
+# any effect and the release plan refuses it; this workflow opens the
+# correction PR that restores exactly the metadata the PR's delivery-metadata
+# check validated, so a human only reviews and merges it.
+# Runs the trusted main revision only (push), never PR code. The PR
+# description is untrusted and reaches the validator only as a file
+# (scripts/delivery-correction.sh). It creates one branch
+# delivery-correction/<sha> per commit and never merges, edits history,
+# touches an Issue or releases. Events created with GITHUB_TOKEN start no
+# pull_request run, so it dispatches the required checks on the branch;
+# delivery-metadata.yml accepts that dispatch only for the bot-authored
+# correction PR head that appends to .github/delivery-corrections.txt.
+
+on:
+  push:
+    branches:
+      - main
+
+permissions: {}
+
+defaults:
+  run:
+    shell: bash
+
+concurrency:
+  group: delivery-correction
+  cancel-in-progress: false
+
+jobs:
+  propose:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      # Creates the correction branch and commits the appended row.
+      contents: write
+      # Opens the correction PR and reads merged PRs.
+      pull-requests: write
+      # Reads the delivery-metadata check of the merged PR head.
+      checks: read
+      # Dispatches ci.yml and delivery-metadata.yml on the correction branch.
+      actions: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Propose corrections for squash commits that lost their metadata
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PUSH_AFTER: ${{ github.event.after }}
+        run: ./scripts/delivery-correction.sh propose --repo "$GITHUB_REPOSITORY" --to "$PUSH_AFTER" | tee -a "$GITHUB_STEP_SUMMARY"

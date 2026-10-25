@@ -388,7 +388,14 @@ If a merged commit's metadata is missing or malformed, the release preflight
 fix is a normal reviewed PR to `main` that adds a line to
 [`.github/delivery-corrections.txt`](.github/delivery-corrections.txt) of the
 form `<full-sha> related=<n,m|none> completes=<n,m|none>`, with its reason
-recorded above it. The file is read as committed at the revision being
+recorded above it. When the lost lines are exactly those of the merged PR's
+description and its `delivery-metadata` check passed at the PR head,
+[`delivery-correction.yml`](.github/workflows/delivery-correction.yml) opens
+that PR by itself on the push to `main` (branch
+`delivery-correction/<sha>`, `scripts/delivery-correction.sh`) and dispatches
+its required checks; review the values against the original PR and merge it.
+Any other case fails closed and the correction is written by hand. The file
+is read as committed at the revision being
 resolved, so by default a correction counts only for releases whose release
 commit contains it; a correction merged before the release starts is always
 contained. History is never rewritten. Only a release whose release commit
