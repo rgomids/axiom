@@ -1760,3 +1760,18 @@ E07-Codex/E07-Claude/E08, AC1–AC5 PARTIAL; AC6 PASS_SCOPED_REVIEW. Required re
 failures stay in scope. DF-01 DEFERRED_NOT_IMPLEMENTED; #346 untouched. Next gate
 RESUME_IMPLEMENT; no independent Review readiness, merge, release, human acceptance
 or Done. Exact final SHA/CI and one same-AXM stage.partial read-back in completion event.
+
+
+## Attempt-16 — Integrated remediation and scoped native results
+
+[New ledger](evidence-native-attempt16.md) and [actual sanitized observations](observations-native-attempt16.md).
+Three existing guidance owners, focused regression negatives and complete four-skill
+history corrected; clean source da39492665b6350385701f7f3d1b30f643f335ab installed as
+private .16 through supported digest-bound upgrade with verified backup/read-back.
+Two actual nine-turn native conversations, exact model pins and complete reads;
+Codex every turn read-only/never. Deterministic checks PASS; native LIVE UUIDs,
+Claude advanced intake/C16 fidelity and inaccessible visual facets remain PARTIAL.
+All historical Evidence preserved. Project isolated/archived through supported CLI.
+T07/T08, E07/E08, AC1–AC5 PARTIAL; AC6 scoped review only. DF-01 deferred.
+Next gate RESUME_IMPLEMENT; no Review readiness, merge, release, acceptance or Done.
+Final SHA/CI and exactly one attempt-16 stage.partial receipt/read-back in Linear.
