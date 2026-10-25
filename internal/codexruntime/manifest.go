@@ -330,6 +330,13 @@ var sharedSkillHistory = []skillSetRevision{
 		"axiom-work-item": "ea5476f17d1962c0938968fa726a006a01c4d79913ff3988e3d11aaf64af49f3",
 		"axiom-workflow":  "4df6fc93426cd9532a9f2a7cc2df6d58962c59eb9b0f91f9d032c73140f640b7",
 	}},
+	// Complete four-skill revision replaced by AXM-39 attempt-16 answer audits.
+	{skillSetVersion: "3", binaryCompatibility: "3", skills: map[string]string{
+		"axiom-project":   "42b86e7c5cd6a9929545382d640ee1957e60d2ec6b8076551f7ed60b7fc95604",
+		"axiom-runtime":   "b35c1b2781f9b2b7939f8a86bf0aa8d6a9741ef9b9ee580b66b2f3573e9252db",
+		"axiom-work-item": "ea5476f17d1962c0938968fa726a006a01c4d79913ff3988e3d11aaf64af49f3",
+		"axiom-workflow":  "68e9d8d5b8b5f303e99b7fd7a6c18c7bf964aea6b3e9b1346a1705c6f64f2639",
+	}},
 }
 
 // currentRevision is the skill set embedded in this binary.

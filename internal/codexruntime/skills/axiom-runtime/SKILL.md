@@ -22,6 +22,21 @@ change with its own preview and authority. Do not invent Runtime approval as a
 prerequisite. Confirmed no dispatch covers that observation only; preserve unknown
 historical attempts/effects and reconcile before separately authorized retry.
 
+Before sending Runtime claims, use NOT_OBSERVED / NOT_ESTABLISHED for missing selection,
+resolution or execution evidence. Do not turn “no observed attempt” into “no Runtime
+used” or “Codex not in use”. Explicit absence needs a matching scoped source.
+Declare `codex-test` as Project policy only when observed in this case; a Profile
+name in a Plan or a previous answer cannot supply that declaration.
+
+Before sending the answer, retain command status, structural validity and execution readiness together
+when the source supplies them: `status: success`; structure valid; `execution: blocked`.
+Do not omit successful command completion just because readiness is blocked, or omit
+blocked execution because validation succeeded. Include every observed blocker and
+inspect its owner/configuration before suggesting a preview/change. No dispatch is
+an invocation-scoped fact only when observed, not a statement about unknown history.
+If exact next-command syntax was not inspected, name the owner/read needed without
+inventing executable syntax; inspect installed help/metadata before offering a command.
+
 Run `axiom --json skill inspect axiom-runtime` before collecting configuration inputs.
 Present its `skill` payload and stop when inspection was requested. The binary
 owns executable commands, argument forms and authority metadata. Use only

@@ -27,6 +27,21 @@ prepare changes with their own preview and authority. No Runtime approval is
 implied or required by this read. Confirmed no dispatch applies only to the
 scoped observation; historical execution/effects remain unknown unless inspected.
 
+Before sending a routine narrative, remove gratuitous UUIDs even in an explanation of internal correlation.
+Say “canonical ID retained internally” without printing its value. A source reference
+is not automatically an authority view: ordinary list/show/validate or follow-up
+still uses the observed human label. Only an actual request, missing human identity,
+collision or operational authority justifies exposing the complete identifier.
+
+Before sending the answer, retain command status, structural validity and execution readiness together
+when the source supplies them: `status: success`; structure valid; `execution: blocked`.
+Do not omit successful command completion just because readiness is blocked, or omit
+blocked execution because validation succeeded. Include every observed blocker and
+inspect its owner/configuration before suggesting a preview/change. No dispatch is
+an invocation-scoped fact only when observed, not a statement about unknown history.
+If exact next-command syntax was not inspected, name the owner/read needed without
+inventing executable syntax; inspect installed help/metadata before offering a command.
+
 To inspect supported operations and accepted arguments before execution, run
 `axiom --json skill inspect axiom-project` and present its `skill` payload.
 Inspection stops there: do not collect inputs or execute an operation. The binary

@@ -38,6 +38,24 @@ For blocked readiness, inspect the corresponding owner/configuration first;
 only then propose a separately authorized preview/change. A read never grants
 Runtime approval. Scope no-dispatch to its observation, preserving unknown history.
 
+Before sending Runtime claims, use NOT_OBSERVED / NOT_ESTABLISHED for missing selection,
+resolution or execution evidence. “No Runtime used”, “Codex not in use” and “none
+resolved” are not synonyms for an unobserved attempt/resolution. Explicitly observed
+absence can be stated with its source and scope. Include a Project Profile declaration
+only if this case's source contains it; never borrow it from an earlier answer.
+For operational references, never abbreviate a Workflow digest: copy every byte,
+including in a compact summary or text fallback. Concision applies to prose, not
+identity. Preserve source, revision, selection, full Stage order, gates and DAG.
+
+Before sending the answer, retain command status, structural validity and execution readiness together
+when the source supplies them: `status: success`; structure valid; `execution: blocked`.
+Do not omit successful command completion just because readiness is blocked, or omit
+blocked execution because validation succeeded. Include every observed blocker and
+inspect its owner/configuration before suggesting a preview/change. No dispatch is
+an invocation-scoped fact only when observed, not a statement about unknown history.
+If exact next-command syntax was not inspected, name the owner/read needed without
+inventing executable syntax; inspect installed help/metadata before offering a command.
+
 To inspect supported operations and accepted arguments before execution, run
 `axiom --json skill inspect axiom-workflow` and present its `skill` payload.
 Inspection stops there: do not collect inputs or execute an operation. The binary
