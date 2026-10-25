@@ -100,10 +100,12 @@ case "${1:-}" in
   run)
     sub=$2
     shift 2
-    workflow= name= dir= id=
+    workflow= name= dir= id= commit=
     while (($#)); do
       case "$1" in
         --workflow) workflow=$2; shift 2 ;;
+        --commit) commit=$2; shift 2 ;;
+        --branch) shift 2 ;;
         --name) name=$2; shift 2 ;;
         --dir) dir=$2; shift 2 ;;
         --repo|--event|--limit|--json) shift 2 ;;
@@ -115,6 +117,21 @@ case "${1:-}" in
       list)
         # inflight-WORKFLOW.json stages a run that has not completed.
         if [[ -f "$s/inflight-$workflow.json" ]]; then cat "$s/inflight-$workflow.json"; exit 0; fi
+        # The native suite at a main commit (ADR-0036): native-state stages
+        # success (default), failure, in_progress, none, or other (a run on
+        # another commit).
+        if [[ "$workflow" == nightly.yml && -n "$commit" ]]; then
+          native=$(cat "$s/native-state" 2>/dev/null || printf success)
+          [[ "$native" == none ]] && { printf '[]\n'; exit 0; }
+          head=$commit status=completed conclusion=$native
+          [[ "$native" == other ]] && { head=$(printf 'f%.0s' {1..40}); conclusion=success; }
+          [[ "$native" == in_progress ]] && { status=in_progress; conclusion=null; }
+          jq -n --arg head "$head" --arg status "$status" --arg conclusion "$conclusion" --arg repo "$repo" \
+            '[{databaseId: 6161, url: "https://github.com/\($repo)/actions/runs/6161", createdAt: "2026-10-02T00:00:00Z",
+               status: $status, conclusion: (if $conclusion == "null" then null else $conclusion end),
+               headSha: $head, headBranch: "main", event: "schedule"}]'
+          exit 0
+        fi
         id=4242
         [[ "$workflow" == release-artifacts.yml ]] && id=5151
         [[ "$workflow" == release-please.yml ]] && id=3131
@@ -2522,6 +2539,31 @@ printf '{"id":900,"tag_name":"v0.2.0","name":"v0.2.0","draft":true,"prerelease":
 release status >"$temporary/sstatus"
 check 'a GitHub Release already using the planned tag blocks the start' bash -c "grep -Fxq next_action=blocked '$temporary/sstatus' && grep -Fq 'already uses v0.2.0' '$temporary/sstatus'"
 rm "$state/releases/900.json"
+# ADR-0036: a release starts only from a main commit whose native suite passed.
+printf none >"$state/native-state"
+release status >"$temporary/sstatus"
+check 'no native suite at main: status asks to qualify main, not to start' bash -c "grep -Fxq next_action=qualify_main '$temporary/sstatus' && grep -Fxq main_native=missing '$temporary/sstatus' && grep -Fq 'run release.sh qualify' '$temporary/sstatus'"
+expect_failure 'start is refused before the native suite ran at main' 'starting a release is not the next step' release start
+printf other >"$state/native-state"
+release status >"$temporary/sstatus"
+check 'a native suite run on another commit does not qualify main' grep -Fxq next_action=qualify_main "$temporary/sstatus"
+printf failure >"$state/native-state"
+release status >"$temporary/sstatus"
+check 'a failed native suite at main blocks the start' bash -c "grep -Fxq next_action=blocked '$temporary/sstatus' && grep -Fxq main_native=failure '$temporary/sstatus' && grep -Fq 'native suite failed at main' '$temporary/sstatus' && grep -Fxq main_native_run=https://github.com/rgomids/axiom/actions/runs/6161 '$temporary/sstatus'"
+expect_failure 'qualify is refused when main already failed the native suite' 'qualifying main is not the next step' release qualify
+printf in_progress >"$state/native-state"
+release status >"$temporary/sstatus"
+check 'a running native suite at main is awaited' bash -c "grep -Fxq next_action=await_run '$temporary/sstatus' && grep -Fxq main_native=pending '$temporary/sstatus' && grep -Fxq run_id=6161 '$temporary/sstatus'"
+printf none >"$state/native-state"
+printf 'printf success >"%s/native-state"\n' "$state" >"$state/dispatch-effect-nightly.yml"
+: >"$state/ledger"
+release qualify >"$temporary/squalify"
+check 'qualify dispatches the native suite on main once, then offers the start' bash -c "[[ \$(grep -c '^workflow run nightly.yml' '$state/ledger') == 1 ]] && grep -Fq -- '--ref main' '$state/ledger' && grep -Fxq 'effect=workflow_dispatched workflow=nightly.yml ref=main publication=none' '$temporary/squalify' && grep -Fxq next_action=start_release '$temporary/squalify' && grep -Fxq main_native=success '$temporary/squalify'"
+check 'qualify creates no tag, release, asset, label or Release PR dispatch' bash -c "[[ $(release_effects) == 0 ]] && ! grep -q '^workflow run release-please' '$state/ledger'"
+expect_failure 'qualify is refused once main is qualified' 'qualifying main is not the next step' release qualify
+expect_failure 'qualify takes no option' 'qualify takes no option' release qualify --tag v0.2.0
+rm "$state/dispatch-effect-nightly.yml" "$state/native-state"
+: >"$state/ledger"
 printf '[{"databaseId":3030,"url":"https://github.com/rgomids/axiom/actions/runs/3030","createdAt":"2026-10-02T00:00:00Z","status":"in_progress"}]\n' >"$state/inflight-release-please.yml.json"
 release status >"$temporary/sstatus"
 check 'an in-flight Release Please run is reported, never dispatched again' bash -c "grep -Fxq state=release_pr_starting '$temporary/sstatus' && grep -Fxq next_action=await_run '$temporary/sstatus' && grep -Fxq run_id=3030 '$temporary/sstatus'"
@@ -2603,6 +2645,11 @@ check 'a releasable commit merged after the Release PR requires a refresh' bash 
 release status --tag v0.2.0 >"$temporary/sstatus"
 check 'status --tag: a releasable commit after the Release PR requires a refresh, never a review' bash -c "grep -Fxq next_action=refresh_release_pr '$temporary/sstatus' && ! grep -Fxq next_action=review_release_pr '$temporary/sstatus'"
 check 'status --tag and status agree on a stale Release PR' same_decision v0.2.0
+printf none >"$state/native-state"
+release status >"$temporary/sstatus"
+check 'a stale Release PR is refreshed only after the native suite ran at the new main' bash -c "grep -Fxq next_action=qualify_main '$temporary/sstatus' && ! grep -Fxq next_action=refresh_release_pr '$temporary/sstatus'"
+expect_failure 'refresh is refused before the native suite ran at the new main' 'starting a release is not the next step' release start
+rm "$state/native-state"
 rm "$state/checks-$sfix2.json"
 release status >"$temporary/sstatus"
 check 'a refresh is not offered on a red main' bash -c "grep -Fxq next_action=blocked '$temporary/sstatus' && grep -Fq 'must be refreshed once it is green' '$temporary/sstatus'"
