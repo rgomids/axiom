@@ -1703,3 +1703,34 @@ RESUME_IMPLEMENT_WITH_NATIVE_FINDINGS_AND_C16_GAPS; receipt itself is real callb
 no successor dispatch claimed. DF-01 DEFERRED_NOT_IMPLEMENTED; #346/AXM-12 untouched.
 Final-head checks/CI/one root stage.partial read-back in same-AXM completion event.
 No merge, release, human acceptance, Done, self-approval or automatic Review claim.
+
+
+## Attempt-14 — Corrected owned installation; pinned native qualification partial
+
+[New installation/model/loading/journey/case Evidence](evidence-native-attempt14.md).
+Input local/remote/PR e67018f clean. Supported private `0.21.3-axm39.14` candidate
+from that exact source; backup restoration rehearsal PASS, digest-bound owned
+upgrade plus Claude install confirmed. Eight source-byte matches, current receipts,
+docs verified; installed inspector loaded remains unknown. Codex exact four-file
+reads and seven gpt-6.1-sol turn contexts; Claude four native Skill entries/full
+reads plus C16 re-entry, init/all assistants claude-haiku-5-5. Minimal pre-metadata
+inference disclosed. Both conversations seven turns, exit 0, no model drift.
+
+Real disposable qualification Project created only in isolated roots through
+supported preview/apply, no policy/selection/dispatch/provider effect. Both sessions
+read actual Project/Workflow/Stage/Agent facts; structural success with scoped
+capability/policy execution blockers preserved. Supported archive cleanup confirmed;
+ambient Project inventory unchanged. Synthetic cases remain scoped replay.
+Claude C01 FAIL; C06/C07/C08/C09/C10/C11/C15/C16 PARTIAL; Codex C10/C16 PARTIAL.
+Natural/explicit C16 native output observed; actual graphical/narrow rendering and
+independent visual-harness facets not observed. All prior native failures and
+historical scoped passes retained at original revisions.
+
+T01–T06 historical PASS; T07/T08/E07-Codex/E07-Claude/E08 PARTIAL, AC1–AC5 PARTIAL,
+AC6 PASS_SCOPED_REVIEW. No independent Review/acceptance readiness. IMPL14-TD-01–04
+record supported candidate/rollback, exact model gates, isolated real CLI setup and
+failure-preserving scoped Evidence. DF-01 DEFERRED_NOT_IMPLEMENTED; #346 untouched.
+Remaining failures/source fidelity/C16 facets and final-head validation/CI belong
+to same-AXM stage.partial receipt, API read-back and RECONCILE_IMPLEMENT handoff.
+No Spec/ADR/Plan/domain/CLI/schema/admission/Execution change, successor dispatch,
+merge, release, human acceptance or Done. AWAITING_EXECUTION_REPORT.

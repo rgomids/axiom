@@ -1,5 +1,32 @@
 # Specification 012 — Tasks r1 (AXM-39)
 
+## Current implementation checkpoint — attempt-14
+
+**PARTIAL.** [Attempt-14 E07/E08](evidence-native-attempt14.md): supported owned
+upgrade to private candidate `0.21.3-axm39.14`, clean source e67018f; both roots'
+eight corrected skill files match source, receipts current, docs verified. Complete
+backup/metadata restoration rehearsal PASS; no live rollback. Seven Codex native
+turn contexts pin `gpt-6.1-sol`; Claude init/all assistants `claude-haiku-5-5`,
+seven successful turns, no drift/fallback. Minimal inference before metadata
+inspection disclosed. Both read all four complete installed skills; Claude native
+Skill entry observed; Codex hidden resolver remains unverified beyond exact reads.
+Both perform real list/show/validate/Workflow inspection on one actual disposable
+CLI Project in isolated roots; no production Project, policy/selection or dispatch.
+Supported archive cleanup confirmed, ambient inventory remains empty.
+
+New ledger retains Claude C01 FAIL; C06/C07/C08/C09/C10/C11/C15/C16 PARTIAL.
+Codex C10/C16 PARTIAL; other case passes scoped to exact live/replay inputs.
+C16 natural/explicit native turns observed, graphical/width/independent visual
+harness facets unobserved. No synthetic response or text oracle is native/visual
+acceptance. All older failures/scoped passes remain historical, never overwritten.
+T01–T06 historical PASS; T07/T08/E07-Codex/E07-Claude/E08 PARTIAL;
+AC1–AC5 PARTIAL, AC6 PASS_SCOPED_REVIEW. Final-head checks/CI and one stage.partial
+receipt/read-back in same AXM. DF-01 DEFERRED_NOT_IMPLEMENTED; #346 untouched.
+Next gate **RECONCILE_IMPLEMENT / AWAITING_EXECUTION_REPORT**; remaining native
+failures/source fidelity/C16 surface gap prevent full qualification. No independent
+Review readiness, merge, release, human acceptance or Done. Historical checkpoints
+below preserved byte-for-byte.
+
 ## Current implementation checkpoint — attempt-12
 
 **PARTIAL.** [Attempt-12 E07/E08](evidence-native-attempt12.md): exact effective
