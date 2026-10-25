@@ -107,10 +107,10 @@
       "removal_condition": null
     },
     {
-      "path": ".github/workflows/delivery-metadata.yml",
+      "path": ".github/workflows/delivery-correction.yml",
       "kind": "workflow",
       "owner": "delivery",
-      "purpose": "Validate PR title and Related-Issues/Completes-Issues metadata, refuse GitHub closing links, and accept only the bot-authored Release PR head on dispatch.",
+      "purpose": "Open the reviewed delivery correction PR for a squash commit on main that lost the Related-Issues/Completes-Issues lines its validated PR declared.",
       "lifecycle": "durable",
       "disposition": "keep",
       "disposition_ref": null,
@@ -121,9 +121,45 @@
       "scope": [
         "ci"
       ],
-      "trigger": "pull_request opened/edited/reopened/synchronize; workflow_dispatch for the Release PR branch",
+      "trigger": "push to main",
+      "replay_reason": null,
+      "callers": [],
+      "inputs": "push event after-SHA; merged PR title/body and delivery-metadata check run via the GitHub API",
+      "outputs": "correction branch, commit and PR; dispatched ci.yml and delivery-metadata.yml runs; step summary effect= lines",
+      "local_effects": "runner workspace only",
+      "network_effects": "GitHub API via gh: creates branch delivery-correction/<sha>, commits .github/delivery-corrections.txt through the contents API, opens a PR, dispatches two workflows",
+      "authority": "permissions contents: write, pull-requests: write, checks: read, actions: write; no secrets; trusted main checkout; never merges, never writes main, Issues or releases",
+      "tests": [
+        "scripts/test-delivery-correction.sh"
+      ],
+      "evidence": null,
+      "compatibility": [
+        {
+          "relation": "appends reviewed rows to",
+          "path": ".github/delivery-corrections.txt"
+        }
+      ],
+      "removal_condition": null
+    },
+    {
+      "path": ".github/workflows/delivery-metadata.yml",
+      "kind": "workflow",
+      "owner": "delivery",
+      "purpose": "Validate PR title and Related-Issues/Completes-Issues metadata, refuse GitHub closing links, and accept on dispatch only the bot-authored Release PR head or delivery correction PR head.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "github-actions",
+        "bash"
+      ],
+      "scope": [
+        "ci"
+      ],
+      "trigger": "pull_request opened/edited/reopened/synchronize; workflow_dispatch for the Release PR branch or a delivery-correction/<sha> branch",
       "replay_reason": null,
       "callers": [
+        "scripts/delivery-correction.sh",
         "scripts/release-pr-checks.sh"
       ],
       "inputs": "PR title/body via env vars, base-revision checkout, dispatch branch/sha/actor",
@@ -132,6 +168,7 @@
       "network_effects": "GitHub API via gh/GraphQL (read-only: pulls, closingIssuesReferences)",
       "authority": "permissions contents: read, pull-requests: read; no secrets; validator script taken from base/default branch",
       "tests": [
+        "scripts/test-delivery-correction.sh",
         "scripts/test-release-flow.sh"
       ],
       "evidence": null,
@@ -1276,6 +1313,39 @@
       "removal_condition": null
     },
     {
+      "path": "scripts/delivery-correction.sh",
+      "kind": "script",
+      "owner": "delivery",
+      "purpose": "Plan and propose delivery corrections for squash commits that lost validated PR metadata, and validate the correction PR head on the delivery-metadata dispatch path.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "bash"
+      ],
+      "scope": [
+        "ci",
+        "maintainer"
+      ],
+      "trigger": "called by delivery-correction.yml (propose) and delivery-metadata.yml (pr-head); plan is a manual read-only dry run",
+      "replay_reason": null,
+      "callers": [
+        ".github/workflows/delivery-correction.yml",
+        ".github/workflows/delivery-metadata.yml"
+      ],
+      "inputs": "--repo, --to SHA (plan/propose); --branch, --sha, --actor (pr-head); Git history and delivery-issues.sh output",
+      "outputs": "correction.N=/corrections= plan lines; effect= lines; correction_pr=/delivery_metadata= on pr-head",
+      "local_effects": "temporary files only",
+      "network_effects": "GitHub API via gh: reads merged PRs, check runs, commits, compare, closingIssuesReferences; propose creates a branch, a contents commit, a PR and two workflow dispatches",
+      "authority": "caller credentials (GITHUB_TOKEN of the calling workflow); only normalized Issue lists from delivery-issues.sh check-pr are written",
+      "tests": [
+        "scripts/test-delivery-correction.sh"
+      ],
+      "evidence": null,
+      "compatibility": [],
+      "removal_condition": null
+    },
+    {
       "path": "scripts/delivery-github.sh",
       "kind": "script",
       "owner": "delivery",
@@ -2371,6 +2441,36 @@
       "local_effects": "Go build/test cache only",
       "network_effects": "none declared by the script; go test may fetch modules if the cache is cold",
       "authority": "none; local read-only checks",
+      "tests": [],
+      "evidence": null,
+      "compatibility": [],
+      "removal_condition": null
+    },
+    {
+      "path": "scripts/test-delivery-correction.sh",
+      "kind": "script",
+      "owner": "delivery",
+      "purpose": "Contract tests for delivery-correction.sh and the delivery-correction.yml/delivery-metadata.yml correction path against a fixture repository and a fake gh.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "bash"
+      ],
+      "scope": [
+        "ci",
+        "test"
+      ],
+      "trigger": "every CI PR Checks job run",
+      "replay_reason": null,
+      "callers": [
+        ".github/workflows/ci.yml"
+      ],
+      "inputs": "none; reads delivery-correction.sh, delivery-issues.sh, delivery-correction.yml and delivery-metadata.yml",
+      "outputs": "ok:/FAIL: lines; PASS summary and exit 0, or failure count and exit 1",
+      "local_effects": "temporary directories only",
+      "network_effects": "none; a fake gh on PATH",
+      "authority": "none; local checks only",
       "tests": [],
       "evidence": null,
       "compatibility": [],

@@ -243,7 +243,9 @@ Every Pull Request has two required checks in the `main` ruleset
 
 Linux/macOS `go test -race`, release contracts and upgrade journeys run in the
 [native suite](.github/workflows/native-suite.yml): nightly, on manual dispatch
-and in every release preparation, where a failure blocks publication.
+and in every release preparation, where a failure blocks publication. A
+release starts only from a `main` commit whose native suite succeeded
+([ADR-0036](docs/decisions/0036-native-qualification-gates-release-start.md)).
 
 CI has a read-only token and never publishes anything. Renaming a job changes a
 required check: update the ruleset file and the repository ruleset together.
@@ -388,7 +390,14 @@ If a merged commit's metadata is missing or malformed, the release preflight
 fix is a normal reviewed PR to `main` that adds a line to
 [`.github/delivery-corrections.txt`](.github/delivery-corrections.txt) of the
 form `<full-sha> related=<n,m|none> completes=<n,m|none>`, with its reason
-recorded above it. The file is read as committed at the revision being
+recorded above it. When the lost lines are exactly those of the merged PR's
+description and its `delivery-metadata` check passed at the PR head,
+[`delivery-correction.yml`](.github/workflows/delivery-correction.yml) opens
+that PR by itself on the push to `main` (branch
+`delivery-correction/<sha>`, `scripts/delivery-correction.sh`) and dispatches
+its required checks; review the values against the original PR and merge it.
+Any other case fails closed and the correction is written by hand. The file
+is read as committed at the revision being
 resolved, so by default a correction counts only for releases whose release
 commit contains it; a correction merged before the release starts is always
 contained. History is never rewritten. Only a release whose release commit
@@ -545,7 +554,10 @@ inconsistent commit
 blocks it, a releasable commit merged after it was built reports
 `refresh_release_pr` (`$axiom-release` re-validates and refreshes it), and
 validated hidden commits only need the branch update that the ruleset
-requires before merge.
+requires before merge. Starting or refreshing a Release PR also requires the
+native suite to have succeeded at the exact `main` SHA; `release.sh qualify`
+runs it when it never ran there
+([ADR-0036](docs/decisions/0036-native-qualification-gates-release-start.md)).
 
 Merging the Release PR is a normal reviewed squash merge. It records the
 versioned state on `main` (that squash commit is the *release commit*) and
