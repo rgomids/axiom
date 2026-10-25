@@ -26,6 +26,18 @@
   Projects created by `project configure` carry no policy and block until an
   authored policy is installed.
 
+## [0.22.0](https://github.com/rgomids/axiom/compare/v0.21.2...v0.22.0) (2026-10-25)
+
+
+### Features
+
+* **skills:** clarify Project and Stage presentation (AXM-39) ([#343](https://github.com/rgomids/axiom/issues/343)) ([ecba149](https://github.com/rgomids/axiom/commit/ecba1496a357a5503f8e68d08a1d48a413a95089))
+
+
+### Bug Fixes
+
+* **delivery:** restore squash metadata of PR [#343](https://github.com/rgomids/axiom/issues/343) ([#350](https://github.com/rgomids/axiom/issues/350)) ([94a5b7b](https://github.com/rgomids/axiom/commit/94a5b7bbac58544617cc0853327aa22f1ee189a8))
+
 ## [0.21.2](https://github.com/rgomids/axiom/compare/v0.21.1...v0.21.2) (2026-10-24)
 
 
