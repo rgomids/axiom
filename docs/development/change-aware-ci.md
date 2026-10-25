@@ -33,7 +33,10 @@ Reproduce locally with Go from `go.mod`:
 - `contracts`: release pipeline, native acceptance, release flow, delivery,
   recovery, Release PR dispatch and code health contracts.
 - `upgrade-journeys (linux|macos)`: owned N → candidate upgrades from public
-  release assets. Release preparation proposes using its immutable workflow SHA
+  release assets. One inventory-driven selection names the host archive and
+  pinned verifier of each earlier release, and is first applied to the
+  candidate's own inventory: a candidate that the next release could not fetch
+  as its previous release fails here, not in that release's preparation. Release preparation proposes using its immutable workflow SHA
   for the harness alone; product builds, suites and contracts keep the release
   SHA ([ADR-0031](../decisions/0031-release-validation-harness-pin.md), Proposed).
 

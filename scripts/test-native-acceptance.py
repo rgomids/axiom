@@ -202,7 +202,7 @@ class NativeContract(unittest.TestCase):
     def test_workflow_fetches_inventory_pinned_previous_verifier(self):
         root = Path(__file__).resolve().parent.parent
         workflow = (root / ".github/workflows/native-suite.yml").read_text()
-        step = workflow.split("      - name: Fetch published earlier releases\n", 1)[1].split("      - name:", 1)[0]
+        step = workflow.split("      - name: Check the candidate as a previous release and fetch published earlier releases\n", 1)[1].split("      - name:", 1)[0]
         command = textwrap.dedent(step.split("        run: |\n", 1)[1])
         with tempfile.TemporaryDirectory() as temporary:
             tmp = Path(temporary)
@@ -243,8 +243,10 @@ fi
                     with self.subTest(row=row, reject=reject):
                         work = tmp / (row + reject)
                         work.mkdir()
+                        self.stage_candidate(work, ["axiom-9999.0.0-acceptance.7-" + row2 + ".tar.gz",
+                                                    "axiom-verifier-9999.0.0-acceptance.7-abcdef-" + target])
                         env = {"PATH": str(fakebin) + ":/usr/bin:/bin", "ROW": row, "ROW2": row2, "TARGET": target,
-                               "RUNNER_TEMP": str(work), "GITHUB_ENV": str(work / "env"),
+                               "RUNNER_TEMP": str(work), "GITHUB_ENV": str(work / "env"), "GITHUB_RUN_NUMBER": "7",
                                "GITHUB_REPOSITORY": "fixture/repo", "REJECT_HELPER": reject}
                         result = subprocess.run(["bash", "-eo", "pipefail", "-c", command], env=env,
                                                 capture_output=True, text=True)
@@ -258,6 +260,33 @@ fi
                             self.assertEqual(archive.read_text(), "fixture")
                             self.assertTrue((work / "previous-v0.1.1" / ("axiom-0.1.1-" + row + ".tar.gz")).is_file())
                             self.assertFalse(list((work / "previous-v0.1.1").glob("axiom-verifier-*")))
+            # The candidate is the next release's previous: an inventory the
+            # selection cannot resolve to built files fails before any download.
+            for row, built, listed, message in (
+                    ("macos-27-arm64", [], ["axiom-9999.0.0-acceptance.7-macos-arm64.tar.gz"], "was not built"),
+                    ("macos-27-arm64", None, ["axiom-9999.0.0-acceptance.7-macos-arm64e.tar.gz"], "missing or ambiguous host archive"),
+                    ("macos-27-arm64", None, ["axiom-9999.0.0-acceptance.7-macos-arm64.tar.gz",
+                                              "axiom-9999.0.0-acceptance.7-macos-27-arm64.tar.gz"], "missing or ambiguous host archive"),
+                    ("linux-amd64", None, ["axiom-9999.0.0-acceptance.7-linux-amd64.tar.gz",
+                                           "axiom-verifier-9999.0.0-acceptance.7-a-linux-amd64",
+                                           "axiom-verifier-9999.0.0-acceptance.7-b-linux-amd64"], "invalid or ambiguous verifier inventory")):
+                with self.subTest(candidate=listed):
+                    work = Path(tempfile.mkdtemp(dir=tmp))
+                    self.stage_candidate(work, listed, listed if built is None else built)
+                    env = {"PATH": str(fakebin) + ":/usr/bin:/bin", "ROW": row, "RUNNER_TEMP": str(work),
+                           "GITHUB_ENV": str(work / "env"), "GITHUB_RUN_NUMBER": "7", "GITHUB_REPOSITORY": "fixture/repo"}
+                    result = subprocess.run(["bash", "-eo", "pipefail", "-c", command], env=env, capture_output=True, text=True)
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertIn(message, result.stderr)
+                    self.assertFalse(list(work.glob("previous-*")))
+
+    @staticmethod
+    def stage_candidate(work, listed, built=None):
+        candidate = work / "candidate"
+        candidate.mkdir()
+        (candidate / "SHA256SUMS").write_text("".join("0" * 64 + "  " + name + "\n" for name in listed))
+        for name in listed if built is None else built:
+            (candidate / name).write_text("candidate")
 
     def test_strict_gate_and_no_publication(self):
         root = Path(__file__).resolve().parent.parent
