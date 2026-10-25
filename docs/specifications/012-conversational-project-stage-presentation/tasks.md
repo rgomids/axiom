@@ -1,5 +1,23 @@
 # Specification 012 — Tasks r1 (AXM-39)
 
+## Current implementation checkpoint — attempt-12
+
+**PARTIAL.** [Attempt-12 E07/E08](evidence-native-attempt12.md): exact effective
+`claude-haiku-5-5` verified in init and assistant metadata in both CLI 2.1.310
+processes. Minimal inference preceded metadata inspection, explicitly disclosed.
+Native four-Skill entry/eight complete skill Reads/two receipt Reads match installed
+bytes and source e045cac; all unchanged. Eight-turn session exit 0, no drift/denial.
+Real list empty; remaining replay synthetic in native Claude, not a live journey.
+C01/C02/C04 FAIL; C06/C09/C10/C13/C16 PARTIAL; C03/C05/C07/C08/C11/C12/C14/C15
+PASS scoped to supplied replay. C16 natural/explicit textual comparison observed;
+narrow GUI/independent harness gaps retained. No new Codex inference; historical
+C01–C15 PASS_SCOPED_REPLAY/C16 PARTIAL preserved. T01–T06 historical scoped PASS;
+T07/T08 PARTIAL; AC1–AC5 PARTIAL, AC6 PASS_SCOPED_REVIEW. E07-Claude/E08 PARTIAL.
+Next gate **RESUME_IMPLEMENT_WITH_NATIVE_FINDINGS_AND_C16_GAPS**, no independent
+Review readiness. Source prompt second/last execution consumed; no silent retry.
+DF-01 deferred; #346/AXM-12 untouched. Final-head checks/CI and single stage.partial
+callback/read-back recorded in same AXM. No merge/release/acceptance/Done.
+
 ## Current implementation checkpoint — attempt-11
 
 **BLOCKED attempt / PARTIAL Implement.** [Attempt-11 E07/E08](evidence-native-attempt11.md):

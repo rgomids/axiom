@@ -1673,3 +1673,33 @@ C16 gaps and final reconciliation remain. No independent Review readiness,
 new scope/host/auth/contract changes, merge/release/acceptance/Done.
 DF-01 deferred; #346 separate. Final-head validation/CI and root callback raw
 read-back belong to attempt-11 receipt; AWAITING_EXECUTION_REPORT.
+
+## Attempt-12 — Verified Haiku 5.5; qualified replay remains PARTIAL
+
+[Native model/loading/case ledger and E08 reconciliation](evidence-native-attempt12.md).
+Input HEAD `dc79c22c1254c868f328c351195da201d7b4280b`, same Draft PR #343.
+Two explicit pinned CLI 2.1.310 processes: init/assistant `claude-haiku-5-5`,
+minimal authorized inference before identity inspection disclosed. Both exit 0,
+stderr empty, no model drift/fallback. Second session eight completed user turns;
+four native Skill entries, eight full SKILL.md and two receipt Reads exactly
+match installed bytes; source e045cac equality and no before/after mutation.
+Six Skill calls total include explicit C16 Project/Workflow re-entry. One real
+Project list returns empty; no live show/validate/Stage/Workflow journey invented.
+
+Claude C01/C02/C04 FAIL; C06/C09/C10/C13/C16 PARTIAL;
+C03/C05/C07/C08/C11/C12/C14/C15 PASS only within supplied synthetic native replay.
+C01/C02 gratuitous UUIDs, C04 abbreviations, partial uncertainty/provenance
+omissions retained verbatim. C16 natural/explicit semantic comparison achieved;
+actual narrow GUI and independent harness gaps remain. No new Codex inference;
+historical C01–C15 PASS_SCOPED_REPLAY/C16 PARTIAL immutable at original protocol/SHA.
+
+Attempt/Implement PARTIAL. T01–T06 historical scoped PASS; T07/T08 PARTIAL,
+AC1–AC5 PARTIAL; AC6 PASS_SCOPED_REVIEW (evidence-only contract preservation).
+E07-Claude/E08 PARTIAL, no independent Review readiness. Technical decisions
+IMPL12-TD-01–03 in linked ledger: documented minimal init, independently verified
+least-permission native loading, unchanged-source findings without PASS-seeking
+retries. Prompt second/last permitted execution consumed. Next gate
+RESUME_IMPLEMENT_WITH_NATIVE_FINDINGS_AND_C16_GAPS; receipt itself is real callback,
+no successor dispatch claimed. DF-01 DEFERRED_NOT_IMPLEMENTED; #346/AXM-12 untouched.
+Final-head checks/CI/one root stage.partial read-back in same-AXM completion event.
+No merge, release, human acceptance, Done, self-approval or automatic Review claim.
