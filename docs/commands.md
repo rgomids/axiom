@@ -1046,9 +1046,9 @@ open and merged-unpublished Release PRs, the release plan), `state` and
 
 | `state` | `next_action` | Meaning |
 |---|---|---|
-| `no_release_in_progress` | `none`, `start_release` or `blocked` | nothing releasable; the plan passed; or the plan or the previous-release check refused (`reason`) |
+| `no_release_in_progress` | `none`, `start_release`, `qualify_main`, `await_run` or `blocked` | nothing releasable; the plan passed and the native suite succeeded at `main`; the native suite never ran at `main` (`release.sh qualify`), is running, or failed; or the plan or the previous-release check refused (`reason`) |
 | `release_pr_starting` | `await_run` | a Release Please run is in flight |
-| `release_pr_open` | `review_release_pr`, `refresh_release_pr` or `blocked` | human review and merge (after a branch update when only validated hidden commits are behind); a releasable commit or another planned version since it was built; or `main` no longer validates, is red, or the planned tag has a release |
+| `release_pr_open` | `review_release_pr`, `refresh_release_pr`, `qualify_main`, `await_run` or `blocked` | human review and merge (after a branch update when only validated hidden commits are behind); a releasable commit or another planned version since it was built; or `main` no longer validates, is red, or the planned tag has a release |
 | `release_pr_merged` / `release_candidate` | `prepare` or `blocked` | build and verify the exact set of the release commit (or RC revision) |
 | `preparing` / `publishing` | `await_run` | a preparation or publication run is in flight (a publication waits for the `release` environment approval) |
 | `awaiting_publication_authority` | `authorize_publication` | the envelope of the newest verified prepared run, with `preview_digest` |
@@ -1072,6 +1072,20 @@ Start a release (preflight, then Release Please; no tag, release or artifact):
 ./scripts/release-plan.sh --main-ref origin/main
 ./scripts/release.sh start
 ```
+
+`start_release` and `refresh_release_pr` also require the native suite
+(`nightly.yml`: Linux/macOS race suites, release contracts, upgrade journeys)
+to have succeeded at the exact `main` SHA ([ADR-0036](decisions/0036-native-qualification-gates-release-start.md)).
+`status` reports `main_native` (`success`, `failure`, `pending`, `missing`)
+and `main_native_run`; a missing run reports `next_action=qualify_main`:
+
+```bash
+./scripts/release.sh qualify
+```
+
+`qualify` dispatches `nightly.yml` on `main`, waits and prints `status`
+again; it publishes nothing. A failed run blocks the start until `main` is
+fixed or a human re-runs it.
 
 `release-plan.sh` is Git-only: for every first-parent commit since the last
 release commit it requires a Conventional Commit subject and declared or

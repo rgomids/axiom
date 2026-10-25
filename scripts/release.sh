@@ -3,6 +3,7 @@
 # Merges integrate code; `start` starts releases (ADR-0011).
 #
 #   release.sh status  [--tag vX.Y.Z[-rc.N]] [--revision SHA] [--prepared-run ID]
+#   release.sh qualify
 #   release.sh start [--repair-revision SHA]
 #   release.sh prepare [--tag TAG] [--revision SHA]
 #   release.sh publish --preview-digest DIGEST --authorize-publication [--tag TAG] [--revision SHA] [--prepared-run ID]
@@ -12,6 +13,11 @@
 # the release in progress (open or merged Release PR, in-flight runs, the
 # newest verified prepared run) so no SHA, run id or intermediate digest has
 # to be supplied by hand.
+# QUALIFY dispatches nightly.yml (the native suite: Linux/macOS race suites,
+# release contracts, upgrade journeys; no publication) on main and waits.
+# Starting or refreshing a release requires that suite to have succeeded at
+# the exact main commit (ADR-0036); status reports qualify_main when it never
+# ran there, await_run while it runs and blocked when it failed.
 # START runs the release plan (release-plan.sh: every commit since the last
 # release has a Conventional Commit subject and delivery metadata; SemVer
 # plan) and the remote facts (among them: the previous release the plan
@@ -43,6 +49,7 @@ scripts=$repository_root/scripts
 workflow=publish-release.yml
 prepare_workflow=release-artifacts.yml
 start_workflow=release-please.yml
+native_workflow=nightly.yml
 command=${1:-}
 [[ -n "$command" ]] && shift
 tag=
@@ -236,6 +243,47 @@ find_run() {
     sleep "${AXIOM_RELEASE_RETRY_DELAY:-3}"
   done
   printf '%s' "$run"
+}
+
+# native_state SHA prints "<state> <url>" for the newest native suite run of
+# nightly.yml on main at exactly SHA (scheduled or dispatched): success,
+# failure, pending, or "missing none" when none ran there. A listing that
+# fails is "unknown none" (ADR-0036).
+native_state() {
+  local runs
+  runs=$(gh run list --repo "$repository" --workflow "$native_workflow" --branch main --commit "$1" --limit 20 \
+    --json databaseId,url,status,conclusion,headSha,headBranch,event,createdAt 2>/dev/null) || { printf 'unknown none'; return; }
+  jq -r --arg sha "$1" '[.[] | select(.headSha == $sha and .headBranch == "main"
+      and (.event == "schedule" or .event == "workflow_dispatch"))] | sort_by(.createdAt) | last
+    | if . == null then "missing none"
+      else (if .status != "completed" then "pending" elif .conclusion == "success" then "success" else "failure" end) + " " + .url end' \
+    <<<"$runs" 2>/dev/null || printf 'unknown none'
+}
+
+# native_gate MAIN sets state facts, next and reason and fails unless the
+# native suite succeeded at MAIN: a release starts or refreshes only from a
+# main commit that passed what release preparation will run (ADR-0036).
+native_gate() {
+  local native url
+  read -r native url <<<"$(native_state "$1")"
+  printf 'main_native=%s\nmain_native_run=%s\n' "$native" "$url" >>"$temporary/status"
+  case "$native" in
+    success) return 0 ;;
+    pending)
+      next=await_run
+      printf 'run_id=%s\nrun_url=%s\nrun_status=in_progress\n' "${url##*/}" "$url" >>"$temporary/status"
+      reason="the native suite at main $1 is running ($url); wait for it, then run status again" ;;
+    missing)
+      next=qualify_main
+      reason="the native suite never ran at main $1; run release.sh qualify (dispatches $native_workflow on main; no publication)" ;;
+    failure)
+      next=blocked
+      reason="the native suite failed at main $1 ($url); fix main (or re-run that run when the failure is not reproducible) before starting a release" ;;
+    *)
+      next=blocked
+      reason="cannot read the native suite state at main $1" ;;
+  esac
+  return 1
 }
 
 # inflight_run WORKFLOW prints the newest run of WORKFLOW that has not
@@ -455,6 +503,8 @@ release_pr_facts() {
   if [[ "$refresh" == true ]]; then
     if [[ $(value main_ci "$temporary/status") != success ]]; then
       next=blocked; reason="required CI on main $main is $(value main_ci "$temporary/status"); the Release PR must be refreshed once it is green"
+    elif ! native_gate "$main"; then
+      :
     elif github_release_exists "$(value planned_tag "$temporary/status")"; then
       next=blocked; reason="a GitHub Release already uses $(value planned_tag "$temporary/status"); resolve it before refreshing the Release PR"
     else
@@ -550,6 +600,8 @@ status() {
         next=none; reason="no releasable commit since $(value plan.previous_tag "$out"); merges integrate code, nothing to release"
       elif [[ $(value main_ci "$out") != success ]]; then
         next=blocked; reason="required CI on main $main is $(value main_ci "$out")"
+      elif ! native_gate "$main"; then
+        :
       elif github_release_exists "$(value planned_tag "$out")"; then
         next=blocked; reason="a GitHub Release already uses $(value planned_tag "$out"); resolve it before starting"
       else
@@ -711,6 +763,24 @@ status() {
 
 case "$command" in
   status)
+    status_line=$(status)
+    cat "$temporary/status"
+    printf '%s\n' "$status_line"
+    ;;
+  qualify)
+    [[ -z "$tag$revision$prepared_run$preview_digest$corrections_revision$repair_revision" && "$authorized" == false && "$download" == false ]] \
+      || fail 'qualify takes no option: it qualifies the current main'
+    status_line=$(status)
+    grep -Fxq 'next_action=qualify_main' <<<"$status_line" \
+      || { cat "$temporary/status"; fail "qualifying main is not the next step: $(tr '\n' ' ' <<<"$status_line")"; }
+    dispatched_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+    gh workflow run "$native_workflow" --repo "$repository" --ref main >/dev/null || fail 'native suite dispatch failed'
+    printf 'effect=workflow_dispatched workflow=%s ref=main publication=none\n' "$native_workflow"
+    run=$(find_run "$native_workflow" "$dispatched_at")
+    [[ -n "$run" ]] || fail 'cannot find the native suite run'
+    printf 'native_run_url=%s\n' "$(jq -r '.url' <<<"$run")"
+    gh run watch "$(jq -r '.databaseId' <<<"$run")" --repo "$repository" --exit-status >/dev/null \
+      || fail "native suite run $(jq -r '.databaseId' <<<"$run") failed at main; fix main before starting a release"
     status_line=$(status)
     cat "$temporary/status"
     printf '%s\n' "$status_line"
@@ -902,6 +972,6 @@ case "$command" in
     printf 'result=pass\n'
     ;;
   *)
-    fail 'usage: release.sh status|start|prepare|publish|verify [options]'
+    fail 'usage: release.sh status|qualify|start|prepare|publish|verify [options]'
     ;;
 esac

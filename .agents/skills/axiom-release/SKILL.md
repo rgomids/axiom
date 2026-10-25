@@ -71,14 +71,21 @@ Never infer or reuse a repair selection for another release without authority.
      dispatches Release Please and waits for the run. Then report
      `release_pr=<url>`, `planned_version`, `planned_tag` and
      `next_action=review_release_pr`, and stop.
+   - `qualify_main` (`state=no_release_in_progress` or `release_pr_open`): the
+     native suite never ran at the current `main` (ADR-0036). A human asked for
+     the release, so run `scripts/release.sh qualify`. It dispatches
+     `nightly.yml` on `main` (no publication), waits about 30 minutes and
+     prints `status` again. Report `main_native`, `native_run_url` and the new
+     `next_action`, and stop. A failed run is reported, never re-run by you.
    - `refresh_release_pr`: `main` moved or the plan changed since the Release
      PR was built. Show the reason and the new plan, run
      `scripts/release.sh start` to re-validate and refresh it, and stop.
    - `review_release_pr` (`state=release_pr_open`): show the Release PR URL,
      version, `release_pr_ci` and the plan. Reviewing, approving and merging it
      is human authority. Offer to summarize the diff. Never approve or merge it.
-   - `await_run`: a Release Please, preparation or publication run is in
-     flight (`run_url`, `run_status`). A `publish-release.yml` run in
+   - `await_run`: a native suite at `main`, Release Please, preparation or
+     publication run is in flight (`run_url`, `run_status`). A
+     `publish-release.yml` run in
      `waiting` needs the human approval of the `release` environment in
      GitHub. Never approve it yourself. Offer to watch with
      `gh run watch <run_id> --repo <repository> --exit-status`, then run
@@ -86,7 +93,10 @@ Never infer or reuse a repair selection for another release without authority.
    - `blocked`: show `reason` and the smallest action that unblocks it. For
      example, a commit without delivery metadata or with a nonconventional
      subject is fixed by a normal reviewed PR. That PR appends a reviewed row
-     to `.github/delivery-corrections.txt`, which is not a recovery. Other
+     to `.github/delivery-corrections.txt`, which is not a recovery. A failed
+     native suite at `main` (`main_native=failure`, `main_native_run`) is
+     fixed on `main`; a human may re-run that run when the failure is not
+     reproducible. Other
      examples: fix required CI, merge or refresh the Release PR, or apply the
      pending repository settings in `docs/security/repository-security.md`.
      A `previous_release_state` other than `published` (its tag exists but its
