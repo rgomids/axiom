@@ -9,20 +9,26 @@ end-user Model Profiles.
 ## Rule
 
 For every agent invocation required by the Axiom test battery (cloud,
-Claude/Claudinho, Codex, GPT, any other), always use the **simplest available
-model**.
+Claude/Claudinho, Codex, GPT, any other), always use the **simplest model the
+active auth accepts**. Never upgrade beyond that pin. Never alternate models
+between attempts. Pin the model explicitly on the CLI. Do not rely on host
+`~/.claude/settings.json` or other host defaults. If the runtime refuses the
+simple model, stop and record the exact error. Do not substitute another model.
 
 Current mapping:
 
 - Claude/Claudinho → Haiku 5.5 (`--model haiku` / `claude-haiku-5-5`)
-- Codex → GPT 6.1 Luna (`-m gpt-6.1-luna` or the supported Luna alias on the Codex CLI)
+- Codex with ChatGPT account auth → `gpt-6.1-sol` (`-m gpt-6.1-sol`).
+  `gpt-6.1-luna` returns HTTP 400 `model_not_found` ("not supported when using
+  Codex with a ChatGPT account"). A probe of `gpt-6.1-sol` returned ACCEPT.
+  The same pin was used on AXM-39 attempts 10 and 11.
+- Codex with API auth that unlocks Luna → `gpt-6.1-luna` (`-m gpt-6.1-luna`,
+  or the supported Luna alias on the Codex CLI). Luna stays valid only while
+  that auth is active.
 
-If Haiku or GPT 6.1 Luna stop existing, the rule remains: always the smallest
-possible model for that battery. Never upgrade to a heavier model (no
-Sonnet, Opus, or sol as fallback). Never alternate models between attempts.
-Pin the model explicitly on the CLI. Do not rely on host
-`~/.claude/settings.json` or other host defaults. If the runtime refuses the
-simple model, stop and record the exact error. Do not substitute another model.
+If a named pin stops existing, the rule remains: the smallest model that the
+active auth accepts for that battery. Do not move to a heavier model. Do not
+alternate models between attempts.
 
 ## Authority
 
@@ -30,3 +36,6 @@ simple model, stop and record the exact error. Do not substitute another model.
 - Label: `policy/test-simplest-model`
 - Notion: <https://app.notion.com/p/404e01f226268145b2e9e88a451d8e7e>
 - Authorized by Rafael via Maestro voice on 24/10/2026, about 21:54 BRT
+- Amendment authorized by Rafael on 24/10/2026, about 23:19 BRT
+  (America/Sao_Paulo), recorded on Linear AXM-41: Codex ChatGPT-account auth
+  pins `gpt-6.1-sol`; Luna remains only when API auth unlocks it

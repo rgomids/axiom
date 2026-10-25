@@ -101,7 +101,7 @@ Policies:
   automation; every durable script or workflow is registered in
   `scripts/automation-registry.json`)
 - `docs/operational/test-battery-simplest-model.md` (test-battery agent
-  invocations use the simplest available model; pin it on the CLI)
+  invocations use the simplest model the active auth accepts; pin it on the CLI)
 
 ## Definition of Done
 
