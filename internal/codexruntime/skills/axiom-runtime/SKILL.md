@@ -215,6 +215,18 @@ read before dependent action, preserving all reference fields and authority.
 policy declaring `codex-test` is not Runtime selection or Agent resolution.
 Codex/Claude permission and the current conversational host never choose Runtime.
 Model and effort are Profile-owned; complexity/Role does not select them.
+Retain the exact Agent declaration `profileRef: policy-default` in the answer,
+separately from Project-declared `codex-test`, allowed Runtimes, unresolved Plan
+and unobserved execution when those are the supplied facts. Do not replace the declared reference with an inferred
+Profile, model or effort. NOT_OBSERVED is not FALSE: without an observation,
+acceptance, compatibility, billing and execution remain not observed, not denied.
+A resolved Plan proves resolution only; observed login proves authentication only.
+Compatibility has its own source and may be observed without an Execution attempt;
+attribute that observation separately rather than demand an attempt to establish it.
+A revision label such as `public-r2` does not establish freshness. Preserve each
+stale/conflicting reference, truncation and inaccessible field as a gap; do not
+call a revision current or recover full fields without a supported observation.
+
 `runtime-default` specifies no Axiom override, not a concrete vendor effort.
 A matching resolution is not dispatch. A login-only observation proves auth only,
 not inference, compatibility, billing or acceptance. An unknown version alone
