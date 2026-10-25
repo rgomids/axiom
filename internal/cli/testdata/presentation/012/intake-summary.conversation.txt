@@ -1,0 +1,2 @@
+Definition default-sdd revision 2, source builtin, digest 1a7d6f56c8c60f2d562b16dc69387abcaefeafcbde488b87eaae1daa8deb4068.
+intake: Normalize bounded intent and exact Work Item target. Input source from target (work-item); output result (artifact). nenhum gate declarado. owner / engineer: Produce the declared outputs; validate references and stay within the approved envelope. allowed codex; allowed claude; declared policy-default; resolution unknown. Declared output exists, is correlated, and passes its registered validator.

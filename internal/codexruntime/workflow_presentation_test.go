@@ -532,3 +532,189 @@ func TestRenderedWorkflowInputDeltas(t *testing.T) {
 		})
 	}
 }
+
+// AXM-39 C07/C08: typed Stage claims; independently authored conversational
+// specimens. Missing data deliberately uses a negative source, not a valid DTO.
+func stage012Claims(s workflowdefinition.Stage, ref workflowdefinition.Ref, detail bool) []string {
+	wants := []string{s.ID, s.Purpose, ref.WorkflowID, ref.Source, ref.Digest, fmt.Sprintf("revision %d", ref.Revision)}
+	for _, in := range s.Inputs {
+		wants = append(wants, in.ID+" from "+in.Source+" ("+in.Kind+")")
+	}
+	for _, out := range s.Outputs {
+		wants = append(wants, out.ID+" ("+out.Kind+")")
+	}
+	if s.HumanGates == nil {
+		wants = append(wants, "não informado nesta fonte")
+	} else if len(s.HumanGates) == 0 {
+		wants = append(wants, "nenhum gate declarado")
+	}
+	for _, gate := range s.HumanGates {
+		wants = append(wants, gate.Kind+" "+gate.Timing, "satisfaction unobserved")
+	}
+	for _, criterion := range s.CompletionCriteria {
+		wants = append(wants, criterion.Description)
+	}
+	for _, a := range s.Agents {
+		wants = append(wants, a.ID+" / "+a.Role, a.Responsibilities, "declared "+a.ProfileRef, "resolution unknown")
+		for _, runtime := range a.RuntimeConstraints {
+			wants = append(wants, "allowed "+runtime)
+		}
+		if detail {
+			wants = append(wants, fmt.Sprintf("timeout %d seconds", a.TimeoutSeconds), fmt.Sprintf("attempts %d", a.MaximumAttempts))
+			for _, ceiling := range a.EffectCeilings {
+				wants = append(wants, "ceiling "+ceiling)
+			}
+		}
+	}
+	if detail {
+		wants = append(wants, s.Instructions, fmt.Sprintf("concurrency %d", s.Concurrency), "failure "+s.FailurePolicy.OnFailure, "unknown "+s.FailurePolicy.OnUnknown, "retry "+s.FailurePolicy.Retry)
+		for _, validator := range s.Validators {
+			wants = append(wants, validator.ID+" / "+validator.Kind+" / "+validator.PolicyRef)
+		}
+		for _, input := range s.Inputs {
+			wants = append(wants, fmt.Sprintf("input %s required %t", input.ID, input.Required))
+		}
+		for _, output := range s.Outputs {
+			wants = append(wants, fmt.Sprintf("output %s required %t", output.ID, output.Required))
+		}
+	}
+	return wants
+}
+func checkStage012(s workflowdefinition.Stage, ref workflowdefinition.Ref, detail bool, risks []projectapp.Finding, candidate string) error {
+	for _, want := range stage012Claims(s, ref, detail) {
+		if !strings.Contains(candidate, want) {
+			return fmt.Errorf("missing Stage claim %s", want)
+		}
+	}
+	for _, risk := range risks {
+		if !strings.Contains(candidate, risk.Code+": "+risk.Detail) {
+			return fmt.Errorf("hidden initial risk %s", risk.Code)
+		}
+	}
+	for _, bad := range []string{"Gate approved", "Execution performed", "model invented", "effort invented", "Retry automatically", "Diagram rendered"} {
+		if strings.Contains(candidate, bad) {
+			return fmt.Errorf("invented %s", bad)
+		}
+	}
+	return nil
+}
+func TestOperatorConversational012StageSummaryAndDetail(t *testing.T) {
+	_, e := presentationFixture(t, "default-sdd-r2")
+	v, err := inspectPresentation(e)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, s := range v.Definition.Stages {
+		if s.ID != "intake" && s.ID != "implementation" {
+			continue
+		}
+		for _, detail := range []bool{false, true} {
+			name := s.ID + "-summary"
+			if detail {
+				name = s.ID + "-detail"
+			}
+			t.Run("C07/"+name, func(t *testing.T) {
+				wire, err := os.ReadFile("../cli/testdata/presentation/012/" + name + ".conversation.txt")
+				if err != nil {
+					t.Fatal(err)
+				}
+				candidate := string(wire)
+				if err := checkStage012(s, v.Reference, detail, nil, candidate); err != nil {
+					t.Fatal(err)
+				}
+				if !detail && strings.Contains(candidate, s.Instructions) {
+					t.Fatal("initial summary dumps advanced instructions")
+				}
+				for _, want := range stage012Claims(s, v.Reference, detail) {
+					if checkStage012(s, v.Reference, detail, nil, strings.ReplaceAll(candidate, want, "[omitted]")) == nil {
+						t.Fatalf("omission accepted: %s", want)
+					}
+				}
+				for _, bad := range []string{"Gate approved", "Execution performed", "model invented", "effort invented", "Retry automatically", "Diagram rendered"} {
+					if checkStage012(s, v.Reference, detail, nil, candidate+bad) == nil {
+						t.Fatal("invention accepted", bad)
+					}
+				}
+				changed := s
+				changed.Purpose = "Changed canonical purpose"
+				if checkStage012(changed, v.Reference, detail, nil, candidate) == nil {
+					t.Fatal("stale claims accepted after source delta")
+				}
+				// Missing differs from explicit empty; neither proves satisfied gates.
+				if s.ID == "intake" {
+					changed = s
+					changed.HumanGates = nil
+					if checkStage012(changed, v.Reference, detail, nil, candidate) == nil {
+						t.Fatal("absent gates represented as empty")
+					}
+				}
+			})
+			if detail {
+				continue
+			}
+			t.Run("C08/"+s.ID, func(t *testing.T) {
+				wire, err := os.ReadFile("../cli/testdata/presentation/012/" + s.ID + "-risk.conversation.txt")
+				if err != nil {
+					t.Fatal(err)
+				}
+				risks := []projectapp.Finding{{Code: "validator_unavailable", Detail: "validate-result cannot be observed"}, {Code: "effect_limit", Detail: "repository-write not authorized; timeout 1800 seconds; attempts 2"}}
+				candidate := string(wire)
+				if err := checkStage012(s, v.Reference, false, risks, candidate); err != nil {
+					t.Fatal(err)
+				}
+				for _, r := range risks {
+					if checkStage012(s, v.Reference, false, risks, strings.ReplaceAll(candidate, r.Detail, "[omitted]")) == nil {
+						t.Fatal("material risk hidden")
+					}
+				}
+				if checkStage012(s, v.Reference, false, risks, candidate+"Execution performed") == nil {
+					t.Fatal("invented success accepted")
+				}
+			})
+		}
+	}
+}
+
+func TestOperatorConversational012C15TextFallback(t *testing.T) {
+	_, e := presentationFixture(t, "custom-r2")
+	v, err := inspectPresentation(e)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wire, err := os.ReadFile("../cli/testdata/presentation/012/C15.conversation.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	candidate := string(wire)
+	ref := v.Reference
+	wants := []string{"Definition", ref.WorkflowID, fmt.Sprint(ref.Revision), ref.Digest, ref.Source, "renderer unavailable; complete text fallback", "independent implementer and reviewer", "selection selected"}
+	wants = append(wants, strings.Join(v.Stages, " -> "))
+	wants = append(wants, v.Edges...)
+	wants = append(wants, v.Gates...)
+	check := func(answer string) error {
+		for _, want := range wants {
+			if !strings.Contains(answer, want) {
+				return fmt.Errorf("lost fallback fact %s", want)
+			}
+		}
+		for _, bad := range []string{"Diagram rendered", "reviewer -> implementation/implementer", "Execution performed"} {
+			if strings.Contains(answer, bad) {
+				return fmt.Errorf("invented graph or execution")
+			}
+		}
+		return nil
+	}
+	if err := check(candidate); err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range wants {
+		if check(strings.ReplaceAll(candidate, want, "[omitted]")) == nil {
+			t.Fatal("fallback omission accepted", want)
+		}
+	}
+	for _, bad := range []string{"Diagram rendered", "reviewer -> implementation/implementer", "Execution performed"} {
+		if check(candidate+bad) == nil {
+			t.Fatal("graph invention accepted")
+		}
+	}
+}
