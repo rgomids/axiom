@@ -208,7 +208,7 @@ class NativeContract(unittest.TestCase):
             tmp = Path(temporary)
             fakebin = tmp / "fakebin"
             fakebin.mkdir()
-            (fakebin / "git").write_text("#!/bin/sh\nprintf 'v0.21.1\\nv0.1.1\\n'\n")
+            (fakebin / "git").write_text("#!/bin/sh\nprintf 'v0.21.2\\nv0.1.1\\n'\n")
             (fakebin / "curl").write_text("""#!/bin/bash
 set -eu
 while (($#)); do
@@ -220,11 +220,15 @@ while (($#)); do
   esac
 done
 asset=${url##*/}
+# Format 2 (v0.21.2) renamed the macOS archive; format 1 (v0.1.1) keeps macos-27-arm64.
+case "$url" in
+  */v0.21.2/*) inventory="axiom-verifier-0.21.2-abcdef-$TARGET axiom-0.21.2-$ROW2.tar.gz" ;;
+  *) inventory="axiom-0.1.1-$ROW.tar.gz" ;;
+esac
 if [[ "$asset" == SHA256SUMS ]]; then
-  case "$url" in
-    */v0.21.1/*) printf '%064d  axiom-verifier-0.21.1-abcdef-%s\\n' 0 "$TARGET" >"$output" ;;
-    *) printf '%064d  old-archive.tar.gz\\n' 0 >"$output" ;;
-  esac
+  for name in $inventory; do printf '%064d  %s\\n' 0 "$name"; done >"$output"
+elif [[ " $inventory " != *" $asset "* ]]; then
+  exit 22
 elif [[ "$asset" == axiom-verifier-* && "${REJECT_HELPER:-0}" == 1 ]]; then
   exit 22
 else
@@ -233,12 +237,13 @@ fi
 """)
             for executable in fakebin.iterdir():
                 executable.chmod(0o755)
-            for row, target in (("linux-amd64", "linux-amd64"), ("macos-27-arm64", "darwin-arm64")):
+            for row, row2, target in (("linux-amd64", "linux-amd64", "linux-amd64"),
+                                      ("macos-27-arm64", "macos-arm64", "darwin-arm64")):
                 for reject in ("0", "1"):
                     with self.subTest(row=row, reject=reject):
                         work = tmp / (row + reject)
                         work.mkdir()
-                        env = {"PATH": str(fakebin) + ":/usr/bin:/bin", "ROW": row, "TARGET": target,
+                        env = {"PATH": str(fakebin) + ":/usr/bin:/bin", "ROW": row, "ROW2": row2, "TARGET": target,
                                "RUNNER_TEMP": str(work), "GITHUB_ENV": str(work / "env"),
                                "GITHUB_REPOSITORY": "fixture/repo", "REJECT_HELPER": reject}
                         result = subprocess.run(["bash", "-eo", "pipefail", "-c", command], env=env,
@@ -247,8 +252,11 @@ fi
                             self.assertEqual(result.returncode, 22, result.stderr)
                         else:
                             self.assertEqual(result.returncode, 0, result.stderr)
-                            helper = work / "previous-v0.21.1" / ("axiom-verifier-0.21.1-abcdef-" + target)
+                            helper = work / "previous-v0.21.2" / ("axiom-verifier-0.21.2-abcdef-" + target)
                             self.assertEqual(helper.read_text(), "fixture")
+                            archive = work / "previous-v0.21.2" / ("axiom-0.21.2-" + row2 + ".tar.gz")
+                            self.assertEqual(archive.read_text(), "fixture")
+                            self.assertTrue((work / "previous-v0.1.1" / ("axiom-0.1.1-" + row + ".tar.gz")).is_file())
                             self.assertFalse(list((work / "previous-v0.1.1").glob("axiom-verifier-*")))
 
     def test_strict_gate_and_no_publication(self):

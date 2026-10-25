@@ -155,9 +155,14 @@ jobs:
             dir="$RUNNER_TEMP/previous-$tag"
             mkdir -p "$dir"
             version=${tag#v}
-            for asset in SHA256SUMS "axiom-$version-$ROW.tar.gz"; do
-              curl -fsSL --retry 4 -o "$dir/$asset" "https://github.com/$GITHUB_REPOSITORY/releases/download/$tag/$asset"
-            done
+            curl -fsSL --retry 4 -o "$dir/SHA256SUMS" "https://github.com/$GITHUB_REPOSITORY/releases/download/$tag/SHA256SUMS"
+            # Take the host archive name from this release's checksum inventory:
+            # macOS is macos-27-arm64 in format 1 releases and macos-arm64 in format 2.
+            names="axiom-$version-$ROW.tar.gz"
+            [[ "$ROW" != macos-27-arm64 ]] || names="$names axiom-$version-macos-arm64.tar.gz"
+            archive=$(awk -v names="$names" 'BEGIN {n = split(names, list, " "); for (i = 1; i <= n; i++) want[list[i]] = 1} ($2 in want) {print $2}' "$dir/SHA256SUMS")
+            [[ -n "$archive" && "$archive" != *$'\n'* ]] || { echo "missing or ambiguous host archive in $tag inventory" >&2; exit 1; }
+            curl -fsSL --retry 4 -o "$dir/$archive" "https://github.com/$GITHUB_REPOSITORY/releases/download/$tag/$archive"
             # Current v1 releases pin a standalone verifier; old releases do not.
             # Fetch only the helper named by this release's checksum inventory.
             target=$ROW
