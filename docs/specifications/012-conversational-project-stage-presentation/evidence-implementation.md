@@ -1561,3 +1561,92 @@ No renewed authentication gate claimed. One deduplicated attempt-09 stage.partia
 root callback supplies actual final SHA, tests/CI and ledger with raw read-back.
 No authorized automatic continuation callback demonstrated beyond that receipt:
 handoff **AWAITING_EXECUTION_REPORT**; no background execution claim.
+
+
+## Attempt-10 — Native loading proved; replay withheld for model drift
+
+Input HEAD `3ccf3e9d6802231faa01fda2d1de87674e8caa55`, clean local/remote/PR
+match; same Draft PR #343. [Native Evidence](evidence-native-attempt10.md) records
+sanitized invocation, complete equality proofs, authority deviation and all cases.
+Installed pair remains `0.21.3-axm39.8` / source
+`e045cac1e3fdcd1bd8bfba925ddcfd135ce1e8f6`, distinct from Evidence HEAD.
+Official docs verified/ok, both receipts current, eight skill bytes exact before
+and after; no reinstall, version/receipt change or protected-state repair.
+
+### E07 — Loading and authority boundary
+
+Claude Code 2.1.310, ONE native streamed CLI process, ONE loading-only user
+message, exit 0. Init exposes all four native skills/slash entries. Four actual
+Skill calls expanded exact installed bodies; four complete individual Read
+outputs reconstructed installed files exactly; four individual hash tool results
+succeeded and matched source. Loaded bytes identified for this session; persistent
+context retention unproven. Inspector `loaded: unknown` remains unchanged.
+
+Executor enabled `user` discovery, absolute anchored Read rules and four exact
+additional directories, keeping exact read-only Bash/Skill scope and disabling
+hooks/MCP. This also activated existing user model configuration: init
+`claude-sonnet-5-5`, versus attempt-09 `claude-opus-5-5`. No explicit model flag
+was passed, but effective model changed contrary to the no-other-model envelope.
+Executor should have verified this interaction before inference. Stopped further
+input when drift observed; in-flight loading finished, no replay/follow-up turn,
+second invocation, fallback, model switch or credential operation. Final assistant
+summary/result event was not captured after input closure: final-turn verdict and
+denial aggregate UNKNOWN; individual captured tool success is directly observed.
+Effort UNKNOWN. This does not qualify the requested model-preserving T07 replay.
+
+Claude C01–C16 individually **NOT_RUN** this attempt; historical attempt-09
+prompt-only passes, failures and partials retained. Codex C01–C15 historical
+PASS_SCOPED_REPLAY preserved; C16 PARTIAL, no new inference/GUI/harness expansion.
+No live Claude Project list/show/validate or Stage/Runtime/readiness questions.
+Executor outside-session Project list empty, not a configured synthetic Project.
+No loaded-byte mismatch/product defect found; no guidance/contract changes.
+
+### E08 — Status and deterministic verification
+
+T01–T06 historical scoped PASS. T07 PARTIAL; dependent native replay
+TECHNICALLY_BLOCKED / MODEL_CONFIGURATION_DRIFT. T08 PARTIAL. AC1–AC5 PARTIAL;
+AC6 PASS_SCOPED_REVIEW for documented-contract preservation, with invocation
+authority deviation explicit. Four-pillar reconciliation: accepted AXM scope/AC,
+product, architecture/ADRs and presentation design unchanged; missing native
+semantics/surface proof still blocks readiness. No independent Review substitution.
+
+Input HEAD CI SUCCESS: [CI](https://github.com/rgomids/axiom/actions/runs/40145719319),
+[Delivery metadata](https://github.com/rgomids/axiom/actions/runs/40145719320).
+Final-head CI is queried after the authorized same-branch push and recorded in
+one deduplicated stage.partial completion receipt, with exact HEAD and raw
+comment/marker/schema read-back. Local checks are not CI or human acceptance.
+
+Fresh focused tests passed:
+`go test ./internal/cli -run 'Test(OutputSeparation|WorkflowShowSynthetic|Presentation)' -count=1`
+(0.740s) and
+`go test ./internal/codexruntime -run 'Test(RenderedWorkflow|OperatorConversational|WorkflowSkill)' -count=1`
+(0.951s). Repository/link/diff/security scans and historical-byte preservation
+are verified before commit and reported in that receipt. Full package suite
+not repeated for three documentation-only paths; no production/test bytes changed.
+
+technical_decisions[]: TECHNICAL_LOCAL; decision_maker executor-ai; scope_impact none.
+
+- IMPL10-TD-01: use documented user-source discovery, exact absolute Read rules,
+  four owned additional directories and individual full reads/hashes, rather
+  than prompt-paste, fabricated plugin or broad shell permissions. Evidence:
+  native init/Skill expansions/Read equality. Risk: user source also applies
+  model configuration, which actually drifted. Rollback: process-only flags;
+  no host settings changed. Do not classify this invocation as fully conformant.
+- IMPL10-TD-02: enforce loading-only first message and stop additional input on
+  observed model drift. Preserve successful reads while withholding all semantic
+  replay/acceptance; no silent second call or model correction. Evidence: one
+  submitted message, process exit 0, no replay tools/fixture reads. Risk: partial
+  Evidence and uncaptured final summary; rollback: none, no managed mutation.
+- IMPL10-TD-03: retain Codex scoped ledger and C16 limitation; append sanitized
+  attempt-10 Evidence and prepend Tasks checkpoint without changing attempts
+  01–09 or source contracts. No product fix inferred from a configuration error.
+  Risk: native qualification remains incomplete; rollback: documentation-only
+  follow-up within the same PR. No new model/key/host provisioning authorized.
+
+DF-01 **DEFERRED_NOT_IMPLEMENTED** (predecessor index); GitHub #346 separate.
+remaining_work[]: verify model-preserving discovery configuration before a further
+separately authorized bounded Claude invocation; prove loading/entry then replay
+C01–C16; resolve/retain C16 surface gaps; reconcile T07/T08/AC/CI, independent Review
+only after readiness. Next gate **RESUME_IMPLEMENT /
+MODEL_PRESERVING_NATIVE_CLAUDE_REQUIRED**; no ceremonial continue or fake callback.
+Handoff AWAITING_EXECUTION_REPORT. No merge/release/acceptance/Done.

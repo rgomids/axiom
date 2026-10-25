@@ -1,5 +1,38 @@
 # Specification 012 — Tasks r1 (AXM-39)
 
+## Current implementation checkpoint — attempt-10
+
+**PARTIAL.** Same Draft PR/branch; [attempt-10 E07/E08](evidence-native-attempt10.md)
+and [implementation join](evidence-implementation.md#attempt-10--native-loading-proved-replay-withheld-for-model-drift).
+Installed `0.21.3-axm39.8` / source `e045cac1e3fdcd1bd8bfba925ddcfd135ce1e8f6`
+unchanged; docs verified/ok, both receipts current, eight source-byte matches.
+
+Claude discovery/native entry/complete reads/hashes succeeded in ONE loading-only
+process. However user-source discovery also activated existing model configuration:
+init `claude-sonnet-5-5` versus attempt-09 `claude-opus-5-5`. This effective drift
+violates the no-other-model envelope. Executor stopped further input; exit 0,
+no replay/follow-up or second invocation. Final result/summary not captured;
+individual successful Skill/Read/hash outputs remain direct evidence. Loaded
+content is identified only for that drifted session, not qualified native replay.
+All Claude attempt-10 C01–C16 **NOT_RUN**, previous failures/history preserved.
+
+Codex C01–C15 historical PASS_SCOPED_REPLAY retained; C16 PARTIAL, no new inference
+or narrow GUI/independent harness expansion. T01–T06 historical scoped PASS.
+T07 **PARTIAL / MODEL_CONFIGURATION_DRIFT**; dependent Claude replay
+**TECHNICALLY_BLOCKED**. T08 PARTIAL; AC1–AC5 PARTIAL, AC6 PASS_SCOPED_REVIEW for
+unchanged contracts, authority deviation disclosed. No readiness/review substitute.
+
+Next gate **RESUME_IMPLEMENT / MODEL_PRESERVING_NATIVE_CLAUDE_REQUIRED**:
+verify supported discovery/read configuration preserving original model before
+further inference; this consumed one-invocation grant permits no silent retry.
+Then qualified replay, C16 gap reconciliation and T07/T08/AC/CI readiness.
+Only three Spec 012 documents changed. No product correction from setup error,
+no host/receipt/version change, no credentials/provider effects/merge/release/Done.
+DF-01 DEFERRED_NOT_IMPLEMENTED; #346 separate. One final-head stage.partial
+callback/read-back records actual checks/CI. AWAITING_EXECUTION_REPORT, no background
+promise. All following attempt-09 checkpoint and Tasks r1 text remain historical,
+byte-preserved; earlier Evidence append-only.
+
 ## Implementation checkpoint — 2026-10-24
 
 Same PR/branch, implement **attempt-09 PARTIAL**.
