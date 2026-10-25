@@ -1734,3 +1734,29 @@ Remaining failures/source fidelity/C16 facets and final-head validation/CI belon
 to same-AXM stage.partial receipt, API read-back and RECONCILE_IMPLEMENT handoff.
 No Spec/ADR/Plan/domain/CLI/schema/admission/Execution change, successor dispatch,
 merge, release, human acceptance or Done. AWAITING_EXECUTION_REPORT.
+
+
+## Attempt-15 — Integrated correction and honest native qualification
+
+[New source/install/native/case/AC Evidence](evidence-native-attempt15.md) and
+[sanitized public observations](observations-native-attempt15.md). Corrected three
+existing skills plus complete shared history and regression tests; private candidate
+`0.21.3-axm39.15` from clean aff1acc installed through supported digest-bound upgrade,
+backup/restore rehearsal and both-root read-back. No domain/CLI/schema change.
+
+Two actual nine-turn conversations, exact gpt-6.1-sol / claude-haiku-5-5, complete
+installed-file reads; Claude native Skill launches. No fallback. Codex resume sandbox
+discrepancy disclosed and corrected explicitly for remaining unsent turns; no write
+observed in native tool audit. Isolated actual Project archived through supported CLI.
+
+Codex C01–C15 PASS_SCOPED_OBSERVATION, C16 PARTIAL. Claude C01/C02/C15 FAIL,
+C09/C11/C16 PARTIAL; other cases PASS_SCOPED_OBSERVATION. C16 plain-text parity
+observed with identical real fact bodies; terminal graphical access explicitly
+refused by computer-use tool, independent graphical facet NOT_RUN. Historical
+attempt-14 and earlier PASS/FAIL/PARTIAL Evidence unchanged, including historical C02 PASS.
+
+T01–T06 historical scoped PASS and current correction checks PASS; T07/T08,
+E07-Codex/E07-Claude/E08, AC1–AC5 PARTIAL; AC6 PASS_SCOPED_REVIEW. Required remaining
+failures stay in scope. DF-01 DEFERRED_NOT_IMPLEMENTED; #346 untouched. Next gate
+RESUME_IMPLEMENT; no independent Review readiness, merge, release, human acceptance
+or Done. Exact final SHA/CI and one same-AXM stage.partial read-back in completion event.
