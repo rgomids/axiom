@@ -1417,3 +1417,147 @@ Tasks baseline byte-preserved. `git diff --check` PASS. Final repository validat
 staged sensitive-file scan and redacted Gitleaks results are read back before
 commit and included in the exact pushed-head callback. Evidence-only commit does
 not retag, rebuild or replace the already qualified source candidate.
+
+## Attempt-09 — Native Claude response without qualified skill loading
+
+2026-10-24 BRT (2026-10-25 UTC), **PARTIAL**. Local/remote/open Draft PR #343
+matched expected `0825d24dc9ae056ad684641d9a695e02498d33c6`; tree clean at entry.
+Same branch, no overlapping executor observed: the native Codex process in this
+checkout was this executor's parent, not a second dispatch. Other Claude process
+working directories were outside this checkout. This is bounded observation, not
+a global lease. All 54 Linear comments read, hasNextPage=false; latest
+[attempt-09 dispatch](https://linear.app/rgomids/issue/AXM-39#comment-85bdf9fa)
+matched [the current prompt](https://linear.app/rgomids/issue/AXM-39#comment-77b2d1f5),
+with no attempt-09 completion/competing dispatch before writes. Remote HEAD and
+draft status re-read immediately before documentary edits.
+
+Authority remains Maestro's report of Rafael's approximately 20:59 BRT grant,
+not independently authenticated human-session consent. Scope: existing-subscription
+Claude conversation, bounded Codex follow-up, T07/T08 Evidence and same-branch
+commit/push/callback. No new package/version/install, credentials, Project effects,
+Stage dispatch, merge/release/self-acceptance/Done. Linear field-note API returned
+tool-not-found; issue/comments remained available. Direct execution, no subagents:
+strictly lower capability hierarchy unverified and no useful independent writer.
+Four pillars unchanged: accepted AC/non-goals, product contracts, architecture
+and security; DESIGN NOT_APPLICABLE, no new product visual surface.
+
+### E07 — Fresh installed and authentication preflight
+
+Read-only version/docs/both Runtime status exit 0: **0.21.3-axm39.8 / e045cac1e3fd /
+clean**, verified/ok/compatible docs, skillSetVersion/binaryCompatibility 3, both
+receipts current. SourceCommit `e045cac1e3fdcd1bd8bfba925ddcfd135ce1e8f6` and binary
+SHA-256 `d6582d9851e7a138b8b9a91085bfede35fe20f068ee84e5fbc1b78b346dc8683`
+unchanged. All eight files independently hashed/compared with source, exact match
+to attempt-08 inventory. Re-read after conversations: still exact in both roots.
+No assumption that later Evidence-only HEAD is installed binary source.
+
+Exact child auth diagnostics exit 0, subscription_observed/local_observation,
+Claude method claude.ai and Codex chatgpt. Existing subscription login only;
+known API-key/token/provider overrides omitted in children without reading values.
+No login/logout/refresh, key export, alternate account or auth repair by executor.
+Successful actual Claude responses now prove usability for this invocation;
+attempt-08's expired-session failure remains immutable historical Evidence.
+
+### E07 — Conversations, loading, cases and failed prerequisites
+
+[Exact public inputs, invocation scope, selected actual excerpts and per-case ledger](evidence-native-attempt09.md)
+are authoritative for this attempt's native observations.
+
+| Record | Actual result and limit |
+| --- | --- |
+| E07-Claude | One native CLI process, two interactive stream-JSON user turns, exit 0. Init `claude-opus-5-5`, apiKeySource none; effort UNKNOWN. Four installed skill Read calls and six Bash calls denied before execution. Only public local cases/Workflow reads succeeded. Loaded UNKNOWN; installed skill entries absent in this invocation, explicit skill-entry subcase NOT_RUN. Prompt-only replay did not qualify T07. |
+| E07-Codex | Bounded follow-up, first natural turn then separate explicit `$axiom-project $axiom-workflow` turn on exact same thread through exec resume; both exits 0. Four individual complete tool-output contents exactly equal installed text; hashes identify revision. C08 concrete safe recovery now PASS_SCOPED_REPLAY. C16 textual semantic comparison observed, aggregate PARTIAL; no narrow GUI or independent harness re-expansion Evidence. Model/effort UNKNOWN. |
+
+Claude's executor-selected isolation omitted skill discovery/authorized outside-cwd
+read access; exact Bash allow rules also did not cover appended exit-reporting
+suffixes. These are invocation limitations, not proven defects in installed
+guidance. Native responses explicitly acknowledged absent skill loading. The
+executor requested replay in the same initial prompt instead of gating it on
+successful native loading; its subsequent prompt-only replay cannot repair that
+failed prerequisite. No second Claude conversation or permission bypass attempted.
+
+Claude replay ledger: C01/C03/C04/C06/C09/C10/C12/C13/C15 PASS_SCOPED_REPLAY
+**prompt-only**, C02/C05/C08/C14 FAIL, C07/C11/C16 PARTIAL; all share missing
+installed-loading prerequisite. C05 proposed unsupported command syntax, C08
+abbreviated recovery reference, C14 made unknown version a gate. C16 ordinary
+phrasing comparison was not real skill entry. No fixture-derived command executed.
+No product-code/guidance change is justified from this unloaded session alone.
+
+Codex C02–C06/C09–C15 retain attempt-08 passes only; C01/C07/C11 bounded comparison
+also passed. C08 identifies Workflow owner inspection of exact validator/reference
+and Work Item owner inspection of denied envelope before any proposed repair;
+both blockers remain immediate, future change needs separate scope/preview/authority.
+C16 separate actual explicit text turn preserved Unicode, full ID/digests, gate,
+source/status, both blockers, confirmed no-dispatch and read-only next action.
+It does not certify narrow/graphical behavior or automatic harness expansion.
+
+No live configured Project show/validate performed. Codex did not repeat live
+list; Claude's list request was denied. Attempt-08 empty list is historical only.
+No real Workflow/Execution, graphical renderer, Stage dispatch or AXM-12 E2E
+acceptance. Full Codex Runtime file output now observed untruncated; permanent
+complete model-context retention remains unprovable. Inspector loaded unknown
+is retained, not overwritten by either session or an invented receipt.
+
+### E08 — Reconciliation, verification and next gate
+
+| AC | Current Evidence | Aggregate |
+| --- | --- | --- |
+| AC1 | Historical identity regressions/Codex replay; explicit text comparison; Claude loading/C02/C05/C16 gaps | PARTIAL |
+| AC2 | Codex summaries/details/C08 safe recovery/fallback; C16 surface and Claude C07/C08/loading gaps | PARTIAL |
+| AC3 | Codex historical provenance cases; Claude unloaded C14 fails version-only rule | PARTIAL |
+| AC4 | Codex safe C08/C11 next action; Claude C11/loading gaps; no live dispatch | PARTIAL |
+| AC5 | Historical deterministic regressions retained; both native responses observed, but qualified Claude skill behavior and C16 coverage incomplete | PARTIAL |
+| AC6 | Only Spec 012 Evidence/Tasks checkpoint changed; no canonical production/history semantics changed | PASS_SCOPED_REVIEW |
+
+T01–T06 historical scoped PASS preserved. T07 **PARTIAL /
+NATIVE_CLAUDE_LOADING_ENTRY_REQUIRED**; T08 **PARTIAL**. No request for independent
+Review as a replacement for absent native Evidence. Input-head CI read back
+SUCCESS: [PR Checks](https://github.com/rgomids/axiom/actions/runs/40142768287),
+[Delivery metadata](https://github.com/rgomids/axiom/actions/runs/40142768292).
+Those checks certify only input HEAD; exact pushed-head CI is queried separately
+and included in the single completion callback. Fresh focused regressions:
+
+| Actual command/check | Result |
+| --- | --- |
+| `go test ./internal/cli -run 'Test(OutputSeparation\|WorkflowShowSynthetic\|Presentation)' -count=1` | PASS, 0.764s |
+| `go test ./internal/codexruntime -run 'Test(RenderedWorkflow\|OperatorConversational\|WorkflowSkill)' -count=1` | PASS, 1.317s |
+| Local Markdown paths | PASS, 72 paths across three checkpoint documents |
+| Historical preservation | PASS; complete attempts 01–08 Evidence prefix, Tasks r1 baseline, Spec/Plan/examples and attempt-08 native Evidence byte-exact |
+| `git diff --check`, scoped content/diff review | PASS; only three Spec 012 documents |
+
+Repository validator and staged sensitive-file/redacted secret scans are read back
+before commit and recorded in the callback. Full Go package suite not repeated:
+no production guidance, test, dependency or package bytes changed. Runtime validator
+behavioral scenarios remain distinct from these native presentation observations.
+
+technical_decisions[]: TECHNICAL_LOCAL, owner/decision_maker executor-ai,
+scope_impact none; details and source observations linked above.
+
+- IMPL9-TD-01: bounded read-only child environments and one two-turn Claude
+  stream, no nested Runtime/delegation/external tools; preserve actual allow-rule
+  failures rather than bypass or silently replace the conversation. Invocation
+  settings failed loading/entry; gate future replay on actual native read success.
+- IMPL9-TD-02: reuse exact public fixture/cases and historical Codex passes;
+  follow up C08 plus C01/C07/C11 for C16, individually verify four full skill tool
+  outputs against installed text. No grouped-read/context-completeness inference.
+- IMPL9-TD-03: separate successful Claude subscription inference from failed
+  skill qualification; retain replay failures and C16 PARTIAL. Do not infer an
+  implementation defect, demand new credential renewal or change production
+  guidance based on an unloaded response. Runtime flags are local technical
+  choices, not a material HUMAN_DECISION_REQUIRED design gate.
+
+**DF-01 DEFERRED_NOT_IMPLEMENTED**: stale predecessor Specifications index remains
+outside scope, highlight at pre-merge. Existing [#346](https://github.com/rgomids/axiom/issues/346)
+remains separate and NOT_IMPLEMENTED here. No new card, finding implementation,
+ADR, release/tag, package version, reinstall, approval, merge or Done.
+
+remaining_work[]: prepare correctly scoped native Claude skill loading/discovery
+and prove entry/read revision **before** replay under a bounded conversation grant;
+re-evaluate C01–C16 against installed guidance, retaining these observed failures;
+preserve/resolve C16 narrow/graphical/harness-observation gaps without invented
+support; reconcile T07/T08/AC and exact CI, then independent Review when ready.
+Next gate **RESUME_IMPLEMENT / NATIVE_CLAUDE_LOADING_ENTRY_REQUIRED**.
+No renewed authentication gate claimed. One deduplicated attempt-09 stage.partial
+root callback supplies actual final SHA, tests/CI and ledger with raw read-back.
+No authorized automatic continuation callback demonstrated beyond that receipt:
+handoff **AWAITING_EXECUTION_REPORT**; no background execution claim.

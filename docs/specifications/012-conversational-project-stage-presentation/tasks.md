@@ -2,31 +2,39 @@
 
 ## Implementation checkpoint — 2026-10-24
 
-Same PR/branch, implement **attempt-08 PARTIAL**.
-[Implementation Evidence](evidence-implementation.md#attempt-08--qualified-local-candidate-and-native-authentication-failure)
-and [sanitized native input/observations](evidence-native-attempt08.md) record
-qualified unpublished local candidate **0.21.3-axm39.8 / e045cac1e3fd / clean**.
-Existing builder atomically supplied candidate version; stable release ledger
-unchanged. Release=false trial disqualified for unknown informational provenance;
-existing clean-candidate mode verified, no tag/publication or contract change.
-NEW private backup **42 files/22 directories** and restoration rehearsal PASS.
-Exact-digest owned upgrade PASS; supported Claude owned install PASS. Docs
-verified/ok; eight skills match PR; both receipts current. No live restore.
-Codex real conversation exit 0: actual skill-read/hash revision evidence, empty
-live Project list and labelled public C01–C16 replay. C08/C16 PARTIAL; other
-cases PASS_SCOPED_REPLAY. Specific model UNKNOWN; complete context retention
-not independently attested. No live configured show/validate or graphical proof.
-Claude actual native invocation exit 1, OAuth expired/could not refresh: loaded
-UNKNOWN, C01–C16 NOT_RUN. Prior subscription_observed diagnostic was not usable
-inference proof. No credential mutation/retry. T07 **PARTIAL / BLOCKED_CLAUDE_AUTH**;
-T08 PARTIAL; AC1–AC5 PARTIAL, AC6 PASS_SCOPED_REVIEW. T01–T06 historical scoped
-PASS preserved; focused/package checks fresh. DF-01 DEFERRED_NOT_IMPLEMENTED;
-GitHub #346 separate. Next gate **CLAUDE_SUBSCRIPTION_USABILITY_REQUIRED**,
-then bounded native coverage/loading gaps, AC reconciliation and independent
-Review when ready. Same-attempt callback records actual pushed Evidence HEAD/CI.
-Handoff AWAITING_EXECUTION_REPORT. Host retains unpublished qualified candidate;
-backup retained privately. No merge, release publication, acceptance or Done.
-Historical Tasks baseline and attempts 01–07 Evidence remain unchanged.
+Same PR/branch, implement **attempt-09 PARTIAL**.
+[Implementation Evidence](evidence-implementation.md#attempt-09--native-claude-response-without-qualified-skill-loading)
+and [native inputs/excerpts/case ledger](evidence-native-attempt09.md) retain the
+qualified unpublished candidate **0.21.3-axm39.8 / e045cac1e3fd / clean**.
+Fresh read-only preflight: docs verified/ok, both receipts current, all eight
+installed skills byte-identical to source, binary hash unchanged. No reinstall,
+version change, backup mutation or live restore. Attempt-08 installation/backup
+and expired-auth failure remain [historical](evidence-native-attempt08.md).
+
+Claude actual subscription conversation: one process, two streamed user turns,
+exit 0; init model `claude-opus-5-5`, effort UNKNOWN. Authentication usable for
+this invocation. Executor's restricted invocation did not expose installed skill
+entries/admit skill reads; loaded UNKNOWN, no native Axiom command executed.
+Prompt-only labelled replay cannot qualify installed skills. C02/C05/C08/C14
+FAIL, C07/C11/C16 PARTIAL; other replay responses PASS_SCOPED_REPLAY only, all
+with failed loading prerequisite. Explicit skill entry NOT_RUN. No retry/bypass.
+
+Codex bounded follow-up: two actual turns, both exit 0. Four individual complete
+skill tool outputs exactly equal installed contents; hashes match qualified
+source. C08 recovery step now PASS_SCOPED_REPLAY; historical other passes retained.
+C16 explicit textual turn observed, PARTIAL for unobserved narrow GUI/independent
+harness re-expansion. Exact model/effort UNKNOWN; permanent context retention not
+attested. No fresh configured Project list/show/validate or rendering claim.
+
+T01–T06 historical scoped PASS preserved. T07 **PARTIAL / NATIVE_CLAUDE_LOADING_ENTRY_REQUIRED**;
+T08 PARTIAL; AC1–AC5 PARTIAL, AC6 PASS_SCOPED_REVIEW. Next gate **RESUME_IMPLEMENT**:
+qualify native Claude loading/entry before replay and preserve C16 surface gaps;
+independent Review only after readiness. No product-skill correction inferred from
+an invocation that never loaded those bytes. DF-01 DEFERRED_NOT_IMPLEMENTED;
+GitHub #346 separate. Actual final-head CI and one same-AXM callback/read-back are
+recorded after publication, never inherited. Handoff AWAITING_EXECUTION_REPORT;
+no background continuation established. Historical Tasks baseline, Spec/Plan,
+examples and attempts 01–08 Evidence unchanged. No merge/release/acceptance/Done.
 
 ## Historical Tasks baseline, scope and execution state
 
