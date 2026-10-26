@@ -33,6 +33,13 @@
   Projects created by `project configure` carry no policy and block until an
   authored policy is installed.
 
+## [0.22.2](https://github.com/rgomids/axiom/compare/v0.22.1...v0.22.2) (2026-10-26)
+
+
+### Bug Fixes
+
+* clarify Claude authentication and add response context ([#360](https://github.com/rgomids/axiom/issues/360)) ([5cc8cb4](https://github.com/rgomids/axiom/commit/5cc8cb4ff3c0461cb49a3d7c2c048fdba910264f))
+
 ## [0.22.1](https://github.com/rgomids/axiom/compare/v0.22.0...v0.22.1) (2026-10-26)
 
 
