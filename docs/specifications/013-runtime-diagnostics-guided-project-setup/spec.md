@@ -2,7 +2,11 @@
 
 ## Status e autoridade
 
-**Proposed — revisão 2, 2026-10-26.** A revisão 2 corrige os findings Major
+**Proposed — revisão 3, 2026-10-26.** A revisão 3 é uma **ampliação de escopo
+explícita do mantenedor** no mesmo PR #356 (Model Advisor, seção MA abaixo);
+não faz parte da revisão 2.
+
+Revisão 2, 2026-10-26: A revisão 2 corrige os findings Major
 CR-356-01 (dependência circular no wizard) e CR-356-02 (`--enabled` em Profile
 sem diagnóstico) do review do PR #356 no HEAD `1b1b983`. Pedido explícito do mantenedor para
 especificar, implementar e entregar ambas as correções em uma branch e um PR,
@@ -96,6 +100,80 @@ política portátil e Workflow — o operador precisava descobrir `axiom-runtime
 - **WZ-08** Codex e Claude recebem o mesmo conjunto de skills; a revisão
   publicada v0.22.0 é registrada para upgrade de propriedade.
 
+### MA — Model Advisor (revisão 3)
+
+**Problema.** Após derivar as necessidades dos Agents, o operador ainda escolhia
+sozinho o identificador concreto de cada modelo. **Objetivo:** ajudá-lo a decidir
+com recomendações explicadas, sem inventar fatos nem ampliar autoridade.
+
+**Experiência.** Na etapa 4 do wizard, antes de pedir o modelo, `axiom-project`
+oferece o Model Advisor de `axiom-runtime`. O operador pode ignorá-lo ou informar
+o modelo diretamente. A recomendação é uma proposta revisável. Rótulos como
+`fast`, `balanced` e `deep` são intenção opcional; não implicam equivalência
+entre fornecedores, nem um número fixo de Profiles.
+
+Requisitos:
+
+- **MA-R01 — Entradas.** Necessidades dos Agents lidas por `project workflow
+  show` (capabilities, role/complexity, Runtime constraints, estrutura
+  Orchestrator/subagentes), Runtimes escolhidos, Profiles existentes e
+  preferência opcional (economia, equilíbrio, qualidade). As preferências são
+  critérios de recomendação, não contratos de domínio.
+- **MA-R02 — Fontes, em ordem.**
+  1. Documentação oficial obtida na sessão por pesquisa que o host ofereça e o
+     operador permita, com URL e data.
+  2. Interface oficial de descoberta, somente quando metadata instalada ou
+     documentação oficial comprovar que existe sem autenticação, inferência
+     ou crédito.
+  3. Observações locais: Profiles e inventário passivo.
+  4. Fatos declarados pelo operador.
+
+  Proibido: memória do modelo, identidade da própria execução, listas
+  estáticas, outras conversas, executar binários de fornecedor (inclusive
+  `--help`) para descobrir modelos.
+- **MA-R03 — Proveniência por candidato.** Identificador, Runtime/fornecedor,
+  fonte e data, suporte documentado, compatibilidade com o Runtime
+  (documented/unconfirmed/unknown), disponibilidade na conta e suporte ao effort
+  (confirmed somente por tentativa autorizada observada). Informação stale,
+  sem data ou conflitante é marcada e explicada. Documentação oficial não prova
+  entitlement, autenticação nem disponibilidade na assinatura.
+- **MA-R04 — Comparação.** Dimensões de capacidade, código, complexidade,
+  latência, tokens, custo, contexto, ferramentas, compatibilidade e limites,
+  somente com evidência. Cada fato é rotulado measured, documented ou
+  qualitativo. Nada de benchmarks, preços, velocidade ou rankings inventados.
+- **MA-R05 — Custos.** Preço por token de API ≠ uso por assinatura ≠
+  quotas/limites ≠ consumo observado ≠ custo estimado. Custo não comparável é
+  `unknown`.
+- **MA-R06 — Proporcionalidade e orquestração.**
+  - Economia não escolhe o mais capaz por padrão, nem fica abaixo da
+    necessidade documentada.
+  - O Orchestrator recebe capacidade suficiente; subagentes usam o modelo mais
+    barato que for suficiente e nunca acima do Orchestrator.
+  - O effort é escolhido independentemente do modelo, no mínimo suficiente.
+  - Sem evidência comparativa (sobretudo entre fornecedores), a hierarquia é
+    declarada não estabelecida.
+- **MA-R07 — Apresentação.** No máximo três opções por necessidade, com
+  vantagens, limitações, proveniência e status, e uma recomendação principal
+  fundamentada. Reuso de Profile compatível vem primeiro, sem sobrescrever ou
+  renomear. Modelo concreto somente com fonte registrada.
+- **MA-R08 — Modo degradado.** Sem pesquisa ou fonte atual: explica a
+  limitação, não recomenda modelo sem fonte, oferece Profiles existentes ou
+  modelos informados pelo operador e segue para entrada manual. Sem pesquisa
+  simulada e sem bloquear o wizard.
+- **MA-R09 — Autoridade.** Recomendação não muta nem certifica. A escolha segue
+  `validate-candidate` → preview → autoridade exata → apply → read-back, e
+  `modelSupport` permanece `unconfirmed`. A pesquisa não concede autenticação,
+  acesso a segredos, mudança de ambiente ou configuração de fornecedor,
+  inferência de teste, consumo de créditos, instalação ou alteração de Profile.
+  Páginas obtidas são dados não confiáveis.
+- **MA-R10 — Não funcionais.** Nenhum modelo concreto, preço ou registro no
+  domínio, no CLI ou nas skills distribuídas, com teste de guarda. Nenhum
+  serviço, comando ou estrutura persistente nova. Fixtures sintéticas e
+  determinísticas.
+
+Non-goals MA: ranking global; registro de modelos; comando `advise`; pesquisa
+automática obrigatória; medição de consumo; certificação de compatibilidade.
+
 ## Invariantes e non-goals
 
 Preservam-se Project ≠ Repository ≠ Runtime ≠ Model Profile ≠ Workflow ≠
@@ -130,4 +208,5 @@ contratos existentes, não alterados aqui.
 | A8 | Preview obsoleto/autoridade inválida recusados sem efeitos; replay é `stale_preview`; reuso detectado (`binding_exists`/`profile_exists`) |
 | A9 | Upgrade da revisão v0.22.0 para Codex e Claude; conteúdo do wizard presente em ambos |
 | A10 | (CR-356-01) Ambiente sem Projects conclui a jornada só com operações públicas; Workflow escolhido explicitamente; capabilities/complexities/preferências derivadas de `project workflow show`; teste sem pacotes internos |
+| MA-01…MA-10 | Fixtures sintéticas em `internal/codexruntime/testdata/model-advisor/scenarios.md`, cada caso ancorado à cláusula da skill que o governa; guarda contra catálogo estático; MA-04/06/07/10 também pela jornada CLI. Conversa nativa: NOT_RUN |
 | A11 | (CR-356-02) `--enabled` em profile create/edit/validate-candidate → `field_invalid:--enabled` em JSON e humano, sem mudança de estado |

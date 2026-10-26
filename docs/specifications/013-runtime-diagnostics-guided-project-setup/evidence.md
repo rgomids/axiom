@@ -124,3 +124,46 @@ Demais rejeições de `safeAuthoring` verificadas como inalcançáveis pelo pars
 
 Pendências inalteradas: T08 (conversas nativas) NOT_RUN; DF-013-01 e
 DF-013-02 registrados no Plan.
+
+## Revisão 3 — Model Advisor (ampliação de escopo do mantenedor)
+
+Base: `48d325b`. CI nessa base: `PR Checks` e `delivery-metadata` pass.
+
+Implementação somente em orientação de skill (decisões 5–7 do [Plan](plan.md)):
+
+- seção “Model Advisor” em `axiom-runtime`;
+- oferta opcional na etapa 4 de `axiom-project`;
+- reconciliação das linhas que vedavam recomendação sem fonte autoritativa;
+- nenhuma mudança de domínio, CLI ou estado persistente.
+
+### Testes por tipo
+
+| Tipo | Teste | Resultado |
+|---|---|---|
+| Determinístico (guidance × fixtures) | `TestModelAdvisorFixturesAnchoredInShippedGuidance`: cada MA-01…MA-10 de `testdata/model-advisor/scenarios.md` exige as cláusulas da skill que o governam | PASS |
+| Determinístico (guarda) | `TestModelAdvisorShipsNoStaticModelCatalog`: nenhuma família comercial de modelos nem preço nas quatro skills ou nas fixtures; autoverificação de que a guarda detecta exemplos | PASS |
+| Integração CLI | MA-04 (modelo desconhecido salvo, `modelSupport: unconfirmed`), MA-06 (`binding_exists`/`profile_exists`), MA-07 (preview → autoridade exata → apply → read-back; replay `stale_preview`), MA-10 (jornada completa) pelos testes `GuidedSetup*` | PASS |
+| Upgrade de skills | `TestEveryPublishedSharedRevisionStaysOwned` e `TestGuidedSetup013UpgradesPublishedSetForCodexAndClaude` com o novo manifesto `6b3bef42…` | PASS |
+| Conversacional nativo | Codex/Claude seguindo o Advisor com pesquisa real | **NOT_RUN** (T13) |
+
+### Estado dos critérios MA
+
+MA-01 a MA-10 estão **especificados e ancorados**: fixture e cláusula verificadas,
+e, para MA-04, 06, 07 e 10, também o comportamento da CLI. O comportamento
+conversacional de recomendar, comparar e degradar **não está verificado** sem
+conversa nativa: as fixtures definem o oráculo, não comprovam a resposta de um
+modelo.
+
+### Checks da revisão 3
+
+| Comando | Resultado |
+|---|---|
+| `go test ./... -count=1` | 34 pacotes `ok`; mesmo FAIL host-específico de `internal/executiongraph` (reproduzido em `c00156f` neste host; passa no CI) |
+| `go vet ./...` | sem achados |
+| `go test -race` em `codexruntime`, `runtimeapplication` e `cmd/lingo -run 'GuidedSetup\|ProfileEnabled'` | `ok` |
+| `./scripts/validate-repository.sh .` | PASS em checkout limpo do commit |
+| `./scripts/check-sensitive-files.sh .` | PASS |
+| `git diff --check` | limpo |
+
+Nenhuma pesquisa externa, autenticação, inferência ou consumo de crédito foi
+executada para esta revisão.

@@ -67,4 +67,13 @@ credentials or environment variables to resolve them. `validate-candidate`
 confirms declaration only; `modelSupport` and `effortSupport` stay
 `unconfirmed`.
 
+During guided setup, `axiom-runtime` can act as a Model Advisor: it
+recommends models for each Profile from the Workflow's Agent needs and an
+optional preference (economy, balanced, quality), citing official vendor
+documentation the host retrieves with your permission. Recommendations carry
+their source and date and keep account availability and effort support
+unconfirmed; API prices are not subscription cost. Without sources it says so
+and lets you name the model. Nothing is created until you approve the exact
+preview.
+
 Continue to [Workflow](workflow.md) or [Troubleshooting](troubleshooting.md).

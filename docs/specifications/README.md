@@ -6,7 +6,9 @@
 adds field-level `runtimeAuthoring.diagnostics` to local Runtime/Profile refusals
 (the v0.22.0 `govsm` missing-`--capabilities` incident) without changing public
 categories, and a complete `axiom-project` guided setup from Runtime/Profile
-through Workflow selection and a three-dimension final summary. [Plan](013-runtime-diagnostics-guided-project-setup/plan.md),
+through Workflow selection and a three-dimension final summary. Revision 3
+(maintainer scope extension) adds a skill-level Model Advisor with sourced,
+provenance-tagged recommendations and a degraded manual mode. [Plan](013-runtime-diagnostics-guided-project-setup/plan.md),
 [Tasks](013-runtime-diagnostics-guided-project-setup/tasks.md) and
 [Evidence](013-runtime-diagnostics-guided-project-setup/evidence.md). Native
 Codex/Claude conversations NOT_RUN; human acceptance pending.

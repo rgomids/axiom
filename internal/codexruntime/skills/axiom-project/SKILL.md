@@ -266,8 +266,11 @@ still-valid facts. An explicitly requested partial setup ends `partial`.
 4. **Runtime and Profiles (`axiom-runtime`).** State first that Profiles are
    machine-local and shared by every Project on this machine. Reuse or create
    a binding and Profile for each Runtime the operator chooses within the
-   Agents' `runtimeConstraints` (Codex, Claude or both). Collect Profile ID,
-   exact model and effort (`explicit` value or `runtime-default` with
+   Agents' `runtimeConstraints` (Codex, Claude or both). Before asking for a
+   model, offer the `axiom-runtime` Model Advisor with the step-3 needs and any
+   stated preference (for example economy); the operator may skip it or name a
+   model directly, and its recommendation changes nothing by itself. Collect
+   Profile ID, exact model and effort (`explicit` value or `runtime-default` with
    `default`); use the derived capabilities, and complexities only when they
    cover every Agent complexity the Profile serves. Run `validate-candidate`,
    then the preview; apply only on exact authority and confirm by list/show.

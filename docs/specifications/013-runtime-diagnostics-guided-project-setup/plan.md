@@ -1,6 +1,6 @@
 # Plan 013 — Diagnósticos de Runtime/Profile e setup guiado
 
-**Proposed — revisão 2, 2026-10-26** (CR-356-01, CR-356-02). Implementa a [Spec 013](spec.md).
+**Proposed — revisão 3, 2026-10-26** (revisão 2: CR-356-01, CR-356-02; revisão 3: Model Advisor, ampliação de escopo do mantenedor). Implementa a [Spec 013](spec.md).
 
 ## Decisões técnicas locais
 
@@ -35,6 +35,21 @@ e ADR-0032 preservadas.
    pelo parser, que só registra essas flags nas operações válidas; mantêm o
    fallback.
 
+5. **Model Advisor como orientação de skill (revisão 3).** Os contratos atuais
+   já aceitam um modelo como intenção (`modelSupport: unconfirmed`) e separam
+   autoria de autenticação. A pesquisa é uma capacidade do host conversacional,
+   e nenhuma necessidade observável exige serviço, port, comando ou estado
+   persistente. Por isso o Advisor vive em `axiom-runtime` (dono dos Profiles),
+   e `axiom-project` o oferece na etapa 4. Sem ADR: não há decisão arquitetural
+   durável; reverter é editar a skill.
+6. **Fixtures sintéticas** com fornecedores e modelos fictícios (`va-*`,
+   `vb-*`) tornam os casos MA independentes de dados comerciais voláteis. Um
+   teste de guarda impede nomes comerciais e preços nas skills e fixtures.
+7. **Linhas pré-existentes reconciliadas:** “never recommend a concrete
+   model/effort” sem fonte autoritativa passou a reconhecer documentação
+   oficial registrada pelo Advisor como fonte de recomendação, nunca de
+   suporte.
+
 ## deferred_findings
 
 - **DF-013-01** Inspeção de definições built-in sem Project permitiria
@@ -43,6 +58,12 @@ e ADR-0032 preservadas.
 - **DF-013-02** Project com Workflow selecionado e sem política não tem
   caminho de edição G-1 (“requires schema 2 or 3”); exige operação aprovada
   própria.
+
+- **DF-013-03** Medir consumo real por Profile (tokens, quotas) para basear
+  recomendações de economia em dados observados; exige Evidence de execução
+  e decisão própria.
+- **DF-013-04** Interface oficial de descoberta de modelos por Runtime, se um
+  fornecedor documentar uma sem autenticação; avaliar adapter próprio.
 
 ## Arquivos
 

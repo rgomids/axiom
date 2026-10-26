@@ -1,6 +1,6 @@
 # Tasks 013
 
-**Proposed — revisão 2, 2026-10-26.** Decomposição do [Plan](plan.md).
+**Proposed — revisão 3, 2026-10-26.** Decomposição do [Plan](plan.md).
 
 | ID | Task | Requisitos | Estado |
 |---|---|---|---|
@@ -13,4 +13,7 @@
 | T07 | Documentação operacional e referência de comandos | RD-02, WZ-01 | Done |
 | T09 | CR-356-01: jornada a partir de máquina vazia só com operações públicas; skill e docs reordenados | WZ-02, A10 | Done |
 | T10 | CR-356-02: diagnóstico `--enabled` em Profile, unit + CLI JSON/humano | RD-10, A11 | Done |
+| T11 | Model Advisor em `axiom-runtime`; oferta na etapa 4 de `axiom-project`; reconciliar linhas de recomendação | MA-R01–R09 | Done |
+| T12 | Fixtures MA-01…MA-10, ancoragem e guarda contra catálogo estático | MA-R10, MA-01–10 | Done |
+| T13 | Conversa nativa Codex/Claude com o Advisor e pesquisa real | MA-01–10 | NOT_RUN — exige host com pesquisa e autorização |
 | T08 | Conversa nativa real Codex/Claude com o wizard | WZ-01–05 | NOT_RUN — exige ambiente/autorização próprios |
