@@ -192,6 +192,17 @@ state, identities or dependencies require another preview. `runtime-default`
 means no Axiom override; successful authoring saves intent and proves no vendor
 model, effort support or authentication. Inspect read-back after apply.
 
+A refusal carries `runtimeAuthoring.diagnostics`: each entry names the `code`
+(`field_required`, `field_invalid`, `binding_missing`, `profile_missing`,
+`runtime_absent`, `configuration_conflict`, `configuration_invalid`), the CLI
+`field`, the `rule` and the `next` action, also shown in terminal output. For
+example, omitting `--capabilities` returns `candidate_invalid` with
+`field_required` on `--capabilities`; `--complexities` stays optional. These
+are local declaration checks: authentication is not evaluated, so do not change
+credentials or environment variables to resolve them. `validate-candidate`
+confirms declaration only; `modelSupport` and `effortSupport` stay
+`unconfirmed`.
+
 Profile create/edit changes model intent, effort, capabilities and complexity.
 Binding edit changes eligibility through `--enabled`; enable/disable use the
 same preview protocol. Removing one of several Runtimes publishes a new

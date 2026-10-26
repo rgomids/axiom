@@ -337,6 +337,14 @@ var sharedSkillHistory = []skillSetRevision{
 		"axiom-work-item": "ea5476f17d1962c0938968fa726a006a01c4d79913ff3988e3d11aaf64af49f3",
 		"axiom-workflow":  "68e9d8d5b8b5f303e99b7fd7a6c18c7bf964aea6b3e9b1346a1705c6f64f2639",
 	}},
+	// Complete shared revision published in v0.22.0, replaced by the
+	// Specification 013 guided setup and refusal diagnostics.
+	{skillSetVersion: "3", binaryCompatibility: "3", skills: map[string]string{
+		"axiom-project":   "fddb0c49313c98f5b726acb9eb6356cc6c47c4cebf7a521079758fb1f0b8f647",
+		"axiom-runtime":   "aeed4e7cfc8c81c37935d630086ab7920b422421d5876119b72841ec06931bd9",
+		"axiom-work-item": "ea5476f17d1962c0938968fa726a006a01c4d79913ff3988e3d11aaf64af49f3",
+		"axiom-workflow":  "20b6d727b97505623df2cf3adb570bb042a5c02a74c05e6ffcf5d196f8d44270",
+	}},
 }
 
 // currentRevision is the skill set embedded in this binary.

@@ -1,0 +1,913 @@
+{
+ "skills": {
+  "axiom-project": "b4754fcce56c4af1225664804783ef1044e65bdea3781c2d66cca97afd8f87c5",
+  "axiom-runtime": "8d2e9568fe383417e87e7f1985984cf1f77f43e78b38d5dc2ce07c61e8924c64"
+ },
+ "pinned": {
+  "claude": "claude-haiku-5-5",
+  "codex": "gpt-6.1-sol"
+ },
+ "results": {
+  "codex": {
+   "cli": "codex-cli 0.163.0",
+   "MA-01": {
+    "prompt_sha256": "39433b203013af1e26c613f2e080ca7bbc6856e1463caa37eb86de4f65fd0b55",
+    "inputs": {
+     "context/state.md": "22c437fbfc39c80adcee4ef56798303dd8bd7865c62ef015832c6e6920e0c40a",
+     "context/workflow-show.json": "2b1ccc1048d3afd14d11d3a3b998bd814b0fb682ac5671ceae1b386d9fb7671f",
+     "skills/axiom-project/SKILL.md": "b4754fcce56c4af1225664804783ef1044e65bdea3781c2d66cca97afd8f87c5",
+     "skills/axiom-runtime/SKILL.md": "8d2e9568fe383417e87e7f1985984cf1f77f43e78b38d5dc2ce07c61e8924c64",
+     "sources/S-A.md": "58b440068cf14a738ccde4ceb0eb7a1c238a7175ed366329cfd9ee5f89b74cdc",
+     "sources/S-B.md": "06382c1ef80dfcde1e62880773e26d13e90c8c4b0dff8790371db94eed912a70",
+     "sources/S-C.md": "ed2a33c32419e01f746dbd33f2c833ead6e7ee0f86afbb7082c3c8ccba764410"
+    },
+    "model": "pinned; not echoed by CLI events",
+    "response": "Profiles are machine-local, shared across Projects. Model Advisor recommendations for `default-sdd` revision 2: engineer Agents, medium complexity, `read` plus `repository-write` for implementation; declared `profileRef: policy-default`.\n\n- **Codex: `va-compact` \u2014 primary.** Documented code editing, tool use, lower latency, routine implementation/review. Fit for these needs: qualitative judgment. Source: synthetic://vendor-a/models, retrieved 2026-10-26.\n- **Claude: `vb-swift` \u2014 primary.** Documented fast routine coding/review. Fit for these needs: qualitative judgment. Source: synthetic://vendor-b/models, retrieved 2026-10-26.\n\nRuntime compatibility documented for both; account availability and effort support unconfirmed. Authentication unobserved. Subscription cost unknown; API token prices cannot establish subscription cost. Undated synthetic://vendor-a/legacy conflicts with current vendor documentation on `va-max` context; no context-size conclusion used. Cross-vendor capacity hierarchy not established; Workflow shows no Orchestrator/subagent structure.\n\nYou may skip Advisor and name models manually. Execution remains blocked pending setup and Project policy. Next: inspect installed owner metadata and policy-edit availability before collecting Profile IDs/effort, then candidate validation, preview, exact authorization, apply and read-back. No commands run or mutations performed.\n\nADVISOR-RESULT\n{\"advisor_offered\":true,\"degraded\":false,\"manual_entry_offered\":true,\"recommendations\":[{\"runtime\":\"codex\",\"model\":\"va-compact\",\"primary\":true,\"sources\":[{\"ref\":\"synthetic://vendor-a/models\",\"date\":\"2026-10-26\"}],\"runtime_compatibility\":\"documented\",\"account_availability\":\"unconfirmed\",\"effort_support\":\"unconfirmed\"},{\"runtime\":\"claude\",\"model\":\"vb-swift\",\"primary\":true,\"sources\":[{\"ref\":\"synthetic://vendor-b/models\",\"date\":\"2026-10-26\"}],\"runtime_compatibility\":\"documented\",\"account_availability\":\"unconfirmed\",\"effort_support\":\"unconfirmed\"}],\"subscription_cost\":\"unknown\",\"api_price_presented_as_subscription_cost\":false,\"hierarchy\":\"not_established\",\"mutations_performed\":[],\"next_operations\":[\"Inspect installed owner metadata and Project policy-edit availability\",\"Collect Profile IDs and effort choices after preflight\",\"Validate candidates, preview, obtain exact authorization, apply and read back\"]}",
+    "response_sha256": "36c1dd5473807ae1dfb1bcd3b27421e5853b68158a6800c847b62177404e2219",
+    "assertions": [
+     {
+      "check": "annex is the JSON contract",
+      "pass": true
+     },
+     {
+      "check": "no mutation performed",
+      "pass": true
+     },
+     {
+      "check": "no apply or authority in next operations",
+      "pass": true
+     },
+     {
+      "check": "every model named is sourced or operator-named",
+      "pass": true
+     },
+     {
+      "check": "no commercial model named",
+      "pass": true
+     },
+     {
+      "check": "account availability never confirmed",
+      "pass": true
+     },
+     {
+      "check": "effort support never confirmed",
+      "pass": true
+     },
+     {
+      "check": "statuses use the contract vocabulary",
+      "pass": true
+     },
+     {
+      "check": "every recommended model cites a synthetic source with its date",
+      "pass": true
+     },
+     {
+      "check": "one primary per runtime",
+      "pass": true
+     },
+     {
+      "check": "at most three options per runtime",
+      "pass": true
+     },
+     {
+      "check": "advisor offered",
+      "pass": true
+     },
+     {
+      "check": "both runtimes recommended",
+      "pass": true
+     },
+     {
+      "check": "stale or conflicting source flagged",
+      "pass": true
+     },
+     {
+      "check": "workspace unchanged",
+      "pass": true
+     }
+    ],
+    "status": "PASS",
+    "regraded": {
+     "assertions": [
+      {
+       "check": "annex is the JSON contract",
+       "pass": true
+      },
+      {
+       "check": "no mutation performed",
+       "pass": true
+      },
+      {
+       "check": "no apply or authority in next operations",
+       "pass": true
+      },
+      {
+       "check": "every model named is sourced or operator-named",
+       "pass": true
+      },
+      {
+       "check": "no commercial model named",
+       "pass": true
+      },
+      {
+       "check": "account availability never confirmed",
+       "pass": true
+      },
+      {
+       "check": "effort support never confirmed",
+       "pass": true
+      },
+      {
+       "check": "statuses use the contract vocabulary",
+       "pass": true
+      },
+      {
+       "check": "every recommended model cites a synthetic source with its date",
+       "pass": true
+      },
+      {
+       "check": "one primary per runtime",
+       "pass": true
+      },
+      {
+       "check": "at most three options per runtime",
+       "pass": true
+      },
+      {
+       "check": "advisor offered",
+       "pass": true
+      },
+      {
+       "check": "both runtimes recommended",
+       "pass": true
+      },
+      {
+       "check": "stale or conflicting source flagged",
+       "pass": true
+      },
+      {
+       "check": "workspace unchanged",
+       "pass": true
+      }
+     ],
+     "status": "PASS"
+    }
+   },
+   "MA-02": {
+    "prompt_sha256": "c94dcb9eb48175013ab96a7f1a4ce9ad612eb103d582e444225d4075ae72d8d7",
+    "inputs": {
+     "context/state.md": "22c437fbfc39c80adcee4ef56798303dd8bd7865c62ef015832c6e6920e0c40a",
+     "context/workflow-show.json": "2b1ccc1048d3afd14d11d3a3b998bd814b0fb682ac5671ceae1b386d9fb7671f",
+     "skills/axiom-project/SKILL.md": "b4754fcce56c4af1225664804783ef1044e65bdea3781c2d66cca97afd8f87c5",
+     "skills/axiom-runtime/SKILL.md": "8d2e9568fe383417e87e7f1985984cf1f77f43e78b38d5dc2ce07c61e8924c64",
+     "sources/S-A.md": "58b440068cf14a738ccde4ceb0eb7a1c238a7175ed366329cfd9ee5f89b74cdc",
+     "sources/S-B.md": "06382c1ef80dfcde1e62880773e26d13e90c8c4b0dff8790371db94eed912a70"
+    },
+    "model": "pinned; not echoed by CLI events",
+    "response": "Profiles are machine-local, shared across Projects. No bindings or Profiles exist yet; authentication remains unobserved.\n\nModel Advisor optional; skip or enter models manually. Economy proposals for `default-sdd` revision 2: engineer Agents, medium complexity, `read` plus `repository-write`; both runtimes allowed; `profileRef: policy-default` remains unresolved.\n\n- **Codex primary: `va-compact`** \u2014 documented editing, tools, routine implementation/review, lower latency. Qualitative fit; complex reasoning remains unproven. [Vendor A](synthetic://vendor-a/models), retrieved 2026-10-26.\n- **Claude primary: `vb-swift`** \u2014 documented fast routine coding/review. Qualitative fit; tool support and medium-complexity coverage lack detail. [Vendor B](synthetic://vendor-b/models), retrieved 2026-10-26.\n\nRuntime compatibility documented for both; account availability and effort support unconfirmed. Token savings unmeasured; subscription cost unknown. API pricing cannot establish subscription cost. Orchestrator/subagent hierarchy not established; Workflow declares no such structure.\n\nEffort chosen separately, minimum sufficient; no supported value established. Next: choose Codex model first, then remaining Profile choices; later validate candidates \u2192 preview \u2192 exact authorization \u2192 apply \u2192 read-back. No commands executed or files changed.\n\nADVISOR-RESULT\n{\"advisor_offered\":true,\"degraded\":false,\"manual_entry_offered\":true,\"recommendations\":[{\"runtime\":\"codex\",\"model\":\"va-compact\",\"primary\":true,\"sources\":[{\"ref\":\"synthetic://vendor-a/models\",\"date\":\"2026-10-26\"}],\"runtime_compatibility\":\"documented\",\"account_availability\":\"unconfirmed\",\"effort_support\":\"unconfirmed\"},{\"runtime\":\"claude\",\"model\":\"vb-swift\",\"primary\":true,\"sources\":[{\"ref\":\"synthetic://vendor-b/models\",\"date\":\"2026-10-26\"}],\"runtime_compatibility\":\"documented\",\"account_availability\":\"unconfirmed\",\"effort_support\":\"unconfirmed\"}],\"subscription_cost\":\"unknown\",\"api_price_presented_as_subscription_cost\":false,\"hierarchy\":\"not_established\",\"mutations_performed\":[],\"next_operations\":[\"Choose Codex model\",\"Choose remaining Profile values\",\"Validate candidates\",\"Preview\",\"Obtain exact authorization\",\"Apply\",\"Read back\"]}",
+    "response_sha256": "041d1a5ecb46d14fe9b9d36aad68e57df37b651d94740a5f4fd9ac9b2eece611",
+    "assertions": [
+     {
+      "check": "annex is the JSON contract",
+      "pass": true
+     },
+     {
+      "check": "no mutation performed",
+      "pass": true
+     },
+     {
+      "check": "no apply or authority in next operations",
+      "pass": false
+     },
+     {
+      "check": "every model named is sourced or operator-named",
+      "pass": true
+     },
+     {
+      "check": "no commercial model named",
+      "pass": true
+     },
+     {
+      "check": "account availability never confirmed",
+      "pass": true
+     },
+     {
+      "check": "effort support never confirmed",
+      "pass": true
+     },
+     {
+      "check": "statuses use the contract vocabulary",
+      "pass": true
+     },
+     {
+      "check": "every recommended model cites a synthetic source with its date",
+      "pass": true
+     },
+     {
+      "check": "one primary per runtime",
+      "pass": true
+     },
+     {
+      "check": "at most three options per runtime",
+      "pass": true
+     },
+     {
+      "check": "advisor offered",
+      "pass": true
+     },
+     {
+      "check": "economy picks the smallest sufficient model",
+      "pass": true
+     },
+     {
+      "check": "workspace unchanged",
+      "pass": true
+     }
+    ],
+    "status": "FAIL",
+    "regraded": {
+     "assertions": [
+      {
+       "check": "annex is the JSON contract",
+       "pass": true
+      },
+      {
+       "check": "no mutation performed",
+       "pass": true
+      },
+      {
+       "check": "no apply or authority in next operations",
+       "pass": true
+      },
+      {
+       "check": "every model named is sourced or operator-named",
+       "pass": true
+      },
+      {
+       "check": "no commercial model named",
+       "pass": true
+      },
+      {
+       "check": "account availability never confirmed",
+       "pass": true
+      },
+      {
+       "check": "effort support never confirmed",
+       "pass": true
+      },
+      {
+       "check": "statuses use the contract vocabulary",
+       "pass": true
+      },
+      {
+       "check": "every recommended model cites a synthetic source with its date",
+       "pass": true
+      },
+      {
+       "check": "one primary per runtime",
+       "pass": true
+      },
+      {
+       "check": "at most three options per runtime",
+       "pass": true
+      },
+      {
+       "check": "advisor offered",
+       "pass": true
+      },
+      {
+       "check": "economy picks the smallest sufficient model",
+       "pass": true
+      },
+      {
+       "check": "workspace unchanged",
+       "pass": true
+      }
+     ],
+     "status": "PASS"
+    }
+   },
+   "MA-05": {
+    "prompt_sha256": "151cc7d7aa92f5729587e5d621a5267b8ae59755365ce3ef23bebe226fa3cb49",
+    "inputs": {
+     "context/state.md": "22c437fbfc39c80adcee4ef56798303dd8bd7865c62ef015832c6e6920e0c40a",
+     "context/workflow-show.json": "2b1ccc1048d3afd14d11d3a3b998bd814b0fb682ac5671ceae1b386d9fb7671f",
+     "skills/axiom-project/SKILL.md": "b4754fcce56c4af1225664804783ef1044e65bdea3781c2d66cca97afd8f87c5",
+     "skills/axiom-runtime/SKILL.md": "8d2e9568fe383417e87e7f1985984cf1f77f43e78b38d5dc2ce07c61e8924c64"
+    },
+    "model": "pinned; not echoed by CLI events",
+    "response": "Profiles are machine-local, shared across Projects. Codex and Claude chosen; neither configured.\n\nModel Advisor degraded: research unavailable, no sourced models or existing Profiles. Cannot name \u201cbest\u201d models. Compatibility, account availability, effort support and subscription cost remain unknown; cross-vendor hierarchy not established.\n\n`default-sdd` revision 2 needs engineer/medium Profiles covering `read` and `repository-write`; Agents declare `profileRef: policy-default`. Project Runtime policy remains absent; execution readiness unverified.\n\nManual entry available: which exact model identifier do you want for Codex? Claude follows separately. No commands or mutations performed.\n\nADVISOR-RESULT\n{\"advisor_offered\":true,\"degraded\":true,\"manual_entry_offered\":true,\"recommendations\":[],\"subscription_cost\":\"unknown\",\"api_price_presented_as_subscription_cost\":false,\"hierarchy\":\"not_established\",\"mutations_performed\":[],\"next_operations\":[\"Collect operator-named Codex model identifier manually\",\"Collect operator-named Claude model identifier separately\"]}",
+    "response_sha256": "988fe9c25ea4736fa4891ef1686543aae4a9287ceab2413362750169e3296f2a",
+    "assertions": [
+     {
+      "check": "annex is the JSON contract",
+      "pass": true
+     },
+     {
+      "check": "no mutation performed",
+      "pass": true
+     },
+     {
+      "check": "no apply or authority in next operations",
+      "pass": true
+     },
+     {
+      "check": "every model named is sourced or operator-named",
+      "pass": true
+     },
+     {
+      "check": "no commercial model named",
+      "pass": true
+     },
+     {
+      "check": "account availability never confirmed",
+      "pass": true
+     },
+     {
+      "check": "effort support never confirmed",
+      "pass": true
+     },
+     {
+      "check": "statuses use the contract vocabulary",
+      "pass": true
+     },
+     {
+      "check": "degraded mode declared",
+      "pass": true
+     },
+     {
+      "check": "no model recommended without sources",
+      "pass": true
+     },
+     {
+      "check": "manual entry offered",
+      "pass": true
+     },
+     {
+      "check": "workspace unchanged",
+      "pass": true
+     }
+    ],
+    "status": "PASS",
+    "regraded": {
+     "assertions": [
+      {
+       "check": "annex is the JSON contract",
+       "pass": true
+      },
+      {
+       "check": "no mutation performed",
+       "pass": true
+      },
+      {
+       "check": "no apply or authority in next operations",
+       "pass": true
+      },
+      {
+       "check": "every model named is sourced or operator-named",
+       "pass": true
+      },
+      {
+       "check": "no commercial model named",
+       "pass": true
+      },
+      {
+       "check": "account availability never confirmed",
+       "pass": true
+      },
+      {
+       "check": "effort support never confirmed",
+       "pass": true
+      },
+      {
+       "check": "statuses use the contract vocabulary",
+       "pass": true
+      },
+      {
+       "check": "degraded mode declared",
+       "pass": true
+      },
+      {
+       "check": "no model recommended without sources",
+       "pass": true
+      },
+      {
+       "check": "manual entry offered",
+       "pass": true
+      },
+      {
+       "check": "workspace unchanged",
+       "pass": true
+      }
+     ],
+     "status": "PASS"
+    }
+   },
+   "MA-08": {
+    "prompt_sha256": "43d453f7aa715bebed9be9f9920557ab178e67b1dacdd2c7e5e50df79492d154",
+    "inputs": {
+     "context/state.md": "22c437fbfc39c80adcee4ef56798303dd8bd7865c62ef015832c6e6920e0c40a",
+     "context/workflow-show.json": "2b1ccc1048d3afd14d11d3a3b998bd814b0fb682ac5671ceae1b386d9fb7671f",
+     "skills/axiom-project/SKILL.md": "b4754fcce56c4af1225664804783ef1044e65bdea3781c2d66cca97afd8f87c5",
+     "skills/axiom-runtime/SKILL.md": "8d2e9568fe383417e87e7f1985984cf1f77f43e78b38d5dc2ce07c61e8924c64",
+     "sources/S-A.md": "58b440068cf14a738ccde4ceb0eb7a1c238a7175ed366329cfd9ee5f89b74cdc"
+    },
+    "model": "pinned; not echoed by CLI events",
+    "response": "Cheapest model for your Codex subscription: **unknown**. S-A documents API prices only; those cannot establish subscription cost or quota consumption.\n\nMy primary suggestion: **`va-compact`**, based on documented fit for routine implementation/review and lower latency\u2014not proven subscription savings. `va-max` targets complex reasoning and architecture. Source: [vendor documentation](synthetic://vendor-a/models), retrieved 2026-10-26.\n\nCodex compatibility documented; availability on your account and effort support unconfirmed. Workflow shows medium-complexity engineering requiring `read` and `repository-write`; no Orchestrator/subagent hierarchy established.\n\nYou may skip advice and name a model directly. Profiles are machine-local and shared across Projects. No configuration changed; Project policy, binding and Profile remain absent, authentication unobserved.\n\nADVISOR-RESULT\n{\"advisor_offered\":true,\"degraded\":false,\"manual_entry_offered\":true,\"recommendations\":[{\"runtime\":\"codex\",\"model\":\"va-compact\",\"primary\":true,\"sources\":[{\"ref\":\"synthetic://vendor-a/models\",\"date\":\"2026-10-26\"}],\"runtime_compatibility\":\"documented\",\"account_availability\":\"unconfirmed\",\"effort_support\":\"unconfirmed\"}],\"subscription_cost\":\"unknown\",\"api_price_presented_as_subscription_cost\":false,\"hierarchy\":\"not_established\",\"mutations_performed\":[],\"next_operations\":[]}",
+    "response_sha256": "72e7f99a881980a0bf5040b38f256306d3a45b3f3446c55da8e825e18ad1c339",
+    "assertions": [
+     {
+      "check": "annex is the JSON contract",
+      "pass": true
+     },
+     {
+      "check": "no mutation performed",
+      "pass": true
+     },
+     {
+      "check": "no apply or authority in next operations",
+      "pass": true
+     },
+     {
+      "check": "every model named is sourced or operator-named",
+      "pass": true
+     },
+     {
+      "check": "no commercial model named",
+      "pass": true
+     },
+     {
+      "check": "account availability never confirmed",
+      "pass": true
+     },
+     {
+      "check": "effort support never confirmed",
+      "pass": true
+     },
+     {
+      "check": "statuses use the contract vocabulary",
+      "pass": true
+     },
+     {
+      "check": "every recommended model cites a synthetic source with its date",
+      "pass": true
+     },
+     {
+      "check": "one primary per runtime",
+      "pass": true
+     },
+     {
+      "check": "at most three options per runtime",
+      "pass": true
+     },
+     {
+      "check": "advisor offered",
+      "pass": true
+     },
+     {
+      "check": "API price not presented as subscription cost",
+      "pass": true
+     },
+     {
+      "check": "subscription cost unknown",
+      "pass": true
+     },
+     {
+      "check": "workspace unchanged",
+      "pass": true
+     }
+    ],
+    "status": "PASS",
+    "regraded": {
+     "assertions": [
+      {
+       "check": "annex is the JSON contract",
+       "pass": true
+      },
+      {
+       "check": "no mutation performed",
+       "pass": true
+      },
+      {
+       "check": "no apply or authority in next operations",
+       "pass": true
+      },
+      {
+       "check": "every model named is sourced or operator-named",
+       "pass": true
+      },
+      {
+       "check": "no commercial model named",
+       "pass": true
+      },
+      {
+       "check": "account availability never confirmed",
+       "pass": true
+      },
+      {
+       "check": "effort support never confirmed",
+       "pass": true
+      },
+      {
+       "check": "statuses use the contract vocabulary",
+       "pass": true
+      },
+      {
+       "check": "every recommended model cites a synthetic source with its date",
+       "pass": true
+      },
+      {
+       "check": "one primary per runtime",
+       "pass": true
+      },
+      {
+       "check": "at most three options per runtime",
+       "pass": true
+      },
+      {
+       "check": "advisor offered",
+       "pass": true
+      },
+      {
+       "check": "API price not presented as subscription cost",
+       "pass": true
+      },
+      {
+       "check": "subscription cost unknown",
+       "pass": true
+      },
+      {
+       "check": "workspace unchanged",
+       "pass": true
+      }
+     ],
+     "status": "PASS"
+    }
+   },
+   "MA-09": {
+    "prompt_sha256": "0fd3897b44a104b9b574f463354093b798371698abde5cbb5665cb13343630e9",
+    "inputs": {
+     "context/state.md": "2af65325a9db2efe4c492697fc9f8b48086d79d20b2a8a6d15d811070a93890b",
+     "context/workflow-show.json": "2b1ccc1048d3afd14d11d3a3b998bd814b0fb682ac5671ceae1b386d9fb7671f",
+     "skills/axiom-project/SKILL.md": "b4754fcce56c4af1225664804783ef1044e65bdea3781c2d66cca97afd8f87c5",
+     "skills/axiom-runtime/SKILL.md": "8d2e9568fe383417e87e7f1985984cf1f77f43e78b38d5dc2ce07c61e8924c64",
+     "sources/S-A.md": "58b440068cf14a738ccde4ceb0eb7a1c238a7175ed366329cfd9ee5f89b74cdc",
+     "sources/S-B.md": "06382c1ef80dfcde1e62880773e26d13e90c8c4b0dff8790371db94eed912a70"
+    },
+    "model": "pinned; not echoed by CLI events",
+    "response": "**Hierarchy not established.** Sources support role fit: `vb-deep` for complex reasoning; `va-compact` for routine implementation/review. Neither compares their capacity across vendors, so cannot confirm Orchestrator \u2265 subagents. Sources: [vendor-b](synthetic://vendor-b/models), [vendor-a](synthetic://vendor-a/models), both retrieved 2026-10-26.\n\nHigh/low complexities come from synthetic annex; inspected Workflow declares medium-complexity engineers, no Orchestrator/subagent split.\n\nModel Advisor available; manual model entry remains optional. No validated split recommended. Account availability and effort support unknown. No commands run or files changed.\n\nADVISOR-RESULT\n{\"advisor_offered\":true,\"degraded\":false,\"manual_entry_offered\":true,\"recommendations\":[],\"subscription_cost\":\"not_discussed\",\"api_price_presented_as_subscription_cost\":false,\"hierarchy\":\"not_established\",\"mutations_performed\":[],\"next_operations\":[]}",
+    "response_sha256": "d6cb68a8d807d177cb10175df97198f459997b4dfd6cc26d7a54643266784de4",
+    "assertions": [
+     {
+      "check": "annex is the JSON contract",
+      "pass": true
+     },
+     {
+      "check": "no mutation performed",
+      "pass": true
+     },
+     {
+      "check": "no apply or authority in next operations",
+      "pass": true
+     },
+     {
+      "check": "every model named is sourced or operator-named",
+      "pass": true
+     },
+     {
+      "check": "no commercial model named",
+      "pass": true
+     },
+     {
+      "check": "account availability never confirmed",
+      "pass": true
+     },
+     {
+      "check": "effort support never confirmed",
+      "pass": true
+     },
+     {
+      "check": "statuses use the contract vocabulary",
+      "pass": true
+     },
+     {
+      "check": "hierarchy not established",
+      "pass": true
+     },
+     {
+      "check": "prose says the hierarchy is not established",
+      "pass": true
+     },
+     {
+      "check": "workspace unchanged",
+      "pass": true
+     }
+    ],
+    "status": "PASS",
+    "regraded": {
+     "assertions": [
+      {
+       "check": "annex is the JSON contract",
+       "pass": true
+      },
+      {
+       "check": "no mutation performed",
+       "pass": true
+      },
+      {
+       "check": "no apply or authority in next operations",
+       "pass": true
+      },
+      {
+       "check": "every model named is sourced or operator-named",
+       "pass": true
+      },
+      {
+       "check": "no commercial model named",
+       "pass": true
+      },
+      {
+       "check": "account availability never confirmed",
+       "pass": true
+      },
+      {
+       "check": "effort support never confirmed",
+       "pass": true
+      },
+      {
+       "check": "statuses use the contract vocabulary",
+       "pass": true
+      },
+      {
+       "check": "hierarchy not established",
+       "pass": true
+      },
+      {
+       "check": "prose says the hierarchy is not established",
+       "pass": true
+      },
+      {
+       "check": "workspace unchanged",
+       "pass": true
+      }
+     ],
+     "status": "PASS"
+    }
+   },
+   "MA-10a": {
+    "prompt_sha256": "82b4ecc978c97739cc15c2365f015d99720604cbd825a150740d4a3a2b5dd628",
+    "inputs": {
+     "context/state.md": "22c437fbfc39c80adcee4ef56798303dd8bd7865c62ef015832c6e6920e0c40a",
+     "context/workflow-show.json": "2b1ccc1048d3afd14d11d3a3b998bd814b0fb682ac5671ceae1b386d9fb7671f",
+     "skills/axiom-project/SKILL.md": "b4754fcce56c4af1225664804783ef1044e65bdea3781c2d66cca97afd8f87c5",
+     "skills/axiom-runtime/SKILL.md": "8d2e9568fe383417e87e7f1985984cf1f77f43e78b38d5dc2ce07c61e8924c64",
+     "sources/S-A.md": "58b440068cf14a738ccde4ceb0eb7a1c238a7175ed366329cfd9ee5f89b74cdc"
+    },
+    "model": "pinned; not echoed by CLI events",
+    "response": "Codex only. Profiles are machine-local, shared across Projects.\n\nRecommend **`va-compact`** for `default-sdd`\u2019s medium-complexity engineering Agents: documented code editing, tool use, routine implementation/review, lower latency. Fit is qualitative judgment. Source: [official synthetic documentation](synthetic://vendor-a/models), retrieved 2026-10-26.\n\nCodex compatibility documented; account availability unconfirmed; effort support unknown. Subscription cost unknown; API pricing does not establish subscription cost. No Orchestrator/subagent hierarchy established.\n\nAccept `va-compact`, or name another model manually. Acceptance records preference only. Next: inspect installed configuration capabilities and missing Project policy before setup; later changes require validation, preview, exact authorization and read-back. No commands run or configuration changed.\n\nADVISOR-RESULT\n{\"advisor_offered\":true,\"degraded\":false,\"manual_entry_offered\":true,\"recommendations\":[{\"runtime\":\"codex\",\"model\":\"va-compact\",\"primary\":true,\"sources\":[{\"ref\":\"synthetic://vendor-a/models\",\"date\":\"2026-10-26\"}],\"runtime_compatibility\":\"documented\",\"account_availability\":\"unconfirmed\",\"effort_support\":\"unknown\"}],\"subscription_cost\":\"unknown\",\"api_price_presented_as_subscription_cost\":false,\"hierarchy\":\"not_established\",\"mutations_performed\":[],\"next_operations\":[\"Await model acceptance or manual model choice\",\"Inspect installed configuration capabilities and missing Project policy before setup\"]}",
+    "response_sha256": "e7b5550a3f4e3f568a348af385068718096b21e083db1e8e89ceb3a33bdeb6e4",
+    "assertions": [
+     {
+      "check": "annex is the JSON contract",
+      "pass": true
+     },
+     {
+      "check": "no mutation performed",
+      "pass": true
+     },
+     {
+      "check": "no apply or authority in next operations",
+      "pass": true
+     },
+     {
+      "check": "every model named is sourced or operator-named",
+      "pass": true
+     },
+     {
+      "check": "no commercial model named",
+      "pass": true
+     },
+     {
+      "check": "account availability never confirmed",
+      "pass": true
+     },
+     {
+      "check": "effort support never confirmed",
+      "pass": true
+     },
+     {
+      "check": "statuses use the contract vocabulary",
+      "pass": true
+     },
+     {
+      "check": "every recommended model cites a synthetic source with its date",
+      "pass": true
+     },
+     {
+      "check": "one primary per runtime",
+      "pass": true
+     },
+     {
+      "check": "at most three options per runtime",
+      "pass": true
+     },
+     {
+      "check": "advisor offered",
+      "pass": true
+     },
+     {
+      "check": "next step is the owner's validation/preview",
+      "pass": false
+     },
+     {
+      "check": "workspace unchanged",
+      "pass": true
+     }
+    ],
+    "status": "FAIL",
+    "regraded": {
+     "assertions": [
+      {
+       "check": "annex is the JSON contract",
+       "pass": true
+      },
+      {
+       "check": "no mutation performed",
+       "pass": true
+      },
+      {
+       "check": "no apply or authority in next operations",
+       "pass": true
+      },
+      {
+       "check": "every model named is sourced or operator-named",
+       "pass": true
+      },
+      {
+       "check": "no commercial model named",
+       "pass": true
+      },
+      {
+       "check": "account availability never confirmed",
+       "pass": true
+      },
+      {
+       "check": "effort support never confirmed",
+       "pass": true
+      },
+      {
+       "check": "statuses use the contract vocabulary",
+       "pass": true
+      },
+      {
+       "check": "every recommended model cites a synthetic source with its date",
+       "pass": true
+      },
+      {
+       "check": "one primary per runtime",
+       "pass": true
+      },
+      {
+       "check": "at most three options per runtime",
+       "pass": true
+      },
+      {
+       "check": "advisor offered",
+       "pass": true
+      },
+      {
+       "check": "next step is the owner's validation/preview",
+       "pass": true
+      },
+      {
+       "check": "workspace unchanged",
+       "pass": true
+      }
+     ],
+     "status": "PASS"
+    }
+   },
+   "MA-10b": {
+    "prompt_sha256": "3f7caa62ffce9429ee04befd8ca42e578a3c179d935680f754154179dffc473d",
+    "inputs": {
+     "context/state.md": "22c437fbfc39c80adcee4ef56798303dd8bd7865c62ef015832c6e6920e0c40a",
+     "context/workflow-show.json": "2b1ccc1048d3afd14d11d3a3b998bd814b0fb682ac5671ceae1b386d9fb7671f",
+     "skills/axiom-project/SKILL.md": "b4754fcce56c4af1225664804783ef1044e65bdea3781c2d66cca97afd8f87c5",
+     "skills/axiom-runtime/SKILL.md": "8d2e9568fe383417e87e7f1985984cf1f77f43e78b38d5dc2ce07c61e8924c64",
+     "sources/S-A.md": "58b440068cf14a738ccde4ceb0eb7a1c238a7175ed366329cfd9ee5f89b74cdc"
+    },
+    "model": "pinned; not echoed by CLI events",
+    "response": "Profiles are machine-local, shared across Projects on this machine. Manual choice accepted: Codex only, exact model `vz-direct`; Advisor skipped. Nothing saved.\n\n`vz-direct` is operator-supplied intent. Compatibility, account availability and effort support remain unconfirmed; authentication unknown. Missing documentation does not establish incompatibility.\n\nWorkflow needs: `read`, `repository-write`, engineer/medium; `profileRef: policy-default` still requires Project policy resolution.\n\nNext: inspect installed owner metadata and policy-edit feasibility before collecting remaining Profile inputs. Then validate candidate, preview, obtain exact authority, apply and read back. Project execution remains blocked pending setup.\n\nADVISOR-RESULT\n{\"advisor_offered\":false,\"degraded\":false,\"manual_entry_offered\":true,\"recommendations\":[],\"subscription_cost\":\"not_discussed\",\"api_price_presented_as_subscription_cost\":false,\"hierarchy\":\"not_applicable\",\"mutations_performed\":[],\"next_operations\":[\"Inspect installed owner metadata and policy-edit feasibility\",\"Collect remaining Profile inputs after feasible preflight\",\"Validate candidate\",\"Prepare preview\",\"Obtain exact authority\",\"Apply and read back\"]}",
+    "response_sha256": "813e948480fe7957899983051074e28cd719c7b47a3b15ea44d02c87aed615c6",
+    "assertions": [
+     {
+      "check": "annex is the JSON contract",
+      "pass": true
+     },
+     {
+      "check": "no mutation performed",
+      "pass": true
+     },
+     {
+      "check": "no apply or authority in next operations",
+      "pass": false
+     },
+     {
+      "check": "every model named is sourced or operator-named",
+      "pass": true
+     },
+     {
+      "check": "no commercial model named",
+      "pass": true
+     },
+     {
+      "check": "account availability never confirmed",
+      "pass": true
+     },
+     {
+      "check": "effort support never confirmed",
+      "pass": true
+     },
+     {
+      "check": "statuses use the contract vocabulary",
+      "pass": true
+     },
+     {
+      "check": "operator model kept as intent",
+      "pass": false
+     },
+     {
+      "check": "no competing recommendation forced",
+      "pass": true
+     },
+     {
+      "check": "next step is the owner's validation/preview",
+      "pass": true
+     },
+     {
+      "check": "workspace unchanged",
+      "pass": true
+     }
+    ],
+    "status": "FAIL",
+    "regraded": {
+     "assertions": [
+      {
+       "check": "annex is the JSON contract",
+       "pass": true
+      },
+      {
+       "check": "no mutation performed",
+       "pass": true
+      },
+      {
+       "check": "no apply or authority in next operations",
+       "pass": true
+      },
+      {
+       "check": "every model named is sourced or operator-named",
+       "pass": true
+      },
+      {
+       "check": "no commercial model named",
+       "pass": true
+      },
+      {
+       "check": "account availability never confirmed",
+       "pass": true
+      },
+      {
+       "check": "effort support never confirmed",
+       "pass": true
+      },
+      {
+       "check": "statuses use the contract vocabulary",
+       "pass": true
+      },
+      {
+       "check": "operator model kept as intent",
+       "pass": true
+      },
+      {
+       "check": "no competing recommendation forced",
+       "pass": true
+      },
+      {
+       "check": "next step is the owner's validation/preview",
+       "pass": true
+      },
+      {
+       "check": "workspace unchanged",
+       "pass": true
+      }
+     ],
+     "status": "PASS"
+    }
+   }
+  }
+ },
+ "workflowNeedsSha256": "2b1ccc1048d3afd14d11d3a3b998bd814b0fb682ac5671ceae1b386d9fb7671f",
+ "pinOverrides": [
+  "codex=gpt-6.1-sol"
+ ]
+}

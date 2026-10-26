@@ -72,7 +72,20 @@ type AuthoringReport struct {
 	Authentication   string            `json:"authentication"`
 	ModelSupport     string            `json:"modelSupport"`
 	EffortSupport    string            `json:"effortSupport"`
-	Next             string            `json:"next,omitempty"`
+	// Diagnostics name the exact field/rule behind a refusal; absent on success.
+	Diagnostics []AuthoringDiagnostic `json:"diagnostics,omitempty"`
+	Next        string                `json:"next,omitempty"`
+}
+
+// AuthoringDiagnostic explains one refusal: its kind (field_required,
+// field_invalid, binding_missing, profile_missing, runtime_absent,
+// configuration_conflict, configuration_invalid), the CLI field, the rule and
+// the next supported action. Values are never echoed.
+type AuthoringDiagnostic struct {
+	Code  string `json:"code"`
+	Field string `json:"field,omitempty"`
+	Rule  string `json:"rule"`
+	Next  string `json:"next"`
 }
 type Authoring struct {
 	Store AuthoringStore
@@ -98,8 +111,18 @@ const newerFormatNext = "Local configuration format is newer than this authoring
 func (s Authoring) Run(ctx context.Context, req AuthoringRequest) (AuthoringReport, error) {
 	report := AuthoringReport{ImpactInventory: "incomplete: project references not evaluated", Authentication: "unknown", ModelSupport: "unconfirmed", EffortSupport: "unconfirmed"}
 	deny := func(code string) (AuthoringReport, error) { report.Category = code; return report, ErrAuthoring }
-	if s.Store == nil || !safeAuthoring(req) {
+	explain := func(code string, diagnostics []AuthoringDiagnostic) (AuthoringReport, error) {
+		report.Diagnostics = diagnostics
+		if len(diagnostics) != 0 {
+			report.Next = diagnostics[0].Next + ". " + declarationScope
+		}
+		return deny(code)
+	}
+	if s.Store == nil {
 		return deny("invalid_input")
+	}
+	if !safeAuthoring(req) {
+		return explain("invalid_input", inputDiagnostics(req))
 	}
 	if s.Impacts != nil {
 		report.KnownImpacts, report.ImpactInventory = s.Impacts(ctx)
@@ -184,17 +207,18 @@ func (s Authoring) Run(ctx context.Context, req AuthoringRequest) (AuthoringRepo
 		}
 	}
 	if err := editCandidate(&cfg, edit, s.Installed); err != nil {
-		return deny(err.Error())
+		return explain(err.Error(), refusalDiagnostics(err.Error(), edit))
 	}
 	effects := []string{req.Kind + " " + req.Operation}
 	if len(cfg.Runtimes) != 0 {
 		cfg.Revision = snapshot.Revision + 1
 		if runtimeprofile.ValidateV4(cfg) != nil {
-			return deny("candidate_invalid")
+			return explain("candidate_invalid", candidateDiagnostics(cfg, edit))
 		}
 	}
 	if req.Operation == "validate-candidate" || req.Operation == "validate" {
 		report.Category = "candidate_valid"
+		report.Next = candidateValidNext
 		projectLocal(&report, v4Runtimes(cfg), cfg.ModelProfiles, req)
 		return report, nil
 	}
@@ -664,4 +688,145 @@ func candidateEffects(priorProfiles []runtimeprofile.ModelProfile, priorPreferen
 	}
 	sort.Strings(effects)
 	return effects
+}
+
+const declarationScope = "Declarative local validation only: authentication was not evaluated and is not the cause; change no credential or environment variable for this refusal"
+const candidateValidNext = "Candidate satisfies local declaration rules; this is not vendor certification: model/effort support stays unconfirmed and authentication was not evaluated. Run create/edit without authority for the reviewable preview"
+
+var fieldFlags = map[string]string{"id": "--profile", "runtimeId": "--runtime", "model": "--model", "effort.mode": "--effort-mode", "effort.value": "--effort", "capabilities": "--capabilities", "complexities": "--complexities"}
+
+func fieldNext(flag string, required bool) string {
+	switch flag {
+	case "--capabilities":
+		if required {
+			return "Add --capabilities <comma-list> with at least one lowercase token naming what this Profile serves; derive them from the capabilities the selected Workflow's Agents require (inspect through axiom-workflow); --complexities stays optional"
+		}
+		return "Correct --capabilities <comma-list>: distinct lowercase tokens, no reasoning-effort-* entries"
+	case "--complexities":
+		return "Correct or omit --complexities <comma-list>: distinct lowercase tokens; omission declares no complexity constraint"
+	case "--effort-mode", "--effort":
+		return "Declare effort explicitly: --effort-mode explicit --effort <adapter-token>, or --effort-mode runtime-default --effort default"
+	case "--model":
+		return "Supply --model <model> with the exact model intent; it is saved as intent, not as confirmed vendor support"
+	case "--profile":
+		return "Supply --profile <token>, a new lowercase Profile identity that does not collide with `axiom runtime profile list`"
+	case "--runtime":
+		return "Supply --runtime codex or --runtime claude"
+	}
+	return "Correct " + flag + " and prepare a fresh preview"
+}
+
+func violationDiagnostics(violations []runtimeprofile.Violation) []AuthoringDiagnostic {
+	out := []AuthoringDiagnostic{}
+	for _, v := range violations {
+		code := "field_invalid"
+		if v.Required {
+			code = "field_required"
+		}
+		flag := fieldFlags[v.Field]
+		out = append(out, AuthoringDiagnostic{Code: code, Field: flag, Rule: v.Rule, Next: fieldNext(flag, v.Required)})
+	}
+	return out
+}
+
+// inputDiagnostics explains an invalid_input refusal of safeAuthoring by field.
+func inputDiagnostics(r AuthoringRequest) []AuthoringDiagnostic {
+	out := []AuthoringDiagnostic{}
+	add := func(code, flag, rule string) {
+		out = append(out, AuthoringDiagnostic{Code: code, Field: flag, Rule: rule, Next: fieldNext(flag, code == "field_required")})
+	}
+	if r.Kind != "profile" && r.Kind != "binding" {
+		return []AuthoringDiagnostic{{Code: "field_invalid", Rule: "kind must be binding or profile", Next: "Use axiom runtime binding|profile <operation>"}}
+	}
+	if r.Kind == "profile" && r.Enabled != nil {
+		out = append(out, AuthoringDiagnostic{Code: "field_invalid", Field: "--enabled", Rule: "--enabled sets Runtime binding eligibility; it is not a Model Profile field", Next: "Remove --enabled; change Runtime eligibility with `axiom runtime binding enable|disable --runtime <id>` (or `binding edit --enabled`), or Profile allowlisting with `axiom runtime profile enable|disable --profile <id>`"})
+	}
+	for flag, v := range map[string]string{"--runtime": r.RuntimeID, "--profile": r.ProfileID} {
+		if v != "" && !portableconfig.SafeValue(v, "token") {
+			add("field_invalid", flag, "must be a safe lowercase token")
+		}
+	}
+	if r.Model != "" && (!runtimeprofile.SafeIdentifier(r.Model) || !portableconfig.SafeValue(r.Model, "logical") || portableconfig.ContainsSecretBearingValue(r.Model)) {
+		add("field_invalid", "--model", "model intent must be printable text without shell metacharacters or secret-bearing forms")
+	}
+	if (r.Effort.Mode != "" || r.Effort.Value != "") && !runtimeprofile.ValidEffort(r.Effort) {
+		for _, v := range runtimeprofile.ProfileViolations(runtimeprofile.ModelProfile{ID: "p", Model: "m", Capabilities: []string{"c"}, Effort: r.Effort}) {
+			if strings.HasPrefix(v.Field, "effort") {
+				out = append(out, violationDiagnostics([]runtimeprofile.Violation{v})...)
+			}
+		}
+	}
+	for flag, values := range map[string][]string{"--capabilities": r.Capabilities, "--complexities": r.Complexities} {
+		for _, v := range values {
+			if !runtimeprofile.SafeIdentifier(v) || !portableconfig.SafeValue(v, "token") {
+				add("field_invalid", flag, "each entry must be a lowercase token of a-z, 0-9, '-', '_' or '.'")
+				break
+			}
+		}
+		if len(values) > 32 {
+			add("field_invalid", flag, "at most 32 entries")
+		}
+	}
+	if len(out) == 0 {
+		out = append(out, AuthoringDiagnostic{Code: "field_invalid", Rule: "this field combination is not accepted by " + r.Kind + " " + r.Operation, Next: "Inspect accepted fields with `axiom runtime " + r.Kind + " " + r.Operation + " --help`"})
+	}
+	sort.SliceStable(out, func(i, j int) bool { return out[i].Field < out[j].Field })
+	return out
+}
+
+// candidateDiagnostics explains a ValidateV4 refusal of the edited candidate.
+func candidateDiagnostics(c runtimeprofile.ConfigurationV4, r AuthoringRequest) []AuthoringDiagnostic {
+	for _, p := range c.ModelProfiles {
+		if p.ID == r.ProfileID {
+			if d := violationDiagnostics(runtimeprofile.ProfileViolations(p)); len(d) != 0 {
+				return d
+			}
+		}
+	}
+	return []AuthoringDiagnostic{{Code: "configuration_invalid", Rule: "the candidate violates a cross-reference invariant of local configuration (Runtime/Profile allowlist, preference or limit)", Next: "Inspect `axiom runtime profile list` and `axiom runtime binding list`, then prepare a fresh preview"}}
+}
+
+// refusalDiagnostics explains editCandidate refusals, keeping environment
+// (runtime_absent) and declaration conflicts apart from authentication.
+func refusalDiagnostics(code string, r AuthoringRequest) []AuthoringDiagnostic {
+	runtime := r.RuntimeID
+	if !runtimeprofile.SafeIdentifier(runtime) {
+		runtime = "<codex|claude>"
+	}
+	switch code {
+	case "runtime_unsupported":
+		if r.RuntimeID == "" {
+			return []AuthoringDiagnostic{{Code: "field_required", Field: "--runtime", Rule: "a supported Runtime is required", Next: fieldNext("--runtime", true)}}
+		}
+		return []AuthoringDiagnostic{{Code: "field_invalid", Field: "--runtime", Rule: "supported Runtimes are codex and claude", Next: fieldNext("--runtime", false)}}
+	case "runtime_absent":
+		return []AuthoringDiagnostic{{Code: "runtime_absent", Field: "--runtime", Rule: "no absolute executable named " + runtime + " was found on PATH; this is passive discovery, not authentication", Next: "Install or expose the " + runtime + " executable through its own process, then prepare a fresh preview"}}
+	case "binding_missing":
+		return []AuthoringDiagnostic{{Code: "binding_missing", Field: "--runtime", Rule: "no local binding exists for Runtime " + runtime + "; this says nothing about model support", Next: "Create the binding first: `axiom runtime binding create --runtime " + runtime + " --profile <token> --model <model> --effort-mode <explicit|runtime-default> --effort <token|default> --capabilities <comma-list>`"}}
+	case "binding_exists":
+		return []AuthoringDiagnostic{{Code: "configuration_conflict", Field: "--runtime", Rule: "Runtime " + runtime + " is already bound", Next: "Add another Profile with `axiom runtime profile create --runtime " + runtime + " ...`, or inspect `axiom runtime binding show --runtime " + runtime + "`"}}
+	case "profile_exists":
+		return []AuthoringDiagnostic{{Code: "configuration_conflict", Field: "--profile", Rule: "the Profile identity already exists in local configuration shared by every Project on this machine", Next: "Choose another --profile identity, or change the existing one with `axiom runtime profile edit`"}}
+	case "profile_missing":
+		return []AuthoringDiagnostic{{Code: "profile_missing", Field: "--profile", Rule: "no local Profile has this identity", Next: "Inspect `axiom runtime profile list` and use an exact existing identity"}}
+	case "profile_runtime_mismatch":
+		return []AuthoringDiagnostic{{Code: "configuration_conflict", Field: "--runtime", Rule: "a Profile stays bound to its Runtime", Next: "Omit --runtime, or create a new Profile under the other Runtime"}}
+	case "invalid_binding_candidate":
+		field := "--profile"
+		for _, f := range []struct {
+			set  bool
+			flag string
+		}{{r.Model != "", "--model"}, {r.Effort != (runtimeprofile.Effort{}), "--effort-mode"}, {r.Capabilities != nil, "--capabilities"}, {r.Complexities != nil, "--complexities"}} {
+			if f.set {
+				field = f.flag
+				break
+			}
+		}
+		return []AuthoringDiagnostic{{Code: "configuration_conflict", Field: field, Rule: "binding " + r.Operation + " changes only Runtime eligibility; Profile fields belong to profile operations", Next: "Use `axiom runtime profile edit --profile <token> ...` for Profile fields"}}
+	case "candidate_required":
+		return []AuthoringDiagnostic{{Code: "field_required", Field: "--enabled", Rule: "binding edit requires an explicit eligibility change", Next: "Supply --enabled <true|false>, or use binding enable/disable"}}
+	case "compound_removal_required":
+		return []AuthoringDiagnostic{{Code: "configuration_conflict", Field: "--cascade", Rule: "removal also removes dependent Profiles or an emptied Runtime binding", Next: "Review the dependents, then repeat with --cascade for a compound preview"}}
+	}
+	return nil
 }

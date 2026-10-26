@@ -23,6 +23,12 @@ that same archive and fresh exact authority. Do not delete markers, change
 candidates or manually restore files. Confirmed binary publication remains
 confirmed if later bookkeeping fails; there is no automatic rollback.
 
+For a refused Runtime binding or Profile, read
+`runtimeAuthoring.diagnostics` first: it names the field, rule and next action.
+A missing or malformed field, `binding_missing` or `runtime_absent` is not an
+authentication failure; investigate authentication only when an auth
+observation reports one.
+
 For a failed Runtime skill convergence, inspect the relevant Runtime status and
 preserve modified or foreign files. Run `axiom first-run` only when the
 diagnostic calls for it. Authentication, credentials and third-party Runtime
