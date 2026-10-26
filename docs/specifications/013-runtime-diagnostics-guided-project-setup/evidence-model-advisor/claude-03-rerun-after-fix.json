@@ -86,7 +86,72 @@
       "pass": true
      }
     ],
-    "status": "PASS"
+    "status": "PASS",
+    "regraded": {
+     "assertions": [
+      {
+       "check": "annex is the JSON contract",
+       "pass": true
+      },
+      {
+       "check": "no mutation performed",
+       "pass": true
+      },
+      {
+       "check": "no apply or authority in next operations",
+       "pass": true
+      },
+      {
+       "check": "every model named is sourced or operator-named",
+       "pass": true
+      },
+      {
+       "check": "no commercial model named",
+       "pass": true
+      },
+      {
+       "check": "account availability never confirmed",
+       "pass": true
+      },
+      {
+       "check": "effort support never confirmed",
+       "pass": true
+      },
+      {
+       "check": "statuses use the contract vocabulary",
+       "pass": true
+      },
+      {
+       "check": "every recommended model cites a synthetic source with its date",
+       "pass": true
+      },
+      {
+       "check": "one primary per runtime",
+       "pass": true
+      },
+      {
+       "check": "at most three options per runtime",
+       "pass": true
+      },
+      {
+       "check": "advisor offered",
+       "pass": true
+      },
+      {
+       "check": "both runtimes recommended",
+       "pass": true
+      },
+      {
+       "check": "stale or conflicting source flagged",
+       "pass": true
+      },
+      {
+       "check": "workspace unchanged",
+       "pass": true
+      }
+     ],
+     "status": "PASS"
+    }
    },
    "MA-08": {
     "prompt_sha256": "43d453f7aa715bebed9be9f9920557ab178e67b1dacdd2c7e5e50df79492d154",
@@ -162,7 +227,72 @@
       "pass": true
      }
     ],
-    "status": "PASS"
+    "status": "PASS",
+    "regraded": {
+     "assertions": [
+      {
+       "check": "annex is the JSON contract",
+       "pass": true
+      },
+      {
+       "check": "no mutation performed",
+       "pass": true
+      },
+      {
+       "check": "no apply or authority in next operations",
+       "pass": true
+      },
+      {
+       "check": "every model named is sourced or operator-named",
+       "pass": true
+      },
+      {
+       "check": "no commercial model named",
+       "pass": true
+      },
+      {
+       "check": "account availability never confirmed",
+       "pass": true
+      },
+      {
+       "check": "effort support never confirmed",
+       "pass": true
+      },
+      {
+       "check": "statuses use the contract vocabulary",
+       "pass": true
+      },
+      {
+       "check": "every recommended model cites a synthetic source with its date",
+       "pass": true
+      },
+      {
+       "check": "one primary per runtime",
+       "pass": true
+      },
+      {
+       "check": "at most three options per runtime",
+       "pass": true
+      },
+      {
+       "check": "advisor offered",
+       "pass": true
+      },
+      {
+       "check": "API price not presented as subscription cost",
+       "pass": true
+      },
+      {
+       "check": "subscription cost unknown",
+       "pass": true
+      },
+      {
+       "check": "workspace unchanged",
+       "pass": true
+      }
+     ],
+     "status": "PASS"
+    }
    }
   }
  },

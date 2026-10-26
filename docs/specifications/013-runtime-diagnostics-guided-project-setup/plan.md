@@ -71,6 +71,13 @@ e ADR-0032 preservadas.
     armazenadas, sem inferência; o status original fica preservado ao lado do
     reavaliado.
 
+13. **Pin override explícito:** `--pin RUNTIME=MODEL` só por decisão do
+    mantenedor, validado e registrado; nunca fallback automático. Usado para
+    Codex `gpt-6.1-sol` após o `model_not_found` de `gpt-6.1-luna`.
+14. **Avaliador v3:** a ordem de gate e o canal prosa-ou-anexo para MA-10 foram
+    introduzidos após observar respostas do Codex; mantêm as propriedades,
+    são divulgados na Evidence e reaplicados a todos os relatórios.
+
 ## deferred_findings
 
 - **DF-013-01** Inspeção de definições built-in sem Project permitiria
@@ -89,9 +96,14 @@ e ADR-0032 preservadas.
 - **DF-013-05** O avaliador não verifica a fidelidade ao estado do wizard: no
   MA-05 do Claude, a resposta chama o Workflow de “selected” quando o estado
   dizia escolhido e inspecionado.
-- **DF-013-06** Codex BLOCKED: a conta ChatGPT recusa o modelo fixado pela
-  política de testes; exige decisão sobre o modelo de teste para Codex ou
-  outra conta.
+- **DF-013-06** A política de testes fixa `gpt-6.1-luna` para Codex, mas a
+  conta ChatGPT o recusa; a bateria usou `gpt-6.1-sol` por decisão do
+  mantenedor. Atualizar a política operacional é decisão própria.
+- **DF-013-07** O Codex CLI não expõe o modelo efetivo nos eventos JSON; a
+  Evidence do Codex depende só da flag fixada.
+- **DF-013-08** O anexo `ADVISOR-RESULT` admite interpretações diferentes
+  (modelo do operador como recomendação); um schema mais explícito reduziria
+  a dependência da prosa.
 
 ## Arquivos
 

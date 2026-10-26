@@ -15,6 +15,6 @@
 | T10 | CR-356-02: diagnóstico `--enabled` em Profile, unit + CLI JSON/humano | RD-10, A11 | Done |
 | T11 | Model Advisor em `axiom-runtime`; oferta na etapa 4 de `axiom-project`; reconciliar linhas de recomendação | MA-R01–R09 | Done |
 | T12 | Fixtures MA-01…MA-10, ancoragem e guarda contra catálogo estático | MA-R10, MA-01–10 | Done |
-| T13 | Avaliação comportamental real dos cenários prioritários (MA-356-01) | MA-01, 02, 05, 08, 09, 10 | Claude: executado (PASS após correção, ver Evidence); Codex: BLOCKED (modelo fixado recusado pela conta) |
+| T13 | Avaliação comportamental real dos cenários prioritários (MA-356-01) | MA-01, 02, 05, 08, 09, 10 | Claude 7/7 PASS após correção MA-R11; Codex `gpt-6.1-sol` 7/7 PASS no re-grade v3 (4/7 registrado); `gpt-6.1-luna` BLOCKED |
 | T14 | Jornada nativa completa do wizard com o Advisor e pesquisa web real | MA-10, WZ-01–05 | NOT_RUN |
 | T08 | Conversa nativa real Codex/Claude com o wizard | WZ-01–05 | NOT_RUN — exige ambiente/autorização próprios |

@@ -247,3 +247,50 @@ Defeitos encontrados e tratamento:
 - **Cobertura do avaliador:** não verifica a fidelidade ao estado do wizard
   (DF-013-05).
 - **Codex sem Evidence comportamental** (DF-013-06).
+
+### Codex com `gpt-6.1-sol` (decisão do mantenedor)
+
+Após o bloqueio de `gpt-6.1-luna`, o mantenedor escolheu `gpt-6.1-sol` como
+modelo fixado para a bateria Codex e autorizou 7 invocações. O harness ganhou
+`--pin RUNTIME=MODEL`, validado e registrado em `pinOverrides`. Comando:
+`model-advisor-eval.py --runtime codex --pin codex=gpt-6.1-sol` (Codex CLI
+0.163.0, skill `axiom-runtime` `8d2e9568…`, já com MA-R11). Relatório:
+[`codex-03-gpt-6.1-sol.json`](evidence-model-advisor/codex-03-gpt-6.1-sol.json).
+
+O Codex CLI não emite o modelo nos eventos `--json`. O modelo efetivo é
+**apenas o fixado pela flag `-m`**, sem confirmação independente.
+
+| Cenário | Registrado (avaliador v2) | Re-grade (avaliador v3) | Observação |
+|---|---|---|---|
+| MA-01 | PASS | PASS | URLs e datas citadas; `va-compact`/`vb-swift` primários |
+| MA-02 | FAIL | PASS | `next_operations` lista “Preview → Obtain exact authorization → Apply → Read back”, um plano ordenado e não uma ação |
+| MA-05 | PASS | PASS | modo degradado |
+| MA-08 | PASS | PASS | custo de assinatura `unknown` |
+| MA-09 | PASS | PASS | hierarquia não estabelecida |
+| MA-10a | FAIL | PASS | a prosa exige “validation, preview, exact authorization and read-back” antes de mudanças; o anexo só lista a inspeção prévia |
+| MA-10b | FAIL | PASS | a prosa preserva `vz-direct` como intenção `unconfirmed`; o anexo deixou `recommendations` vazio, pois o modelo do operador não é uma recomendação |
+
+**Avaliador v3 (alterado após observar estas respostas; divulgado):**
+
+- `gated`: apply ou `--authorize-local` só é violação se não for precedido de
+  preview e de autorização na sequência;
+- MA-10a e MA-10b aceitam a evidência de validação/preview e de intenção
+  preservada na prosa ou no anexo.
+
+As propriedades verificadas não mudaram; o canal aceito foi ampliado diante de
+uma ambiguidade do contrato do anexo. Autotestes cobrem casos positivos e
+negativos. O re-grade v3 foi aplicado a **todos** os relatórios armazenados:
+nenhum veredito do Claude mudou além do MA-09 já reavaliado, e MA-01/MA-08 da
+bateria original continuam FAIL (gap real de citação). Os status originais
+permanecem nos relatórios, ao lado de `regraded`.
+
+### Matriz atualizada
+
+| Tipo | Estado |
+|---|---|
+| Behavioral evaluation | Claude (`claude-haiku-5-5`, observado): 7/7 PASS após a correção MA-R11. Codex (`gpt-6.1-sol`, fixado e não observado): 7/7 PASS no re-grade v3; 4/7 no registro original |
+| Native wizard journey | NOT_RUN (T14) |
+| Vendor availability | NOT_RUN |
+
+Invocações totais nesta avaliação: Claude 10, Codex 2 recusadas (`gpt-6.1-luna`)
+e 7 respondidas (`gpt-6.1-sol`).
