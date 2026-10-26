@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Bug fixes
+
+- Exclude Claude's local session messaging token from model authentication
+  overrides; endpoint and credential overrides remain blocked.
+- Add Project context and observed Axiom version headers to conversational
+  skill responses, preserving unmodified explicit JSON output.
+
 ### Features
 
 - Effective Project context with a persistent local default, isolated session

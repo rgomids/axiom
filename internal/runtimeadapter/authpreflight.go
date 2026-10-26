@@ -297,6 +297,12 @@ func environmentOverrides(runtimeID string, environment map[string]string, prefi
 	}
 	var overrides []string
 	for key := range environment {
+		// This exact vendor-owned token authenticates local session messaging,
+		// not model requests. Keep unknown token/key/URL names fail-closed.
+		// https://code.claude.com/docs/en/env-vars
+		if runtimeID == "claude" && key == "CLAUDE_CODE_MESSAGING_TOKEN" {
+			continue
+		}
 		// Token, key and endpoint variables of the vendor's own namespace
 		// (for example CLAUDE_CODE_API_KEY_FILE_DESCRIPTOR) also select
 		// another authentication path.

@@ -34,7 +34,10 @@ Order (first failure wins, fail closed):
    `CLOUD_ML_*`, `VERTEX_*`, `CLAUDE_CODE_OAUTH_TOKEN`,
    `AWS_BEARER_TOKEN_BEDROCK`, `CLAUDE_CODE_API_KEY_HELPER_TTL_MS`; plus any
    `CODEX_*` / `CLAUDE_CODE_*` name containing `TOKEN`, `API_KEY` or `URL`
-   (for example `CLAUDE_CODE_API_KEY_FILE_DESCRIPTOR`).
+   (for example `CLAUDE_CODE_API_KEY_FILE_DESCRIPTOR`). The exact
+   `CLAUDE_CODE_MESSAGING_TOKEN` name is excluded: it authenticates local
+   session messaging, not model requests. This exception does not allow a
+   gateway, OAuth credential, unknown token name or missing subscription login.
    Duplicate keys are ambiguous.
 3. Configuration overrides — key names only, values never retained:
    Codex `<CODEX_HOME or HOME/.codex>/{config,managed_config}.toml`,

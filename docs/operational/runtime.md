@@ -16,6 +16,45 @@ prove inference, billing or future availability. A Model Execution requires
 its own applicable preview and authority. Inspect persisted status and result
 records; an acknowledgement or exit code alone does not prove successful work.
 
+## Response context
+
+Axiom skills begin normal conversational responses with `Axiom · <Project>`
+and a version subtitle taken from that command's `provenance.version`.
+Project listings and unscoped or ambiguous operations show only `Axiom`.
+Missing version evidence stays explicit; Runtime CLI versions are not Axiom
+versions. Explicit raw JSON output is unchanged.
+
+## Authentication environment
+
+`axiom --json runtime claude auth` observes the current shell's effective
+environment and configuration. An `environment_override` diagnostic names
+variables without exposing their values. Inspect their owner before changing
+them: a host or managed gateway may require them. Do not delete host credentials
+or persist a global environment change merely to clear a readiness diagnostic.
+
+`CLAUDE_CODE_MESSAGING_TOKEN` authenticates local session messaging, so its
+presence alone does not block model authentication. `ANTHROPIC_BASE_URL`
+changes the model endpoint and remains blocked by the local subscription
+contract. `CLAUDE_CODE_OAUTH_TOKEN` also remains outside that contract; this
+does not prove API-key billing. Anthropic documents it as subscription OAuth
+for automation. See the official [environment reference](https://code.claude.com/docs/en/env-vars)
+and [authentication guide](https://code.claude.com/docs/en/authentication)
+(checked 2026-10-26).
+
+For the local subscription scenario, use an operator-controlled shell with the
+intended local login and environment, then repeat the diagnostic there. A
+positive login observation in that shell does not repair a host-managed gateway
+or prove readiness in another host. Profiles and Workflow selection do not
+change this authentication boundary; inference still needs separate authority.
+
+The shell diagnostic and a Stage child are different targets. Stage execution
+uses `StageEnvironment` to construct a closed environment without inherited
+provider routing or credentials, then checks authentication against that exact
+child invocation. An incompatible Desktop shell does not establish that the
+Stage child is incompatible. Conversely, a successful clean-shell observation
+cannot replace the child check or establish overall Project readiness. Do not
+change the Desktop's global environment to reconcile these scopes.
+
 ## Man pages
 
 Use the installed Markdown/help when no `man` reader is available. The intended

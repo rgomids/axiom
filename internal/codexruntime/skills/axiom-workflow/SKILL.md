@@ -203,6 +203,25 @@ intent and explicit skill invocation. The user need not request raw JSON.
 Consume one canonical JSON document from the same invocation; never parse the
 terminal presentation or repeat a mutation to obtain a different view.
 
+### Response context header
+
+Begin each normal Axiom domain response with a Markdown heading `### Axiom · <Project>`
+when the current operation has one unambiguously observed target Project. Use its
+human name (slug only if name is absent), escaped as inert single-line Markdown.
+Do not use a Repository name, guess a Project from the working directory, or carry
+a previous Project into an unscoped operation. For Project listing, no Project,
+multiple targets or unresolved identity, use `### Axiom` with no separator.
+
+Immediately below, write `*Versão <version>*`, using `provenance.version` from the
+same canonical result, never the vendor CLI version, a release tag or skill text.
+If unavailable, write `*Versão não observada*`; do not invent or reuse a stale
+version. Preserve dirty/unknown source qualifications and conflicting versions
+when multiple results contribute. Escape metadata as inert single-line Markdown.
+Then give the effective result, blockers and next action in ordinary concise prose.
+This header changes host presentation only; no new CLI renderer, domain status,
+extra LLM call or automatic diagram is needed. Explicit raw JSON requests retain
+the unchanged canonical JSON with no added header or subtitle.
+
 The host writes the normal conversational response itself: objective, effective
 result, material blockers/risks/decision, then the smallest supported next action.
 Use concise Markdown when useful, without empty headings, a mandatory payload
