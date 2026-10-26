@@ -1,0 +1,262 @@
+{
+  "behavioralEvaluation": "NOT_RUN",
+  "category": "deterministic_evaluator_self_test",
+  "limitations": [
+    "synthetic probes are not observed agent responses",
+    "lexical fact preservation is not full semantic correctness"
+  ],
+  "nativeClaude": "NOT_RUN",
+  "nativeCodex": "NOT_RUN",
+  "reason": "no separate inference authority",
+  "results": [
+    {
+      "assertions": [
+        "heading",
+        "version",
+        "canonical material facts",
+        "negative mutations",
+        "raw JSON when requested"
+      ],
+      "case": "H01-name",
+      "inputSha256": "898fe430b8c3e4b26e62bdc4f1d2fa637c6ded9f315464145c557576e69a5255",
+      "negativeAssertions": 12,
+      "origin": "synthetic_oracle_probe",
+      "status": "PASS"
+    },
+    {
+      "assertions": [
+        "heading",
+        "version",
+        "canonical material facts",
+        "negative mutations",
+        "raw JSON when requested"
+      ],
+      "case": "H02-slug",
+      "inputSha256": "8066c90eeae275d3603f20cf35250867b7eba4b5d52a0a93f8f71c7bf2ad5487",
+      "negativeAssertions": 12,
+      "origin": "synthetic_oracle_probe",
+      "status": "PASS"
+    },
+    {
+      "assertions": [
+        "heading",
+        "version",
+        "canonical material facts",
+        "negative mutations",
+        "raw JSON when requested"
+      ],
+      "case": "H03-list",
+      "inputSha256": "c08c4771614d0ddbcdf457745e635bd7faba27f8603540288a8d842767cd966f",
+      "negativeAssertions": 11,
+      "origin": "synthetic_oracle_probe",
+      "status": "PASS"
+    },
+    {
+      "assertions": [
+        "heading",
+        "version",
+        "canonical material facts",
+        "negative mutations",
+        "raw JSON when requested"
+      ],
+      "case": "H04-ambiguous",
+      "inputSha256": "33df97f1cc936ac73a44c85c19ca119c530d1a1a870e7b9e31fc644462103ed4",
+      "negativeAssertions": 11,
+      "origin": "synthetic_oracle_probe",
+      "status": "PASS"
+    },
+    {
+      "assertions": [
+        "heading",
+        "version",
+        "canonical material facts",
+        "negative mutations",
+        "raw JSON when requested"
+      ],
+      "case": "H05-unobserved",
+      "inputSha256": "055c50a8593a67a244ad028e7da497fc0222c1ca1f4a85639dbfda621257c2c1",
+      "negativeAssertions": 11,
+      "origin": "synthetic_oracle_probe",
+      "status": "PASS"
+    },
+    {
+      "assertions": [
+        "heading",
+        "version",
+        "canonical material facts",
+        "negative mutations",
+        "raw JSON when requested"
+      ],
+      "case": "H06-missing-version",
+      "inputSha256": "9b551d85a5dc5e0f58c6ead0d720bc50ed4608866af38a3d0b7f67113a8c04c1",
+      "negativeAssertions": 12,
+      "origin": "synthetic_oracle_probe",
+      "status": "PASS"
+    },
+    {
+      "assertions": [
+        "heading",
+        "version",
+        "canonical material facts",
+        "negative mutations",
+        "raw JSON when requested"
+      ],
+      "case": "H07-conflicting-version",
+      "inputSha256": "2e1ead736244552af29217cc1d48dbf46a28dd7d0a03ff54509ce0b66d5a32fa",
+      "negativeAssertions": 14,
+      "origin": "synthetic_oracle_probe",
+      "status": "PASS"
+    },
+    {
+      "assertions": [
+        "heading",
+        "version",
+        "canonical material facts",
+        "negative mutations",
+        "raw JSON when requested"
+      ],
+      "case": "H08-hostile-name",
+      "inputSha256": "9f034792720987e370b6a92d4915ee261b3c69b3b7b9f25c6791079578b4ca97",
+      "negativeAssertions": 12,
+      "origin": "synthetic_oracle_probe",
+      "status": "PASS"
+    },
+    {
+      "assertions": [
+        "heading",
+        "version",
+        "canonical material facts",
+        "negative mutations",
+        "raw JSON when requested"
+      ],
+      "case": "H09-blocker",
+      "inputSha256": "cc745259503de2ded97105310a8c62b1eb1b1f45ab0b21091aa2a4475d87d305",
+      "negativeAssertions": 19,
+      "origin": "synthetic_oracle_probe",
+      "status": "PASS"
+    },
+    {
+      "assertions": [
+        "heading",
+        "version",
+        "canonical material facts",
+        "negative mutations",
+        "raw JSON when requested"
+      ],
+      "case": "H10-raw-json",
+      "inputSha256": "8066c90eeae275d3603f20cf35250867b7eba4b5d52a0a93f8f71c7bf2ad5487",
+      "negativeAssertions": 4,
+      "origin": "synthetic_oracle_probe",
+      "status": "PASS"
+    },
+    {
+      "assertions": [
+        "heading",
+        "version",
+        "canonical material facts",
+        "negative mutations",
+        "raw JSON when requested"
+      ],
+      "case": "H11-successor",
+      "inputSha256": "39e6526f4a8399a639bd22a4b69c60b62280f6e74b53ded9d08e6521bf30e51a",
+      "negativeAssertions": 12,
+      "origin": "synthetic_oracle_probe",
+      "status": "PASS"
+    },
+    {
+      "assertions": [
+        "heading",
+        "version",
+        "canonical material facts",
+        "negative mutations",
+        "raw JSON when requested"
+      ],
+      "case": "H12-vendor-version",
+      "inputSha256": "5c99f99758f54f65d60349f675ce84168a612e20cdb4106e7cd7d275fbbaaa74",
+      "negativeAssertions": 16,
+      "origin": "synthetic_oracle_probe",
+      "status": "PASS"
+    },
+    {
+      "assertions": [
+        "heading",
+        "version",
+        "canonical material facts",
+        "negative mutations",
+        "raw JSON when requested"
+      ],
+      "case": "H13-unicode",
+      "inputSha256": "a15a79442efc4e39ea364dced53bc0d563f1f1658e42bc5ab50f6dcd1f14504c",
+      "negativeAssertions": 12,
+      "origin": "synthetic_oracle_probe",
+      "status": "PASS"
+    },
+    {
+      "assertions": [
+        "heading",
+        "version",
+        "canonical material facts",
+        "negative mutations",
+        "raw JSON when requested"
+      ],
+      "case": "H14-dirty",
+      "inputSha256": "c3885dfbde37148317a96ab2a8c5d5ac7ae25f5641cc0c32a67ed9c587253832",
+      "negativeAssertions": 13,
+      "origin": "synthetic_oracle_probe",
+      "status": "PASS"
+    }
+  ],
+  "skillSha256": {
+    "axiom-project": "4c6e5602212420e9cc23d10a299d6b494c08a1417f4747fc93ca507cd38c257f",
+    "axiom-runtime": "3649c248b036a7864e418b308edd4e83ae86514924738fc57cc9e34e0639b7c1",
+    "axiom-work-item": "dfa0a34033dbbf4109f724085e1fed7f813d194362262e68cec683d8ffa6532a",
+    "axiom-workflow": "899abc6a29c6ece448535f844ddaefb7a2419a9f7cfb0533b534b47af89236b7"
+  },
+  "sourceHead": "48f4a0c8310ab9f93d48c6903711231e17018117",
+  "sourceState": "dirty",
+  "evaluatorSha256": "562d51f62adedf621a1837a32e0f84f0a007985f9aca16c92c9e16f6a0716cbf",
+  "fixturesSha256": "94a0bccf8fa3eaec59e2b357f56a735fee67472379b2c90ae6581b5c0f212455",
+  "technical_decisions": [
+    {
+      "id": "TD-01",
+      "decision": "Extend existing Go test-only presentation oracle pattern; no new runtime runner or product renderer",
+      "reason": "Specification 012 plan section 4"
+    },
+    {
+      "id": "TD-02",
+      "decision": "Canonical Project list supplies name correlated by ID with current Project view; no invented ProjectView.name",
+      "reason": "Actual CLI transport has no name field on ProjectView"
+    },
+    {
+      "id": "TD-03",
+      "decision": "Use explicit conflicting-version subtitle and one-line HTML/Markdown escaping convention",
+      "reason": "Local reversible clarification of existing guidance"
+    },
+    {
+      "id": "TD-04",
+      "decision": "Separate lexical oracle checks from behavioral/native acceptance; native remains NOT_RUN",
+      "reason": "No separate inference/quota/credential authority"
+    },
+    {
+      "id": "TD-05",
+      "decision": "Compare baseline validator against same checkout and validate tracked snapshot independently",
+      "reason": "Prove unrelated ignored-worktree obstruction without deletion"
+    }
+  ],
+  "deferred_findings": [
+    {
+      "id": "DF-360-01",
+      "scope": "General multilingual semantic equivalence and extra operation-specific workflow/work-item envelopes",
+      "status": "deferred",
+      "reason": "Bounded shared-header oracle does not qualify all conversational semantics; no additional renderer/framework introduced"
+    }
+  ],
+  "baselineComparison": {
+    "baselineHead": "48f4a0c8310ab9f93d48c6903711231e17018117",
+    "validatorBaselineSha256": "dd6bf7a371f5480e05563295437cc068249c99106b243dbd6ade411896fb7059",
+    "validatorWorkingTreeSha256": "dd6bf7a371f5480e05563295437cc068249c99106b243dbd6ade411896fb7059",
+    "baselineSameCheckout": "FAIL: unapproved Claude artifact under ignored .claude/worktrees",
+    "workingTree": "same FAIL",
+    "trackedSourceSnapshot": "PASS"
+  }
+}

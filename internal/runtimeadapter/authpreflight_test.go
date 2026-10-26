@@ -192,6 +192,38 @@ func TestAuthPreflightRejectsEnvironmentOverridesBeforeRunningStatus(t *testing.
 	}
 }
 
+func TestAuthPreflightMessagingTokenDoesNotSelectModelAuthentication(t *testing.T) {
+	for _, entry := range []string{"CLAUDE_CODE_MESSAGING_TOKEN=synthetic-session-token", "claude_code_messaging_token=synthetic-session-token"} {
+		for _, blocker := range []string{"", "ANTHROPIC_BASE_URL=https://gateway.invalid", "CLAUDE_CODE_OAUTH_TOKEN=synthetic-oauth-token", "CLAUDE_CODE_MESSAGING_TOKEN_URL=https://gateway.invalid"} {
+			t.Run(entry+"/"+strings.SplitN(blocker, "=", 2)[0], func(t *testing.T) {
+				fixture := newAuthFixture(t, "claude")
+				fixture.env = append(fixture.env, entry)
+				if blocker != "" {
+					fixture.env = append(fixture.env, blocker)
+				}
+				runner := &fakeStatus{version: ok("2.1.310"), status: ok(claudeSubscription)}
+				report := check(t, "claude", fixture, runner)
+				if blocker == "" {
+					if !report.DispatchAllowed() || len(runner.calls) != 2 || len(report.Overrides) != 0 {
+						t.Fatalf("session messaging blocked subscription observation: %+v", report)
+					}
+					return
+				}
+				want := "env:" + strings.SplitN(blocker, "=", 2)[0]
+				if report.Status != AuthIncompatible || report.Reason != "environment_override" || strings.Join(report.Overrides, ",") != want || len(runner.calls) != 0 {
+					t.Fatalf("auth override not preserved: %+v", report)
+				}
+			})
+		}
+	}
+	fixture := newAuthFixture(t, "claude")
+	fixture.env = append(fixture.env, "CLAUDE_CODE_MESSAGING_TOKEN=synthetic-session-token")
+	runner := &fakeStatus{version: ok("2.1.310"), status: exit(1, `{"loggedIn":false,"authMethod":"none","apiProvider":"firstParty"}`)}
+	if report := check(t, "claude", fixture, runner); report.Status != AuthUnavailable || report.DispatchAllowed() {
+		t.Fatalf("messaging token bypassed missing model login: %+v", report)
+	}
+}
+
 func TestAuthPreflightRejectsConfigurationOverrides(t *testing.T) {
 	codexStatus := func() *fakeStatus {
 		return &fakeStatus{version: ok("codex-cli 0.159.1"), status: ok("Logged in using ChatGPT")}

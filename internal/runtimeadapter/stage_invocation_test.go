@@ -97,6 +97,31 @@ func TestStageEnvironmentClosed(t *testing.T) {
 	}
 }
 
+func TestStageAuthDoesNotInheritDesktopRouting(t *testing.T) {
+	fixture := newAuthFixture(t, "claude")
+	fixture.env = append(fixture.env, "ANTHROPIC_BASE_URL=https://gateway.invalid", "CLAUDE_CODE_MESSAGING_TOKEN=synthetic-session-token", "CLAUDE_CODE_OAUTH_TOKEN=synthetic-oauth-token")
+	runner := &fakeStatus{version: ok("2.1.310"), status: ok(claudeSubscription)}
+	preflight, err := NewAuthPreflight(runner, ManagedConfiguration{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	parent := fixture.target("claude")
+	if report := preflight.Check(context.Background(), parent); report.Status != AuthIncompatible || len(runner.calls) != 0 {
+		t.Fatalf("parent override not blocked: %+v", report)
+	}
+	child := fixture.target("claude")
+	child.Environment, err = StageEnvironment("claude", parent.Environment)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report := preflight.Check(context.Background(), child); !report.DispatchAllowed() || len(runner.calls) != 2 {
+		t.Fatalf("isolated child login not observed: %+v", report)
+	}
+	if report := preflight.Check(context.Background(), parent); report.Status != AuthIncompatible || len(runner.calls) != 2 {
+		t.Fatalf("parent environment changed: %+v", report)
+	}
+}
+
 func TestStageAuthMissingLoginRoot(t *testing.T) {
 	for _, runtimeID := range []string{"codex", "claude"} {
 		fixture := newAuthFixture(t, runtimeID)

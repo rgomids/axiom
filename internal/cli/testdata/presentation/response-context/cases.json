@@ -1,0 +1,495 @@
+[
+  {
+    "id": "H01-name",
+    "skill": "axiom-project",
+    "operation": "project.show",
+    "documents": [
+      {
+        "status": "success",
+        "result": "Configured Projects listed",
+        "references": [],
+        "next": "Inspect configuration; no dispatch authorized",
+        "provenance": {
+          "product": "Axiom",
+          "version": "0.22.1",
+          "revision": "abc123def456",
+          "sourceState": "clean"
+        },
+        "projects": [
+          {
+            "id": "11111111-1111-4111-8111-111111111111",
+            "slug": "orbita",
+            "name": "Órbita",
+            "status": "active",
+            "activeWorkflow": {
+              "status": "none"
+            }
+          }
+        ]
+      },
+      {
+        "status": "success",
+        "result": "Project inspected",
+        "references": [
+          "project:11111111-1111-4111-8111-111111111111"
+        ],
+        "next": "Inspect configuration; no dispatch authorized",
+        "provenance": {
+          "product": "Axiom",
+          "version": "0.22.1",
+          "revision": "abc123def456",
+          "sourceState": "clean"
+        },
+        "project": {
+          "id": "11111111-1111-4111-8111-111111111111",
+          "slug": "orbita",
+          "source": "explicit",
+          "repositories": []
+        }
+      }
+    ]
+  },
+  {
+    "id": "H02-slug",
+    "skill": "axiom-project",
+    "operation": "project.show",
+    "documents": [
+      {
+        "status": "success",
+        "result": "Project inspected",
+        "references": [
+          "project:11111111-1111-4111-8111-111111111111"
+        ],
+        "next": "Inspect configuration; no dispatch authorized",
+        "provenance": {
+          "product": "Axiom",
+          "version": "0.22.1",
+          "revision": "abc123def456",
+          "sourceState": "clean"
+        },
+        "project": {
+          "id": "11111111-1111-4111-8111-111111111111",
+          "slug": "orbita",
+          "source": "explicit",
+          "repositories": []
+        }
+      }
+    ]
+  },
+  {
+    "id": "H03-list",
+    "skill": "axiom-project",
+    "operation": "project.list",
+    "documents": [
+      {
+        "status": "success",
+        "result": "Configured Projects listed",
+        "references": [],
+        "next": "Inspect configuration; no dispatch authorized",
+        "provenance": {
+          "product": "Axiom",
+          "version": "0.22.1",
+          "revision": "abc123def456",
+          "sourceState": "clean"
+        },
+        "projects": [
+          {
+            "id": "11111111-1111-4111-8111-111111111111",
+            "slug": "orbita",
+            "name": "Órbita",
+            "status": "active",
+            "activeWorkflow": {
+              "status": "none"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "H04-ambiguous",
+    "skill": "axiom-project",
+    "operation": "project.show",
+    "documents": [
+      {
+        "status": "success",
+        "result": "Configured Projects listed",
+        "references": [],
+        "next": "Inspect configuration; no dispatch authorized",
+        "provenance": {
+          "product": "Axiom",
+          "version": "0.22.1",
+          "revision": "abc123def456",
+          "sourceState": "clean"
+        },
+        "projects": [
+          {
+            "id": "11111111-1111-4111-8111-111111111111",
+            "slug": "orbita",
+            "name": "Órbita",
+            "status": "active",
+            "activeWorkflow": {
+              "status": "none"
+            }
+          },
+          {
+            "id": "22222222-2222-4222-8222-222222222222",
+            "name": "Outro",
+            "slug": "outro",
+            "status": "active",
+            "activeWorkflow": {
+              "status": "none"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "H05-unobserved",
+    "skill": "axiom-runtime",
+    "operation": "runtime.binding.list",
+    "documents": [
+      {
+        "status": "success",
+        "result": "Runtime inspected",
+        "references": [],
+        "next": "Inspect configuration; no dispatch authorized",
+        "provenance": {
+          "product": "Axiom",
+          "version": "0.22.1",
+          "revision": "abc123def456",
+          "sourceState": "clean"
+        }
+      }
+    ]
+  },
+  {
+    "id": "H06-missing-version",
+    "skill": "axiom-project",
+    "operation": "project.show",
+    "documents": [
+      {
+        "status": "success",
+        "result": "Project inspected",
+        "references": [
+          "project:11111111-1111-4111-8111-111111111111"
+        ],
+        "next": "Inspect configuration; no dispatch authorized",
+        "provenance": {
+          "product": "Axiom",
+          "revision": "abc123def456",
+          "sourceState": "clean"
+        },
+        "project": {
+          "id": "11111111-1111-4111-8111-111111111111",
+          "slug": "orbita",
+          "source": "explicit",
+          "repositories": []
+        }
+      }
+    ],
+    "fault": "missing-version"
+  },
+  {
+    "id": "H07-conflicting-version",
+    "skill": "axiom-workflow",
+    "operation": "project.show",
+    "documents": [
+      {
+        "status": "success",
+        "result": "Configured Projects listed",
+        "references": [],
+        "next": "Inspect configuration; no dispatch authorized",
+        "provenance": {
+          "product": "Axiom",
+          "version": "0.22.0",
+          "revision": "abc123def456",
+          "sourceState": "clean"
+        },
+        "projects": [
+          {
+            "id": "11111111-1111-4111-8111-111111111111",
+            "slug": "orbita",
+            "name": "Órbita",
+            "status": "active",
+            "activeWorkflow": {
+              "status": "none"
+            }
+          }
+        ]
+      },
+      {
+        "status": "success",
+        "result": "Project inspected",
+        "references": [
+          "project:11111111-1111-4111-8111-111111111111"
+        ],
+        "next": "Inspect configuration; no dispatch authorized",
+        "provenance": {
+          "product": "Axiom",
+          "version": "0.22.1",
+          "revision": "abc123def456",
+          "sourceState": "clean"
+        },
+        "project": {
+          "id": "11111111-1111-4111-8111-111111111111",
+          "slug": "orbita",
+          "source": "explicit",
+          "repositories": []
+        }
+      }
+    ]
+  },
+  {
+    "id": "H08-hostile-name",
+    "skill": "axiom-project",
+    "operation": "project.show",
+    "documents": [
+      {
+        "status": "success",
+        "result": "Configured Projects listed",
+        "references": [],
+        "next": "Inspect configuration; no dispatch authorized",
+        "provenance": {
+          "product": "Axiom",
+          "version": "0.22.1",
+          "revision": "abc123def456",
+          "sourceState": "clean"
+        },
+        "projects": [
+          {
+            "id": "11111111-1111-4111-8111-111111111111",
+            "slug": "orbita",
+            "name": "**Nome**\n### falso\u0000<script>&‮",
+            "status": "active",
+            "activeWorkflow": {
+              "status": "none"
+            }
+          }
+        ]
+      },
+      {
+        "status": "success",
+        "result": "Project inspected",
+        "references": [
+          "project:11111111-1111-4111-8111-111111111111"
+        ],
+        "next": "Inspect configuration; no dispatch authorized",
+        "provenance": {
+          "product": "Axiom",
+          "version": "0.22.1",
+          "revision": "abc123def456",
+          "sourceState": "clean"
+        },
+        "project": {
+          "id": "11111111-1111-4111-8111-111111111111",
+          "slug": "orbita",
+          "source": "explicit",
+          "repositories": []
+        }
+      }
+    ]
+  },
+  {
+    "id": "H09-blocker",
+    "skill": "axiom-work-item",
+    "operation": "project.validate",
+    "documents": [
+      {
+        "status": "success",
+        "result": "Project is valid",
+        "references": [
+          "project:11111111-1111-4111-8111-111111111111"
+        ],
+        "next": "Inspect configuration; no dispatch authorized",
+        "provenance": {
+          "product": "Axiom",
+          "version": "0.22.1",
+          "revision": "abc123def456",
+          "sourceState": "clean"
+        },
+        "readiness": {
+          "schemaVersion": 3,
+          "projectId": "11111111-1111-4111-8111-111111111111",
+          "structure": "valid",
+          "effective": "partial",
+          "blockers": [
+            {
+              "code": "runtime_resolution_blocked",
+              "detail": "inventory_unavailable"
+            }
+          ],
+          "authority": {
+            "grantsAuthority": false,
+            "localEffects": "explicit_local_authorization",
+            "providerEffects": "explicit_external_authorization"
+          }
+        }
+      }
+    ]
+  },
+  {
+    "id": "H10-raw-json",
+    "skill": "axiom-project",
+    "operation": "project.show",
+    "documents": [
+      {
+        "status": "success",
+        "result": "Project inspected",
+        "references": [
+          "project:11111111-1111-4111-8111-111111111111"
+        ],
+        "next": "Inspect configuration; no dispatch authorized",
+        "provenance": {
+          "product": "Axiom",
+          "version": "0.22.1",
+          "revision": "abc123def456",
+          "sourceState": "clean"
+        },
+        "project": {
+          "id": "11111111-1111-4111-8111-111111111111",
+          "slug": "orbita",
+          "source": "explicit",
+          "repositories": []
+        }
+      }
+    ],
+    "raw": true
+  },
+  {
+    "id": "H11-successor",
+    "skill": "axiom-project",
+    "operation": "project.show",
+    "documents": [
+      {
+        "status": "success",
+        "result": "Project inspected",
+        "references": [
+          "project:22222222-2222-4222-8222-222222222222"
+        ],
+        "next": "Inspect configuration; no dispatch authorized",
+        "provenance": {
+          "product": "Axiom",
+          "version": "0.23.0",
+          "revision": "abc123def456",
+          "sourceState": "clean"
+        },
+        "project": {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "slug": "segundo",
+          "source": "explicit",
+          "repositories": []
+        }
+      }
+    ],
+    "previousCase": "H01-name"
+  },
+  {
+    "id": "H12-vendor-version",
+    "skill": "axiom-runtime",
+    "operation": "runtime.claude.auth",
+    "documents": [
+      {
+        "status": "success",
+        "result": "Claude subscription login observed; usability stays unproven until a real dispatch",
+        "references": [
+          "runtime-auth:claude:subscription_observed"
+        ],
+        "next": "Child dispatch repeats this preflight on its exact invocation; execution needs separate Runtime authorization",
+        "provenance": {
+          "product": "Axiom",
+          "version": "0.22.1",
+          "revision": "abc123def456",
+          "sourceState": "clean"
+        },
+        "runtimeAuth": {
+          "runtimeId": "claude",
+          "status": "subscription_observed",
+          "method": "claude.ai",
+          "version": "9.9.9",
+          "evidenceKind": "fake",
+          "usability": "unproven_until_real_dispatch",
+          "revalidation": "before_each_dispatch"
+        }
+      }
+    ]
+  },
+  {
+    "id": "H13-unicode",
+    "skill": "axiom-workflow",
+    "operation": "project.show",
+    "documents": [
+      {
+        "status": "success",
+        "result": "Configured Projects listed",
+        "references": [],
+        "next": "Inspect configuration; no dispatch authorized",
+        "provenance": {
+          "product": "Axiom",
+          "version": "0.22.1",
+          "revision": "abc123def456",
+          "sourceState": "clean"
+        },
+        "projects": [
+          {
+            "id": "11111111-1111-4111-8111-111111111111",
+            "slug": "orbita",
+            "name": "宇宙 · Órbita",
+            "status": "active",
+            "activeWorkflow": {
+              "status": "none"
+            }
+          }
+        ]
+      },
+      {
+        "status": "success",
+        "result": "Project inspected",
+        "references": [
+          "project:11111111-1111-4111-8111-111111111111"
+        ],
+        "next": "Inspect configuration; no dispatch authorized",
+        "provenance": {
+          "product": "Axiom",
+          "version": "0.22.1",
+          "revision": "abc123def456",
+          "sourceState": "clean"
+        },
+        "project": {
+          "id": "11111111-1111-4111-8111-111111111111",
+          "slug": "orbita",
+          "source": "explicit",
+          "repositories": []
+        }
+      }
+    ]
+  },
+  {
+    "id": "H14-dirty",
+    "skill": "axiom-project",
+    "operation": "project.show",
+    "documents": [
+      {
+        "status": "success",
+        "result": "Project inspected",
+        "references": [
+          "project:11111111-1111-4111-8111-111111111111"
+        ],
+        "next": "Inspect configuration; no dispatch authorized",
+        "provenance": {
+          "product": "Axiom",
+          "version": "development",
+          "revision": "abc123def456",
+          "sourceState": "dirty"
+        },
+        "project": {
+          "id": "11111111-1111-4111-8111-111111111111",
+          "slug": "orbita",
+          "source": "explicit",
+          "repositories": []
+        }
+      }
+    ]
+  }
+]

@@ -152,6 +152,23 @@ separately authorized real attempt; an unknown model identifier can be saved as
 explicit intent. Never call a validated candidate certified, available or
 executable, and never replace or rank the requested model.
 
+## Authentication observation scope
+
+`runtime claude auth` observes the current shell and working directory. A
+Claude Desktop host can supply routing and session variables; do not tell the
+operator to delete host-managed variables or interpret every token as an API
+key. `CLAUDE_CODE_MESSAGING_TOKEN` is local messaging, not model authentication.
+`CLAUDE_CODE_OAUTH_TOKEN` is a subscription OAuth source outside Axiom's local
+login contract; its refusal does not prove API billing.
+
+Stage execution constructs its own closed environment and rechecks authentication
+against the exact child invocation. A blocked parent-shell observation does not
+prove that child is blocked; a clean-shell observation does not prove it ready.
+Retain the reported scope and blockers. Do not silently unset variables, sanitize
+the parent environment, switch authentication paths or bypass the child check.
+Use supported inspection for the actual target; if unavailable, report that
+qualification gap. Independent configuration is not Execution readiness.
+
 ## Model Advisor
 
 When choosing a Profile's model, offer to recommend one instead of only asking
@@ -253,6 +270,29 @@ Use leading `axiom --json` internally for every domain operation, both natural
 intent and explicit skill invocation. The user need not request raw JSON.
 Consume one canonical JSON document from the same invocation; never parse the
 terminal presentation or repeat a mutation to obtain a different view.
+
+### Response context header
+
+Begin each normal Axiom domain response with a Markdown heading `### Axiom · <Project>`
+when the current operation has one unambiguously observed target Project. Use its
+human name (slug only if name is absent), escaped as inert single-line Markdown.
+Do not use a Repository name, guess a Project from the working directory, or carry
+a previous Project into an unscoped operation. For Project listing, no Project,
+multiple targets or unresolved identity, use `### Axiom` with no separator.
+
+Immediately below, write `*Versão <version>*`, using `provenance.version` from the
+same canonical result, never the vendor CLI version, a release tag or skill text.
+If unavailable, write `*Versão não observada*`; do not invent or reuse a stale
+version. Preserve dirty/unknown source qualifications and conflicting versions
+when multiple results contribute: use `*Versão conflitante*` and name every
+conflicting observed version in the body. Normalize label line breaks, control
+and Unicode format characters to spaces, collapse whitespace, escape HTML and
+Markdown structural punctuation; keep Unicode names readable and inert.
+Escape metadata as inert single-line Markdown.
+Then give the effective result, blockers and next action in ordinary concise prose.
+This header changes host presentation only; no new CLI renderer, domain status,
+extra LLM call or automatic diagram is needed. Explicit raw JSON requests retain
+the unchanged canonical JSON with no added header or subtitle.
 
 The host writes the normal conversational response itself: objective, effective
 result, material blockers/risks/decision, then the smallest supported next action.
