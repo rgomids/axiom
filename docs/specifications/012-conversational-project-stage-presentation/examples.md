@@ -115,3 +115,11 @@ fluency and semantic fidelity need native review; deterministic content tests
 alone do not prove them. Failed/partial conversations remain evidence, never
 silently replaced by a successful synthetic transcript. Neither conversation
 establishes AXM-12 inference/E2E acceptance or generic vendor capability.
+
+## PR #360 — response context header qualification
+
+The subsequent response-context change is evaluated by the bounded matrix and
+capture protocol in [CR-360-01](cr360-01/README.md). Synthetic oracle positives
+and mutation negatives are separate from host observations. Native Codex/Claude
+and Desktop presentation remain NOT_RUN pending separate inference authority;
+this supplement changes no historical C01–C16 observation or acceptance state.

@@ -413,7 +413,11 @@ Immediately below, write `*Versão <version>*`, using `provenance.version` from 
 same canonical result, never the vendor CLI version, a release tag or skill text.
 If unavailable, write `*Versão não observada*`; do not invent or reuse a stale
 version. Preserve dirty/unknown source qualifications and conflicting versions
-when multiple results contribute. Escape metadata as inert single-line Markdown.
+when multiple results contribute: use `*Versão conflitante*` and name every
+conflicting observed version in the body. Normalize label line breaks, control
+and Unicode format characters to spaces, collapse whitespace, escape HTML and
+Markdown structural punctuation; keep Unicode names readable and inert.
+Escape metadata as inert single-line Markdown.
 Then give the effective result, blockers and next action in ordinary concise prose.
 This header changes host presentation only; no new CLI renderer, domain status,
 extra LLM call or automatic diagram is needed. Explicit raw JSON requests retain
