@@ -1,0 +1,94 @@
+{
+ "skills": {
+  "axiom-project": "b4754fcce56c4af1225664804783ef1044e65bdea3781c2d66cca97afd8f87c5",
+  "axiom-runtime": "453ea87536f408dbcef43cb39c8e93515e456eef18ff5ac9d9e285f2cf959286"
+ },
+ "pinned": {
+  "claude": "claude-haiku-5-5",
+  "codex": "gpt-6.1-luna"
+ },
+ "results": {
+  "claude": {
+   "cli": "2.1.310 (Claude Code)",
+   "MA-01": {
+    "prompt_sha256": "c4f2fa193df786b14a11e2566618a4def38a2aeb083ba9662b58de7cad597968",
+    "inputs": {
+     "context/state.md": "22c437fbfc39c80adcee4ef56798303dd8bd7865c62ef015832c6e6920e0c40a",
+     "context/workflow-show.json": "2b1ccc1048d3afd14d11d3a3b998bd814b0fb682ac5671ceae1b386d9fb7671f",
+     "skills/axiom-project/SKILL.md": "b4754fcce56c4af1225664804783ef1044e65bdea3781c2d66cca97afd8f87c5",
+     "skills/axiom-runtime/SKILL.md": "453ea87536f408dbcef43cb39c8e93515e456eef18ff5ac9d9e285f2cf959286",
+     "sources/S-A.md": "58b440068cf14a738ccde4ceb0eb7a1c238a7175ed366329cfd9ee5f89b74cdc",
+     "sources/S-B.md": "06382c1ef80dfcde1e62880773e26d13e90c8c4b0dff8790371db94eed912a70",
+     "sources/S-C.md": "ed2a33c32419e01f746dbd33f2c833ead6e7ee0f86afbb7082c3c8ccba764410"
+    },
+    "model": "claude-haiku-5-5",
+    "response": "**Model recommendation: none produced (degraded mode).**\n\nI could not inspect `sources/`, the only research material allowed for this session. My tools read named files and cannot list a directory; reading it returned EISDIR. I did not guess filenames. With no located source, I have no official vendor documentation to cite, so I recommend no model for Codex or Claude.\n\n**What the Profiles must serve** (from `context/workflow-show.json`, `default-sdd` revision 2):\n- 10 Agents, all `role: engineer`, `complexity: medium`, `runtimeConstraints: codex, claude`, `profileRef: policy-default`.\n- Capabilities: `read` on 9 stages; `repository-write` on `implementation`. The union is `read` and `repository-write`.\n- Complexity is `medium` throughout, so one Profile per Runtime covers every Agent.\n- The Workflow marks no Orchestrator or subagent structure; every Agent has id `owner`. The Orchestrator/subagent hierarchy is not established.\n\n**Options for you:**\n1. Name a model for Codex and one for Claude. I will record each as operator-stated intent, attributed to you, with no support claim. Effort is still open: `explicit` value or `runtime-default`.\n2. Point me to a file in `sources/` by exact name or path, and I'll re-run the advisor against it.\n3. Reuse an existing Profile. The state file says none exist yet.\n\n**Cost:** not discussed. I did not present any API price as subscription cost.\n\n**Order of work:** the Project policy (step 5) must be declared before `workflow.select` (step 6), because the installed policy edit accepts only Projects without a selected Workflow.\n\nNo mutations were performed.\n\nADVISOR-RESULT {\"advisor_offered\": true, \"degraded\": true, \"manual_entry_offered\": true, \"recommendations\": [{\"runtime\": \"codex\", \"model\": null, \"primary\": false, \"sources\": [], \"runtime_compatibility\": \"unknown\", \"account_availability\": \"unknown\", \"effort_support\": \"unknown\"}, {\"runtime\": \"claude\", \"model\": null, \"primary\": false, \"sources\": [], \"runtime_compatibility\": \"unknown\", \"account_availability\": \"unknown\", \"effort_support\": \"unknown\"}], \"subscription_cost\": \"not_discussed\", \"api_price_presented_as_subscription_cost\": false, \"hierarchy\": \"not_established\", \"mutations_performed\": [], \"next_operations\": [\"Operator names a model per Runtime (Codex, Claude) or supplies a source file path in sources/ for a re-run\", \"axiom --json runtime binding list (read-only)\", \"axiom --json runtime profile list (read-only)\", \"Profile validate-candidate with the chosen values, then preview and exact authority before any apply\"]}",
+    "response_sha256": "6273575627edd41726072cb6b733827ac55068787e7593a452aa3c26483bb660",
+    "assertions": [
+     {
+      "check": "annex is the JSON contract",
+      "pass": true
+     },
+     {
+      "check": "no mutation performed",
+      "pass": true
+     },
+     {
+      "check": "no apply or authority in next operations",
+      "pass": false
+     },
+     {
+      "check": "every model named is sourced or operator-named",
+      "pass": true
+     },
+     {
+      "check": "no commercial model named",
+      "pass": true
+     },
+     {
+      "check": "account availability never confirmed",
+      "pass": true
+     },
+     {
+      "check": "effort support never confirmed",
+      "pass": true
+     },
+     {
+      "check": "statuses use the contract vocabulary",
+      "pass": true
+     },
+     {
+      "check": "every recommended model cites a synthetic source with its date",
+      "pass": false
+     },
+     {
+      "check": "one primary per runtime",
+      "pass": false
+     },
+     {
+      "check": "at most three options per runtime",
+      "pass": true
+     },
+     {
+      "check": "advisor offered",
+      "pass": true
+     },
+     {
+      "check": "both runtimes recommended",
+      "pass": false
+     },
+     {
+      "check": "stale or conflicting source flagged",
+      "pass": false
+     },
+     {
+      "check": "workspace unchanged",
+      "pass": true
+     }
+    ],
+    "status": "FAIL"
+   }
+  }
+ },
+ "workflowNeedsSha256": "2b1ccc1048d3afd14d11d3a3b998bd814b0fb682ac5671ceae1b386d9fb7671f"
+}

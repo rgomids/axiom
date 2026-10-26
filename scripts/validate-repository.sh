@@ -97,6 +97,9 @@ fi
 "$ROOT/scripts/test-validate-agent-package.sh"
 "$ROOT/scripts/test-check-claude-bootstrap.sh"
 "$ROOT/scripts/test-maintainer-agent.sh"
+python3 "$ROOT/scripts/test_model_advisor_eval.py" >/dev/null 2>&1 \
+  || { python3 "$ROOT/scripts/test_model_advisor_eval.py"; exit 1; }
+printf 'PASS: Model Advisor evaluator invariants are valid\n'
 python3 "$ROOT/scripts/test-check-automation-registry.py"
 python3 "$ROOT/scripts/check-automation-registry.py" "$ROOT"
 python3 "$ROOT/scripts/test-issue-label-policy.py"

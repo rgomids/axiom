@@ -1660,6 +1660,39 @@
       "removal_condition": null
     },
     {
+      "path": "scripts/model-advisor-eval.py",
+      "kind": "script",
+      "owner": "maintainer-harness",
+      "purpose": "Behavioral evaluation of the Model Advisor skill guidance (Specification 013): a pinned-model Claude/Codex agent answers controlled scenarios built from the shipped skills, the real project workflow show result and synthetic vendor sources; a deterministic evaluator checks the answer.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "python3",
+        "go"
+      ],
+      "scope": [
+        "maintainer",
+        "test"
+      ],
+      "trigger": "Manual maintainer runs with --runtime claude/codex after Model Advisor guidance changes; offline self-tests on every repository validation.",
+      "replay_reason": null,
+      "callers": [
+        "scripts/test_model_advisor_eval.py"
+      ],
+      "inputs": "--root, --runtime (claude|codex, repeatable), --scenario, --evidence PATH, --keep-responses DIR; env AXIOM_MODEL_ADVISOR_EVAL_TIMEOUT (default 600s); reads internal/codexruntime/skills and builds cmd/lingo into a temporary directory.",
+      "outputs": "PASS/FAIL/BLOCKED/NOT_RUN lines; exit 1 on FAIL; optional JSON report and raw responses.",
+      "local_effects": "temporary directories only; writes the report/responses only when requested",
+      "network_effects": "none without --runtime; with --runtime the claude/codex CLIs run read-only with a pinned model and contact their model providers (real inference)",
+      "authority": "none for offline checks; runtime scenarios consume the invoking user's existing CLI authentication and quota and need the maintainer's explicit authorization",
+      "tests": [
+        "scripts/test_model_advisor_eval.py"
+      ],
+      "evidence": "Optional JSON report at --evidence; none by default.",
+      "compatibility": [],
+      "removal_condition": null
+    },
+    {
       "path": "scripts/periodic-incidents.py",
       "kind": "script",
       "owner": "ci",
@@ -3145,6 +3178,37 @@
         "scripts/test-maintainer-agent.sh"
       ],
       "inputs": "No arguments; imports maintainer-agent-eval.py and copies .agents, .claude, AGENTS.md, CLAUDE.md and check-claude-bootstrap.sh into temp fixtures.",
+      "outputs": "unittest output and exit code.",
+      "local_effects": "temporary directories only",
+      "network_effects": "none",
+      "authority": "none; local fixture checks",
+      "tests": [],
+      "evidence": null,
+      "compatibility": [],
+      "removal_condition": null
+    },
+    {
+      "path": "scripts/test_model_advisor_eval.py",
+      "kind": "script",
+      "owner": "maintainer-harness",
+      "purpose": "Offline tests of the Model Advisor evaluator with hand-written grader probes and of its controlled inputs; no runtime is invoked.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "python3",
+        "go"
+      ],
+      "scope": [
+        "ci",
+        "test"
+      ],
+      "trigger": "Every repository validation run, and when model-advisor-eval.py changes.",
+      "replay_reason": null,
+      "callers": [
+        "scripts/validate-repository.sh"
+      ],
+      "inputs": "No arguments; imports model-advisor-eval.py and builds cmd/lingo into a temporary directory.",
       "outputs": "unittest output and exit code.",
       "local_effects": "temporary directories only",
       "network_effects": "none",

@@ -50,6 +50,27 @@ e ADR-0032 preservadas.
    oficial registrada pelo Advisor como fonte de recomendação, nunca de
    suporte.
 
+8. **Avaliação comportamental (MA-356-01)** reutiliza o padrão de
+   `scripts/maintainer-agent-eval.py`: verificações offline sempre e cenários
+   reais opcionais por `--runtime`, com status BLOCKED/NOT_RUN e nunca PASS
+   sem resposta. Novo `scripts/model-advisor-eval.py`, sem serviço nem
+   framework persistente.
+9. **Entradas controladas:** as skills são copiadas byte a byte (digest
+   registrado); as necessidades dos Agents vêm do binário real (`project
+   workflow show` em root isolado); as fontes são sintéticas e nomeadas
+   explicitamente no prompt (a ferramenta Read do Claude não lista diretórios).
+10. **Avaliação determinística:** a resposta termina com um anexo JSON fixo
+    (`ADVISOR-RESULT`); as asserções conferem anexo e prosa (IDs citados ⊆
+    fontes, nomes comerciais, status, custo, hierarquia, mutações e próxima
+    operação). Nenhum modelo avalia outro. O anexo é instrumentação do
+    avaliador, não um contrato do produto.
+11. **Modelo fixado sem fallback:** variáveis de ambiente com `MODEL` no nome
+    são removidas (sem ler valores); o modelo observado no stream deve ser o
+    fixado, senão BLOCKED. A bateria de um runtime para no primeiro BLOCKED.
+12. **Correção de avaliador por re-grade:** `--regrade` reavalia respostas
+    armazenadas, sem inferência; o status original fica preservado ao lado do
+    reavaliado.
+
 ## deferred_findings
 
 - **DF-013-01** Inspeção de definições built-in sem Project permitiria
@@ -64,6 +85,13 @@ e ADR-0032 preservadas.
   e decisão própria.
 - **DF-013-04** Interface oficial de descoberta de modelos por Runtime, se um
   fornecedor documentar uma sem autenticação; avaliar adapter próprio.
+
+- **DF-013-05** O avaliador não verifica a fidelidade ao estado do wizard: no
+  MA-05 do Claude, a resposta chama o Workflow de “selected” quando o estado
+  dizia escolhido e inspecionado.
+- **DF-013-06** Codex BLOCKED: a conta ChatGPT recusa o modelo fixado pela
+  política de testes; exige decisão sobre o modelo de teste para Codex ou
+  outra conta.
 
 ## Arquivos
 

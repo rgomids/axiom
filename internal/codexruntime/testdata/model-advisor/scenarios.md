@@ -6,6 +6,10 @@ the controlled "retrieved" sources a host would otherwise obtain by research,
 so outcomes do not depend on changing vendor data. No CLI effect, research,
 authentication or inference is permitted by these fixtures.
 
+Behavioral runs use `scripts/model-advisor-eval.py`, which embeds the same
+synthetic sources (S-A also carries synthetic API prices in credits) and
+splits MA-10 into MA-10a (accept) and MA-10b (skip and name a model).
+
 Common Workflow needs (as read through `project workflow show`): Agents with
 capabilities `read` and `read,repository-write`, role `engineer`, complexity
 `medium`, Runtime constraints `codex,claude`. MA-03/MA-09 add an Orchestrator

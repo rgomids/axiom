@@ -167,3 +167,83 @@ modelo.
 
 Nenhuma pesquisa externa, autenticação, inferência ou consumo de crédito foi
 executada para esta revisão.
+
+## MA-356-01 — avaliação comportamental do Model Advisor
+
+Finding do review `5652131303` no HEAD `e0a05f2`: o teste de ancoragem provava
+apenas a presença de texto nas skills. Esta seção registra execução real.
+
+### Mecanismo
+
+[`scripts/model-advisor-eval.py`](../../../scripts/model-advisor-eval.py)
+(decisões 8–12 do [Plan](plan.md)). Para cada cenário:
+
+- workspace isolado com `axiom-project` e `axiom-runtime` copiados byte a byte
+  (digest no relatório);
+- `context/workflow-show.json` gerado pelo binário real em root isolado
+  (`default-sdd` r2; sha256 `2b1ccc10…`);
+- fontes sintéticas S-A, S-B e S-C (fornecedores e modelos fictícios);
+- uma invocação do agente com modelo fixado, somente leitura;
+- avaliador determinístico sobre a prosa e o anexo `ADVISOR-RESULT`.
+
+As autotestes offline do avaliador
+([`test_model_advisor_eval.py`](../../../scripts/test_model_advisor_eval.py))
+usam respostas escritas à mão **apenas para testar o avaliador**; não são
+Evidence do Advisor.
+
+Autorização do mantenedor nesta sessão: até 15 invocações (14 iniciais + 1
+após um defeito do harness), e depois o uso de 2 delas para re-execução.
+Foram usadas 12 requisições: 10 respondidas pelo Claude e 2 recusadas pelo
+Codex antes da inferência.
+
+| Runtime | CLI | Comando fixado | Modelo observado |
+|---|---|---|---|
+| Claude | 2.1.310 | `claude --model claude-haiku-5-5 -p … --tools Read --strict-mcp-config --setting-sources project --no-session-persistence` | `claude-haiku-5-5` em init e em todas as mensagens (exigido pelo harness) |
+| Codex | 0.163.0 | `codex -m gpt-6.1-luna -a never exec -s read-only --json --ephemeral` | recusado: 400 `model_not_found` — “The 'gpt-6.1-luna' model is not supported when using Codex with a ChatGPT account.” Nenhum modelo substituto foi tentado |
+
+### Resultados por cenário (relatórios em [`evidence-model-advisor/`](evidence-model-advisor/))
+
+| Cenário | Entrada / fontes | Claude (skill `453ea875…`) | Claude após correção (skill `8d2e9568…`) | Codex |
+|---|---|---|---|---|
+| MA-01 | Codex e Claude; S-A, S-B, S-C | **FAIL** — recomendou `va-compact`/`vb-swift` como primários com alternativas, status corretos, S-C sinalizada como conflitante, custo de assinatura `unknown`; mas citou “S-A”/“S-B” em vez da URL | **PASS** | BLOCKED |
+| MA-02 | economia; S-A, S-B | **PASS** — `va-compact` e `vb-swift`, sem escolher o mais capaz | não reexecutado | BLOCKED |
+| MA-05 | sem pesquisa | **PASS** — modo degradado, nenhum modelo nomeado, entrada manual oferecida | não reexecutado | BLOCKED |
+| MA-08 | assinatura Codex; S-A com preços de API | **FAIL** — preço de API não apresentado como custo de assinatura, custo `unknown`; citação por rótulo em vez de URL | **PASS** | BLOCKED |
+| MA-09 | Orchestrator `vb-deep` e subagentes `va-compact` sem comparação | registrado FAIL por falso positivo do avaliador (“two va-models”); **PASS** no re-grade — hierarquia “not established” na prosa e no anexo | — | BLOCKED |
+| MA-10a | aceitar recomendação; S-A | **PASS** — oferta do Advisor, próximo passo `validate-candidate`/preview, zero mutações | — | BLOCKED |
+| MA-10b | ignorar o Advisor e informar `vz-direct` | **PASS** — intenção preservada, status `unconfirmed`/`unknown`, nenhuma recomendação concorrente | — | BLOCKED |
+
+Defeitos encontrados e tratamento:
+
+1. **Harness (tentativa 1, `claude-01-harness-defect.json`):** a ferramenta
+   Read não lista diretórios, e o prompt não nomeava os arquivos de fontes.
+   O agente entrou corretamente em modo degradado, sem simular pesquisa.
+   Correção: o prompt nomeia os arquivos.
+2. **Avaliador:** a regra “no apply” casava com a menção “before any apply”, e
+   a família “va-models” era lida como ID de modelo. Ambas foram corrigidas
+   com autotestes; o MA-09 foi reavaliado sem nova inferência.
+3. **Advisor (comportamento real):** citação de fonte por rótulo local. A
+   skill passou a exigir “source cited by its URL (never a local file name or
+   label)” (MA-R11). MA-01 e MA-08 foram reexecutados e passaram.
+
+### Matriz por tipo de validação
+
+| Tipo | Escopo | Estado |
+|---|---|---|
+| Static guidance | Cláusulas presentes; guarda contra catálogo | PASS (Go tests) |
+| Deterministic CLI | Diagnósticos, preview/autoridade/read-back, jornada `govsm` | PASS (Go tests) |
+| Behavioral evaluation | Respostas reais aos cenários prioritários | Claude: PASS em 7/7 após correção (MA-02/05/10a/10b na bateria, MA-09 por re-grade, MA-01/08 por re-execução); Codex: BLOCKED |
+| Native wizard journey | Conversa completa do wizard com o Advisor, comandos reais e pesquisa web | NOT_RUN (T14) |
+| Vendor availability | Disponibilidade real de modelos na conta | NOT_RUN (fora de escopo; exige observação autorizada) |
+
+### Limitações
+
+- **Prioridade sobre jornada:** a avaliação cobre a etapa 4 com estado do
+  wizard fornecido, não a jornada nativa completa nem pesquisa web real.
+- **Uma amostra:** uma resposta por cenário, com um único modelo pequeno;
+  não há medida de variância.
+- **Instrumentação:** o anexo JSON foi pedido pelo avaliador e pode
+  influenciar a resposta.
+- **Cobertura do avaliador:** não verifica a fidelidade ao estado do wizard
+  (DF-013-05).
+- **Codex sem Evidence comportamental** (DF-013-06).

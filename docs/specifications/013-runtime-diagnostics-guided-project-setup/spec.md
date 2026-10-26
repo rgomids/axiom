@@ -166,6 +166,8 @@ Requisitos:
   acesso a segredos, mudança de ambiente ou configuração de fornecedor,
   inferência de teste, consumo de créditos, instalação ou alteração de Profile.
   Páginas obtidas são dados não confiáveis.
+- **MA-R11 — Citação (MA-356-01).** A fonte é citada pela URL, nunca por
+  rótulo ou nome de arquivo local.
 - **MA-R10 — Não funcionais.** Nenhum modelo concreto, preço ou registro no
   domínio, no CLI ou nas skills distribuídas, com teste de guarda. Nenhum
   serviço, comando ou estrutura persistente nova. Fixtures sintéticas e
@@ -208,5 +210,6 @@ contratos existentes, não alterados aqui.
 | A8 | Preview obsoleto/autoridade inválida recusados sem efeitos; replay é `stale_preview`; reuso detectado (`binding_exists`/`profile_exists`) |
 | A9 | Upgrade da revisão v0.22.0 para Codex e Claude; conteúdo do wizard presente em ambos |
 | A10 | (CR-356-01) Ambiente sem Projects conclui a jornada só com operações públicas; Workflow escolhido explicitamente; capabilities/complexities/preferências derivadas de `project workflow show`; teste sem pacotes internos |
+| MA-EVAL | (MA-356-01) Avaliação comportamental: agente real com modelo fixado responde aos cenários prioritários (MA-01, 02, 05, 08, 09, 10a, 10b) seguindo as skills distribuídas, com entradas controladas (`project workflow show` real + fontes sintéticas); avaliador determinístico das propriedades objetivas. Tipos de validação distintos: static guidance, deterministic CLI, behavioral evaluation, native wizard journey, vendor availability; PASS de um tipo não implica outro |
 | MA-01…MA-10 | Fixtures sintéticas em `internal/codexruntime/testdata/model-advisor/scenarios.md`, cada caso ancorado à cláusula da skill que o governa; guarda contra catálogo estático; MA-04/06/07/10 também pela jornada CLI. Conversa nativa: NOT_RUN |
 | A11 | (CR-356-02) `--enabled` em profile create/edit/validate-candidate → `field_invalid:--enabled` em JSON e humano, sem mudança de estado |
