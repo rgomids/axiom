@@ -46,6 +46,7 @@ func (f *frozenSources) CheckEffortSources(_ context.Context, _ runtimeprofile.R
 }
 
 type stageAuthFake struct {
+	scope   string
 	target  runtimeadapter.AuthTarget
 	status  runtimeadapter.AuthStatus
 	reason  string
@@ -54,7 +55,11 @@ type stageAuthFake struct {
 
 func (f *stageAuthFake) Check(_ context.Context, target runtimeadapter.AuthTarget) runtimeadapter.AuthReport {
 	f.target = target
-	return runtimeadapter.AuthReport{RuntimeID: target.RuntimeID, Status: f.status, Reason: f.reason, Version: f.version, ExecutableDigest: target.ExpectedDigest, EvidenceKind: runtimeadapter.EvidenceFake}
+	scope := f.scope
+	if scope == "" {
+		scope = runtimeadapter.AuthScopeInvocation
+	}
+	return runtimeadapter.AuthReport{Scope: scope, RuntimeID: target.RuntimeID, Status: f.status, Reason: f.reason, Version: f.version, ExecutableDigest: target.ExpectedDigest, EvidenceKind: runtimeadapter.EvidenceFake}
 }
 
 func frozenFixture(t *testing.T, id, mode string) (runtimeadapter.StageInvocationRequest, runtimeprofile.ResolvedProfileV4, runtimeapplication.Preview) {
@@ -315,5 +320,14 @@ func TestFrozenStageCurrentLocalProfileRefusals(t *testing.T) {
 				t.Fatal("frozen tuple replaced")
 			}
 		})
+	}
+}
+
+func TestFrozenStageRejectsHostLoginReport(t *testing.T) {
+	r, p, preview := frozenFixture(t, "claude", "runtime-default")
+	auth := &stageAuthFake{scope: runtimeadapter.AuthScopeHost, status: runtimeadapter.AuthSubscriptionObserved}
+	inv, report, err := PrepareFrozenStageInvocation(context.Background(), r, p, preview, &frozenChecker{current: &p}, &frozenSources{digest: p.EffortSourceDigest}, auth)
+	if !errors.Is(err, executiongraph.ErrAuthenticationBlocked) || len(inv.Argv) != 0 || report.Scope != runtimeadapter.AuthScopeHost {
+		t.Fatalf("host login admitted: report=%+v err=%v", report, err)
 	}
 }

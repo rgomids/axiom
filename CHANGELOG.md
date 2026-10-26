@@ -4,6 +4,10 @@
 
 ### Bug fixes
 
+- Observe host CLI login without rejecting inherited routing or credential
+  variables before vendor status; host reports cannot authorize dispatch, and
+  effective child authentication safeguards remain enforced.
+
 - Exclude Claude's local session messaging token from model authentication
   overrides; endpoint and credential overrides remain blocked.
 - Add Project context and observed Axiom version headers to conversational

@@ -154,20 +154,23 @@ executable, and never replace or rank the requested model.
 
 ## Authentication observation scope
 
-`runtime claude auth` observes the current shell and working directory. A
-Claude Desktop host can supply routing and session variables; do not tell the
-operator to delete host-managed variables or interpret every token as an API
-key. `CLAUDE_CODE_MESSAGING_TOKEN` is local messaging, not model authentication.
-`CLAUDE_CODE_OAUTH_TOKEN` is a subscription OAuth source outside Axiom's local
-login contract; its refusal does not prove API billing.
+`runtime <codex|claude> auth` reports `scope: host`: it observes vendor login in
+the unchanged shell and working directory. Overrides are key-name diagnostics,
+not early refusal: Claude Desktop can supply routing and session variables.
+Do not tell the operator to delete host-managed variables, interpret every token
+as an API key, or infer API billing from `ANTHROPIC_BASE_URL` or OAuth presence.
+`CLAUDE_CODE_MESSAGING_TOKEN` is local messaging, not model authentication.
+A reported subscription login proves neither host routing nor execution readiness;
+host reports never permit dispatch. Preserve actual vendor login failures and
+configuration/identity observation gaps.
 
-Stage execution constructs its own closed environment and rechecks authentication
-against the exact child invocation. A blocked parent-shell observation does not
-prove that child is blocked; a clean-shell observation does not prove it ready.
-Retain the reported scope and blockers. Do not silently unset variables, sanitize
-the parent environment, switch authentication paths or bypass the child check.
-Use supported inspection for the actual target; if unavailable, report that
-qualification gap. Independent configuration is not Execution readiness.
+Stage execution constructs its own closed environment and checks authentication
+against the exact child invocation (`scope: effective_invocation`). Effective
+credential/provider/endpoint overrides remain blocking there. A host observation
+cannot replace that check. Do not silently unset variables, sanitize the parent
+environment, switch authentication paths or bypass the child check. Use supported
+inspection for the actual target; if unavailable, report that qualification gap.
+Independent configuration is not Execution readiness.
 
 ## Model Advisor
 

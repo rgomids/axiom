@@ -20,16 +20,16 @@ import (
 )
 
 // AuthStatus is the bounded outcome of the machine-local CLI subscription
-// authentication preflight (Issue #272 / AXM-4). Only
-// AuthSubscriptionObserved permits dispatch, and it still proves neither
+// authentication observation (Issue #272 / AXM-4). Only an effective-invocation
+// AuthSubscriptionObserved report permits dispatch, and it still proves neither
 // usability nor billing: a vendor status surface can report a cached login
 // whose token is expired or whose plan cannot serve the request.
 type AuthStatus string
 
 const (
 	// AuthSubscriptionObserved: the vendor status surface reports the
-	// subscription login, and the effective child environment and the
-	// inspected configuration select no API/provider override.
+	// subscription login. Only effective-invocation scope additionally
+	// establishes that inspected environment/configuration have no overrides.
 	AuthSubscriptionObserved AuthStatus = "subscription_observed"
 	// AuthUnproven: the intended path cannot be established from observable
 	// evidence (unrecognized, ambiguous or unreadable state).
@@ -67,12 +67,19 @@ const (
 	maxReportOverrides = 16
 )
 
+// Authentication scopes separate host login observation from dispatch admission.
+const (
+	AuthScopeHost       = "host"
+	AuthScopeInvocation = "effective_invocation"
+)
+
 // AuthReport is presentation-safe Evidence. Every field is an enum, a
 // validated version token, a digest, or an environment/configuration key
 // name. Raw vendor output, configuration values, paths, credentials and
 // account identifiers never enter it.
 type AuthReport struct {
 	RuntimeID        string     `json:"runtimeId"`
+	Scope            string     `json:"scope,omitempty"`
 	Status           AuthStatus `json:"status"`
 	Reason           string     `json:"reason,omitempty"`
 	Method           string     `json:"method"`
@@ -85,10 +92,12 @@ type AuthReport struct {
 }
 
 // DispatchAllowed reports whether the subscription scenario may dispatch.
-func (r AuthReport) DispatchAllowed() bool { return r.Status == AuthSubscriptionObserved }
+func (r AuthReport) DispatchAllowed() bool {
+	return r.Scope == AuthScopeInvocation && r.Status == AuthSubscriptionObserved
+}
 
-// AuthTarget is the effective child invocation to inspect: the exact
-// executable, environment and working directory the child process would get.
+// AuthTarget identifies the exact executable, environment and working directory
+// to inspect, either for host observation or effective child admission.
 type AuthTarget struct {
 	RuntimeID        string
 	Executable       string
@@ -161,7 +170,18 @@ func DefaultManagedConfiguration() ManagedConfiguration {
 // an unknown, malformed or failing version read continues to the real status
 // surface, whose outcome alone decides dispatch.
 func (p AuthPreflight) Check(ctx context.Context, target AuthTarget) AuthReport {
-	report := AuthReport{RuntimeID: target.RuntimeID, Method: "unknown", Version: "unknown", EvidenceKind: EvidenceFake, Usability: UsabilityUnproven, Revalidation: RevalidateBeforeDispatch}
+	return p.check(ctx, target, AuthScopeInvocation)
+}
+
+// ObserveHost observes vendor login in the unchanged host environment. Override
+// names are diagnostic only: a host login report never qualifies child routing
+// or permits dispatch, even when the vendor reports a subscription login.
+func (p AuthPreflight) ObserveHost(ctx context.Context, target AuthTarget) AuthReport {
+	return p.check(ctx, target, AuthScopeHost)
+}
+
+func (p AuthPreflight) check(ctx context.Context, target AuthTarget, scope string) AuthReport {
+	report := AuthReport{Scope: scope, RuntimeID: target.RuntimeID, Method: "unknown", Version: "unknown", EvidenceKind: EvidenceFake, Usability: UsabilityUnproven, Revalidation: RevalidateBeforeDispatch}
 	if p.runner != nil {
 		report.EvidenceKind = p.runner.EvidenceKind()
 	}
@@ -189,15 +209,19 @@ func (p AuthPreflight) Check(ctx context.Context, target AuthTarget) AuthReport 
 	}
 	if overrides := environmentOverrides(target.RuntimeID, environment, "env:"); len(overrides) != 0 {
 		report.Overrides = bounded(overrides)
-		return report.with(AuthIncompatible, "environment_override")
+		if scope == AuthScopeInvocation {
+			return report.with(AuthIncompatible, "environment_override")
+		}
 	}
 	overrides, reason := p.configurationOverrides(target.RuntimeID, environment, target.WorkingDirectory)
 	if reason != "" {
 		return report.with(AuthUnproven, reason)
 	}
 	if len(overrides) != 0 {
-		report.Overrides = bounded(overrides)
-		return report.with(AuthIncompatible, "configuration_override")
+		report.Overrides = bounded(append(report.Overrides, overrides...))
+		if scope == AuthScopeInvocation {
+			return report.with(AuthIncompatible, "configuration_override")
+		}
 	}
 	command := StatusCommand{Env: append([]string{}, target.Environment...), CWD: target.WorkingDirectory}
 	command.Argv = []string{target.Executable, "--version"}

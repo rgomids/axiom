@@ -22,7 +22,7 @@ func authProvenance(t *testing.T) provenance.Value {
 }
 
 // Only an observed subscription login completes; every other outcome is a
-// validation failure that keeps dispatch blocked.
+// validation failure. Host observation never qualifies dispatch.
 func TestRuntimeAuthResultCompletesOnlyObservedSubscription(t *testing.T) {
 	source := authProvenance(t)
 	for status, want := range map[runtimeadapter.AuthStatus]completion.Status{
@@ -68,7 +68,26 @@ func TestRuntimeAuthObservesTheLookedUpExecutable(t *testing.T) {
 		t.Fatalf("report=%+v", result.RuntimeAuth)
 	}
 	t.Setenv("CODEX_API_KEY", "sk-synthetic")
-	if result := service.RuntimeAuth(context.Background(), "codex"); result.RuntimeAuth.Status != runtimeadapter.AuthIncompatible {
+	if result := service.RuntimeAuth(context.Background(), "codex"); result.RuntimeAuth.Status != runtimeadapter.AuthSubscriptionObserved || result.RuntimeAuth.Scope != runtimeadapter.AuthScopeHost || result.RuntimeAuth.DispatchAllowed() || len(result.RuntimeAuth.Overrides) != 1 {
 		t.Fatalf("inherited override report=%+v", result.RuntimeAuth)
+	}
+}
+
+func TestRuntimeAuthClaudeDesktopRoutingIsDiagnosticOnly(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("CLAUDE_CONFIG_DIR", "")
+	t.Setenv("ANTHROPIC_BASE_URL", "https://desktop.invalid")
+	executable := filepath.Join(t.TempDir(), "claude")
+	script := "#!/bin/sh\nif [ \"$1\" = --version ]; then echo '2.1.310'; exit 0; fi\nprintf '%s\\n' '{\"loggedIn\":true,\"authMethod\":\"claude.ai\",\"apiProvider\":\"firstParty\"}'\n"
+	if err := os.WriteFile(executable, []byte(script), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	service := lifecycleService{provenance: authProvenance(t), runtimes: runtimeRoots{lookPath: func(string) (string, error) { return executable, nil }}}
+	result := service.RuntimeAuth(context.Background(), "claude")
+	if result.RuntimeAuth == nil || result.RuntimeAuth.Status != runtimeadapter.AuthSubscriptionObserved || result.RuntimeAuth.Scope != runtimeadapter.AuthScopeHost || result.RuntimeAuth.DispatchAllowed() || result.Completion.Status() != completion.Success {
+		t.Fatalf("host report=%+v", result.RuntimeAuth)
+	}
+	if os.Getenv("ANTHROPIC_BASE_URL") != "https://desktop.invalid" {
+		t.Fatal("host environment changed")
 	}
 }

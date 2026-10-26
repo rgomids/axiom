@@ -104,10 +104,29 @@ Each dispatch and retry repeats the check; no earlier report authorizes a later
 dispatch. `LocalService.AuthenticationEvidence()` returns the latest sanitized
 report per child. Without `SubscriptionAuth`, behavior is unchanged.
 
-`axiom runtime <codex|claude> auth` is the read-only readiness surface: it
-checks the executable on `PATH` with the shell's environment and working
-directory (what a child without explicit environment would inherit). Only
-`subscription_observed` completes; everything else is `validation_failure`.
+### Host observation amendment (2026-10-26)
+
+Maintainer-authorized correction: the read-only
+`axiom runtime <codex|claude> auth` command observes vendor login in the host,
+not dispatch readiness. `AuthPreflight.ObserveHost` retains the original
+environment and configuration, reports override key names, and continues to
+vendor status even when overrides exist. It neither trusts an endpoint nor
+identifies a Desktop host from environment markers. Vendor-reported subscription
+login completes; API-key login, unavailable login and ambiguous status remain
+failures. Unreadable configuration and identity errors still fail closed.
+
+Reports explicitly distinguish `scope: host` and `scope: effective_invocation`.
+`DispatchAllowed` requires both effective-invocation scope and
+`subscription_observed`; host and unknown/absent scopes never permit dispatch.
+The ordered override rejection above remains applicable to `Check` at the
+execution boundary. No host variable is removed or changed. This supersedes only
+the original command's early override rejection, not child admission safeguards.
+
+Acceptance checks: a host with `ANTHROPIC_BASE_URL`, OAuth or API-key environment
+and a vendor-reported subscription login reaches status observation, reports
+only override names, and cannot authorize dispatch; actual API-key or missing
+login still fails; the same overrides remain blocking in an effective invocation;
+Stage environment isolation remains unchanged.
 
 ## Evidence and sanitization
 

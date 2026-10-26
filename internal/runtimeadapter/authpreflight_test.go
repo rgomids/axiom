@@ -501,3 +501,61 @@ func TestAuthPreflightInspectsAncestorAndWorktreeProjectSettings(t *testing.T) {
 		}
 	})
 }
+
+func TestHostAuthObservesLoginWithoutQualifyingRouting(t *testing.T) {
+	for _, entry := range []string{"ANTHROPIC_BASE_URL=https://desktop.invalid", "CLAUDE_CODE_OAUTH_TOKEN=synthetic-oauth", "ANTHROPIC_API_KEY=synthetic-key"} {
+		t.Run(strings.SplitN(entry, "=", 2)[0], func(t *testing.T) {
+			fixture := newAuthFixture(t, "claude")
+			fixture.env = append(fixture.env, entry)
+			runner := &fakeStatus{version: ok("2.1.310"), status: ok(claudeSubscription)}
+			preflight, err := NewAuthPreflight(runner, ManagedConfiguration{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			report := preflight.ObserveHost(context.Background(), fixture.target("claude"))
+			if report.Status != AuthSubscriptionObserved || report.Scope != AuthScopeHost || report.DispatchAllowed() || len(runner.calls) != 2 || strings.Join(report.Overrides, ",") != "env:"+strings.SplitN(entry, "=", 2)[0] {
+				t.Fatalf("host report=%+v calls=%v", report, runner.calls)
+			}
+			if strings.Join(runner.envs[1], "\n") != strings.Join(fixture.env, "\n") {
+				t.Fatal("host environment changed")
+			}
+			wire, _ := json.Marshal(report)
+			if strings.Contains(string(wire), "desktop.invalid") || strings.Contains(string(wire), "synthetic-") {
+				t.Fatalf("unsafe report: %s", wire)
+			}
+		})
+	}
+}
+
+func TestHostAuthPreservesVendorFailuresAndConfigurationOverrides(t *testing.T) {
+	for _, tc := range []struct {
+		status StatusResult
+		want   AuthStatus
+	}{
+		{ok(claudeSubscription), AuthSubscriptionObserved},
+		{exit(1, `{"loggedIn":false,"authMethod":"none","apiProvider":"firstParty"}`), AuthUnavailable},
+		{ok(`{"loggedIn":true,"authMethod":"api_key","apiProvider":"firstParty"}`), AuthIncompatible},
+		{ok(`{}`), AuthUnproven},
+	} {
+		fixture := newAuthFixture(t, "claude")
+		write(t, filepath.Join(fixture.home, ".claude", "settings.json"), `{"env":{"ANTHROPIC_BASE_URL":"https://desktop.invalid"}}`)
+		runner := &fakeStatus{version: ok("2.1.310"), status: tc.status}
+		preflight, err := NewAuthPreflight(runner, ManagedConfiguration{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		report := preflight.ObserveHost(context.Background(), fixture.target("claude"))
+		if report.Status != tc.want || report.Scope != AuthScopeHost || report.DispatchAllowed() || len(report.Overrides) != 1 || len(runner.calls) != 2 {
+			t.Fatalf("host report=%+v", report)
+		}
+	}
+}
+
+func TestDispatchRequiresEffectiveInvocationScope(t *testing.T) {
+	for _, scope := range []string{"", AuthScopeHost, "unknown", AuthScopeInvocation} {
+		report := AuthReport{Scope: scope, Status: AuthSubscriptionObserved}
+		if report.DispatchAllowed() != (scope == AuthScopeInvocation) {
+			t.Fatalf("scope %q dispatch=%v", scope, report.DispatchAllowed())
+		}
+	}
+}
