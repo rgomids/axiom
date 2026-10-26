@@ -129,6 +129,27 @@ Recommend options only with canonical provenance; never use this chat's model
 or infer model access from authentication. Auth status subprocesses and inference need their
 own consent and never authorize local apply.
 
+## Refusal diagnostics
+
+Explain a refused binding/Profile operation from `runtimeAuthoring.diagnostics`:
+each entry names `code`, CLI `field`, `rule` and `next`. Relay the field and its
+next action; do not guess another cause. `field_required` and `field_invalid`
+are declaration errors (for example `field_required` on `--capabilities`: add
+at least one capability derived from the Workflow Agents the Profile serves;
+`--complexities` stays optional). `binding_missing` means no local binding, not
+an unsupported model. `profile_missing` and `configuration_conflict` are local
+state collisions. `runtime_absent` means no executable was passively found.
+None of these is authentication evidence: never inspect, unset or change
+credentials, login files or environment variables such as API keys or base URLs
+to remedy them, and never run auth preflight or inference for them. Investigate
+authentication only when an auth observation or attempt reports an auth blocker.
+
+`candidate_valid` proves local declaration only. `modelSupport` and
+`effortSupport` stay `unconfirmed` and `authentication` stays `unknown` until a
+separately authorized real attempt; an unknown model identifier can be saved as
+explicit intent. Never call a validated candidate certified, available or
+executable, and never replace or rank the requested model.
+
 Optional templates describe intent only:
 
 - `fast`: short, bounded work with prompt feedback.

@@ -19,6 +19,18 @@ Project configuration and Repository association are separate facts. Listing
 a Repository nearby, finding a `.git` directory or seeing a skill suggestion
 does not associate it with a Project.
 
+## Guided setup order
+
+Ask `axiom-project` to configure a Project ready to execute; it coordinates
+the owners in this order, each with its own preview, exact authority and
+read-back: Runtime binding and Profiles (`axiom-runtime`, machine-local and
+shared by every Project), Project identity, Repositories, Work Item Provider
+and context, portable Runtime policy, Workflow selection, then
+`project validate`. Creating the Project after its local Profiles lets the
+create preview declare `--runtime` and `--model-profile` at once. The final
+summary keeps configuration validity, Runtime readiness and authentication
+(not verified unless observed) separate; nothing executes during setup.
+
 ## Local roots
 
 | Data | Default | Override |

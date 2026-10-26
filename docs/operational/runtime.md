@@ -56,4 +56,15 @@ This is a preview. Apply the same candidate with its returned
 after any input or state changes. Example identifiers are local choices;
 successful authoring does not prove vendor support or authentication.
 
+A refusal carries `runtimeAuthoring.diagnostics`: each entry names the `code`
+(`field_required`, `field_invalid`, `binding_missing`, `profile_missing`,
+`runtime_absent`, `configuration_conflict`, `configuration_invalid`), the CLI
+`field`, the `rule` and the `next` action, also shown in terminal output. For
+example, omitting `--capabilities` returns `candidate_invalid` with
+`field_required` on `--capabilities`; `--complexities` stays optional. These
+are local declaration checks: authentication is not evaluated, so do not change
+credentials or environment variables to resolve them. `validate-candidate`
+confirms declaration only; `modelSupport` and `effortSupport` stay
+`unconfirmed`.
+
 Continue to [Workflow](workflow.md) or [Troubleshooting](troubleshooting.md).
