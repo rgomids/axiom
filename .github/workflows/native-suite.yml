@@ -27,17 +27,29 @@ defaults:
 
 jobs:
   suite:
-    name: suite (${{ matrix.platform }})
+    name: suite (${{ matrix.label }})
+    # macOS serializes packages (-p=1, process observer isolation), so its suite
+    # is the sum of every package. It runs as two shards on separate runners:
+    # cmd/lingo alone and every other package; repository-wide checks run once,
+    # with the second shard.
     strategy:
       fail-fast: false
       matrix:
         include:
           - platform: linux
+            label: linux
             runner: ubuntu-24.04
+            shard: all
           - platform: macos
+            label: macos
             runner: macos-15
+            shard: rest
+          - platform: macos
+            label: macos, cmd/lingo
+            runner: macos-15
+            shard: cli
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -54,20 +66,33 @@ jobs:
           echo "AXIOM_TEST_PROBE_STATE_ROOT=$probe_state" >> "$GITHUB_ENV"
       - name: Unit, integration and black-box tests with race detector
         if: matrix.platform == 'macos'
-        run: go test -race ./... -p=1 -timeout=20m
+        env:
+          SHARD: ${{ matrix.shard }}
+        run: |
+          cli=github.com/rgomids/axiom/cmd/lingo
+          case "$SHARD" in
+            cli) packages=$cli ;;
+            rest) packages=$(go list ./... | grep -vxF "$cli") ;;
+            *) echo "unknown macOS shard: $SHARD" >&2; exit 1 ;;
+          esac
+          # shellcheck disable=SC2086 # one Go package path per word
+          go test -race -p=1 -timeout=25m $packages
       - name: Linux tests with race detector and coverage
         if: matrix.platform == 'linux'
         run: |
           mkdir -p coverage
           go test -race -covermode=atomic -coverprofile=coverage/coverage.out ./... -timeout=20m
       - name: Static and build checks
+        if: matrix.shard != 'cli'
         run: |
           go vet ./...
           go build ./...
           go mod verify
       - name: Repository checks
+        if: matrix.shard != 'cli'
         run: ./scripts/validate-repository.sh .
       - name: Bounded dogfooding smoke test
+        if: matrix.shard != 'cli'
         run: ./scripts/dogfood-poc.sh
       - name: Collect code health snapshot
         id: health

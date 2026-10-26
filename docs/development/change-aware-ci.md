@@ -29,7 +29,10 @@ Reproduce locally with Go from `go.mod`:
 
 - `suite (linux|macos)`: `go test -race ./...` (Linux with coverage), vet,
   build, module verification, repository checks and the bounded dogfooding
-  smoke; Linux retains a report-only code health snapshot.
+  smoke; Linux retains a report-only code health snapshot. macOS serializes
+  packages (`-p=1`), so its tests run as two shards on separate runners:
+  `suite (macos, cmd/lingo)` tests only `cmd/lingo`, and `suite (macos)` tests
+  every other package and runs the repository-wide checks.
 - `contracts`: release pipeline, native acceptance, release flow, delivery,
   recovery, Release PR dispatch and code health contracts.
 - `upgrade-journeys (linux|macos)`: owned N → candidate upgrades from public
