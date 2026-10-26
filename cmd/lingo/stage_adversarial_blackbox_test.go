@@ -194,12 +194,15 @@ func testInstalledSyntheticSingleLifecycleAdversarial(t *testing.T, runtimeID st
 	if err = file.Close(); err != nil {
 		t.Fatal(err)
 	}
+	// The timeout scenario may be stopped before its fake records the launch,
+	// so compare against the settled count rather than a fixed total.
+	launched := len(j.invocations(t))
 	refused := j.run(t, 1, append(invalidatedArgs, "--preview-digest", invalidatedDigest, "--authorize-local", "--authorize-external")...)
 	if refused.Category != "stale_preview" {
 		t.Fatalf("dispatch after executable drift: %+v", refused)
 	}
-	if calls := j.invocations(t); len(calls) != 4 {
-		t.Fatalf("changed executable launched Runtime; calls=%+v", calls)
+	if calls := j.invocations(t); len(calls) != launched {
+		t.Fatalf("changed executable launched Runtime; before=%d calls=%+v", launched, calls)
 	}
 }
 
