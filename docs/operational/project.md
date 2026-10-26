@@ -23,13 +23,23 @@ does not associate it with a Project.
 
 Ask `axiom-project` to configure a Project ready to execute; it coordinates
 the owners in this order, each with its own preview, exact authority and
-read-back: Runtime binding and Profiles (`axiom-runtime`, machine-local and
-shared by every Project), Project identity, Repositories, Work Item Provider
-and context, portable Runtime policy, Workflow selection, then
-`project validate`. Creating the Project after its local Profiles lets the
-create preview declare `--runtime` and `--model-profile` at once. The final
-summary keeps configuration validity, Runtime readiness and authentication
-(not verified unless observed) separate; nothing executes during setup.
+read-back:
+
+1. publish the Project identity, Repositories, Work Item Provider and context
+   without Runtime policy (a bootstrap: execution stays blocked);
+2. list Workflow definitions, choose one explicitly and read its Agents'
+   capabilities, role/complexity and Runtime constraints with
+   `project workflow show`;
+3. create or reuse Runtime bindings and Profiles (`axiom-runtime`,
+   machine-local and shared by every Project) with those capabilities;
+4. declare the portable Runtime policy with `--policy-draft`, before selection:
+   policy editing is refused once a Workflow is selected;
+5. select the Workflow, then run `project validate`.
+
+The final summary keeps configuration validity, Runtime readiness and
+authentication (not verified unless observed) separate; nothing executes
+during setup. Without a selected Workflow, Runtime readiness is reported as
+`inventory_unavailable`, not ready.
 
 ## Local roots
 

@@ -1,6 +1,6 @@
 # Tasks 013
 
-**Proposed — revisão 1, 2026-10-25.** Decomposição do [Plan](plan.md).
+**Proposed — revisão 2, 2026-10-26.** Decomposição do [Plan](plan.md).
 
 | ID | Task | Requisitos | Estado |
 |---|---|---|---|
@@ -11,4 +11,6 @@
 | T05 | Skill `axiom-project` “Complete guided setup”; `axiom-runtime` “Refusal diagnostics” | WZ-01–07 | Done |
 | T06 | Registrar revisão v0.22.0 e testar upgrade Codex/Claude | WZ-08, A9 | Done |
 | T07 | Documentação operacional e referência de comandos | RD-02, WZ-01 | Done |
+| T09 | CR-356-01: jornada a partir de máquina vazia só com operações públicas; skill e docs reordenados | WZ-02, A10 | Done |
+| T10 | CR-356-02: diagnóstico `--enabled` em Profile, unit + CLI JSON/humano | RD-10, A11 | Done |
 | T08 | Conversa nativa real Codex/Claude com o wizard | WZ-01–05 | NOT_RUN — exige ambiente/autorização próprios |

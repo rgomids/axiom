@@ -6,10 +6,10 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
+	"strconv"
 	"strings"
 	"testing"
-
-	"github.com/rgomids/axiom/internal/workflowdefinition"
 )
 
 // Specification 013: the complete guided Project setup journey reproduced for
@@ -124,21 +124,62 @@ func diagnosticFields(event map[string]any) []string {
 	return out
 }
 
+// workflowNeeds derives Profile requirements only from a definition read
+// through the public `project workflow show` result: the union of Agent
+// capabilities, each Agent role/complexity, and the Runtime constraints.
+func workflowNeeds(t *testing.T, shown map[string]any) (capabilities, complexities, roles, runtimes []string) {
+	t.Helper()
+	seen := map[string]bool{}
+	add := func(list *[]string, kind, v string) {
+		if v != "" && !seen[kind+v] {
+			seen[kind+v] = true
+			*list = append(*list, v)
+		}
+	}
+	stages, _ := field(shown, "workflowAuthoring", "definition", "stages").([]any)
+	for _, s := range stages {
+		agents, _ := s.(map[string]any)["agents"].([]any)
+		for _, a := range agents {
+			agent := a.(map[string]any)
+			for _, c := range agent["capabilities"].([]any) {
+				add(&capabilities, "c", c.(string))
+			}
+			for _, r := range agent["runtimeConstraints"].([]any) {
+				add(&runtimes, "r", r.(string))
+			}
+			add(&complexities, "x", text(agent, "complexity"))
+			add(&roles, "p", text(agent, "role")+"/"+text(agent, "complexity"))
+		}
+	}
+	sort.Strings(capabilities)
+	if len(capabilities) == 0 || len(roles) == 0 {
+		t.Fatal("definition exposes no Agent requirements", shown)
+	}
+	return
+}
+
+// CR-356-01: a machine with no Project completes the journey through public
+// operations only. Identity is published first (partial bootstrap), so the
+// explicitly chosen Workflow can be inspected and selected; Profiles are then
+// derived from its Agents and the portable policy reconciles both.
 func TestGuidedSetupGovsmFromScratchWithCodexAndClaude(t *testing.T) {
 	e := newSetupEnv(t, "codex", "claude")
 	repoA := writeTree(t, filepath.Join(e.base, "work", "govsm-api"), map[string]string{"README.md": "api"})
 	repoB := writeTree(t, filepath.Join(e.base, "work", "govsm-web"), map[string]string{"README.md": "web"})
 
-	// Step 0: discovery is passive and writes nothing.
+	// Step 1: discovery is passive and writes nothing; no Project exists.
 	if listed := e.run("inspected", "runtime", "binding", "list"); text(listed, "runtimeAuthoring", "state") != "fresh" {
 		t.Fatal(listed)
+	}
+	if projects, _ := e.run("", "project", "list")["projects"].([]any); len(projects) != 0 {
+		t.Fatal("environment is not empty", projects)
 	}
 	if _, err := os.Stat(e.state); !os.IsNotExist(err) {
 		t.Fatal("discovery wrote state")
 	}
 
-	// Step 1: the original v0.22.0 command names the missing field, in JSON
-	// and human output alike, and never points at authentication.
+	// The original v0.22.0 command names the missing field, in JSON and human
+	// output alike, and never points at authentication.
 	original := []string{"runtime", "binding", "create", "--runtime", "codex", "--profile", "codex-default", "--model", "gpt-6-luna", "--effort-mode", "explicit", "--effort", "low"}
 	refused := e.run("candidate_invalid", original...)
 	if got := diagnosticFields(refused); len(got) != 1 || got[0] != "field_required:--capabilities" {
@@ -158,65 +199,89 @@ func TestGuidedSetupGovsmFromScratchWithCodexAndClaude(t *testing.T) {
 			}
 		}
 	}
-	if _, err := os.Stat(e.state); !os.IsNotExist(err) {
-		t.Fatal("refusal wrote state")
-	}
-
 	// A Profile without its binding is binding_missing, not model evidence.
 	missing := e.run("binding_missing", "runtime", "profile", "create", "--runtime", "claude", "--profile", "claude-default", "--model", "operator-model", "--effort-mode", "runtime-default", "--effort", "default", "--capabilities", "read")
 	if text(missing, "runtimeAuthoring", "modelSupport") != "unconfirmed" || diagnosticFields(missing)[0] != "binding_missing:--runtime" {
 		t.Fatal(missing)
 	}
+	if _, err := os.Stat(e.state); !os.IsNotExist(err) {
+		t.Fatal("refusal wrote state")
+	}
 
-	// Supplying the field is enough: validate-candidate, preview, exact apply.
-	fixed := append(append([]string{}, original...), "--capabilities", "read,repository-write")
+	// Step 2: identity, Repositories, Provider and context, without policy.
+	e.configureProject("project", "configure", "--slug", "govsm", "--name", "GovSM",
+		"--repository", "api="+repoA, "--repository-remote", "api=none",
+		"--repository", "web="+repoB, "--repository-remote", "web=none",
+		"--work-item-provider", "github",
+		"--technology", "language=go", "--business-context", "Synthetic governance service",
+		"--glossary", "sm=SM:service management")
+	shown := e.run("", "project", "show", "--selector", "govsm")
+	if got := mustJSON(t, shown["project"]); !strings.Contains(got, `"key":"api"`) || !strings.Contains(got, `"key":"web"`) {
+		t.Fatal("repository read-back", got)
+	}
+	if !strings.Contains(mustJSON(t, e.run("", "project", "validate", "--project", "govsm")), "runtime_policy_unavailable") {
+		t.Fatal("bootstrap Project claimed Runtime readiness")
+	}
+
+	// Step 3: the operator chooses one listed definition explicitly; the
+	// latest built-in revision stands in for that choice. Its requirements
+	// are read through the public show result, never from internal packages.
+	// Inspection is read-only; selection waits for step 6.
+	listed, _ := field(e.run("", "project", "workflow", "list", "--project", "govsm"), "workflowAuthoring", "revisions").([]any)
+	var chosen map[string]any
+	for _, r := range listed {
+		ref := r.(map[string]any)
+		if text(ref, "source") == "builtin" && text(ref, "workflowId") == "default-sdd" && (chosen == nil || ref["revision"].(float64) > chosen["revision"].(float64)) {
+			chosen = ref
+		}
+	}
+	if chosen == nil {
+		t.Fatal("default-sdd not offered", listed)
+	}
+	revision := strconv.Itoa(int(chosen["revision"].(float64)))
+	ref := []string{"--project", "govsm", "--workflow", text(chosen, "workflowId"), "--revision", revision, "--digest", text(chosen, "digest"), "--source", text(chosen, "source")}
+	capabilities, complexities, roles, runtimes := workflowNeeds(t, e.run("", append([]string{"project", "workflow", "show"}, ref...)...))
+	if strings.Join(runtimes, ",") != "codex,claude" {
+		t.Fatal("definition does not admit both Runtimes", runtimes)
+	}
+	// Step 4: bindings and Profiles carry the derived capabilities.
+	derived := []string{"--capabilities", strings.Join(capabilities, ","), "--complexities", strings.Join(complexities, ",")}
+	fixed := append(append([]string{}, original...), derived...)
 	candidate := e.run("candidate_valid", append([]string{"runtime", "binding", "validate-candidate"}, fixed[3:]...)...)
 	if !strings.Contains(text(candidate, "next"), "not vendor certification") {
 		t.Fatal(candidate)
 	}
 	e.authorizeRuntime(fixed...)
-	e.authorizeRuntime("runtime", "binding", "create", "--runtime", "claude", "--profile", "claude-default", "--model", "operator-claude-model", "--effort-mode", "runtime-default", "--effort", "default", "--capabilities", "read,repository-write")
+	e.authorizeRuntime(append([]string{"runtime", "binding", "create", "--runtime", "claude", "--profile", "claude-default", "--model", "operator-claude-model", "--effort-mode", "runtime-default", "--effort", "default"}, derived...)...)
 	profiles := e.run("inspected", "runtime", "profile", "list")
 	if got := mustJSON(t, field(profiles, "runtimeAuthoring", "profiles")); !strings.Contains(got, `"id":"codex-default"`) || !strings.Contains(got, `"model":"gpt-6-luna"`) || !strings.Contains(got, `"id":"claude-default"`) || text(profiles, "runtimeAuthoring", "modelSupport") != "unconfirmed" {
 		t.Fatal("read-back", got)
 	}
-	// Reuse is detected, never duplicated.
 	e.run("binding_exists", fixed...)
 
-	// Steps 2-4: identity, Repositories, Provider, context and portable policy.
-	create := []string{"project", "configure", "--slug", "govsm", "--name", "GovSM",
-		"--repository", "api=" + repoA, "--repository-remote", "api=none",
-		"--repository", "web=" + repoB, "--repository-remote", "web=none",
-		"--work-item-provider", "github",
-		"--technology", "language=go", "--business-context", "Synthetic governance service",
-		"--glossary", "sm=SM:service management",
-		"--runtime", "codex", "--runtime", "claude", "--model-profile", "codex-default", "--model-profile", "claude-default",
-		"--runtime-preference", "implementation/high=codex-default"}
-	e.configureProject(create...)
-	shown := e.run("", "project", "show", "--selector", "govsm")
-	if got := mustJSON(t, shown["project"]); !strings.Contains(got, `"key":"api"`) || !strings.Contains(got, `"key":"web"`) {
-		t.Fatal("repository read-back", got)
+	// Step 5: portable policy reconciles the Project with the local Profiles;
+	// one preference per Agent role/complexity resolves policy-default.
+	preferences := []string{}
+	for _, rc := range roles {
+		pair := strings.SplitN(rc, "/", 2)
+		preferences = append(preferences, `{"role":"`+pair[0]+`","complexity":"`+pair[1]+`","modelProfileRef":"codex-default"}`)
 	}
+	draft := `{"runtimes":{"mode":"replace","values":[{"id":"codex"},{"id":"claude"}]},"modelProfiles":{"mode":"replace","values":[{"key":"codex-default","runtimeRef":"codex","model":"gpt-6-luna"},{"key":"claude-default","runtimeRef":"claude","model":"operator-claude-model"}]},"runtimePreferences":{"mode":"replace","values":[` + strings.Join(preferences, ",") + `]}}`
+	applyPolicy(t, e, "govsm", draft)
 
-	// Step 5: the built-in default is offered explicitly, then selected under
-	// its own authority; a stale digest is refused first.
-	listed := e.run("", "project", "workflow", "list", "--project", "govsm")
-	builtin, _ := workflowdefinition.BuiltinRevision(2)
-	ref := builtin.Ref("builtin")
-	if !strings.Contains(mustJSON(t, listed), ref.WorkflowID) {
-		t.Fatal("default workflow not offered", listed)
-	}
-	selectArgs := []string{"project", "workflow", "select", "--project", "govsm", "--workflow", ref.WorkflowID, "--revision", "2", "--digest", ref.Digest, "--source", ref.Source}
+	// Step 6: selection last; policy editing is refused once a Workflow is
+	// selected, so the explicit choice from step 3 is applied now.
+	selectArgs := append([]string{"project", "workflow", "select"}, ref...)
 	preview := e.run("", selectArgs...)
 	if _, code := e.exec(true, append(selectArgs, "--expected-revision", text(preview, "workflowAuthoring", "projectRevision"), "--preview-digest", strings.Repeat("0", 64), "--authorize-local")...); code == 0 {
 		t.Fatal("stale workflow preview applied")
 	}
 	e.run("", append(selectArgs, "--expected-revision", text(preview, "workflowAuthoring", "projectRevision"), "--preview-digest", text(preview, "workflowAuthoring", "previewDigest"), "--authorize-local")...)
-	if got := mustJSON(t, field(e.run("", "project", "show", "--selector", "govsm"), "project")); !strings.Contains(got, ref.WorkflowID) {
+	if got := mustJSON(t, field(e.run("", "project", "show", "--selector", "govsm"), "project")); !strings.Contains(got, text(chosen, "digest")) {
 		t.Fatal("selection read-back", got)
 	}
 
-	// Step 6: final validation keeps structure, readiness and per-operation
+	// Step 7: final validation keeps structure, readiness and per-operation
 	// results separate; authentication is not observed by this journey.
 	validated := e.run("", "project", "validate", "--project", "govsm")
 	readiness := mustJSON(t, validated["readiness"])
@@ -224,9 +289,26 @@ func TestGuidedSetupGovsmFromScratchWithCodexAndClaude(t *testing.T) {
 		!strings.Contains(readiness, `{"blockers":[],"operation":"execution","status":"ready"}`) || !strings.Contains(readiness, `{"blockers":[],"operation":"work-item","status":"ready"}`) {
 		t.Fatal(readiness)
 	}
-	if strings.Contains(mustJSON(t, validated), "runtime_policy_unavailable") {
-		t.Fatal("policy reported missing after configuration", validated["readiness"])
+}
+
+func applyPolicy(t *testing.T, e setupEnv, project, draft string) map[string]any {
+	t.Helper()
+	policy := []string{"project", "configure", "--project", project, "--policy-draft", draft}
+	preview := e.run("", policy...)
+	digest := text(preview, "policyEdit", "preview", "digest")
+	id := text(preview, "policyEdit", "preview", "projectId")
+	if digest == "" || id == "" || field(preview, "policyEdit", "preview", "workflow", "compatible") != true {
+		t.Fatal("no compatible policy preview", mustJSON(t, preview))
 	}
+	before := treeDigest(t, e.projects)
+	if _, code := e.exec(true, append(policy, "--project-id", id, "--preview-digest", strings.Repeat("0", 64), "--authorize-local")...); code == 0 || treeDigest(t, e.projects) != before {
+		t.Fatal("stale policy preview applied")
+	}
+	applied := e.run("", append(policy, "--project-id", id, "--preview-digest", digest, "--authorize-local")...)
+	if text(applied, "policyEdit", "readBack", "status") != "confirmed" {
+		t.Fatal("policy read-back", applied["policyEdit"])
+	}
+	return applied
 }
 
 func TestGuidedSetupCompletesExistingIncompleteProject(t *testing.T) {
@@ -245,30 +327,56 @@ func TestGuidedSetupCompletesExistingIncompleteProject(t *testing.T) {
 	}
 	// Local prerequisite first, then the portable policy through G-1.
 	e.authorizeRuntime("runtime", "binding", "create", "--runtime", "codex", "--profile", "worker", "--model", "operator-model", "--effort-mode", "explicit", "--effort", "low", "--capabilities", "read,repository-write")
-	draft := `{"runtimes":{"mode":"replace","values":[{"id":"codex"}]},"modelProfiles":{"mode":"replace","values":[{"key":"worker","runtimeRef":"codex","model":"operator-model"}]}}`
-	policy := []string{"project", "configure", "--project", "partial", "--policy-draft", draft}
-	preview := e.run("", policy...)
-	id, digest := text(preview, "policyEdit", "preview", "projectId"), text(preview, "policyEdit", "preview", "digest")
-	if digest == "" {
-		t.Fatal("no policy preview", preview)
-	}
-	if id == "" {
-		id = text(e.run("", "project", "show", "--selector", "partial"), "project", "id")
-	}
 	// Reuse: an existing local Profile is listed, not recreated.
 	if got := mustJSON(t, field(e.run("inspected", "runtime", "profile", "list"), "runtimeAuthoring", "profiles")); !strings.Contains(got, `"id":"worker"`) {
 		t.Fatal(got)
 	}
 	e.run("profile_exists", "runtime", "profile", "create", "--runtime", "codex", "--profile", "worker", "--model", "operator-model", "--effort-mode", "explicit", "--effort", "low", "--capabilities", "read")
-	applied := e.run("", append(policy, "--project-id", id, "--preview-digest", digest, "--authorize-local")...)
-	if text(applied, "policyEdit", "readBack", "status") != "confirmed" {
-		t.Fatal("policy read-back", applied["policyEdit"])
+	applyPolicy(t, e, "partial", `{"runtimes":{"mode":"replace","values":[{"id":"codex"}]},"modelProfiles":{"mode":"replace","values":[{"key":"worker","runtimeRef":"codex","model":"operator-model"}]}}`)
+	// Without a selected Workflow, readiness stays metadata-only: Runtime
+	// resolution is explicitly unobserved, never ready.
+	if got := e.run("", "project", "validate", "--project", "partial"); strings.Contains(mustJSON(t, got), "runtime_policy_unavailable") || text(got, "readiness", "runtime", "detail") != "inventory_unavailable" {
+		t.Fatal("readiness after policy", mustJSON(t, got["readiness"]))
 	}
+	listed, _ := field(e.run("", "project", "workflow", "list", "--project", "partial"), "workflowAuthoring", "revisions").([]any)
+	last := listed[len(listed)-1].(map[string]any)
+	selectArgs := []string{"project", "workflow", "select", "--project", "partial", "--workflow", text(last, "workflowId"), "--revision", strconv.Itoa(int(last["revision"].(float64))), "--digest", text(last, "digest"), "--source", text(last, "source")}
+	preview := e.run("", selectArgs...)
+	e.run("", append(selectArgs, "--expected-revision", text(preview, "workflowAuthoring", "projectRevision"), "--preview-digest", text(preview, "workflowAuthoring", "previewDigest"), "--authorize-local")...)
+	// Selection makes Runtime readiness observable. Execution remains blocked
+	// only by the Provider gap, which is reported with its own cause; the
+	// policy is no longer editable by G-1.
 	after := e.run("", "project", "validate", "--project", "partial")
-	// The policy gap is resolved. A schema-3 Project keeps metadata-only
-	// readiness: Runtime resolution stays explicitly unobserved, never ready,
-	// and the Work Item gap stays a separate blocker.
-	if got := mustJSON(t, after["readiness"]); strings.Contains(got, "runtime_policy_unavailable") || text(after, "readiness", "runtime", "detail") != "inventory_unavailable" || text(after, "readiness", "effective") == "ready" || !strings.Contains(got, "capability_mapping_missing") {
-		t.Fatal("readiness after policy", got)
+	if got := mustJSON(t, after["readiness"]); text(after, "readiness", "runtime", "status") != "ready" || !strings.Contains(got, `{"blockers":[{"code":"capability_mapping_missing","subject":"work-item"}],"operation":"execution","status":"blocked"}`) || strings.Contains(got, "runtime_") {
+		t.Fatal("readiness after selection", got)
+	}
+	if !strings.Contains(mustJSON(t, e.run("", "project", "configure", "--project", "partial", "--policy-draft", "{}")), "requires schema 2 or 3") {
+		t.Fatal("policy edit after selection not refused as documented")
+	}
+}
+
+// CR-356-02 through the production parser: JSON and human output name
+// --enabled, and the refusal changes no state.
+func TestProfileEnabledRefusalNamesFieldInJSONAndHuman(t *testing.T) {
+	e := newSetupEnv(t, "codex")
+	e.authorizeRuntime("runtime", "binding", "create", "--runtime", "codex", "--profile", "base", "--model", "m", "--effort-mode", "explicit", "--effort", "low", "--capabilities", "read")
+	before := treeDigest(t, e.state)
+	for _, op := range []string{"create", "edit", "validate-candidate"} {
+		profile := "p"
+		if op == "edit" {
+			profile = "base"
+		}
+		args := []string{"runtime", "profile", op, "--runtime", "codex", "--profile", profile, "--model", "m", "--effort-mode", "explicit", "--effort", "low", "--capabilities", "read", "--enabled", "true"}
+		refused := e.run("invalid_input", args...)
+		if got := diagnosticFields(refused); len(got) != 1 || got[0] != "field_invalid:--enabled" || !strings.Contains(text(refused, "next"), "Remove --enabled") {
+			t.Fatal(op, got, text(refused, "next"))
+		}
+		human, code := e.exec(false, args...)
+		if code == 0 || !bytes.Contains(human, []byte("field: --enabled")) || !bytes.Contains(human, []byte("Remove --enabled")) {
+			t.Fatalf("%s human: %s", op, human)
+		}
+	}
+	if treeDigest(t, e.state) != before {
+		t.Fatal("refusal changed state")
 	}
 }

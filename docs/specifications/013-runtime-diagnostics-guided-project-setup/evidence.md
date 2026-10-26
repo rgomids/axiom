@@ -57,3 +57,70 @@ do mesmo documento canônico.
 - Interrupção entre etapas é coberta por preservação de efeitos confirmados e
   replays recusados, não por injeção de falha de publicação na jornada CLI
   (coberta em testes existentes de `publication_unconfirmed`).
+
+## Revisão 2 — correções do review do PR #356 (HEAD revisado `1b1b983`)
+
+### CR-356-01 — dependência circular no wizard
+
+Investigação (binário desta branch, roots vazios):
+
+- `project workflow list` sem `--project` → `validation_failure` (o parser
+  exige `--project`); não há inspeção pública de definições sem Project.
+- Com um Project recém-publicado sem política, `project workflow list
+  --project` retorna `default-sdd` r1/r2 (`source: builtin`) e `project
+  workflow show` expõe, por Agent, `capabilities`, `role`, `complexity`,
+  `runtimeConstraints` e `profileRef`.
+- Após `workflow select`, `project configure --policy-draft` é recusado:
+  “Project Runtime policy editing requires schema 2 or 3”
+  (`SelectWorkflow` eleva o schema para 4).
+- Sem Workflow selecionado, `project validate` reporta
+  `runtime_resolution_blocked / inventory_unavailable` mesmo com política
+  válida. A revisão 1 atribuiu isso à ordem de criação, o que estava errado.
+
+Resolução: jornada identidade → inspeção → Profiles → política → seleção →
+validate, só com operações publicadas (decisão 1 do [Plan](plan.md)).
+`TestGuidedSetupGovsmFromScratchWithCodexAndClaude` passou a:
+
+- verificar `project list` vazio;
+- escolher a revisão listada mais recente de `default-sdd` a partir do JSON de
+  `list`;
+- derivar `--capabilities read,repository-write`, `--complexities medium` e a
+  preferência `engineer/medium` do JSON de `show`;
+- aplicar a política com digest obsoleto recusado e sem efeitos, e read-back
+  `confirmed`;
+- selecionar o Workflow e terminar com structure valid, runtime ready e
+  work-item/execution ready.
+
+O import de `internal/workflowdefinition` foi removido.
+`TestGuidedSetupCompletesExistingIncompleteProject` cobre metadata-only antes
+da seleção, Runtime ready após a seleção, execução bloqueada só por
+`capability_mapping_missing` (Provider `none`) e a recusa da G-1 após a seleção.
+
+### CR-356-02 — `--enabled` em Profile
+
+`inputDiagnostics` nomeia `field_invalid:--enabled`; categoria `invalid_input`
+preservada. Cobertura:
+
+- `TestAuthoringProfileEnabledNamesField` (create/edit/validate-candidate):
+  zero escritas; auth/model/effort inalterados; binding continua aceitando
+  `--enabled`.
+- `TestProfileEnabledRefusalNamesFieldInJSONAndHuman`: parser de produção,
+  saída JSON e humana (`field: --enabled`, `Remove --enabled`); árvore de
+  estado inalterada.
+
+Demais rejeições de `safeAuthoring` verificadas como inalcançáveis pelo parser
+(decisão 4 do Plan).
+
+### Checks da revisão 2
+
+| Comando | Resultado |
+|---|---|
+| `go test ./... -count=1` | 34 pacotes `ok`; mesmo FAIL de `internal/executiongraph` `TestOSProcessRunnerRetainsFastRejectionBeforeCorrelation`, reproduzido em `c00156f` neste host; o check `PR Checks` do CI passou em `1b1b983`, indicando falha específica do host local |
+| `go vet ./...` | sem achados |
+| `go test -race` em `runtimeapplication`, `runtimeprofile`, `codexruntime` e `cmd/lingo -run 'GuidedSetup\|ProfileEnabled\|RuntimeAuthoring\|RuntimeDeclaration'` | `ok` |
+| `./scripts/validate-repository.sh .` | PASS em checkout limpo do commit |
+| `./scripts/check-sensitive-files.sh .` | PASS |
+| `git diff --check` | limpo |
+
+Pendências inalteradas: T08 (conversas nativas) NOT_RUN; DF-013-01 e
+DF-013-02 registrados no Plan.

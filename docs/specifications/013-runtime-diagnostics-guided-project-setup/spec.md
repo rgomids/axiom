@@ -2,7 +2,9 @@
 
 ## Status e autoridade
 
-**Proposed — revisão 1, 2026-10-25.** Pedido explícito do mantenedor para
+**Proposed — revisão 2, 2026-10-26.** A revisão 2 corrige os findings Major
+CR-356-01 (dependência circular no wizard) e CR-356-02 (`--enabled` em Profile
+sem diagnóstico) do review do PR #356 no HEAD `1b1b983`. Pedido explícito do mantenedor para
 especificar, implementar e entregar ambas as correções em uma branch e um PR,
 sem merge, release ou deploy. Aceite humano permanece pendente e não é
 substituído por checks. [Plan](plan.md) · [Tasks](tasks.md) · [Evidence](evidence.md).
@@ -60,15 +62,25 @@ política portátil e Workflow — o operador precisava descobrir `axiom-runtime
   como única autoridade; `ProfileViolations` concorda com ela (teste).
 - **RD-09** Nenhum auth preflight, processo de fornecedor ou inferência é
   executado pela autoria declarativa.
+- **RD-10** (CR-356-02) `--enabled` em operação de Profile retorna
+  `invalid_input` com `field_invalid` em `--enabled`, regra “elegibilidade do
+  Runtime binding, não campo de Model Profile” e próxima ação (remover ou usar
+  operação de binding/Profile enable/disable). Bindings continuam aceitando
+  `--enabled`.
 
 ### WZ — Setup guiado completo (skill `axiom-project`)
 
 - **WZ-01** Uma seção “Complete guided setup” coordena, para Project novo ou
   existente: descoberta → Runtime/Profiles → identidade/Repositories/Provider →
   contexto → política portátil → Workflow → validação final.
-- **WZ-02** Runtime/Profiles são configurados antes de publicar Project novo
-  destinado à execução, e o create preview inclui `--runtime`,
-  `--model-profile` e `--runtime-preference` necessários.
+- **WZ-02** (revisado por CR-356-01) Em máquina sem o Project, a jornada
+  publica primeiro a identidade sem política (bootstrap parcial explícito,
+  execução bloqueada), inspeciona o Workflow escolhido por `project workflow
+  list/show`, deriva capabilities, role/complexity e Runtime constraints dos
+  Agents, configura bindings/Profiles, declara a política por `--policy-draft`
+  **antes** da seleção (a edição G-1 recusa Projects com Workflow selecionado),
+  seleciona o Workflow e valida. Com Profiles compatíveis já existentes e
+  necessidades conhecidas, o create pode declarar a política diretamente.
 - **WZ-03** Escopo machine-local e compartilhado dos Profiles é explicitado
   antes de qualquer mutação; capabilities derivam dos Agents do Workflow.
 - **WZ-04** `default-sdd` é opção explícita, nunca default silencioso;
@@ -95,11 +107,14 @@ migração de schema, mudanças em credenciais ou configuração de fornecedor.
 
 ## Limitação conhecida
 
-Projects schema 3 (criados sem política de Runtime) mantêm readiness somente
-por metadata após edição G-1: `runtime_resolution_blocked /
-inventory_unavailable`. Isso é contrato existente; o wizard o relata como
-“Runtime readiness não observada”, nunca como pronta. Unificar a semântica com
-schema 4 exigiria decisão própria.
+Correção da revisão 1: o schema 4 resulta da **seleção de Workflow**
+(`project.SelectWorkflow`), não da declaração de política no create. Sem
+Workflow selecionado (schema 2/3), a readiness é somente por metadata:
+`runtime_resolution_blocked / inventory_unavailable` mesmo com política
+válida; o wizard relata “não observada”, nunca pronta. Após a seleção, a
+política não é editável pela G-1 (“requires schema 2 or 3”); um Project
+existente nesse estado e sem política fica `blocked` com handoff. Ambos são
+contratos existentes, não alterados aqui.
 
 ## Critérios de aceite
 
@@ -114,3 +129,5 @@ schema 4 exigiria decisão própria.
 | A7 | Project existente incompleto completado via G-1; bloqueios remanescentes relatados com causa correta |
 | A8 | Preview obsoleto/autoridade inválida recusados sem efeitos; replay é `stale_preview`; reuso detectado (`binding_exists`/`profile_exists`) |
 | A9 | Upgrade da revisão v0.22.0 para Codex e Claude; conteúdo do wizard presente em ambos |
+| A10 | (CR-356-01) Ambiente sem Projects conclui a jornada só com operações públicas; Workflow escolhido explicitamente; capabilities/complexities/preferências derivadas de `project workflow show`; teste sem pacotes internos |
+| A11 | (CR-356-02) `--enabled` em profile create/edit/validate-candidate → `field_invalid:--enabled` em JSON e humano, sem mudança de estado |

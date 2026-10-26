@@ -53,7 +53,7 @@ func TestGuidedSetup013UpgradesPublishedSetForCodexAndClaude(t *testing.T) {
 			}
 			project, _ := os.ReadFile(filepath.Join(root, "axiom-project", "SKILL.md"))
 			runtime, _ := os.ReadFile(filepath.Join(root, "axiom-runtime", "SKILL.md"))
-			for _, want := range []string{"## Complete guided setup", "machine-local and shared by every Project", "`default-sdd` as an explicit option", "Authentication ready", "never ready"} {
+			for _, want := range []string{"## Complete guided setup", "machine-local and shared by every Project", "`default-sdd` revisions as an explicit option", "Authentication ready", "never ready", "partial bootstrap", "derive Profile needs\n   only from its Agents", "Do this before selecting"} {
 				if !strings.Contains(string(project), want) {
 					t.Fatal("axiom-project lacks", want)
 				}

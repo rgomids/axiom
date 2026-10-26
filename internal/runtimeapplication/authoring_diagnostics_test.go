@@ -185,3 +185,36 @@ func TestProfileViolationsAgreeWithValidation(t *testing.T) {
 		}
 	}
 }
+
+// CR-356-02: --enabled on a Profile operation names the field instead of the
+// generic fallback, for every operation the parser accepts it on.
+func TestAuthoringProfileEnabledNamesField(t *testing.T) {
+	enabled := true
+	for _, op := range []string{"create", "edit", "validate-candidate"} {
+		a, s := authoringSetup()
+		base := govsmRequest("codex")
+		base.Capabilities = []string{"read"}
+		applyReviewed(t, a, base)
+		writes := s.writes
+		r := AuthoringRequest{Kind: "profile", Operation: op, RuntimeID: "codex", ProfileID: "p", Model: "m", Effort: runtimeprofile.Effort{Mode: "explicit", Value: "low"}, Capabilities: []string{"read"}, Enabled: &enabled}
+		if op == "edit" {
+			r.ProfileID = "codex-default"
+		}
+		got, err := a.Run(context.Background(), r)
+		d, ok := diagnosticFor(got, "--enabled")
+		if err == nil || got.Category != "invalid_input" || !ok || d.Code != "field_invalid" || len(got.Diagnostics) != 1 || !strings.Contains(d.Rule, "Runtime binding eligibility") || !strings.Contains(d.Next, "Remove --enabled") || s.writes != writes {
+			t.Fatalf("%s: %+v %v", op, got, err)
+		}
+		if got.Authentication != "unknown" || got.ModelSupport != "unconfirmed" || got.EffortSupport != "unconfirmed" || !strings.HasPrefix(got.Next, d.Next) {
+			t.Fatalf("%s: semantics changed %+v", op, got)
+		}
+	}
+	// Binding operations keep accepting --enabled.
+	a, _ := authoringSetup()
+	r := govsmRequest("codex")
+	r.Capabilities = []string{"read"}
+	r.Enabled = &enabled
+	if got, err := a.Run(context.Background(), r); err != nil || got.Category != "preview" {
+		t.Fatalf("binding --enabled regressed: %+v %v", got, err)
+	}
+}

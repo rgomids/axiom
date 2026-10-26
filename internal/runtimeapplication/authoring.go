@@ -738,6 +738,9 @@ func inputDiagnostics(r AuthoringRequest) []AuthoringDiagnostic {
 	if r.Kind != "profile" && r.Kind != "binding" {
 		return []AuthoringDiagnostic{{Code: "field_invalid", Rule: "kind must be binding or profile", Next: "Use axiom runtime binding|profile <operation>"}}
 	}
+	if r.Kind == "profile" && r.Enabled != nil {
+		out = append(out, AuthoringDiagnostic{Code: "field_invalid", Field: "--enabled", Rule: "--enabled sets Runtime binding eligibility; it is not a Model Profile field", Next: "Remove --enabled; change Runtime eligibility with `axiom runtime binding enable|disable --runtime <id>` (or `binding edit --enabled`), or Profile allowlisting with `axiom runtime profile enable|disable --profile <id>`"})
+	}
 	for flag, v := range map[string]string{"--runtime": r.RuntimeID, "--profile": r.ProfileID} {
 		if v != "" && !portableconfig.SafeValue(v, "token") {
 			add("field_invalid", flag, "must be a safe lowercase token")
