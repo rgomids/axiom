@@ -1681,7 +1681,7 @@
         "scripts/test_model_advisor_eval.py"
       ],
       "inputs": "--root, --runtime (claude|codex, repeatable), --scenario, --evidence PATH, --keep-responses DIR; env AXIOM_MODEL_ADVISOR_EVAL_TIMEOUT (default 600s); reads internal/codexruntime/skills and builds cmd/lingo into a temporary directory.",
-      "outputs": "PASS/FAIL/BLOCKED/NOT_RUN lines; exit 1 on FAIL; optional JSON report and raw responses.",
+      "outputs": "PASS/FAIL/BLOCKED/NOT_RUN lines; exit 0 only when every requested scenario is PASS (runs and --regrade), otherwise 1, including BLOCKED and NOT_RUN; optional JSON report and raw responses, written even on failure.",
       "local_effects": "temporary directories only; writes the report/responses only when requested",
       "network_effects": "none without --runtime; with --runtime the claude/codex CLIs run read-only with a pinned model and contact their model providers (real inference)",
       "authority": "none for offline checks; runtime scenarios consume the invoking user's existing CLI authentication and quota and need the maintainer's explicit authorization",
@@ -3191,7 +3191,7 @@
       "path": "scripts/test_model_advisor_eval.py",
       "kind": "script",
       "owner": "maintainer-harness",
-      "purpose": "Offline tests of the Model Advisor evaluator with hand-written grader probes and of its controlled inputs; no runtime is invoked.",
+      "purpose": "Offline tests of the Model Advisor evaluator: grader probes, controlled inputs, and the public exit contract through fake claude/codex executables and stored reports; no inference.",
       "lifecycle": "durable",
       "disposition": "keep",
       "disposition_ref": null,

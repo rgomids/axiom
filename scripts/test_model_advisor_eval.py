@@ -8,6 +8,10 @@ are not Evidence of Model Advisor behavior.
 
 import importlib.util
 import json
+import os
+import shutil
+import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -137,7 +141,8 @@ class EvaluatorTests(unittest.TestCase):
             out = Path(tmp) / "r.json"
             saved = dict(advisor.PINNED)
             try:
-                self.assertEqual(advisor.main(["--pin", "codex=model-x", "--scenario", "MA-01", "--evidence", str(out)]), 0)
+                # Without --runtime nothing runs: recorded, but never success.
+                self.assertEqual(advisor.main(["--pin", "codex=model-x", "--scenario", "MA-01", "--evidence", str(out)]), 1)
                 report = json.loads(out.read_text())
                 self.assertEqual(report["pinned"]["codex"], "model-x")
                 self.assertEqual(report["pinOverrides"], ["codex=model-x"])
@@ -150,6 +155,135 @@ class EvaluatorTests(unittest.TestCase):
     def test_without_runtime_nothing_runs(self):
         report = advisor.run(advisor.ROOT, [], ["MA-01"], None)
         self.assertEqual(report["results"]["MA-01"]["status"], "NOT_RUN")
+
+
+SCRIPT = HERE / "model-advisor-eval.py"
+DEGRADED = ("Research is unavailable, so I recommend no model; name one or reuse a Profile. "
+            "Next: validate-candidate and preview.\nADVISOR-RESULT\n" + json.dumps({
+                "advisor_offered": True, "degraded": True, "manual_entry_offered": True, "recommendations": [],
+                "subscription_cost": "not_discussed", "api_price_presented_as_subscription_cost": False,
+                "hierarchy": "not_applicable", "mutations_performed": [], "next_operations": ["preview"]}))
+FAKE_CLAUDE = """#!/usr/bin/env python3
+import json, sys
+answer = open(%r).read()
+for event in ({"type": "system", "subtype": "init", "model": "claude-haiku-5-5"},
+              {"type": "assistant", "message": {"model": "claude-haiku-5-5"}},
+              {"type": "result", "is_error": False, "result": answer}):
+    print(json.dumps(event))
+"""
+FAKE_CODEX_REFUSES = """#!/bin/sh
+echo '{"type":"error","message":"model_not_found (synthetic)"}'
+echo '{"type":"turn.failed","error":{"message":"model_not_found (synthetic)"}}'
+exit 1
+"""
+
+
+class ExitContractTests(unittest.TestCase):
+    """Public CLI exit contract (MA-356-02) with fake runtimes; no inference."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.TemporaryDirectory()
+        base = Path(cls.tmp.name)
+        cls.bin = base / "bin"
+        cls.bin.mkdir()
+        (base / "answer.txt").write_text(DEGRADED)
+        for name, body in {"claude": FAKE_CLAUDE % str(base / "answer.txt"), "codex": FAKE_CODEX_REFUSES}.items():
+            (cls.bin / name).write_text(body)
+            (cls.bin / name).chmod(0o700)
+        go = shutil.which("go")
+        cls.path = os.pathsep.join([str(cls.bin), str(Path(go).parent), "/usr/bin", "/bin"])
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.tmp.cleanup()
+
+    def cli(self, *args, path=None):
+        report = Path(self.tmp.name) / "report.json"
+        report.unlink(missing_ok=True)
+        done = subprocess.run([sys.executable, str(SCRIPT), *args, "--evidence", str(report)],
+                              env={**os.environ, "PATH": path or self.path}, capture_output=True, text=True)
+        return done, json.loads(report.read_text()) if report.exists() else None
+
+    def test_all_pass_exits_zero(self):
+        done, report = self.cli("--runtime", "claude", "--scenario", "MA-05")
+        self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
+        self.assertEqual(report["results"]["claude"]["MA-05"]["status"], "PASS")
+
+    def test_one_fail_among_passes_exits_nonzero_and_keeps_each_result(self):
+        done, report = self.cli("--runtime", "claude", "--scenario", "MA-05", "--scenario", "MA-02")
+        self.assertEqual(done.returncode, 1)
+        self.assertEqual({n: report["results"]["claude"][n]["status"] for n in ("MA-05", "MA-02")},
+                         {"MA-05": "PASS", "MA-02": "FAIL"})
+        self.assertIn("PASS: claude: MA-05", done.stdout)
+        self.assertIn("FAIL: claude: MA-02", done.stdout)
+
+    def test_blocked_among_passes_exits_nonzero(self):
+        done, report = self.cli("--runtime", "claude", "--runtime", "codex", "--scenario", "MA-05")
+        self.assertEqual(done.returncode, 1)
+        self.assertEqual(report["results"]["claude"]["MA-05"]["status"], "PASS")
+        self.assertEqual(report["results"]["codex"]["MA-05"]["status"], "BLOCKED")
+        self.assertIn("model_not_found", report["results"]["codex"]["MA-05"]["reason"])
+
+    def test_refused_model_exits_nonzero(self):
+        done, report = self.cli("--runtime", "codex", "--scenario", "MA-01", "--scenario", "MA-02")
+        self.assertEqual(done.returncode, 1)
+        self.assertEqual({r["status"] for k, r in report["results"]["codex"].items() if k != "cli"}, {"BLOCKED"})
+
+    def test_unavailable_runtime_exits_nonzero(self):
+        no_claude = os.pathsep.join(p for p in self.path.split(os.pathsep) if p != str(self.bin))
+        done, report = self.cli("--runtime", "claude", "--scenario", "MA-05", path=no_claude)
+        self.assertEqual(done.returncode, 1)
+        self.assertEqual(report["results"]["claude"]["MA-05"]["status"], "BLOCKED")
+        self.assertIn("BLOCKED: claude: MA-05", done.stdout)
+
+    def test_nothing_requested_never_succeeds(self):
+        done, report = self.cli("--scenario", "MA-05")
+        self.assertEqual(done.returncode, 1)
+        self.assertEqual(report["results"]["MA-05"]["status"], "NOT_RUN")
+
+    def regrade(self, report):
+        path = Path(self.tmp.name) / "stored.json"
+        path.write_text(json.dumps(report))
+        done = subprocess.run([sys.executable, str(SCRIPT), "--regrade", str(path)], capture_output=True, text=True)
+        return done, json.loads(path.read_text())
+
+    @staticmethod
+    def stored(name, response, status):
+        return {"status": status, "response": response,
+                "assertions": [{"check": "workspace unchanged", "pass": True}]}
+
+    def test_regrade_all_pass_exits_zero(self):
+        done, _ = self.regrade({"results": {"claude": {"MA-05": self.stored("MA-05", DEGRADED, "PASS")}}})
+        self.assertEqual(done.returncode, 0, done.stdout)
+
+    def test_regrade_fail_exits_nonzero_and_preserves_recorded_status(self):
+        done, after = self.regrade({"results": {"claude": {"MA-05": self.stored("MA-05", DEGRADED, "PASS"),
+                                                           "MA-02": self.stored("MA-02", DEGRADED, "PASS")}}})
+        self.assertEqual(done.returncode, 1)
+        self.assertEqual(after["results"]["claude"]["MA-02"]["status"], "PASS")
+        self.assertEqual(after["results"]["claude"]["MA-02"]["regraded"]["status"], "FAIL")
+
+    def test_regrade_blocked_exits_nonzero(self):
+        done, after = self.regrade({"results": {"codex": {"cli": "x", "MA-05": {"status": "BLOCKED", "reason": "refused"}},
+                                                "claude": {"MA-05": self.stored("MA-05", DEGRADED, "PASS")}}})
+        self.assertEqual(done.returncode, 1)
+        self.assertEqual(after["results"]["codex"]["MA-05"], {"status": "BLOCKED", "reason": "refused"})
+        self.assertIn("BLOCKED (not regradable; no response): codex: MA-05", done.stdout)
+
+    def test_regrade_without_any_scenario_never_succeeds(self):
+        done, _ = self.regrade({"results": {}})
+        self.assertEqual(done.returncode, 1)
+
+    def test_historical_reports_stay_readable_and_honest(self):
+        root = HERE.parent / "docs/specifications/013-runtime-diagnostics-guided-project-setup/evidence-model-advisor"
+        expected = {"claude-01-harness-defect.json": 1, "claude-02-battery.json": 1, "claude-03-rerun-after-fix.json": 0,
+                    "codex-01-blocked.json": 1, "codex-02-blocked-diagnosis.json": 1, "codex-03-gpt-6.1-sol.json": 0}
+        for name, code in expected.items():
+            original = (root / name).read_text()
+            done, _ = self.regrade(json.loads(original))
+            self.assertEqual(done.returncode, code, name)
+            self.assertEqual((root / name).read_text(), original, "committed report changed")
 
 
 if __name__ == "__main__":

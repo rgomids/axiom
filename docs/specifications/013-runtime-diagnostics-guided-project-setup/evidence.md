@@ -294,3 +294,39 @@ permanecem nos relatórios, ao lado de `regraded`.
 
 Invocações totais nesta avaliação: Claude 10, Codex 2 recusadas (`gpt-6.1-luna`)
 e 7 respondidas (`gpt-6.1-sol`).
+
+## MA-356-02 — exit status do avaliador
+
+Finding do review `5652886683` no HEAD `65135b1`.
+
+**Causa:** `main()` acumulava somente `status == "FAIL"`, de modo que
+cenários BLOCKED (runtime ausente ou modelo recusado) e a execução sem
+`--runtime` terminavam com 0; e `--regrade` retornava 0 incondicionalmente.
+
+**Correção** (decisão 15 do [Plan](plan.md)): `statuses()` e `outcome()`
+alimentam ambos os caminhos. O contrato (MA-R12) está documentado no
+docstring do script e no registro de automação. A lógica de recomendação e os
+critérios do avaliador não mudaram.
+
+**Testes adicionados** em
+[`test_model_advisor_eval.py`](../../../scripts/test_model_advisor_eval.py)
+(`ExitContractTests`). Chamam o script por subprocess, com executáveis
+`claude`/`codex` falsos no `PATH`, sem inferência:
+
+| Caso | Exit esperado | Resultado |
+|---|---|---|
+| todos PASS (`claude`, MA-05) | 0 | PASS |
+| FAIL entre PASS (MA-05 + MA-02); status individuais e stdout preservados | 1 | PASS |
+| BLOCKED entre PASS (`claude` PASS, `codex` recusa o modelo) | 1 | PASS |
+| modelo recusado (`model_not_found` sintético) | 1 | PASS |
+| runtime ausente do `PATH` | 1 | PASS |
+| nenhum runtime solicitado (NOT_RUN) | 1 | PASS |
+| `--regrade` todos PASS | 0 | PASS |
+| `--regrade` com FAIL, preservando o status registrado | 1 | PASS |
+| `--regrade` com BLOCKED (sem resposta), registro intacto | 1 | PASS |
+| `--regrade` sem cenários | 1 | PASS |
+| relatórios históricos (cópias temporárias): claude-01 → 1, claude-02 → 1 (MA-01/MA-08 FAIL originais), claude-03 → 0, codex-01 → 1, codex-02 → 1, codex-03 → 0; arquivos commitados inalterados | conforme listado | PASS |
+
+Execução local: `python3 scripts/test_model_advisor_eval.py` → 25 testes OK.
+Nenhum relatório histórico foi reescrito; os resultados BLOCKED/FAIL anteriores
+permanecem. Nenhuma inferência real foi usada para esta correção.

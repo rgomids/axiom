@@ -78,6 +78,14 @@ e ADR-0032 preservadas.
     introduzidos após observar respostas do Codex; mantêm as propriedades,
     são divulgados na Evidence e reaplicados a todos os relatórios.
 
+15. **Exit status agregado (MA-356-02):** `statuses()` enumera cada par
+    runtime × cenário solicitado (ausência = NOT_RUN; no `--regrade`, o status
+    reavaliado prevalece e registros sem resposta mantêm o seu). `outcome()`
+    devolve 0 somente se a lista não estiver vazia e tudo for PASS. Um código
+    único para não-sucesso basta, e as categorias continuam visíveis no stdout
+    e no relatório. A execução sem `--runtime` passou de 0 para 1: continua
+    informativa, mas não é bateria aprovada.
+
 ## deferred_findings
 
 - **DF-013-01** Inspeção de definições built-in sem Project permitiria

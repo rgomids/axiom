@@ -12,6 +12,9 @@ annex; no model grades another model.
 Without --runtime nothing is invoked and behavior is reported NOT_RUN. A
 runtime that is missing, refuses the pinned model or cannot answer is BLOCKED,
 never PASS. No model substitution or fallback is attempted.
+
+Exit status (runs and --regrade): 0 only when every requested scenario is
+PASS; any FAIL, BLOCKED or NOT_RUN exits 1. --help exits 0.
 """
 
 from __future__ import annotations
@@ -405,6 +408,35 @@ def regrade(report: dict) -> dict:
     return report
 
 
+def statuses(report: dict, runtimes: list[str], names: list[str], regraded: bool = False) -> list[tuple[str, str, str]]:
+    """Every requested (runtime, scenario) with its effective status. A missing
+    record is NOT_RUN; on re-grade a stored regraded status wins over the
+    recorded one, and records without a response keep theirs (BLOCKED)."""
+    results = report.get("results") or {}
+    out = []
+    for runtime in runtimes:
+        records = results.get(runtime) if isinstance(results.get(runtime), dict) else {}
+        for name in names:
+            record = records.get(name) if isinstance(records.get(name), dict) else {}
+            status = record.get("status", "NOT_RUN")
+            if regraded and isinstance(record.get("regraded"), dict):
+                status = record["regraded"].get("status", status)
+            out.append((runtime, name, status))
+    return out
+
+
+def outcome(rows: list[tuple[str, str, str]]) -> int:
+    """Process exit contract: 0 only when at least one scenario was requested
+    and every requested scenario is PASS; FAIL, BLOCKED or NOT_RUN give 1."""
+    return 0 if rows and all(status == "PASS" for _, _, status in rows) else 1
+
+
+def stored_scope(report: dict) -> tuple[list[str], list[str]]:
+    runtimes = [r for r, v in (report.get("results") or {}).items() if isinstance(v, dict) and r in RUN]
+    names = sorted({n for r in runtimes for n, v in report["results"][r].items() if n in SCENARIOS})
+    return runtimes, names
+
+
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--root", type=Path, default=ROOT)
@@ -424,15 +456,17 @@ def main(argv: list[str]) -> int:
                 if isinstance(record, dict) and "regraded" in record:
                     failed = [a["check"] for a in record["regraded"]["assertions"] if not a["pass"]]
                     print(f"{record['regraded']['status']} (regraded; recorded {record['status']}): {runtime}: {name}" + (f": {'; '.join(failed)}" if failed else ""))
-        return 0
+                elif isinstance(record, dict) and name in SCENARIOS:
+                    print(f"{record.get('status', 'NOT_RUN')} (not regradable; no response): {runtime}: {name}")
+        return outcome(statuses(report, *stored_scope(report), regraded=True))
     for pin in args.pin:
         runtime, _, model = pin.partition("=")
         if runtime not in PINNED or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}", model):
             parser.error(f"invalid --pin {pin!r}")
         PINNED[runtime] = model
-    report = run(args.root.resolve(), args.runtime, args.scenario or sorted(SCENARIOS), args.keep_responses)
+    names = args.scenario or sorted(SCENARIOS)
+    report = run(args.root.resolve(), args.runtime, names, args.keep_responses)
     report["pinOverrides"] = args.pin
-    status = 0
     if not args.runtime:
         print("NOT_RUN: Model Advisor behavioral scenarios need --runtime claude|codex (real inference)")
     for runtime, results in report["results"].items():
@@ -443,10 +477,10 @@ def main(argv: list[str]) -> int:
                 continue
             failed = [a["check"] for a in result.get("assertions", []) if not a["pass"]]
             print(f"{result['status']}: {runtime}: {name}" + (f": {result.get('reason') or '; '.join(failed)}" if result["status"] != "PASS" else ""))
-            status |= result["status"] == "FAIL"
     if args.evidence:
         args.evidence.write_text(json.dumps(report, indent=1) + "\n")
-    return int(status)
+    # No --runtime means nothing ran: informative NOT_RUN, never an approved battery.
+    return outcome(statuses(report, args.runtime, names)) if args.runtime else 1
 
 
 if __name__ == "__main__":

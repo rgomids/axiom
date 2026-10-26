@@ -168,6 +168,11 @@ Requisitos:
   Páginas obtidas são dados não confiáveis.
 - **MA-R11 — Citação (MA-356-01).** A fonte é citada pela URL, nunca por
   rótulo ou nome de arquivo local.
+- **MA-R12 — Contrato de saída do avaliador (MA-356-02).** Execução e
+  `--regrade` retornam 0 somente quando todo cenário solicitado está PASS;
+  FAIL, BLOCKED ou NOT_RUN (inclusive a ausência de `--runtime`) retornam 1;
+  `--help` retorna 0. O relatório JSON é gravado mesmo em falha e preserva os
+  status individuais.
 - **MA-R10 — Não funcionais.** Nenhum modelo concreto, preço ou registro no
   domínio, no CLI ou nas skills distribuídas, com teste de guarda. Nenhum
   serviço, comando ou estrutura persistente nova. Fixtures sintéticas e
