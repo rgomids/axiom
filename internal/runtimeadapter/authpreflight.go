@@ -20,16 +20,17 @@ import (
 )
 
 // AuthStatus is the bounded outcome of the machine-local CLI subscription
-// authentication observation (Issue #272 / AXM-4). Only an effective-invocation
-// AuthSubscriptionObserved report permits dispatch, and it still proves neither
+// authentication preflight (Issue #272 / AXM-4). Only
+// AuthSubscriptionObserved permits dispatch, and it still proves neither
 // usability nor billing: a vendor status surface can report a cached login
 // whose token is expired or whose plan cannot serve the request.
 type AuthStatus string
 
 const (
 	// AuthSubscriptionObserved: the vendor status surface reports the
-	// subscription login. Only effective-invocation scope additionally
-	// establishes that inspected environment/configuration have no overrides.
+	// subscription login, and inspected configuration selects no explicit
+	// API/provider override. Environment variable names do not establish
+	// authentication or billing.
 	AuthSubscriptionObserved AuthStatus = "subscription_observed"
 	// AuthUnproven: the intended path cannot be established from observable
 	// evidence (unrecognized, ambiguous or unreadable state).
@@ -67,19 +68,12 @@ const (
 	maxReportOverrides = 16
 )
 
-// Authentication scopes separate host login observation from dispatch admission.
-const (
-	AuthScopeHost       = "host"
-	AuthScopeInvocation = "effective_invocation"
-)
-
 // AuthReport is presentation-safe Evidence. Every field is an enum, a
 // validated version token, a digest, or an environment/configuration key
 // name. Raw vendor output, configuration values, paths, credentials and
 // account identifiers never enter it.
 type AuthReport struct {
 	RuntimeID        string     `json:"runtimeId"`
-	Scope            string     `json:"scope,omitempty"`
 	Status           AuthStatus `json:"status"`
 	Reason           string     `json:"reason,omitempty"`
 	Method           string     `json:"method"`
@@ -92,12 +86,10 @@ type AuthReport struct {
 }
 
 // DispatchAllowed reports whether the subscription scenario may dispatch.
-func (r AuthReport) DispatchAllowed() bool {
-	return r.Scope == AuthScopeInvocation && r.Status == AuthSubscriptionObserved
-}
+func (r AuthReport) DispatchAllowed() bool { return r.Status == AuthSubscriptionObserved }
 
-// AuthTarget identifies the exact executable, environment and working directory
-// to inspect, either for host observation or effective child admission.
+// AuthTarget is the effective child invocation to inspect: the exact
+// executable, environment and working directory the child process would get.
 type AuthTarget struct {
 	RuntimeID        string
 	Executable       string
@@ -170,18 +162,7 @@ func DefaultManagedConfiguration() ManagedConfiguration {
 // an unknown, malformed or failing version read continues to the real status
 // surface, whose outcome alone decides dispatch.
 func (p AuthPreflight) Check(ctx context.Context, target AuthTarget) AuthReport {
-	return p.check(ctx, target, AuthScopeInvocation)
-}
-
-// ObserveHost observes vendor login in the unchanged host environment. Override
-// names are diagnostic only: a host login report never qualifies child routing
-// or permits dispatch, even when the vendor reports a subscription login.
-func (p AuthPreflight) ObserveHost(ctx context.Context, target AuthTarget) AuthReport {
-	return p.check(ctx, target, AuthScopeHost)
-}
-
-func (p AuthPreflight) check(ctx context.Context, target AuthTarget, scope string) AuthReport {
-	report := AuthReport{Scope: scope, RuntimeID: target.RuntimeID, Method: "unknown", Version: "unknown", EvidenceKind: EvidenceFake, Usability: UsabilityUnproven, Revalidation: RevalidateBeforeDispatch}
+	report := AuthReport{RuntimeID: target.RuntimeID, Method: "unknown", Version: "unknown", EvidenceKind: EvidenceFake, Usability: UsabilityUnproven, Revalidation: RevalidateBeforeDispatch}
 	if p.runner != nil {
 		report.EvidenceKind = p.runner.EvidenceKind()
 	}
@@ -207,21 +188,13 @@ func (p AuthPreflight) check(ctx context.Context, target AuthTarget, scope strin
 	if !ok {
 		return report.with(AuthUnproven, "environment_ambiguous")
 	}
-	if overrides := environmentOverrides(target.RuntimeID, environment, "env:"); len(overrides) != 0 {
-		report.Overrides = bounded(overrides)
-		if scope == AuthScopeInvocation {
-			return report.with(AuthIncompatible, "environment_override")
-		}
-	}
 	overrides, reason := p.configurationOverrides(target.RuntimeID, environment, target.WorkingDirectory)
 	if reason != "" {
 		return report.with(AuthUnproven, reason)
 	}
 	if len(overrides) != 0 {
-		report.Overrides = bounded(append(report.Overrides, overrides...))
-		if scope == AuthScopeInvocation {
-			return report.with(AuthIncompatible, "configuration_override")
-		}
+		report.Overrides = bounded(overrides)
+		return report.with(AuthIncompatible, "configuration_override")
 	}
 	command := StatusCommand{Env: append([]string{}, target.Environment...), CWD: target.WorkingDirectory}
 	command.Argv = []string{target.Executable, "--version"}
@@ -303,49 +276,6 @@ func environmentMap(environment []string) (map[string]string, bool) {
 		result[key] = value
 	}
 	return result, true
-}
-
-// environmentOverrides names the variables that select API-key, provider,
-// gateway or token-based authentication instead of the local subscription
-// login. Codex exec honors CODEX_API_KEY even while its status surface
-// reports ChatGPT; Claude --print gives ANTHROPIC_API_KEY and cloud
-// providers precedence over the claude.ai login.
-func environmentOverrides(runtimeID string, environment map[string]string, prefix string) []string {
-	var prefixes, exact []string
-	if runtimeID == "codex" {
-		prefixes = []string{"OPENAI_", "AZURE_OPENAI_"}
-		exact = []string{"CODEX_API_KEY"}
-	} else {
-		prefixes = []string{"ANTHROPIC_", "CLAUDE_CODE_USE_", "CLAUDE_CODE_SKIP_", "CLOUD_ML_", "VERTEX_"}
-		exact = []string{"CLAUDE_CODE_OAUTH_TOKEN", "AWS_BEARER_TOKEN_BEDROCK", "CLAUDE_CODE_API_KEY_HELPER_TTL_MS"}
-	}
-	var overrides []string
-	for key := range environment {
-		// This exact vendor-owned token authenticates local session messaging,
-		// not model requests. Keep unknown token/key/URL names fail-closed.
-		// https://code.claude.com/docs/en/env-vars
-		if runtimeID == "claude" && key == "CLAUDE_CODE_MESSAGING_TOKEN" {
-			continue
-		}
-		// Token, key and endpoint variables of the vendor's own namespace
-		// (for example CLAUDE_CODE_API_KEY_FILE_DESCRIPTOR) also select
-		// another authentication path.
-		namespace := "CODEX_"
-		if runtimeID == "claude" {
-			namespace = "CLAUDE_CODE_"
-		}
-		matched := strings.HasPrefix(key, namespace) && (strings.Contains(key, "TOKEN") || strings.Contains(key, "API_KEY") || strings.Contains(key, "URL"))
-		for _, candidate := range prefixes {
-			matched = matched || strings.HasPrefix(key, candidate)
-		}
-		for _, candidate := range exact {
-			matched = matched || key == candidate
-		}
-		if matched {
-			overrides = append(overrides, prefix+safeName(key))
-		}
-	}
-	return overrides
 }
 
 func safeName(name string) string {
@@ -798,8 +728,8 @@ func tomlScalar(value string) (string, bool) {
 }
 
 // claudeSettingsOverrides reports settings that select API-key helpers,
-// cloud-provider credentials, the Console (API) login or an environment
-// override. Unparseable settings are not assumed safe.
+// cloud-provider credentials or the Console (API) login. Environment
+// entries are delegated to the vendor CLI. Unparseable settings remain unproven.
 func claudeSettingsOverrides(content []byte, prefix string) ([]string, bool) {
 	var settings map[string]json.RawMessage
 	if err := json.Unmarshal(content, &settings); err != nil {
@@ -816,17 +746,6 @@ func claudeSettingsOverrides(content []byte, prefix string) ([]string, bool) {
 		if json.Unmarshal(raw, &method) != nil || method != "claudeai" {
 			overrides = append(overrides, prefix+"forceLoginMethod")
 		}
-	}
-	if raw, exists := settings["env"]; exists {
-		var environment map[string]json.RawMessage
-		if json.Unmarshal(raw, &environment) != nil {
-			return nil, false
-		}
-		keys := make(map[string]string, len(environment))
-		for key := range environment {
-			keys[strings.ToUpper(key)] = ""
-		}
-		overrides = append(overrides, environmentOverrides("claude", keys, prefix+"env:")...)
 	}
 	return overrides, true
 }

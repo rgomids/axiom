@@ -26,28 +26,25 @@ versions. Explicit raw JSON output is unchanged.
 
 ## Authentication environment
 
-`axiom --json runtime <codex|claude> auth` observes vendor login with the
-current shell's unchanged environment and configuration. Reports carry
-`scope: host`. Environment and configuration overrides are reported by key name,
-without values, and do not prevent the vendor status check. A subscription login
-can therefore be observed inside Claude Desktop even when it supplies
-`ANTHROPIC_BASE_URL`. This does not identify or trust that endpoint, establish
-billing, or qualify the route for execution. API-key login, missing login and
-ambiguous vendor status retain their respective failure outcomes.
+`axiom --json runtime <codex|claude> auth` observes the vendor's login status
+with the current shell's environment and working directory. Axiom does not
+classify environment variable names as authentication or billing overrides,
+including entries under `env` in Claude settings. `ANTHROPIC_BASE_URL`, OAuth,
+API-key and Desktop session variables do not cause an early refusal. Do not
+remove host-managed variables to clear an authentication diagnostic.
 
-Do not delete host credentials or routing variables to clear this diagnostic.
-`CLAUDE_CODE_MESSAGING_TOKEN` is local session messaging and is excluded from
-model-authentication overrides. `CLAUDE_CODE_OAUTH_TOKEN` and
-`ANTHROPIC_BASE_URL` are reported as overrides; their presence alone does not
-prove API billing or invalid authentication.
+The vendor's status remains authoritative for this observation: a recognized
+subscription login succeeds; API-key login, unavailable login, ambiguous output,
+timeouts and executable identity changes retain their failure outcomes.
+Explicit non-environment configuration overrides (such as a provider selection or
+credential helper) remain checked. A positive login observation proves neither
+which route an inference uses nor subscription billing or token usability.
 
-Host observations never permit dispatch. Stage execution constructs its own
-closed environment through `StageEnvironment`, without inherited provider routing
-or credentials, and checks the exact child invocation with
-`scope: effective_invocation`. That check retains the local-subscription
-safeguards: effective credential, provider or endpoint overrides block dispatch.
-A successful host diagnostic cannot replace it or establish Project readiness.
-The host environment is never rewritten by either check.
+Stage execution retains its existing closed environment (`StageEnvironment`)
+and repeats authentication against its exact effective invocation. No new host
+scope, endpoint allowlist or alternate admission path is introduced. A successful
+shell diagnostic does not establish overall Project readiness or replace the
+child check. Neither check changes the parent environment.
 
 ## Man pages
 

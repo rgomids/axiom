@@ -54,7 +54,7 @@ func (f *fakeStageAuth) Check(_ context.Context, t runtimeadapter.AuthTarget) ru
 	if f.err {
 		status = runtimeadapter.AuthUnproven
 	}
-	return runtimeadapter.AuthReport{Scope: runtimeadapter.AuthScopeInvocation, RuntimeID: t.RuntimeID, Status: status, Version: f.version, ExecutableDigest: t.ExpectedDigest}
+	return runtimeadapter.AuthReport{RuntimeID: t.RuntimeID, Status: status, Version: f.version, ExecutableDigest: t.ExpectedDigest}
 }
 
 func TestCompiledPreparationReusesFrozenChecksAndTaskPacket(t *testing.T) {

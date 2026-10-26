@@ -154,23 +154,19 @@ executable, and never replace or rank the requested model.
 
 ## Authentication observation scope
 
-`runtime <codex|claude> auth` reports `scope: host`: it observes vendor login in
-the unchanged shell and working directory. Overrides are key-name diagnostics,
-not early refusal: Claude Desktop can supply routing and session variables.
-Do not tell the operator to delete host-managed variables, interpret every token
-as an API key, or infer API billing from `ANTHROPIC_BASE_URL` or OAuth presence.
-`CLAUDE_CODE_MESSAGING_TOKEN` is local messaging, not model authentication.
-A reported subscription login proves neither host routing nor execution readiness;
-host reports never permit dispatch. Preserve actual vendor login failures and
-configuration/identity observation gaps.
+`runtime <codex|claude> auth` observes vendor login with the current shell and
+working directory. Environment variable names, including Claude settings `env`
+entries, do not establish authentication compatibility or billing. Do not tell
+the operator to remove `ANTHROPIC_BASE_URL`, OAuth, API-key or Desktop session
+variables to clear authentication. Report the vendor login result and any
+explicit non-environment configuration or identity failure. A subscription login
+does not prove inference route, billing, token usability or execution readiness.
 
-Stage execution constructs its own closed environment and checks authentication
-against the exact child invocation (`scope: effective_invocation`). Effective
-credential/provider/endpoint overrides remain blocking there. A host observation
-cannot replace that check. Do not silently unset variables, sanitize the parent
-environment, switch authentication paths or bypass the child check. Use supported
-inspection for the actual target; if unavailable, report that qualification gap.
-Independent configuration is not Execution readiness.
+Stage execution retains its closed environment and repeats the same preflight
+against the exact effective child invocation. Do not silently modify the parent
+environment, switch authentication paths or bypass the child check. A shell
+observation cannot replace that check or establish Project readiness. Use
+supported inspection for the actual target; otherwise report the qualification gap.
 
 ## Model Advisor
 

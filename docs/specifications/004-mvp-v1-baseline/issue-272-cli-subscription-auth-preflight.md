@@ -28,17 +28,9 @@ Order (first failure wins, fail closed):
 
 1. Executable identity (`ExecutableIdentity`), basename and, at dispatch, the
    reviewed `executableDigest`.
-2. Environment overrides — names only:
-   Codex `OPENAI_*`, `AZURE_OPENAI_*`, `CODEX_API_KEY`;
-   Claude `ANTHROPIC_*`, `CLAUDE_CODE_USE_*`, `CLAUDE_CODE_SKIP_*`,
-   `CLOUD_ML_*`, `VERTEX_*`, `CLAUDE_CODE_OAUTH_TOKEN`,
-   `AWS_BEARER_TOKEN_BEDROCK`, `CLAUDE_CODE_API_KEY_HELPER_TTL_MS`; plus any
-   `CODEX_*` / `CLAUDE_CODE_*` name containing `TOKEN`, `API_KEY` or `URL`
-   (for example `CLAUDE_CODE_API_KEY_FILE_DESCRIPTOR`). The exact
-   `CLAUDE_CODE_MESSAGING_TOKEN` name is excluded: it authenticates local
-   session messaging, not model requests. This exception does not allow a
-   gateway, OAuth credential, unknown token name or missing subscription login.
-   Duplicate keys are ambiguous.
+2. Environment structure only: reject ambiguous duplicate keys or malformed
+   entries. Do not classify names or values as authentication/billing overrides.
+   Name classification is also absent for `env` entries in Claude settings.
 3. Configuration overrides — key names only, values never retained:
    Codex `<CODEX_HOME or HOME/.codex>/{config,managed_config}.toml`,
    `<dir>/.codex/config.toml` for every project directory (below) and
@@ -50,9 +42,8 @@ Order (first failure wins, fail closed):
    `<dir>/.claude/settings.json` and `<dir>/.claude/settings.local.json` for
    every project directory, the
    platform managed settings and its `managed-settings.d/*.json` drop-ins (`apiKeyHelper`, `awsCredentialExport`,
-   `awsAuthRefresh`, `gcpAuthRefresh`, `forceLoginMethod` ≠ `claudeai`, and the
-   environment names above under `env`). Project directories are the working
-   directory and every ancestor (a superset of the repository root the vendor
+   `awsAuthRefresh`, `gcpAuthRefresh`, `forceLoginMethod` ≠ `claudeai`).
+   Project directories are the working directory and every ancestor (a superset of the repository root the vendor
    resolves), plus the main checkout of any Git worktree among them (followed
    through `.git` → `gitdir` → `commondir`), because Claude also loads
    `settings.local.json` from there. TOML keys are decoded (bare, literal and
@@ -71,19 +62,35 @@ timeout and 8 KiB of output that is classified and discarded.
 
 | Status | Meaning | Dispatch |
 | --- | --- | --- |
-| `subscription_observed` | Vendor status reports ChatGPT / claude.ai first-party login; no override observed | allowed |
+| `subscription_observed` | Vendor status reports ChatGPT / claude.ai first-party login; no explicit configuration override observed | allowed |
 | `unproven` | Unrecognized, ambiguous, timed out, unreadable configuration, changed executable | blocked |
-| `incompatible` | API-key/provider/helper/config override, API-key login, credential reference | blocked |
+| `incompatible` | Explicit provider/helper/config override, API-key login, credential reference | blocked |
 | `unavailable` | Not logged in, executable missing | blocked |
 | `unsupported` | No recognized status surface on the installed version | blocked |
 
 Every report carries `usability: unproven_until_real_dispatch` and
 `revalidation: before_each_dispatch`. A positive status is not usability or
 billing proof: vendor status can report a cached login whose token expired,
-and on Codex 0.159.1 / Claude 2.1.295 the status surface keeps reporting the
-subscription login while `CODEX_API_KEY` / `ANTHROPIC_API_KEY` would take
-precedence in `codex exec` / `claude --print`. That is why environment and
-configuration are inspected independently (observed read-only 2026-10-08).
+and the status surface may report a subscription login even when an environment
+variable would select a different inference route. Environment variable names
+are not used to infer compatibility or billing. Effective inference route and
+billing remain unproven by this login-only observation.
+
+### Environment classification removal (2026-10-26)
+
+The maintainer authorized removing the environment-name admission policy after
+Claude Desktop's routing environment was rejected. Remove that classifier from
+both the shell diagnostic and effective-invocation preflight, including the
+indirect scan of Claude settings `env`. Keep one preflight path and its existing
+report format: no host/child scope field, endpoint allowlist or second admission
+mode. Preserve executable identity, vendor status classification, explicit
+non-environment configuration checks and Stage environment isolation.
+
+Acceptance: Desktop routing, OAuth, API-key and future vendor environment names
+reach vendor status unchanged and do not enter reports; vendor-reported API-key,
+missing or ambiguous login still fails; explicit provider/helper configuration
+checks and malformed/duplicate environment detection remain effective. This
+amends only environment-name classification, not actual execution authority.
 
 ## Dispatch integration
 
@@ -104,29 +111,10 @@ Each dispatch and retry repeats the check; no earlier report authorizes a later
 dispatch. `LocalService.AuthenticationEvidence()` returns the latest sanitized
 report per child. Without `SubscriptionAuth`, behavior is unchanged.
 
-### Host observation amendment (2026-10-26)
-
-Maintainer-authorized correction: the read-only
-`axiom runtime <codex|claude> auth` command observes vendor login in the host,
-not dispatch readiness. `AuthPreflight.ObserveHost` retains the original
-environment and configuration, reports override key names, and continues to
-vendor status even when overrides exist. It neither trusts an endpoint nor
-identifies a Desktop host from environment markers. Vendor-reported subscription
-login completes; API-key login, unavailable login and ambiguous status remain
-failures. Unreadable configuration and identity errors still fail closed.
-
-Reports explicitly distinguish `scope: host` and `scope: effective_invocation`.
-`DispatchAllowed` requires both effective-invocation scope and
-`subscription_observed`; host and unknown/absent scopes never permit dispatch.
-The ordered override rejection above remains applicable to `Check` at the
-execution boundary. No host variable is removed or changed. This supersedes only
-the original command's early override rejection, not child admission safeguards.
-
-Acceptance checks: a host with `ANTHROPIC_BASE_URL`, OAuth or API-key environment
-and a vendor-reported subscription login reaches status observation, reports
-only override names, and cannot authorize dispatch; actual API-key or missing
-login still fails; the same overrides remain blocking in an effective invocation;
-Stage environment isolation remains unchanged.
+`axiom runtime <codex|claude> auth` is the read-only readiness surface: it
+checks the executable on `PATH` with the shell's environment and working
+directory (what a child without explicit environment would inherit). Only
+`subscription_observed` completes; everything else is `validation_failure`.
 
 ## Evidence and sanitization
 

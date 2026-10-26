@@ -113,18 +113,18 @@ func bootstrapView(report runtimebootstrap.Report) cli.BootstrapView {
 	return view
 }
 
-// RuntimeAuth observes read-only host subscription login for
+// RuntimeAuth runs the read-only subscription authentication preflight for
 // the Runtime executable on PATH, with this shell's environment and working
 // directory: what a child without an explicit environment would inherit.
-// Child dispatch separately checks the exact effective invocation.
+// Child dispatch repeats it against the exact effective invocation.
 func (s lifecycleService) RuntimeAuth(ctx context.Context, runtimeID string) cli.Result {
 	label := map[string]string{"codex": "Codex", "claude": "Claude"}[runtimeID]
-	report := runtimeadapter.AuthReport{RuntimeID: runtimeID, Scope: runtimeadapter.AuthScopeHost, Status: runtimeadapter.AuthUnavailable, Reason: "executable_unavailable", Method: "unknown", Version: "unknown", EvidenceKind: runtimeadapter.EvidenceLocalObservation, Usability: runtimeadapter.UsabilityUnproven, Revalidation: runtimeadapter.RevalidateBeforeDispatch}
+	report := runtimeadapter.AuthReport{RuntimeID: runtimeID, Status: runtimeadapter.AuthUnavailable, Reason: "executable_unavailable", Method: "unknown", Version: "unknown", EvidenceKind: runtimeadapter.EvidenceLocalObservation, Usability: runtimeadapter.UsabilityUnproven, Revalidation: runtimeadapter.RevalidateBeforeDispatch}
 	preflight, err := runtimeadapter.NewAuthPreflight(runtimeadapter.OSStatusRunner{}, runtimeadapter.DefaultManagedConfiguration())
 	cwd, cwdErr := os.Getwd()
 	if s.runtimes.lookPath != nil && err == nil && cwdErr == nil {
 		if executable, lookErr := s.runtimes.lookPath(runtimeID); lookErr == nil && filepath.IsAbs(executable) {
-			report = preflight.ObserveHost(ctx, runtimeadapter.AuthTarget{RuntimeID: runtimeID, Executable: executable, WorkingDirectory: cwd, Environment: os.Environ()})
+			report = preflight.Check(ctx, runtimeadapter.AuthTarget{RuntimeID: runtimeID, Executable: executable, WorkingDirectory: cwd, Environment: os.Environ()})
 		}
 	}
 	return runtimeAuthResult(report, label, s.provenance)
@@ -135,9 +135,9 @@ func runtimeAuthResult(report runtimeadapter.AuthReport, label string, source pr
 	var response cli.Result
 	switch report.Status {
 	case runtimeadapter.AuthSubscriptionObserved:
-		response = canonicalCompletion(completion.Facts{Completed: true}, label+" host subscription login observed; routing and execution readiness remain unproven", references, "Host overrides are diagnostic only; child dispatch checks its own effective invocation and needs separate Runtime authorization", source)
+		response = canonicalCompletion(completion.Facts{Completed: true}, label+" subscription login observed; usability stays unproven until a real dispatch", references, "Child dispatch repeats this preflight on its exact invocation; execution needs separate Runtime authorization", source)
 	case runtimeadapter.AuthIncompatible:
-		response = canonicalCompletion(completion.Facts{ValidationFailed: true}, label+" authentication does not satisfy the local subscription contract", references, "Inspect the reported vendor authentication method; host overrides alone do not block this diagnostic. Do not remove host-managed credentials or routing", source)
+		response = canonicalCompletion(completion.Facts{ValidationFailed: true}, label+" authentication does not satisfy the local subscription contract", references, "Inspect the reported vendor authentication method or explicit configuration override; environment variable names do not determine compatibility", source)
 	case runtimeadapter.AuthUnavailable:
 		response = canonicalCompletion(completion.Facts{ValidationFailed: true}, label+" subscription login is unavailable", references, "Log in to "+label+" with its subscription yourself, then repeat runtime auth", source)
 	default:

@@ -662,17 +662,18 @@ axiom runtime claude status
 axiom runtime claude auth
 ```
 
-`runtime <codex|claude> auth` observes CLI subscription login in the current host
+`runtime <codex|claude> auth` is the read-only CLI login observation
 ([#272 contract](specifications/004-mvp-v1-baseline/issue-272-cli-subscription-auth-preflight.md)).
-It runs only vendor version/status commands in the unchanged shell environment
-and working directory. `runtimeAuth.scope` is `host`; override names are
-reported without values and do not prevent the status check. Only
-`subscription_observed` succeeds; API-key login, unavailable login and ambiguous
-status remain failures. Success establishes neither routing, billing nor
-execution readiness, and host reports never permit dispatch. The Stage boundary
-separately checks the exact child invocation (`scope: effective_invocation`),
-where credential/provider/endpoint overrides remain blocking. No login,
-credential refresh, inference or global environment change is performed.
+It runs vendor version/status commands with the shell's unchanged environment
+and working directory. Environment variable names, including Claude settings
+`env` entries, do not determine authentication compatibility. The CLI's reported
+login method, executable identity and explicit non-environment configuration
+checks determine the result. Only `subscription_observed` succeeds; API-key or
+missing login, ambiguous status and observation failures remain failures.
+Success is not proof of effective routing, billing, usability or Project readiness.
+No login, refresh, inference or global environment change is performed. Stage
+dispatch retains its existing environment isolation and repeats the same check
+on each child's effective invocation.
 
 Codex standalone skill names accept lowercase letters, digits and hyphens, so
 the requested semantic `axiom:<skill>` names are invoked as:

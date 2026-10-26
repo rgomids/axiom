@@ -359,7 +359,7 @@ var sharedSkillHistory = []skillSetRevision{
 		"axiom-work-item": "044125bd0b9c168bb004c6e7b6b622f02e2065be8f83ffc4accf4cd3a1da3cd1",
 		"axiom-workflow":  "f214b4b5836b139214065f61cd3a9e00bd42ba31789137a261134fc3c35ec8c9",
 	}},
-	// Shared revision before host login observation was separated from dispatch admission.
+	// Shared revision before environment-name authentication classification was removed.
 	{skillSetVersion: "3", binaryCompatibility: "3", skills: map[string]string{
 		"axiom-project":   "4c6e5602212420e9cc23d10a299d6b494c08a1417f4747fc93ca507cd38c257f",
 		"axiom-runtime":   "3649c248b036a7864e418b308edd4e83ae86514924738fc57cc9e34e0639b7c1",
