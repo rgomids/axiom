@@ -26,6 +26,17 @@
   Projects created by `project configure` carry no policy and block until an
   authored policy is installed.
 
+## [0.22.1](https://github.com/rgomids/axiom/compare/v0.22.0...v0.22.1) (2026-10-26)
+
+
+### Bug Fixes
+
+* **ci:** check the candidate as the next release's previous ([#355](https://github.com/rgomids/axiom/issues/355)) ([c00156f](https://github.com/rgomids/axiom/commit/c00156f169f8aad3032e3c47e47539f02da12876))
+* **delivery:** propose squash metadata corrections automatically ([#354](https://github.com/rgomids/axiom/issues/354)) ([943a804](https://github.com/rgomids/axiom/commit/943a80474b2928340fa21b80dfa10fd3c572b943))
+* improve runtime profile diagnostics and project setup wizard ([#356](https://github.com/rgomids/axiom/issues/356)) ([4799c65](https://github.com/rgomids/axiom/commit/4799c65f5cc5199ca9fe26cd1584d971aa0bf2e8))
+* **release:** fetch previous archive named by its checksum inventory ([#352](https://github.com/rgomids/axiom/issues/352)) ([fd37a1b](https://github.com/rgomids/axiom/commit/fd37a1b3e3fa4afddc76d4a051335f99ad3d7fb6))
+* **release:** start releases only from a natively qualified main ([#353](https://github.com/rgomids/axiom/issues/353)) ([158c5fe](https://github.com/rgomids/axiom/commit/158c5feb78d1c292bdc0fbe075db0cdd1497b555))
+
 ## [0.22.0](https://github.com/rgomids/axiom/compare/v0.21.2...v0.22.0) (2026-10-25)
 
 
