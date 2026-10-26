@@ -159,7 +159,7 @@ class Baselines(unittest.TestCase):
     def test_workflow_keeps_required_tests_and_report_only(self):
         native = (ROOT / '.github/workflows/native-suite.yml').read_text()
         self.assertEqual(native.count('go test -race -covermode=atomic -coverprofile=coverage/coverage.out ./...'), 1)
-        self.assertIn('run: go test -race ./...', native)
+        self.assertIn('go test -race -p=1 -timeout=25m $packages', native)
         self.assertIn('python3 scripts/code-health.py collect', native)
         self.assertNotIn('pull_request_target', native)
         ci = (ROOT / '.github/workflows/ci.yml').read_text()
