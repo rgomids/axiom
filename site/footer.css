@@ -1,0 +1,217 @@
+.site-footer {
+  --footer-rule: color-mix(in srgb, var(--text) 10%, transparent);
+  --footer-chip-surface: color-mix(in srgb, var(--text) 3%, transparent);
+  display: block;
+  padding: 66px 5% 28px;
+  border-top: 1px solid var(--footer-rule);
+  background: var(--axion-semantic-marketing-surface-canvas);
+  color: var(--muted);
+  font: 14px/1.6 var(--sans);
+}
+.footer-inner {
+  width: min(1200px, 100%);
+  margin-inline: auto;
+}
+.footer-main {
+  display: grid;
+  grid-template-columns: 1.55fr repeat(3, 1fr);
+  gap: clamp(28px, 4.5vw, 72px);
+}
+.site-footer .footer-brand {
+  width: fit-content;
+  margin-bottom: 18px;
+}
+.site-footer .footer-brand .brand-original {
+  width: 48px;
+  height: 48px;
+}
+.site-footer .footer-tagline {
+  max-width: 280px;
+  font-size: 16px;
+  line-height: 1.7;
+  margin: 0 0 22px;
+  text-wrap: balance;
+}
+.footer-chips {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 9px;
+}
+.footer-chip {
+  display: inline-flex;
+  gap: 10px;
+  align-items: center;
+  padding: 6px 11px;
+  border: 1px solid var(--footer-rule);
+  border-radius: 9px;
+  background: var(--footer-chip-surface);
+  font-size: 12px;
+}
+.footer-icon {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+}
+.footer-chip .footer-icon {
+  width: 16px;
+  height: 16px;
+  color: var(--gold);
+}
+.footer-column h2 {
+  margin: 7px 0 23px;
+  font: 700 11px/1.5 var(--sans);
+  letter-spacing: 1.8px;
+  text-transform: uppercase;
+  color: var(--text);
+}
+.footer-column ul {
+  display: flex;
+  flex-direction: column;
+  gap: 13px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.footer-column a {
+  display: inline-block;
+  padding-block: 2px;
+}
+.site-footer a {
+  transition:
+    color 180ms ease,
+    background-color 180ms ease;
+}
+.site-footer a:hover {
+  color: var(--gold);
+}
+.site-footer :is(a, select):focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 5px;
+  border-radius: 4px;
+}
+.footer-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 20px;
+  margin-top: 40px;
+  padding-top: 24px;
+  border-top: 1px solid var(--footer-rule);
+  font-size: 11px;
+}
+.site-footer .footer-copyright {
+  margin: 0;
+  font-size: 11px;
+}
+.footer-legal,
+.footer-tools {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 18px;
+}
+.footer-unavailable {
+  color: var(--muted);
+  cursor: default;
+}
+.footer-language {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.footer-language[hidden] {
+  display: none;
+}
+.footer-language select {
+  min-height: 36px;
+  max-width: 168px;
+  padding: 4px 5px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: 12px var(--sans);
+  color-scheme: dark;
+  cursor: pointer;
+}
+.footer-language option {
+  background: var(--axion-semantic-marketing-surface-canvas);
+}
+.footer-social {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 36px;
+  border-left: 1px solid var(--footer-rule);
+  padding-left: 17px;
+}
+.footer-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+@media (max-width: 1000px) {
+  .footer-bottom {
+    gap: 18px 24px;
+  }
+  .footer-copyright {
+    width: 100%;
+  }
+  .footer-tools {
+    margin-left: auto;
+  }
+}
+@media (max-width: 700px) {
+  .site-footer {
+    padding: 42px 6% 25px;
+  }
+  .footer-main {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 32px 24px;
+  }
+  .footer-intro {
+    grid-column: 1 / -1;
+  }
+  .site-footer .footer-tagline {
+    max-width: 100%;
+  }
+  .footer-chips {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+  .footer-column h2 {
+    margin-top: 0;
+    margin-bottom: 18px;
+  }
+  .footer-column ul {
+    gap: 9px;
+  }
+  .footer-column a {
+    padding-block: 5px;
+  }
+  .footer-bottom {
+    align-items: flex-start;
+    margin-top: 30px;
+    gap: 18px;
+  }
+  .footer-legal {
+    width: 100%;
+    gap: 12px 20px;
+  }
+  .footer-tools {
+    margin-left: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .site-footer a {
+    transition: none;
+  }
+}

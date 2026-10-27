@@ -34,7 +34,8 @@
     {
       "path": "site/",
       "extensions": [
-        ".js"
+        ".js",
+        ".mjs"
       ],
       "reason": "Landing page browser JavaScript loaded by site/index.html; site code validated by scripts/validate-landing-page.sh."
     }
@@ -2242,6 +2243,39 @@
       "removal_condition": null
     },
     {
+      "path": "scripts/sync-landing-page.py",
+      "kind": "script",
+      "owner": "site",
+      "purpose": "Import a reviewed local Axiom DS static landing bundle with full revision and SHA-256 provenance; preserve unowned files and refuse unsafe paths.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "python3"
+      ],
+      "scope": [
+        "ci",
+        "test",
+        "maintainer"
+      ],
+      "trigger": "Maintainer landing bundle upgrades and Pages pull-request validation.",
+      "replay_reason": null,
+      "callers": [
+        "docs/development/getting-started.md"
+      ],
+      "inputs": "Reviewed local DS bundle and full Git revision for sync; site snapshot and provenance for validation.",
+      "outputs": "PASS with exit 0; descriptive FAIL and nonzero exit on invalid input.",
+      "local_effects": "Writes only owned site snapshot files and its provenance manifest.",
+      "network_effects": "none",
+      "authority": "Maintainer authorization to update the landing snapshot.",
+      "tests": [
+        "scripts/test-sync-landing-page.py"
+      ],
+      "evidence": "docs/product/immersive-landing-page.md",
+      "compatibility": [],
+      "removal_condition": null
+    },
+    {
       "path": "scripts/test-check-adr-governance.py",
       "kind": "script",
       "owner": "repository-validation",
@@ -3069,7 +3103,7 @@
       "path": "scripts/test-site-language.py",
       "kind": "script",
       "owner": "site",
-      "purpose": "Offline Chromium language-switch regression checks: text-only translations, malicious attribute payloads, markup preservation, keyboard behavior and blocked storage.",
+      "purpose": "Offline Chromium acceptance for five-scene storytelling: persistent idea/work objects, deterministic scroll reversal, complete no-JavaScript/reduced-motion scenes, PT/EN, safe translations, blocked storage, keyboard tabs, narrow widths and individual command copy.",
       "lifecycle": "durable",
       "disposition": "keep",
       "disposition_ref": null,
@@ -3086,13 +3120,46 @@
       "callers": [
         ".github/workflows/deploy-landpage.yml"
       ],
-      "inputs": "optional repository root; test-only playwright==1.63.0 and installed Chromium",
+      "inputs": "Optional repository root; reads generated site/ snapshot; pinned Python Playwright and Chromium test-only dependencies.",
       "outputs": "unittest results; nonzero exit on regression",
       "local_effects": "temporary isolated headless Chromium contexts; no repository writes",
       "network_effects": "none; browser requests served from local site files or aborted",
       "authority": "none; read-only checks",
       "tests": [],
-      "evidence": null,
+      "evidence": "docs/product/immersive-landing-page.md",
+      "compatibility": [],
+      "removal_condition": null
+    },
+    {
+      "path": "scripts/test-sync-landing-page.py",
+      "kind": "script",
+      "owner": "site",
+      "purpose": "Offline regression tests for reproducible bundle import, source revision, dirty-source refusal, unowned-file protection and path traversal.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "python3"
+      ],
+      "scope": [
+        "ci",
+        "test",
+        "maintainer"
+      ],
+      "trigger": "Maintainer landing bundle upgrades and Pages pull-request validation.",
+      "replay_reason": null,
+      "callers": [
+        ".github/workflows/deploy-landpage.yml"
+      ],
+      "inputs": "Reviewed local DS bundle and full Git revision for sync; site snapshot and provenance for validation.",
+      "outputs": "PASS with exit 0; descriptive FAIL and nonzero exit on invalid input.",
+      "local_effects": "temporary test directories only",
+      "network_effects": "none",
+      "authority": "none; local checks",
+      "tests": [
+        "scripts/test-sync-landing-page.py"
+      ],
+      "evidence": "docs/product/immersive-landing-page.md",
       "compatibility": [],
       "removal_condition": null
     },
@@ -3252,10 +3319,44 @@
       "removal_condition": null
     },
     {
+      "path": "scripts/validate-landing-page.py",
+      "kind": "script",
+      "owner": "site",
+      "purpose": "Validate generated DS snapshot hashes, five static story scenes and persistent entities, canonical brand bytes, resources, metadata, bilingual content, installer parity and safe browser text boundaries.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "python3"
+      ],
+      "scope": [
+        "ci",
+        "test",
+        "maintainer"
+      ],
+      "trigger": "Maintainer landing bundle upgrades and Pages pull-request validation.",
+      "replay_reason": null,
+      "callers": [
+        "scripts/validate-landing-page.sh"
+      ],
+      "inputs": "Reviewed local DS bundle and full Git revision for sync; site snapshot and provenance for validation.",
+      "outputs": "PASS with exit 0; descriptive FAIL and nonzero exit on invalid input.",
+      "local_effects": "none",
+      "network_effects": "none",
+      "authority": "none; local checks",
+      "tests": [
+        "scripts/test-site-language.py",
+        "scripts/test-sync-landing-page.py"
+      ],
+      "evidence": "docs/product/immersive-landing-page.md",
+      "compatibility": [],
+      "removal_condition": null
+    },
+    {
       "path": "scripts/validate-landing-page.sh",
       "kind": "script",
       "owner": "site",
-      "purpose": "Reproducible acceptance checks for the public landing page: published files, asset hygiene, image dimensions, WCAG contrast, motion, translations, install commands and local HTTP serving.",
+      "purpose": "Compatibility entrypoint delegating current static landing validation to the Python checker.",
       "lifecycle": "durable",
       "disposition": "keep",
       "disposition_ref": null,
@@ -3272,12 +3373,15 @@
       "callers": [
         ".github/workflows/deploy-landpage.yml"
       ],
-      "inputs": "optional target directory (default .); env AXIOM_LANDING_PAGE_REMOTE=1 enables remote asset checks, AXIOM_LANDING_PAGE_PORT; reads site/, docs/assets, README.md and Git-tracked files",
+      "inputs": "Optional repository root; delegates to scripts/validate-landing-page.py.",
       "outputs": "PASS/SKIP lines; FAIL on stderr and exit 1 at the first failed check",
-      "local_effects": "temporary loopback python3 http.server on 127.0.0.1 (stopped on exit); no files written",
-      "network_effects": "loopback HTTP to 127.0.0.1; HTTPS HEAD requests to raw.githubusercontent.com only when AXIOM_LANDING_PAGE_REMOTE=1",
+      "local_effects": "none",
+      "network_effects": "none",
       "authority": "none; read-only checks",
-      "tests": [],
+      "tests": [
+        "scripts/test-site-language.py",
+        "scripts/test-sync-landing-page.py"
+      ],
       "evidence": null,
       "compatibility": [],
       "removal_condition": null

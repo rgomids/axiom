@@ -12,6 +12,9 @@ on:
       - 'site/**'
       - 'docs/assets/**'
       - 'scripts/validate-landing-page.sh'
+      - 'scripts/validate-landing-page.py'
+      - 'scripts/sync-landing-page.py'
+      - 'scripts/test-sync-landing-page.py'
       - 'scripts/test-site-language.py'
       - '.github/workflows/deploy-landpage.yml'
   pull_request:
@@ -19,6 +22,9 @@ on:
       - 'site/**'
       - 'docs/assets/**'
       - 'scripts/validate-landing-page.sh'
+      - 'scripts/validate-landing-page.py'
+      - 'scripts/sync-landing-page.py'
+      - 'scripts/test-sync-landing-page.py'
       - 'scripts/test-site-language.py'
       - '.github/workflows/deploy-landpage.yml'
   workflow_dispatch:
@@ -46,13 +52,16 @@ jobs:
       - name: Validate landing page
         run: ./scripts/validate-landing-page.sh .
 
+      - name: Test bundle import safety
+        run: python3 scripts/test-sync-landing-page.py
+
       - name: Install browser test dependencies
         run: |
           python3 -m venv "$RUNNER_TEMP/site-tests"
           "$RUNNER_TEMP/site-tests/bin/python" -m pip install playwright==1.63.0
           "$RUNNER_TEMP/site-tests/bin/python" -m playwright install --with-deps chromium
 
-      - name: Test language switching and DOM XSS regression
+      - name: Test landing accessibility, language, motion and individual copying
         run: '"$RUNNER_TEMP/site-tests/bin/python" scripts/test-site-language.py .'
 
   deploy:

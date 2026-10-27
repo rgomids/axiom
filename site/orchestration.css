@@ -1,0 +1,1447 @@
+.storytelling { --orch-story-units: 28; }
+/* Scoped to the two orchestration scenes. The rest of the landing keeps its composition. */
+.story-motion .storytelling {
+  height: calc(100svh + var(--orch-story-units, 17) * var(--story-beat-span));
+}
+.story-stage > .live-world {
+  opacity: var(--orchestration-base, 1);
+}
+.story-stage > .story-copy,
+.story-stage > .story-disclaimer {
+  filter: var(--orchestration-filter, none);
+}
+.orchestration-overlay {
+  position: absolute;
+  inset: 98px 5% 61px;
+  display: flex;
+  flex-direction: column;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  --orch-panel: var(--axion-semantic-marketing-surface-nodeStart);
+  --orch-outline: color-mix(in srgb, var(--gold) 37%, transparent);
+  --orch-subtle: color-mix(in srgb, var(--gold) 7%, transparent);
+}
+.orchestration-overlay:not([inert]) {
+  pointer-events: auto;
+}
+.orch-topline {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: center;
+}
+.orch-kicker {
+  color: var(--gold);
+  font: 10px var(--mono);
+  letter-spacing: 1.8px;
+}
+.orch-target-label {
+  color: var(--muted);
+  font: 9px var(--mono);
+  letter-spacing: 0.5px;
+}
+.orch-step-nav {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin: 20px 0 14px;
+}
+.orch-step-nav button {
+  color: var(--muted);
+  background: none;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  padding: 9px 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font: 11px var(--sans);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    color 300ms,
+    border-color 300ms;
+}
+.orch-step-nav button > span:first-child {
+  font: 9px var(--mono);
+}
+.orch-step-nav button[aria-current] {
+  color: var(--gold);
+  border-color: var(--gold);
+}
+.orch-step-nav button:hover {
+  color: var(--text);
+}
+.orch-step-nav button:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 4px;
+  border-radius: 3px;
+}
+.orch-diagram {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  margin: 4px 0 20px;
+}
+.orch-scene-copy {
+  text-align: center;
+}
+.orch-scene-copy h2 {
+  max-width: 790px;
+  margin: 0 auto;
+  color: var(--text);
+  font-size: clamp(26px, 2.6vw, 36px);
+  font-weight: 500;
+  line-height: 1.16;
+  letter-spacing: -0.045em;
+  text-wrap: balance;
+}
+.orch-scene-copy p {
+  max-width: 860px;
+  margin: 13px auto 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--muted);
+  text-wrap: balance;
+}
+.orch-disclosure {
+  color: var(--muted);
+  font-size: 9px;
+  margin: 13px 0 0;
+  text-align: center;
+}
+.orch-icon {
+  width: 23px;
+  height: 23px;
+  flex-shrink: 0;
+  color: var(--gold);
+}
+.orch-mascot {
+  width: 36px;
+  height: 36px;
+  overflow: hidden;
+}
+.orch-c4-desktop {
+  position: absolute;
+  inset: 0 0 4px;
+}
+.orch-lingo-boundary {
+  position: absolute;
+  inset: 7% 20% 1% 17%;
+  border: 1px solid var(--orch-outline);
+  border-radius: 16px;
+  background: radial-gradient(ellipse at 50% 55%, var(--orch-subtle), transparent 75%);
+}
+.orch-boundary-label {
+  position: absolute;
+  top: -6px;
+  left: 17px;
+  padding: 0 8px;
+  background: var(--bg);
+  color: var(--gold);
+  font: 9px var(--mono);
+  letter-spacing: 1px;
+}
+.orch-c4-links {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  color: var(--gold);
+}
+.orch-c4-links > path {
+  fill: none;
+  stroke: var(--gold);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+  opacity: var(--reveal, 0);
+}
+.orch-c4-links > path.orch-secondary-route {
+  stroke: color-mix(in srgb, var(--gold) 40%, var(--bg));
+  stroke-width: 0.8;
+}
+.orch-node {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: linear-gradient(140deg, var(--orch-panel), var(--bg));
+  border: 1px solid var(--orch-outline);
+  border-radius: 9px;
+  padding: 11px;
+}
+.orch-c4-desktop .orch-node {
+  position: absolute;
+  left: var(--node-x);
+  top: var(--node-y);
+  transform: translate(-50%, -50%) scale(calc(0.94 + var(--reveal, 0) * 0.06));
+  width: 17%;
+  min-height: 62px;
+  opacity: var(--reveal, 0);
+}
+.orch-node strong {
+  display: block;
+  font-size: 12px;
+  line-height: 1.3;
+  font-weight: 600;
+  letter-spacing: -0.2px;
+}
+.orch-node small {
+  display: block;
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.4;
+}
+.orch-c4-desktop .orch-node.external,
+.orch-c4-desktop .orch-node.persistence {
+  width: 14%;
+  background: var(--bg);
+  border-style: dashed;
+}
+.orch-node.external strong,
+.orch-node.persistence strong {
+  font-size: 11px;
+}
+.orch-node.primary {
+  border-color: var(--gold);
+  box-shadow: 0 0 32px color-mix(in srgb, var(--gold) 13%, transparent);
+}
+.orch-node.persistence {
+  border-radius: 14px 14px 7px 7px;
+}
+.orch-ai-marks {
+  display: flex;
+  gap: 3px;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+.orch-ai-marks img {
+  width: 18px;
+  height: 18px;
+}
+.orch-c4-mobile {
+  display: none;
+}
+.orch-phase-rail {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  margin: 0 0 14px;
+}
+.orch-phase-rail span {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  color: var(--muted);
+  font: 10px var(--mono);
+}
+.orch-phase-rail span:not(:last-child)::after {
+  content: '→';
+  margin-left: 6px;
+  opacity: 0.5;
+}
+.orch-phase-rail b {
+  font-weight: 400;
+  font-size: 8px;
+}
+.orch-phase-rail [data-current='true'] {
+  color: var(--gold);
+}
+.orch-phase-rail [data-complete='true'] b {
+  color: var(--gold);
+}
+.orch-workflow-panel {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  visibility: hidden;
+}
+.orch-columns {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  align-items: start;
+  gap: 36px;
+  padding: 12px 3% 0;
+  height: 100%;
+}
+.orch-process-column {
+  position: relative;
+  min-width: 0;
+}
+.orch-process-column:not(:last-child)::after {
+  content: '→';
+  color: var(--gold);
+  position: absolute;
+  top: 50%;
+  right: -26px;
+  font-size: 21px;
+}
+.orch-process-column h3 {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  font-size: 14px;
+  font-weight: 500;
+  margin: 0 0 14px;
+}
+.orch-step-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.orch-step-list li {
+  position: relative;
+  border: 1px solid var(--orch-outline);
+  border-radius: 7px;
+  background: var(--orch-panel);
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.4;
+  padding: 10px 13px;
+  margin: 0 0 13px;
+}
+.orch-step-list li:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  height: 14px;
+  width: 1px;
+  background: var(--gold);
+  opacity: 0.55;
+}
+.orch-gate {
+  border: 1px solid var(--gold);
+  border-radius: 8px;
+  padding: 9px 12px;
+  color: var(--gold);
+  background: color-mix(in srgb, var(--gold) 8%, var(--bg));
+  font-size: 11px;
+  line-height: 1.4;
+}
+.orch-intake .orch-gate {
+  margin-bottom: 12px;
+}
+.orch-branch {
+  font-size: 10px;
+  color: var(--muted);
+  line-height: 1.5;
+  padding-left: 10px;
+  border-left: 1px solid var(--orch-outline);
+  margin: 5px 0 0;
+}
+.orch-context-note {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+  text-align: center;
+  margin: 13px auto 0;
+}
+.orch-positive {
+  color: var(--gold);
+}
+.orch-preparation {
+  height: 100%;
+  max-width: 680px;
+  margin: auto;
+  position: relative;
+  padding: 10px 0 0;
+}
+.orch-prep-route {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+}
+.orch-prep-step {
+  position: relative;
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  border: 1px solid var(--orch-outline);
+  border-radius: 9px;
+  padding: 10px 16px;
+  background: var(--orch-panel);
+  min-height: 48px;
+}
+.orch-prep-step strong {
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.5;
+}
+.orch-prep-step:first-child {
+  border-color: var(--gold);
+}
+.orch-prep-step:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  height: 15px;
+  width: 1px;
+  background: var(--gold);
+}
+.orch-prep-result {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 18px;
+  margin-top: 20px;
+  border: 1px solid var(--gold);
+  border-radius: 9px;
+}
+.orch-prep-result strong {
+  font-size: 16px;
+  font-weight: 500;
+}
+.orch-prep-result small {
+  color: var(--muted);
+  font-size: 11px;
+}
+.orch-parallel {
+  position: relative;
+  height: 100%;
+  max-width: 1000px;
+  margin: auto;
+}
+.orch-agent-links {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  stroke: var(--gold);
+  stroke-width: 1.2px;
+  overflow: visible;
+}
+.orch-agent-links path {
+  vector-effect: non-scaling-stroke;
+}
+.orch-test-dependencies {
+  opacity: var(--tests-ready, 0);
+}
+.orch-merge-dependencies {
+  opacity: var(--merge-ready, 0);
+}
+.orch-dispatch {
+  position: absolute;
+  left: 50%;
+  top: 7%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  font-size: 12px;
+  background: var(--bg);
+  padding: 5px 14px;
+  white-space: nowrap;
+}
+.orch-agent {
+  position: absolute;
+  left: var(--node-x);
+  top: var(--node-y);
+  width: 27%;
+  transform: translate(-50%, -50%);
+  background: var(--orch-panel);
+  border: 1px solid var(--gold);
+  border-radius: 10px;
+  padding: 14px 15px;
+}
+.orch-agent-role {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.orch-agent strong {
+  font-size: 12px;
+  line-height: 1.4;
+  font-weight: 500;
+}
+.orch-agent small {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  margin: 6px 0 10px;
+}
+.orch-runtime-label {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  color: var(--muted);
+  font: 9px var(--mono);
+}
+.orch-runtime-label img {
+  width: 13px;
+  height: 13px;
+}
+.orch-agent[data-agent='tests'] {
+  opacity: var(--tests-ready, 0);
+}
+.orch-test-caption {
+  display: none;
+}
+.orch-agent-output {
+  position: absolute;
+  left: 67%;
+  top: 86%;
+  width: 27%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: center;
+  padding: 10px;
+  font-size: 12px;
+  line-height: 1.4;
+  background: var(--bg);
+  border: 1px solid var(--orch-outline);
+  border-radius: 8px;
+  opacity: var(--merge-ready, 0);
+}
+.orch-parallel-note {
+  position: absolute;
+  bottom: 0;
+  width: 100%;
+  text-align: center;
+  font-size: 10px;
+  color: var(--muted);
+  margin: 0;
+}
+.orch-verify {
+  gap: 35px;
+  padding-top: 3px;
+}
+.orch-verify .orch-step-list li {
+  padding: 8px 11px;
+  font-size: 11px;
+  margin-bottom: 10px;
+}
+.orch-verify .orch-step-list li::after {
+  height: 11px;
+}
+.orch-exceptions {
+  border-left: 1px solid var(--orch-outline);
+  padding-left: 20px;
+}
+.orch-verify .orch-process-column:nth-child(2)::after {
+  display: none;
+}
+.orch-verify .orch-process-column:not(.orch-exceptions) .orch-step-list li:last-child,
+.orch-verify .orch-process-column:nth-child(2) .orch-step-list li:first-child {
+  border-color: var(--gold);
+}
+.orch-exceptions .orch-step-list li {
+  border-style: dashed;
+  background: transparent;
+  color: var(--muted);
+}
+.orch-exceptions .orch-step-list li:last-child {
+  margin-top: 25px;
+}
+.orch-exceptions .orch-step-list li:nth-child(2)::after {
+  display: none;
+}
+.orch-exceptions .orch-context-note {
+  text-align: left;
+}
+.orch-completion {
+  max-width: 800px;
+  margin: auto;
+  text-align: center;
+}
+.orch-delivery-packet {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 13px;
+  border: 1px solid var(--gold);
+  border-radius: 12px;
+  background: var(--orch-panel);
+  padding: 18px;
+}
+.orch-delivery-packet strong {
+  font-size: 15px;
+  font-weight: 500;
+}
+.orch-packet-tags {
+  display: flex;
+  width: 100%;
+  gap: 8px;
+  justify-content: center;
+}
+.orch-packet-tags span {
+  padding: 3px 11px;
+  border: 1px solid var(--orch-outline);
+  border-radius: 20px;
+  color: var(--muted);
+  font: 10px var(--mono);
+}
+.orch-delivery-trace {
+  color: var(--muted);
+  font-size: 12px;
+  padding: 13px 0;
+}
+.orch-acceptance {
+  display: inline-block;
+  padding: 10px 26px;
+  position: relative;
+}
+.orch-acceptance::before {
+  content: '';
+  position: absolute;
+  width: 1px;
+  height: 12px;
+  background: var(--gold);
+  left: 50%;
+  bottom: 100%;
+}
+.orch-outcomes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 25px;
+  position: relative;
+  margin-top: 22px;
+}
+.orch-outcomes::before {
+  content: '';
+  position: absolute;
+  top: -12px;
+  left: 24%;
+  right: 24%;
+  height: 12px;
+  border: 1px solid var(--gold);
+  border-bottom: 0;
+}
+.orch-outcome {
+  border: 1px solid var(--orch-outline);
+  border-radius: 8px;
+  padding: 12px 16px;
+  font-size: 11px;
+  line-height: 1.5;
+}
+.orch-outcome:not(.orch-positive) {
+  color: var(--muted);
+  border-style: dashed;
+}
+.orch-static-label {
+  font: 11px var(--mono);
+  color: var(--gold);
+  letter-spacing: 1px;
+  margin-bottom: 22px;
+}
+.orchestration-static {
+  padding: 24px;
+  max-width: 940px !important;
+  --orch-panel: var(--axion-semantic-marketing-surface-nodeStart);
+  --orch-outline: color-mix(in srgb, var(--gold) 37%, transparent);
+}
+.orchestration-static section {
+  margin-bottom: 25px;
+}
+.orch-static-components {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 18px;
+}
+.orch-static-components section {
+  padding: 16px;
+  border: 1px solid var(--orch-outline);
+  border-radius: 10px;
+  margin: 0;
+}
+.orchestration-static h4 {
+  font-size: 15px;
+  margin: 12px 0 9px;
+}
+.orchestration-static p {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.6;
+}
+.orchestration-static .orch-step-list {
+  margin-bottom: 20px;
+}
+.orchestration-static figcaption {
+  padding: 15px 0 0;
+}
+.orchestration-static summary {
+  cursor: pointer;
+  color: var(--gold);
+  padding: 18px 0;
+}
+.orchestration-static summary:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 3px;
+}
+[data-orchestration][data-active='true'] .orch-node.primary {
+  animation: orch-core-breath 7s ease-in-out infinite;
+}
+[data-orchestration='workflow'][data-active='true'][data-agent-phase='independent']
+  .orch-agent:not([data-agent='tests']) {
+  animation: orch-agent-breath 5s ease-in-out infinite;
+}
+[data-orchestration='workflow'][data-active='true'][data-agent-phase='tests']
+  .orch-agent[data-agent='tests'] {
+  animation: orch-agent-breath 5s ease-in-out infinite;
+}
+[data-orchestration][data-active='true'] .orch-c4-links > path,
+[data-orchestration][data-active='true'] .orch-agent-links path {
+  animation: orch-wire-breath 6s ease-in-out infinite;
+}
+@keyframes orch-wire-breath {
+  50% {
+    filter: drop-shadow(0 0 2px var(--gold));
+  }
+}
+@keyframes orch-core-breath {
+  50% {
+    box-shadow: 0 0 40px color-mix(in srgb, var(--gold) 24%, transparent);
+  }
+}
+@keyframes orch-agent-breath {
+  50% {
+    box-shadow: 0 0 24px color-mix(in srgb, var(--gold) 15%, transparent);
+  }
+}
+@media (max-width: 1000px) {
+  .orch-step-nav {
+    gap: 4px;
+  }
+  .orch-step-nav button {
+    font-size: 10px;
+    padding: 8px;
+    gap: 5px;
+  }
+  .orch-c4-desktop .orch-node {
+    flex-direction: column;
+    text-align: center;
+    gap: 5px;
+    padding: 8px 5px;
+  }
+  .orch-node strong {
+    font-size: 11px;
+  }
+  .orch-node small {
+    font-size: 9px;
+  }
+  .orch-agent {
+    padding: 12px 9px;
+  }
+  .orch-agent strong {
+    font-size: 11px;
+  }
+  .orch-agent small {
+    font-size: 10px;
+  }
+}
+@media (max-width: 900px) {
+  .orchestration-overlay {
+    inset: 82px 6% 62px;
+  }
+  .orch-topline {
+    align-items: start;
+  }
+  .orch-kicker {
+    font-size: 8px;
+    letter-spacing: 0.8px;
+  }
+  .orch-target-label {
+    font-size: 7px;
+    max-width: 115px;
+    line-height: 1.6;
+    text-align: right;
+  }
+  .orch-step-nav {
+    margin: 12px 0;
+    gap: 7px;
+  }
+  .orch-step-nav button {
+    padding: 8px 0;
+    flex: 1;
+    justify-content: center;
+    gap: 0;
+  }
+  .orch-step-nav button > span:first-child {
+    font-size: 10px;
+  }
+  .orch-step-nav button > span:last-child {
+    display: none;
+  }
+  .orch-step-nav button[aria-current] > span:last-child {
+    display: block;
+    font-size: 10px;
+    margin-left: 7px;
+    white-space: nowrap;
+  }
+  .orch-step-nav button[aria-current] {
+    flex: 5;
+  }
+  .orch-c4-desktop {
+    display: none;
+  }
+  .orch-c4-mobile {
+    display: block;
+    height: 100%;
+    position: relative;
+  }
+  .orch-mobile-panel {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    opacity: 0;
+    visibility: hidden;
+  }
+  .orch-mobile-panel h3 {
+    font-size: 17px;
+    font-weight: 500;
+    margin: 0 0 18px;
+    text-align: center;
+    letter-spacing: -0.4px;
+  }
+  .orch-mobile-boundary {
+    border: 1px solid var(--orch-outline);
+    border-radius: 14px;
+    padding: 23px 12px 12px;
+    position: relative;
+  }
+  .orch-mini-label {
+    position: absolute;
+    top: -5px;
+    padding: 0 6px;
+    left: 12px;
+    font: 8px var(--mono);
+    color: var(--gold);
+    background: var(--bg);
+  }
+  .orch-mobile-boundary .orch-node {
+    margin-bottom: 12px;
+    min-height: 60px;
+  }
+  .orch-mobile-boundary .orch-node:last-child {
+    margin-bottom: 0;
+  }
+  .orch-mobile-boundary .orch-node + .orch-node {
+    position: relative;
+  }
+  .orch-mobile-boundary .orch-node + .orch-node::before {
+    content: '';
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    height: 13px;
+    width: 1px;
+    background: var(--gold);
+  }
+  .orch-mobile-externals {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-top: 16px;
+  }
+  .orch-mobile-externals .orch-node {
+    border-style: dashed;
+    align-items: center;
+    padding: 10px 8px;
+    gap: 7px;
+  }
+  .orch-mobile-externals .orch-node strong {
+    font-size: 11px;
+  }
+  .orch-mobile-externals .orch-node small {
+    font-size: 10px;
+  }
+  .orch-node strong {
+    font-size: 13px;
+  }
+  .orch-node small {
+    font-size: 11px;
+  }
+  .orch-diagram {
+    margin-bottom: 16px;
+  }
+  .orch-scene-copy h2 {
+    font-size: clamp(23px, 5.9vw, 29px);
+    line-height: 1.18;
+  }
+  .orch-scene-copy p {
+    font-size: 11px;
+    line-height: 1.5;
+    margin-top: 10px;
+  }
+  .orch-disclosure {
+    font-size: 8px;
+    line-height: 1.4;
+    margin-top: 9px;
+  }
+  .orch-phase-rail {
+    gap: 5px 9px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+  }
+  .orch-phase-rail span {
+    font-size: 8px;
+    gap: 4px;
+  }
+  .orch-phase-rail span:not(:last-child)::after {
+    display: none;
+  }
+  .orch-phase-rail b {
+    font-size: 7px;
+  }
+  .orch-columns {
+    display: block;
+    padding: 0;
+  }
+  .orch-intake .orch-process-column {
+    position: absolute;
+    inset: 0;
+    opacity: var(--column-alpha, 0);
+    visibility: visible;
+    display: flex;
+    justify-content: center;
+    flex-direction: column;
+  }
+  .orch-process-column h3 {
+    font-size: 16px;
+    margin-bottom: 12px;
+  }
+  .orch-process-column::after {
+    display: none;
+  }
+  .orch-intake .orch-step-list li {
+    font-size: 12px;
+    padding: 9px 12px;
+    margin-bottom: 11px;
+  }
+  .orch-intake .orch-step-list li::after {
+    height: 12px;
+  }
+  .orch-intake .orch-gate {
+    margin-bottom: 10px;
+  }
+  .orch-preparation {
+    padding-top: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  .orch-prep-route {
+    display: block;
+  }
+  .orch-prep-step {
+    margin-bottom: 12px;
+    padding: 10px 12px;
+    min-height: 46px;
+    gap: 10px;
+  }
+  .orch-prep-step strong {
+    font-size: 12px;
+  }
+  .orch-prep-step::after {
+    display: none;
+  }
+  .orch-prep-step:not(:last-child)::before {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    width: 1px;
+    height: 13px;
+    background: var(--gold);
+  }
+  .orch-prep-result {
+    margin-top: 0;
+    padding: 12px;
+    gap: 8px;
+  }
+  .orch-prep-result strong {
+    font-size: 13px;
+  }
+  .orch-prep-result small {
+    text-align: center;
+    font-size: 10px;
+    width: 100%;
+  }
+  .orch-context-note {
+    font-size: 10px;
+    margin-top: 10px;
+  }
+  .orch-agent-links {
+    display: block;
+    z-index: 0;
+  }
+  .orch-parallel {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    align-content: center;
+  }
+  .orch-dispatch {
+    position: static;
+    grid-column: 1 / -1;
+    transform: none;
+    font-size: 11px;
+    white-space: normal;
+    padding: 0 0 4px;
+    justify-content: center;
+  }
+  .orch-agent {
+    position: relative;
+    inset: auto;
+    transform: none;
+    width: auto;
+    padding: 11px;
+    min-height: 100px;
+  }
+  .orch-agent strong {
+    font-size: 11px;
+  }
+  .orch-agent-role {
+    gap: 7px;
+  }
+  .orch-agent-role .orch-icon {
+    width: 17px;
+    height: 17px;
+  }
+  .orch-agent small {
+    font-size: 10px;
+    line-height: 1.5;
+  }
+  .orch-runtime-label {
+    font-size: 8px;
+    gap: 4px;
+  }
+  .orch-parallel [data-agent='backend'] {
+    grid-column: 1;
+    grid-row: 2;
+  }
+  .orch-parallel [data-agent='integration'] {
+    grid-column: 2;
+    grid-row: 2;
+  }
+  .orch-parallel [data-agent='documentation'] {
+    grid-column: 2;
+    grid-row: 3;
+  }
+  .orch-parallel [data-agent='tests'] {
+    grid-column: 1;
+    grid-row: 3;
+  }
+  .orch-test-caption {
+    display: block;
+    position: absolute;
+    bottom: calc(100% + 2px);
+    left: 0;
+    color: var(--gold);
+    font: 7px var(--mono);
+    background: var(--bg);
+  }
+  .orch-agent-output {
+    position: static;
+    grid-column: 1/-1;
+    transform: none;
+    width: auto;
+    font-size: 11px;
+    padding: 9px;
+  }
+  .orch-parallel-note {
+    position: static;
+    grid-column: 1/-1;
+    font-size: 9px;
+    line-height: 1.5;
+  }
+  .orch-verify {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px 14px;
+    align-content: center;
+  }
+  .orch-verify .orch-process-column h3 {
+    font-size: 12px;
+    gap: 7px;
+  }
+  .orch-verify .orch-icon {
+    width: 18px;
+    height: 18px;
+  }
+  .orch-verify .orch-step-list li {
+    font-size: 10px;
+    line-height: 1.35;
+    padding: 7px 8px;
+    margin-bottom: 8px;
+  }
+  .orch-verify .orch-step-list li::after {
+    height: 9px;
+  }
+  .orch-verify .orch-branch {
+    font-size: 9px;
+    padding-left: 6px;
+  }
+  .orch-exceptions {
+    grid-column: 1/-1;
+    padding-left: 9px;
+  }
+  .orch-exceptions h3 {
+    display: none;
+  }
+  .orch-exceptions .orch-step-list {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 7px;
+  }
+  .orch-exceptions .orch-step-list li {
+    font-size: 9px;
+    margin: 0;
+  }
+  .orch-exceptions .orch-step-list li::after {
+    display: none;
+  }
+  .orch-exceptions .orch-step-list li:last-child {
+    margin-top: 0;
+    grid-column: 1/-1;
+  }
+  .orch-exceptions .orch-context-note {
+    margin-top: 5px;
+    font-size: 9px;
+  }
+  .orch-completion {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  .orch-delivery-packet {
+    padding: 14px;
+    gap: 9px;
+  }
+  .orch-delivery-packet strong {
+    font-size: 12px;
+  }
+  .orch-packet-tags {
+    gap: 4px;
+  }
+  .orch-packet-tags span {
+    font-size: 8px;
+    padding: 3px 8px;
+  }
+  .orch-delivery-trace {
+    font-size: 11px;
+    padding: 10px 0;
+  }
+  .orch-acceptance {
+    padding: 9px 20px;
+    align-self: center;
+  }
+  .orch-outcomes {
+    gap: 10px;
+    margin-top: 20px;
+  }
+  .orch-outcome {
+    font-size: 10px;
+    padding: 9px;
+  }
+  .orch-static-components {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-height: 740px) and (min-width: 901px) {
+  .orchestration-overlay {
+    inset-block: 82px 54px;
+  }
+  .orch-step-nav {
+    margin: 10px 0;
+  }
+  .orch-scene-copy h2 {
+    font-size: 28px;
+  }
+  .orch-scene-copy p {
+    font-size: 11px;
+  }
+  .orch-node small {
+    font-size: 9px;
+  }
+  .orch-c4-desktop .orch-node {
+    min-height: 52px;
+    padding: 7px;
+  }
+  .orch-step-list li {
+    font-size: 11px;
+    padding: 7px 10px;
+    margin-bottom: 10px;
+  }
+  .orch-process-column h3 {
+    font-size: 12px;
+    margin-bottom: 9px;
+  }
+  .orch-prep-step {
+    min-height: 40px;
+    padding: 7px 10px;
+  }
+  .orch-prep-route {
+    gap: 11px;
+  }
+  .orch-prep-step:not(:last-child)::after {
+    height: 12px;
+  }
+  .orch-prep-result {
+    padding: 12px;
+    margin-top: 12px;
+  }
+}
+@media (max-width: 900px) and (max-height: 740px) {
+  .orchestration-overlay {
+    inset-block: 75px 56px;
+  }
+  .orch-step-nav {
+    margin: 7px 0;
+  }
+  .orch-scene-copy h2 {
+    font-size: 21px;
+  }
+  .orch-scene-copy p {
+    font-size: 10px;
+    line-height: 1.4;
+    margin-top: 7px;
+  }
+  .orch-diagram {
+    margin-block: 0 10px;
+  }
+  .orch-disclosure {
+    margin-top: 7px;
+    font-size: 7px;
+  }
+  .orch-mobile-panel h3 {
+    margin-bottom: 10px;
+    font-size: 15px;
+  }
+  .orch-mobile-boundary {
+    padding: 15px 9px 9px;
+  }
+  .orch-mobile-boundary .orch-node {
+    padding: 8px;
+    min-height: 45px;
+    margin-bottom: 9px;
+    gap: 8px;
+  }
+  .orch-mobile-boundary .orch-node + .orch-node::before {
+    height: 10px;
+  }
+  .orch-mobile-externals {
+    margin-top: 10px;
+    gap: 9px;
+  }
+  .orch-mobile-externals .orch-node {
+    padding: 7px;
+  }
+  .orch-node strong {
+    font-size: 11px;
+  }
+  .orch-node small {
+    font-size: 9px;
+    margin-top: 3px;
+  }
+  .orch-intake .orch-step-list li {
+    padding: 6px 10px;
+    font-size: 11px;
+    margin-bottom: 9px;
+  }
+  .orch-intake .orch-step-list li::after {
+    height: 10px;
+  }
+  .orch-process-column h3 {
+    font-size: 13px;
+    margin-bottom: 9px;
+  }
+  .orch-intake .orch-gate {
+    padding: 6px 10px;
+    margin-bottom: 8px;
+    font-size: 10px;
+  }
+  .orch-branch {
+    font-size: 9px;
+  }
+  .orch-prep-step {
+    padding: 7px 10px;
+    min-height: 37px;
+    margin-bottom: 9px;
+  }
+  .orch-prep-step strong {
+    font-size: 10px;
+  }
+  .orch-prep-step:not(:last-child)::before {
+    height: 10px;
+  }
+  .orch-prep-result {
+    padding: 7px;
+    gap: 6px;
+  }
+  .orch-prep-result small {
+    font-size: 9px;
+  }
+  .orch-context-note {
+    font-size: 9px;
+    margin-top: 7px;
+  }
+  .orch-parallel {
+    gap: 9px;
+  }
+  .orch-agent {
+    min-height: 76px;
+    padding: 8px;
+  }
+  .orch-agent strong,
+  .orch-agent small {
+    font-size: 9px;
+  }
+  .orch-agent small {
+    margin: 4px 0 5px;
+  }
+  .orch-verify {
+    gap: 8px;
+  }
+  .orch-verify .orch-step-list li {
+    padding: 5px;
+    font-size: 9px;
+    margin-bottom: 6px;
+  }
+  .orch-verify .orch-step-list li::after {
+    height: 7px;
+  }
+  .orch-verify .orch-context-note {
+    font-size: 8px;
+  }
+  .orch-verify .orch-process-column h3 {
+    font-size: 11px;
+    margin-bottom: 7px;
+  }
+  .orch-exceptions .orch-step-list li {
+    font-size: 8px;
+    margin: 0;
+  }
+  .orch-delivery-packet {
+    padding: 10px;
+  }
+  .orch-delivery-packet strong {
+    font-size: 11px;
+  }
+  .orch-delivery-trace {
+    padding: 7px 0;
+    font-size: 10px;
+  }
+  .orch-acceptance {
+    font-size: 10px;
+    padding: 7px 13px;
+  }
+  .orch-outcome {
+    padding: 7px;
+    font-size: 9px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .orchestration-overlay *,
+  .orch-step-nav button {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+.static-motion .orchestration-overlay * {
+  animation: none !important;
+}
+
+/* Narrow screens focus one responsibility at a time rather than scaling the graph. */
+@media (max-width: 900px) {
+  .orch-mobile-boundary,
+  .orch-mobile-externals {
+    max-width: 520px;
+    width: 100%;
+    margin-inline: auto;
+  }
+  .orch-intake .orch-process-column,
+  .orch-verify > .orch-process-column {
+    left: 50%;
+    right: auto;
+    width: min(100%, 520px);
+    transform: translateX(-50%);
+  }
+  .orch-verify {
+    position: relative;
+    display: block;
+  }
+  .orch-verify > .orch-process-column {
+    position: absolute;
+    inset-block: 0;
+    opacity: var(--column-alpha, 0);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  .orch-verify .orch-process-column h3 {
+    font-size: 16px;
+    margin-bottom: 15px;
+    gap: 10px;
+  }
+  .orch-verify .orch-step-list li {
+    padding: 10px 12px;
+    margin-bottom: 12px;
+    font-size: 12px;
+    line-height: 1.4;
+  }
+  .orch-verify .orch-step-list li::after {
+    height: 13px;
+  }
+  .orch-verify .orch-branch {
+    font-size: 11px;
+    margin-top: 8px;
+    padding-left: 9px;
+  }
+  .orch-exceptions {
+    border: 0;
+    padding: 0;
+  }
+  .orch-exceptions .orch-step-list {
+    display: block;
+  }
+  .orch-exceptions .orch-step-list li:last-child {
+    margin-top: 20px;
+  }
+  .orch-exceptions .orch-step-list li:first-child::after {
+    display: block;
+  }
+  .orch-exceptions .orch-context-note {
+    font-size: 11px;
+    margin-top: 10px;
+  }
+}
+@media (max-width: 900px) and (max-height: 740px) {
+  .orch-node strong {
+    font-size: 12px;
+  }
+  .orch-node small {
+    font-size: 10px;
+  }
+  .orch-verify .orch-process-column h3 {
+    font-size: 14px;
+    margin-bottom: 10px;
+  }
+  .orch-verify .orch-step-list li {
+    padding: 8px 10px;
+    margin-bottom: 9px;
+    font-size: 11px;
+    line-height: 1.35;
+  }
+  .orch-verify .orch-step-list li::after {
+    height: 10px;
+  }
+  .orch-verify .orch-branch {
+    margin-top: 6px;
+    font-size: 10px;
+  }
+  .orch-exceptions .orch-context-note {
+    font-size: 10px;
+  }
+}

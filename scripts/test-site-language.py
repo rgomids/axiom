@@ -1,24 +1,15 @@
 #!/usr/bin/env python3
-"""Offline Chromium regression tests for landing-page language switching.
-
-Install test-only dependencies: pip install playwright==1.63.0
-Then: python -m playwright install chromium
-Run: python scripts/test-site-language.py [repository-root]
-All browser requests are fulfilled from site/ or aborted; no public site is used.
-"""
-
+"""Offline Chromium acceptance for the generated landing; no external requests."""
 from pathlib import Path
 import sys
 import unittest
 from urllib.parse import urlparse
-
 from playwright.sync_api import sync_playwright
-
 
 ROOT = Path(sys.argv.pop(1)).resolve() if len(sys.argv) > 1 else Path(__file__).resolve().parents[1]
 
 
-class LanguageTests(unittest.TestCase):
+class LandingTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.playwright = sync_playwright().start()
@@ -30,128 +21,219 @@ class LanguageTests(unittest.TestCase):
         cls.playwright.stop()
 
     def setUp(self):
-        self.context = self.browser.new_context()
+        self.context = self.browser.new_context(reduced_motion='reduce')
         self.page = self.context.new_page()
+        self.errors = []
+        self.page.on('pageerror', lambda error: self.errors.append(str(error)))
+        self.defer_app = False
+        self.js_enabled = True
 
         def serve(route):
             url = urlparse(route.request.url)
-            name = url.path.lstrip('/')
-            if url.netloc != 'axiom.test' or name not in (
-                'index.html', 'styles.css', 'lang.js', 'diagram.js', 'skills.js'
-            ):
+            path = (ROOT / 'site' / url.path.lstrip('/')).resolve()
+            if url.netloc != 'axiom.test' or not path.is_relative_to(ROOT / 'site') or not path.is_file():
                 route.abort()
-            elif name == 'lang.js':
-                # Set test conditions before the real production script runs.
+            elif self.defer_app and path.name in ('app.js', 'storytelling.js', 'story-state.js'):
                 route.fulfill(body='', content_type='text/javascript')
             else:
-                route.fulfill(path=str(ROOT / 'site' / name))
-
+                route.fulfill(path=str(path))
+        self.serve = serve
         self.page.route('**/*', serve)
 
     def tearDown(self):
         self.context.close()
 
-    def load(self, stored='en', blocked=False, width=1280):
+    def load(self, width=1280, blocked=False):
         self.page.set_viewport_size({'width': width, 'height': 900})
         if blocked:
-            self.page.add_init_script("""
-                Object.defineProperty(window, 'localStorage', {
-                    get() { throw new Error('storage blocked'); }
-                });
-            """)
-        else:
-            self.page.add_init_script(f"localStorage.setItem('axiom-lang', '{stored}');")
+            self.page.add_init_script("Object.defineProperty(window,'localStorage',{get(){throw Error('blocked')}})")
         self.page.goto('https://axiom.test/index.html')
+        if self.js_enabled and not self.defer_app:
+            self.page.wait_for_function("document.querySelector('.storytelling').hasAttribute('data-story-progress')")
+            self.page.evaluate('() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))')
 
-    def start_language(self):
-        self.page.add_script_tag(path=str(ROOT / 'site/lang.js'))
+    def choose(self, language):
+        if self.page.locator('html').get_attribute('lang') != language:
+            self.page.locator('#language').click()
 
-    def choose(self, lang):
-        self.page.locator('#lang-toggle').click()
-        self.page.locator(f'.lang-option[data-lang="{lang}"]').click()
-
-    def test_translations_round_trip_preserves_markup_and_navigation(self):
-        for width, stored in ((1280, 'en'), (375, 'pt')):
-            with self.subTest(width=width, stored=stored):
-                self.load(stored=stored, width=width)
-                self.page.evaluate("""
-                    window.originalText = [...document.querySelectorAll('[data-pt]')]
-                        .map(el => el.textContent);
-                    window.originalMarkup = [...document.querySelectorAll(
-                        '.pill-dot, .gradient-text, .callout a, .callout code, '
-                        + '.skill-invoke code, .track-disclaimer strong, .flow-process [aria-hidden]'
-                    )];
-                    window.originalLinks = originalMarkup.filter(el => el.tagName === 'A')
-                        .map(el => el.getAttribute('href'));
-                """)
-                self.start_language()
-                for lang in ('pt', 'en', 'pt', 'en'):
-                    self.choose(lang)
-                    self.assertEqual(self.page.locator('html').get_attribute('lang'),
-                                     'pt-BR' if lang == 'pt' else 'en')
-                    self.assertTrue(self.page.evaluate("""lang =>
-                        [...document.querySelectorAll('[data-pt]')].every((el, i) =>
-                            el.textContent === (lang === 'pt' ? el.getAttribute('data-pt') : originalText[i]))
-                    """, lang))
-                    self.assertTrue(self.page.evaluate("""() =>
-                        originalMarkup.every(el => el.isConnected) &&
-                        originalMarkup.filter(el => el.tagName === 'A').every((el, i) =>
-                            el.getAttribute('href') === originalLinks[i])
-                    """))
-                    self.assertEqual(self.page.locator('#lang-toggle').get_attribute('aria-expanded'), 'false')
-                    self.assertEqual(self.page.locator(f'.lang-option[data-lang="{lang}"]').get_attribute('aria-checked'), 'true')
-                    self.assertEqual(self.page.evaluate("localStorage.getItem('axiom-lang')"), lang)
+    def test_bilingual_roundtrip_preserves_markup_and_storage(self):
+        self.load()
+        self.page.evaluate("window.originalMarkup=[...document.querySelectorAll('h1 br,h2 em,.core-context i')]")
+        for language in ('en', 'pt-BR', 'en', 'pt-BR'):
+            self.choose(language)
+            self.assertEqual(self.page.locator('html').get_attribute('lang'), language)
+            self.assertTrue(self.page.evaluate('originalMarkup.every(el=>el.isConnected)'))
+            self.assertEqual(self.page.evaluate("localStorage.getItem('axiom-language')"), 'en' if language == 'en' else 'pt')
+        self.assertEqual(self.errors, [])
 
     def test_translation_attributes_cannot_create_executable_markup(self):
+        self.defer_app = True
         self.load()
-        payload = '<img src="data:," onerror="window.__languageProbe=1"><svg onload="window.__languageProbe=1"></svg>'
-        self.page.evaluate("""payload => {
-            window.__languageProbe = 0;
-            document.querySelectorAll('[data-pt]').forEach(el => {
-                el.setAttribute('data-pt', payload);
-                el.setAttribute('data-en', payload);
+        self.page.evaluate("""() => {
+            window.probe=0;
+            document.querySelectorAll('[data-en]').forEach(el=>{
+                el.dataset.en='<img src="data:," onerror="window.probe=1"><svg onload="window.probe=1"></svg>';
             });
-            // The exact former source, including the cached English attribute.
-            document.querySelector('.hero-title').setAttribute('data-pt-html', payload);
-            document.querySelector('.hero-title').setAttribute('data-en-html', payload);
-        }""", payload)
-        self.start_language()
-        for lang in ('pt', 'en', 'pt'):
-            self.choose(lang)
-            self.page.evaluate('() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))')
-            self.assertEqual(self.page.evaluate('window.__languageProbe'), 0)
-            self.assertEqual(self.page.locator('img[src="data:,"], svg[onload]').count(), 0)
-            self.assertTrue(self.page.evaluate("""payload =>
-                [...document.querySelectorAll('[data-pt]')].every(el => el.textContent === payload)
-            """, payload))
-
-    def test_metacharacters_and_empty_translation_stay_text(self):
-        self.load(stored='pt')
-        values = ['', '<>&"\' &lt;svg onload=alert(1)&gt;', 'ação → 日本語']
-        self.page.evaluate("""values => {
-            window.edgeElements = [...document.querySelectorAll('[data-pt]')].slice(0, values.length);
-            window.edgeOriginals = edgeElements.map(el => el.textContent);
-            edgeElements.forEach((el, i) => el.setAttribute('data-pt', values[i]));
-        }""", values)
-        self.start_language()
-        self.assertEqual(self.page.evaluate('edgeElements.map(el => el.textContent)'), values)
+        }""")
+        self.page.add_script_tag(path=str(ROOT / 'site/app.js'))
         self.choose('en')
-        self.assertTrue(self.page.evaluate('edgeElements.every((el, i) => el.textContent === edgeOriginals[i])'))
+        self.assertEqual(self.page.locator('img[src="data:,"], svg[onload]').count(), 0)
+        self.assertEqual(self.page.evaluate('window.probe'), 0)
+        self.choose('pt-BR')
+        self.assertEqual(self.errors, [])
 
-    def test_blocked_storage_and_keyboard_menu(self):
-        self.load(blocked=True)
-        self.start_language()
+    def test_keyboard_tabs_and_individual_copy_for_every_step(self):
+        self.page.add_init_script("""
+            window.copied=[];
+            Object.defineProperty(navigator,'clipboard',{value:{writeText:async value=>copied.push(value)}});
+        """)
+        self.load()
+        self.page.locator('#setup-0').focus()
+        self.page.keyboard.press('End')
+        self.assertEqual(self.page.locator(':focus').get_attribute('id'), 'setup-3')
+        for step, count in ((0, 1), (1, 3), (2, 3), (3, 3)):
+            self.page.locator(f'#setup-{step}').click()
+            commands = self.page.locator('.command-row code').all_text_contents()
+            buttons = self.page.locator('.copy-command')
+            self.assertEqual(buttons.count(), count)
+            self.assertEqual(len(commands), count)
+            for index, command in enumerate(commands):
+                buttons.nth(index).click()
+                self.assertEqual(self.page.evaluate('copied[copied.length-1]'), command)
+                self.assertNotIn('\n', command)
+            self.assertIn('copiado', self.page.locator('#copy-status').inner_text())
+        self.assertEqual(self.errors, [])
+
+    def seek_story(self, progress):
+        self.page.evaluate("""async progress => {
+            const moduleUrl="https://axiom.test/orchestration-timeline.mjs";
+            const {orchestrationFraction}=await import(moduleUrl);
+            const story=document.querySelector('.storytelling');
+            const top=story.getBoundingClientRect().top+scrollY;
+            scrollTo({top:top+(story.offsetHeight-innerHeight)*orchestrationFraction(progress*17/4),behavior:'instant'});
+        }""", progress)
+        self.page.evaluate('() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))')
+        self.page.wait_for_function("expected=>{const s=document.querySelector('.storytelling');return s.dataset.storySettled==='true' && Math.abs(Number(s.dataset.storyProgress)-expected)<.01}", arg=progress, timeout=3000)
+
+    def story_snapshot(self):
+        return self.page.evaluate("""() => [...document.querySelectorAll(
+            '.story-stage [data-story-idea],.story-stage [data-story-work],.story-stage [data-story-path],.story-stage [data-story-axiom]'
+        )].map(el=>({transform:getComputedStyle(el).transform,opacity:getComputedStyle(el).opacity,width:getComputedStyle(el).width,height:getComputedStyle(el).height,d:el.getAttribute('d')}))""")
+
+    def test_native_story_reuses_entities_and_reverses_deterministically(self):
+        self.page.emulate_media(reduced_motion='no-preference')
+        self.load()
+        self.page.evaluate("window.storyEntities=[...document.querySelectorAll('.story-stage [data-story-work],.story-stage [data-story-idea]')]")
+        self.assertEqual(self.page.locator('.story-stage [data-story-idea]').count(), 1)
+        self.assertEqual(self.page.locator('.story-stage [data-story-work]').count(), 6)
+        self.assertEqual(self.page.locator('.story-stage [data-story-path]').count(), 6)
+        self.page.evaluate("() => {window.nativeScrollEnded = new Promise(resolve => addEventListener('scrollend',resolve,{once:true}));}")
+        self.page.keyboard.press('PageDown')
+        self.page.wait_for_function('scrollY > 0')
+        self.page.evaluate("Promise.race([nativeScrollEnded,new Promise((_,reject)=>setTimeout(()=>reject(Error('native scroll did not end')),3000))])")
+        snapshots = {}
+        for progress in [index * 4 / 17 for index in range(18)]:
+            self.seek_story(progress)
+            snapshots[progress] = self.story_snapshot()
+            self.assertTrue(self.page.evaluate('storyEntities.every(el=>el.isConnected)'))
+            hub_opacity = self.page.locator('[data-story-axiom]').evaluate('el=>Number(getComputedStyle(el).opacity)')
+            if progress == 4 * 4 / 17:
+                self.assertLess(hub_opacity, .01)
+            if progress == 8 * 4 / 17:
+                self.assertGreater(hub_opacity, .9)
+            if progress == 15 * 4 / 17:
+                self.assertGreater(self.page.locator('[data-story-decision]').evaluate('el=>Number(getComputedStyle(el).opacity)'), .9)
+                self.assertEqual(self.page.locator('[data-story-decision] li').count(), 5)
+                self.assertEqual(self.page.locator('[data-story-decision] .decision-choices>span').count(), 2)
+            if progress == 4:
+                self.assertGreater(self.page.locator('[data-story-idea]').evaluate('el=>Number(getComputedStyle(el).opacity)'), .9)
+                decision = self.page.locator('[data-story-decision]').text_content().lower()
+                self.assertIn('aceitar', decision)
+                self.assertIn('retrabalho', decision)
+            self.choose('en')
+            self.assertTrue(self.page.locator('.story-stage').evaluate("el=>[...el.querySelectorAll('[data-en]')].every(node=>node.textContent===node.dataset.en)"))
+            self.choose('pt-BR')
+        for progress in (12 * 4 / 17, 4 * 4 / 17, 4, 8 * 4 / 17, 0):
+            self.seek_story(progress)
+            self.assertEqual(self.story_snapshot(), snapshots[progress])
+        for anchor, scene in (('#fluxo', '4'), ('#proposta', '3')):
+            self.page.evaluate("() => {window.nativeScrollEnded = new Promise(resolve => addEventListener('scrollend',resolve,{once:true}));}")
+            self.page.locator(f'.header a[href="{anchor}"]').click()
+            self.page.evaluate("Promise.race([nativeScrollEnded,new Promise((_,reject)=>setTimeout(()=>reject(Error('native scroll did not end')),3000))])")
+            self.assertEqual(self.page.locator('.storytelling').get_attribute('data-story-scene'), scene)
+        self.page.set_viewport_size({'width': 390, 'height': 844})
+        self.seek_story(1.5)
+        mobile_snapshot = self.story_snapshot()
+        self.seek_story(3.5)
+        self.seek_story(1.5)
+        self.assertEqual(self.story_snapshot(), mobile_snapshot)
+        self.assertFalse(self.page.evaluate('document.documentElement.scrollWidth>innerWidth'))
+        self.page.locator('#motion').click()
+        self.assertTrue(self.page.locator('body').evaluate("el=>el.classList.contains('static-motion')"))
+        self.assertEqual(self.errors, [])
+
+    def test_no_javascript_has_five_complete_scenes_and_direct_installation(self):
+        self.context.close()
+        self.js_enabled = False
+        self.context = self.browser.new_context(java_script_enabled=False)
+        self.page = self.context.new_page()
+        self.page.route('**/*', self.serve)
+        self.load(width=390)
+        scenes = self.page.locator('article[data-story-scene]')
+        self.assertEqual(scenes.count(), 5)
+        for index in range(5):
+            scene = scenes.nth(index)
+            self.assertTrue(scene.is_visible())
+            self.assertGreater(len(scene.inner_text().strip()), 80)
+            self.assertGreater(scene.locator('svg,img').count(), 0)
+        for width in (320, 390, 1280):
+            self.page.set_viewport_size({'width': width, 'height': 900})
+            self.assertFalse(self.page.evaluate('document.documentElement.scrollWidth>innerWidth'))
+        self.assertTrue(self.page.locator('#instalar').is_visible())
+        self.assertIn('curl -fsSL https://raw.githubusercontent.com/rgomids/axiom/main/scripts/install.sh | sh', self.page.locator('#instalar').inner_text())
+        self.assertGreater(self.page.locator('a[href="#instalar"]').count(), 0)
+        self.assertGreater(self.page.locator('a[href*="github.com/rgomids/axiom"]').count(), 0)
+
+    def test_footer_language_and_verified_project_indices(self):
+        self.load()
+        footer = self.page.locator('.site-footer')
+        self.assertEqual(footer.locator('.footer-column h2').all_text_contents(), ['Produto', 'Soluções', 'Recursos'])
+        self.assertEqual(footer.locator('.footer-social').count(), 1)
+        self.assertEqual(footer.locator('.footer-social').get_attribute('href'), 'https://github.com/rgomids/axiom')
+        self.assertEqual(footer.locator('.footer-unavailable').get_attribute('aria-disabled'), 'true')
+        self.page.locator('#footer-language').select_option('en')
         self.assertEqual(self.page.locator('html').get_attribute('lang'), 'en')
-        self.page.locator('#lang-toggle').focus()
-        self.page.keyboard.press('ArrowDown')
-        self.assertEqual(self.page.locator(':focus').get_attribute('data-lang'), 'en')
-        self.page.keyboard.press('ArrowDown')
-        self.page.keyboard.press('Enter')
-        self.assertEqual(self.page.locator('html').get_attribute('lang'), 'pt-BR')
-        self.assertEqual(self.page.locator(':focus').get_attribute('id'), 'lang-toggle')
-        self.page.keyboard.press('ArrowUp')
-        self.page.keyboard.press('Escape')
-        self.assertEqual(self.page.locator('#lang-toggle').get_attribute('aria-expanded'), 'false')
+        self.assertEqual(footer.locator('.footer-column h2').all_text_contents(), ['Product', 'Solutions', 'Resources'])
+        self.page.locator('#language').click()
+        self.assertEqual(self.page.locator('#footer-language').input_value(), 'pt')
+        self.assertEqual(self.errors, [])
+
+    def test_copy_denial_selects_only_requested_command(self):
+        self.page.add_init_script("Object.defineProperty(navigator,'clipboard',{value:{writeText:async()=>{throw Error('denied')}}})")
+        self.load()
+        self.page.locator('#setup-1').click()
+        self.page.locator('.copy-command').nth(1).click()
+        self.assertEqual(self.page.evaluate('getSelection().toString()'), 'axiom help')
+        self.assertIn('selecionado', self.page.locator('#copy-status').inner_text())
+        self.assertEqual(self.errors, [])
+
+    def test_reduced_motion_mobile_and_blocked_storage(self):
+        self.load(width=390, blocked=True)
+        self.assertTrue(self.page.locator('body').evaluate("el=>el.classList.contains('static-motion')"))
+        for width in (320, 390, 1280):
+            self.page.set_viewport_size({'width': width, 'height': 900})
+            self.assertFalse(self.page.evaluate('document.documentElement.scrollWidth>innerWidth'))
+        self.assertEqual(self.page.locator('article[data-story-scene]').count(), 5)
+        self.assertEqual(self.page.locator('.story-beat').count(), 18)
+        self.assertEqual(self.page.locator('.static-transcript').count(), 18)
+        self.assertTrue(self.page.locator('.scene-static').evaluate_all("els=>els.every(el=>el.getAttribute('aria-hidden')==='true')"))
+        self.assertNotIn('Code Review', self.page.locator('.static-transcript').first.inner_text())
+        for scene in self.page.locator('article[data-story-scene]').all():
+            self.assertTrue(scene.is_visible())
+        self.choose('en')
+        self.assertIn('Supported hosts:', self.page.locator('.terminal-platform').inner_text())
+        self.assertEqual(self.page.locator('[data-os="windows"]').count(), 0)
+        self.assertEqual(self.errors, [])
 
 
 if __name__ == '__main__':
