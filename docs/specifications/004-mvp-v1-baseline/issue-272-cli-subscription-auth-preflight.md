@@ -76,6 +76,33 @@ variable would select a different inference route. Environment variable names
 are not used to infer compatibility or billing. Effective inference route and
 billing remain unproven by this login-only observation.
 
+### Maintainer decision — operator-owned API configuration (2026-10-26)
+
+The maintainer explicitly decided that API-key configuration on the operator's
+machine is the operator's responsibility. Axiom must not block authentication or
+dispatch merely because an API key or authentication routing override is configured,
+or because the vendor reports an API-key login rather than a subscription login.
+This is a deliberate admission-policy change, not proof that inference uses a
+subscription or a particular billing route.
+
+At most, Axiom may issue a non-blocking notice identifying the configuration key
+name. It must not read the secret value for that notice, copy it into Evidence,
+or change/remove the operator's configuration. A notice does not require a
+confirmation or become an additional admission gate.
+
+This decision supersedes the subscription-only API-key/override refusal criteria
+of #272 and the corresponding inherited acceptance requirement in #278. Preserve
+historical acceptance evidence; future validation must test notification without
+refusal, secret-free reporting and truthful unknown routing/billing. Actual login
+failures, executable identity and separate execution authority remain distinct.
+
+Implementation reconciliation is pending: PR #362 at `a54a0c7` removes environment
+classification, but still refuses vendor-reported API-key login and explicit
+provider/helper configuration. It does not implement an API-key presence notice.
+Recording this decision does not claim those remaining changes or real Runtime
+acceptance are complete. The older implementation description below remains a
+snapshot until the code and linked acceptance records are reconciled.
+
 ### Environment classification removal (2026-10-26)
 
 The maintainer authorized removing the environment-name admission policy after
