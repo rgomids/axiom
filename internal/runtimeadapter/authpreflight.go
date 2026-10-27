@@ -28,8 +28,9 @@ type AuthStatus string
 
 const (
 	// AuthSubscriptionObserved: the vendor status surface reports the
-	// subscription login, and the effective child environment and the
-	// inspected configuration select no API/provider override.
+	// subscription login, and inspected configuration selects no explicit
+	// API/provider override. Environment variable names do not establish
+	// authentication or billing.
 	AuthSubscriptionObserved AuthStatus = "subscription_observed"
 	// AuthUnproven: the intended path cannot be established from observable
 	// evidence (unrecognized, ambiguous or unreadable state).
@@ -187,10 +188,6 @@ func (p AuthPreflight) Check(ctx context.Context, target AuthTarget) AuthReport 
 	if !ok {
 		return report.with(AuthUnproven, "environment_ambiguous")
 	}
-	if overrides := environmentOverrides(target.RuntimeID, environment, "env:"); len(overrides) != 0 {
-		report.Overrides = bounded(overrides)
-		return report.with(AuthIncompatible, "environment_override")
-	}
 	overrides, reason := p.configurationOverrides(target.RuntimeID, environment, target.WorkingDirectory)
 	if reason != "" {
 		return report.with(AuthUnproven, reason)
@@ -279,49 +276,6 @@ func environmentMap(environment []string) (map[string]string, bool) {
 		result[key] = value
 	}
 	return result, true
-}
-
-// environmentOverrides names the variables that select API-key, provider,
-// gateway or token-based authentication instead of the local subscription
-// login. Codex exec honors CODEX_API_KEY even while its status surface
-// reports ChatGPT; Claude --print gives ANTHROPIC_API_KEY and cloud
-// providers precedence over the claude.ai login.
-func environmentOverrides(runtimeID string, environment map[string]string, prefix string) []string {
-	var prefixes, exact []string
-	if runtimeID == "codex" {
-		prefixes = []string{"OPENAI_", "AZURE_OPENAI_"}
-		exact = []string{"CODEX_API_KEY"}
-	} else {
-		prefixes = []string{"ANTHROPIC_", "CLAUDE_CODE_USE_", "CLAUDE_CODE_SKIP_", "CLOUD_ML_", "VERTEX_"}
-		exact = []string{"CLAUDE_CODE_OAUTH_TOKEN", "AWS_BEARER_TOKEN_BEDROCK", "CLAUDE_CODE_API_KEY_HELPER_TTL_MS"}
-	}
-	var overrides []string
-	for key := range environment {
-		// This exact vendor-owned token authenticates local session messaging,
-		// not model requests. Keep unknown token/key/URL names fail-closed.
-		// https://code.claude.com/docs/en/env-vars
-		if runtimeID == "claude" && key == "CLAUDE_CODE_MESSAGING_TOKEN" {
-			continue
-		}
-		// Token, key and endpoint variables of the vendor's own namespace
-		// (for example CLAUDE_CODE_API_KEY_FILE_DESCRIPTOR) also select
-		// another authentication path.
-		namespace := "CODEX_"
-		if runtimeID == "claude" {
-			namespace = "CLAUDE_CODE_"
-		}
-		matched := strings.HasPrefix(key, namespace) && (strings.Contains(key, "TOKEN") || strings.Contains(key, "API_KEY") || strings.Contains(key, "URL"))
-		for _, candidate := range prefixes {
-			matched = matched || strings.HasPrefix(key, candidate)
-		}
-		for _, candidate := range exact {
-			matched = matched || key == candidate
-		}
-		if matched {
-			overrides = append(overrides, prefix+safeName(key))
-		}
-	}
-	return overrides
 }
 
 func safeName(name string) string {
@@ -774,8 +728,8 @@ func tomlScalar(value string) (string, bool) {
 }
 
 // claudeSettingsOverrides reports settings that select API-key helpers,
-// cloud-provider credentials, the Console (API) login or an environment
-// override. Unparseable settings are not assumed safe.
+// cloud-provider credentials or the Console (API) login. Environment
+// entries are delegated to the vendor CLI. Unparseable settings remain unproven.
 func claudeSettingsOverrides(content []byte, prefix string) ([]string, bool) {
 	var settings map[string]json.RawMessage
 	if err := json.Unmarshal(content, &settings); err != nil {
@@ -792,17 +746,6 @@ func claudeSettingsOverrides(content []byte, prefix string) ([]string, bool) {
 		if json.Unmarshal(raw, &method) != nil || method != "claudeai" {
 			overrides = append(overrides, prefix+"forceLoginMethod")
 		}
-	}
-	if raw, exists := settings["env"]; exists {
-		var environment map[string]json.RawMessage
-		if json.Unmarshal(raw, &environment) != nil {
-			return nil, false
-		}
-		keys := make(map[string]string, len(environment))
-		for key := range environment {
-			keys[strings.ToUpper(key)] = ""
-		}
-		overrides = append(overrides, environmentOverrides("claude", keys, prefix+"env:")...)
 	}
 	return overrides, true
 }

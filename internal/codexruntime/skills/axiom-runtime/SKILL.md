@@ -154,20 +154,19 @@ executable, and never replace or rank the requested model.
 
 ## Authentication observation scope
 
-`runtime claude auth` observes the current shell and working directory. A
-Claude Desktop host can supply routing and session variables; do not tell the
-operator to delete host-managed variables or interpret every token as an API
-key. `CLAUDE_CODE_MESSAGING_TOKEN` is local messaging, not model authentication.
-`CLAUDE_CODE_OAUTH_TOKEN` is a subscription OAuth source outside Axiom's local
-login contract; its refusal does not prove API billing.
+`runtime <codex|claude> auth` observes vendor login with the current shell and
+working directory. Environment variable names, including Claude settings `env`
+entries, do not establish authentication compatibility or billing. Do not tell
+the operator to remove `ANTHROPIC_BASE_URL`, OAuth, API-key or Desktop session
+variables to clear authentication. Report the vendor login result and any
+explicit non-environment configuration or identity failure. A subscription login
+does not prove inference route, billing, token usability or execution readiness.
 
-Stage execution constructs its own closed environment and rechecks authentication
-against the exact child invocation. A blocked parent-shell observation does not
-prove that child is blocked; a clean-shell observation does not prove it ready.
-Retain the reported scope and blockers. Do not silently unset variables, sanitize
-the parent environment, switch authentication paths or bypass the child check.
-Use supported inspection for the actual target; if unavailable, report that
-qualification gap. Independent configuration is not Execution readiness.
+Stage execution retains its closed environment and repeats the same preflight
+against the exact effective child invocation. Do not silently modify the parent
+environment, switch authentication paths or bypass the child check. A shell
+observation cannot replace that check or establish Project readiness. Use
+supported inspection for the actual target; otherwise report the qualification gap.
 
 ## Model Advisor
 

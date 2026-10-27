@@ -152,75 +152,59 @@ func TestAuthPreflightInspectsTheExactEffectiveInvocation(t *testing.T) {
 	}
 }
 
-func TestAuthPreflightRejectsEnvironmentOverridesBeforeRunningStatus(t *testing.T) {
-	for name, tc := range map[string]struct{ runtimeID, entry, override string }{
-		"openai key":          {"codex", "OPENAI_API_KEY=sk-live-secret", "env:OPENAI_API_KEY"},
-		"openai base url":     {"codex", "OPENAI_BASE_URL=https://gateway.invalid", "env:OPENAI_BASE_URL"},
-		"codex exec key":      {"codex", "CODEX_API_KEY=sk-live-secret", "env:CODEX_API_KEY"},
-		"azure openai":        {"codex", "AZURE_OPENAI_API_KEY=secret", "env:AZURE_OPENAI_API_KEY"},
-		"anthropic key":       {"claude", "ANTHROPIC_API_KEY=sk-ant-secret", "env:ANTHROPIC_API_KEY"},
-		"anthropic token":     {"claude", "ANTHROPIC_AUTH_TOKEN=secret", "env:ANTHROPIC_AUTH_TOKEN"},
-		"anthropic gateway":   {"claude", "ANTHROPIC_BASE_URL=https://gateway.invalid", "env:ANTHROPIC_BASE_URL"},
-		"bedrock":             {"claude", "CLAUDE_CODE_USE_BEDROCK=1", "env:CLAUDE_CODE_USE_BEDROCK"},
-		"vertex":              {"claude", "CLAUDE_CODE_USE_VERTEX=1", "env:CLAUDE_CODE_USE_VERTEX"},
-		"oauth token env":     {"claude", "CLAUDE_CODE_OAUTH_TOKEN=secret", "env:CLAUDE_CODE_OAUTH_TOKEN"},
-		"bedrock bearer":      {"claude", "AWS_BEARER_TOKEN_BEDROCK=secret", "env:AWS_BEARER_TOKEN_BEDROCK"},
-		"lowercase inherited": {"claude", "anthropic_api_key=secret", "env:ANTHROPIC_API_KEY"},
-		"api key descriptor":  {"claude", "CLAUDE_CODE_API_KEY_FILE_DESCRIPTOR=3", "env:CLAUDE_CODE_API_KEY_FILE_DESCRIPTOR"},
-		"oauth descriptor":    {"claude", "CLAUDE_CODE_OAUTH_TOKEN_FILE_DESCRIPTOR=3", "env:CLAUDE_CODE_OAUTH_TOKEN_FILE_DESCRIPTOR"},
-		"codex refresh url":   {"codex", "CODEX_REFRESH_TOKEN_URL_OVERRIDE=https://x.invalid", "env:CODEX_REFRESH_TOKEN_URL_OVERRIDE"},
-	} {
-		t.Run(name, func(t *testing.T) {
-			fixture := newAuthFixture(t, tc.runtimeID)
-			fixture.env = append(fixture.env, tc.entry)
-			runner := &fakeStatus{version: ok("1.2.3"), status: ok("Logged in using ChatGPT")}
-			report := check(t, tc.runtimeID, fixture, runner)
-			if report.Status != AuthIncompatible || report.Reason != "environment_override" || strings.Join(report.Overrides, ",") != tc.override || len(runner.calls) != 0 {
-				t.Fatalf("report=%+v calls=%v", report, runner.calls)
+func TestAuthPreflightDoesNotClassifyEnvironmentVariables(t *testing.T) {
+	for _, runtimeID := range []string{"codex", "claude"} {
+		fixture := newAuthFixture(t, runtimeID)
+		fixture.env = append(fixture.env,
+			"OPENAI_API_KEY=synthetic-key", "OPENAI_BASE_URL=https://gateway.invalid",
+			"CODEX_API_KEY=synthetic-key", "AZURE_OPENAI_API_KEY=synthetic-key",
+			"ANTHROPIC_BASE_URL=https://desktop.invalid", "ANTHROPIC_API_KEY=synthetic-key",
+			"ANTHROPIC_AUTH_TOKEN=synthetic-token", "CLAUDE_CODE_OAUTH_TOKEN=synthetic-oauth",
+			"CLAUDE_CODE_MESSAGING_TOKEN=synthetic-session", "CLAUDE_CODE_USE_BEDROCK=1",
+			"CLAUDE_CODE_USE_VERTEX=1", "CLAUDE_CODE_API_KEY_FILE_DESCRIPTOR=3",
+			"CLAUDE_CODE_FUTURE_TOKEN_URL=https://future.invalid")
+		status := "Logged in using ChatGPT"
+		if runtimeID == "claude" {
+			status = claudeSubscription
+		}
+		runner := &fakeStatus{version: ok("2.1.310"), status: ok(status)}
+		report := check(t, runtimeID, fixture, runner)
+		if !report.DispatchAllowed() || len(report.Overrides) != 0 || len(runner.calls) != 2 {
+			t.Fatalf("environment blocked login: %+v", report)
+		}
+		if strings.Join(runner.envs[1], "\n") != strings.Join(fixture.env, "\n") {
+			t.Fatal("environment changed")
+		}
+		wire, _ := json.Marshal(report)
+		for _, secret := range []string{"synthetic-", "desktop.invalid", "gateway.invalid", "future.invalid"} {
+			if strings.Contains(string(wire), secret) {
+				t.Fatalf("environment value leaked: %s", wire)
 			}
-		})
-	}
-	// Variables of the other vendor, or unrelated tokens, do not change this path.
-	fixture := newAuthFixture(t, "codex")
-	fixture.env = append(fixture.env, "ANTHROPIC_API_KEY=other-vendor", "GITHUB_TOKEN=unrelated", "CODEX_HOME=", "CLAUDE_CODE_ENTRYPOINT=cli")
-	if report := check(t, "codex", fixture, &fakeStatus{version: ok("codex-cli 0.159.1"), status: ok("Logged in using ChatGPT")}); !report.DispatchAllowed() {
-		t.Fatalf("unrelated variables blocked: %+v", report)
-	}
-	fixture.env = append(fixture.env, "HOME=/duplicate")
-	if report := check(t, "codex", fixture, &fakeStatus{}); report.Status != AuthUnproven || report.Reason != "environment_ambiguous" {
-		t.Fatalf("duplicate key report=%+v", report)
-	}
-}
-
-func TestAuthPreflightMessagingTokenDoesNotSelectModelAuthentication(t *testing.T) {
-	for _, entry := range []string{"CLAUDE_CODE_MESSAGING_TOKEN=synthetic-session-token", "claude_code_messaging_token=synthetic-session-token"} {
-		for _, blocker := range []string{"", "ANTHROPIC_BASE_URL=https://gateway.invalid", "CLAUDE_CODE_OAUTH_TOKEN=synthetic-oauth-token", "CLAUDE_CODE_MESSAGING_TOKEN_URL=https://gateway.invalid"} {
-			t.Run(entry+"/"+strings.SplitN(blocker, "=", 2)[0], func(t *testing.T) {
-				fixture := newAuthFixture(t, "claude")
-				fixture.env = append(fixture.env, entry)
-				if blocker != "" {
-					fixture.env = append(fixture.env, blocker)
-				}
-				runner := &fakeStatus{version: ok("2.1.310"), status: ok(claudeSubscription)}
-				report := check(t, "claude", fixture, runner)
-				if blocker == "" {
-					if !report.DispatchAllowed() || len(runner.calls) != 2 || len(report.Overrides) != 0 {
-						t.Fatalf("session messaging blocked subscription observation: %+v", report)
-					}
-					return
-				}
-				want := "env:" + strings.SplitN(blocker, "=", 2)[0]
-				if report.Status != AuthIncompatible || report.Reason != "environment_override" || strings.Join(report.Overrides, ",") != want || len(runner.calls) != 0 {
-					t.Fatalf("auth override not preserved: %+v", report)
-				}
-			})
 		}
 	}
 	fixture := newAuthFixture(t, "claude")
-	fixture.env = append(fixture.env, "CLAUDE_CODE_MESSAGING_TOKEN=synthetic-session-token")
-	runner := &fakeStatus{version: ok("2.1.310"), status: exit(1, `{"loggedIn":false,"authMethod":"none","apiProvider":"firstParty"}`)}
-	if report := check(t, "claude", fixture, runner); report.Status != AuthUnavailable || report.DispatchAllowed() {
-		t.Fatalf("messaging token bypassed missing model login: %+v", report)
+	fixture.env = append(fixture.env, "HOME=/duplicate")
+	if report := check(t, "claude", fixture, &fakeStatus{}); report.Status != AuthUnproven || report.Reason != "environment_ambiguous" {
+		t.Fatalf("ambiguous environment accepted: %+v", report)
+	}
+}
+
+func TestAuthPreflightEnvironmentDoesNotOverrideVendorFailure(t *testing.T) {
+	for _, tc := range []struct {
+		status StatusResult
+		want   AuthStatus
+	}{
+		{exit(1, `{"loggedIn":false,"authMethod":"none","apiProvider":"firstParty"}`), AuthUnavailable},
+		{ok(`{"loggedIn":true,"authMethod":"api_key","apiProvider":"firstParty"}`), AuthIncompatible},
+		{ok(`{}`), AuthUnproven},
+	} {
+		fixture := newAuthFixture(t, "claude")
+		fixture.env = append(fixture.env, "ANTHROPIC_BASE_URL=https://desktop.invalid", "CLAUDE_CODE_MESSAGING_TOKEN=synthetic-session")
+		runner := &fakeStatus{version: ok("2.1.310"), status: tc.status}
+		report := check(t, "claude", fixture, runner)
+		if report.Status != tc.want || report.DispatchAllowed() || len(runner.calls) != 2 {
+			t.Fatalf("vendor failure ignored: %+v", report)
+		}
 	}
 }
 
@@ -235,26 +219,26 @@ func TestAuthPreflightRejectsConfigurationOverrides(t *testing.T) {
 		want                     AuthStatus
 		reason, override         string
 	}{
-		"codex custom provider":     {"codex", "home/.codex/config.toml", "model = \"o4\"\nmodel_provider = \"azure\" # gateway\n", false, AuthIncompatible, "configuration_override", "codex_config:user:model_provider"},
-		"codex provider table":      {"codex", "home/.codex/config.toml", "[model_providers.proxy]\nbase_url = \"https://x.invalid\"\nenv_key = \"PROXY_KEY\"\n", false, AuthIncompatible, "configuration_override", "codex_config:user:base_url,codex_config:user:model_providers"},
-		"codex inline profile":      {"codex", "home/.codex/config.toml", "profiles = { fast = { model_provider = \"azure\" } }\n", false, AuthIncompatible, "configuration_override", "codex_config:user:profiles"},
-		"codex base url":            {"codex", "home/.codex/config.toml", "openai_base_url = \"https://gateway.invalid\"\n", false, AuthIncompatible, "configuration_override", "codex_config:user:openai_base_url"},
-		"codex home managed":        {"codex", "home/.codex/managed_config.toml", "forced_login_method = \"api\"\n", false, AuthIncompatible, "configuration_override", "codex_config:managed:forced_login_method"},
-		"codex system managed":      {"codex", "etc/codex/managed_config.toml", "model_provider = \"oss\"\n", true, AuthIncompatible, "configuration_override", "codex_config:managed:model_provider"},
-		"claude managed drop-in":    {"claude", "managed/managed-settings.d/10-key.json", `{"apiKeyHelper":"x"}`, false, AuthIncompatible, "configuration_override", "claude_settings:managed:apiKeyHelper"},
-		"codex profile provider":    {"codex", "home/.codex/config.toml", "[profiles.fast]\nmodel_provider = 'ollama'\n", false, AuthIncompatible, "configuration_override", "codex_config:user:model_provider"},
-		"codex api key preference":  {"codex", "home/.codex/config.toml", "preferred_auth_method = \"apikey\"\n", false, AuthIncompatible, "configuration_override", "codex_config:user:preferred_auth_method"},
-		"codex forced api login":    {"codex", "home/.codex/config.toml", "forced_login_method = \"api\"\n", false, AuthIncompatible, "configuration_override", "codex_config:user:forced_login_method"},
-		"codex project config":      {"codex", "workspace/.codex/config.toml", "model_provider = \"oss\"\n", false, AuthIncompatible, "configuration_override", "codex_config:project:model_provider"},
-		"codex compatible config":   {"codex", "home/.codex/config.toml", "# model_provider = \"azure\"\nmodel_provider = \"openai\"\npreferred_auth_method = \"chatgpt\"\nforced_login_method = \"chatgpt\"\n", false, AuthSubscriptionObserved, "", ""},
-		"claude api key helper":     {"claude", "home/.claude/settings.json", `{"apiKeyHelper":"/usr/local/bin/print-secret"}`, false, AuthIncompatible, "configuration_override", "claude_settings:user:apiKeyHelper"},
-		"claude settings env key":   {"claude", "workspace/.claude/settings.json", `{"env":{"ANTHROPIC_API_KEY":"sk-ant-secret"}}`, false, AuthIncompatible, "configuration_override", "claude_settings:project:env:ANTHROPIC_API_KEY"},
-		"claude local bedrock":      {"claude", "workspace/.claude/settings.local.json", `{"env":{"CLAUDE_CODE_USE_BEDROCK":"1"}}`, false, AuthIncompatible, "configuration_override", "claude_settings:project_local:env:CLAUDE_CODE_USE_BEDROCK"},
-		"claude console login":      {"claude", "home/.claude/settings.json", `{"forceLoginMethod":"console"}`, false, AuthIncompatible, "configuration_override", "claude_settings:user:forceLoginMethod"},
-		"claude aws export":         {"claude", "home/.claude/settings.json", `{"awsCredentialExport":"/bin/creds"}`, false, AuthIncompatible, "configuration_override", "claude_settings:user:awsCredentialExport"},
-		"claude managed helper":     {"claude", "managed/managed-settings.json", `{"apiKeyHelper":"x"}`, true, AuthIncompatible, "configuration_override", "claude_settings:managed:apiKeyHelper"},
-		"claude invalid settings":   {"claude", "home/.claude/settings.json", `{"apiKeyHelper":`, false, AuthUnproven, "configuration_unreadable", ""},
-		"claude compatible setting": {"claude", "home/.claude/settings.json", `{"forceLoginMethod":"claudeai","env":{"DISABLE_TELEMETRY":"1"},"permissions":{}}`, false, AuthSubscriptionObserved, "", ""},
+		"codex custom provider":       {"codex", "home/.codex/config.toml", "model = \"o4\"\nmodel_provider = \"azure\" # gateway\n", false, AuthIncompatible, "configuration_override", "codex_config:user:model_provider"},
+		"codex provider table":        {"codex", "home/.codex/config.toml", "[model_providers.proxy]\nbase_url = \"https://x.invalid\"\nenv_key = \"PROXY_KEY\"\n", false, AuthIncompatible, "configuration_override", "codex_config:user:base_url,codex_config:user:model_providers"},
+		"codex inline profile":        {"codex", "home/.codex/config.toml", "profiles = { fast = { model_provider = \"azure\" } }\n", false, AuthIncompatible, "configuration_override", "codex_config:user:profiles"},
+		"codex base url":              {"codex", "home/.codex/config.toml", "openai_base_url = \"https://gateway.invalid\"\n", false, AuthIncompatible, "configuration_override", "codex_config:user:openai_base_url"},
+		"codex home managed":          {"codex", "home/.codex/managed_config.toml", "forced_login_method = \"api\"\n", false, AuthIncompatible, "configuration_override", "codex_config:managed:forced_login_method"},
+		"codex system managed":        {"codex", "etc/codex/managed_config.toml", "model_provider = \"oss\"\n", true, AuthIncompatible, "configuration_override", "codex_config:managed:model_provider"},
+		"claude managed drop-in":      {"claude", "managed/managed-settings.d/10-key.json", `{"apiKeyHelper":"x"}`, false, AuthIncompatible, "configuration_override", "claude_settings:managed:apiKeyHelper"},
+		"codex profile provider":      {"codex", "home/.codex/config.toml", "[profiles.fast]\nmodel_provider = 'ollama'\n", false, AuthIncompatible, "configuration_override", "codex_config:user:model_provider"},
+		"codex api key preference":    {"codex", "home/.codex/config.toml", "preferred_auth_method = \"apikey\"\n", false, AuthIncompatible, "configuration_override", "codex_config:user:preferred_auth_method"},
+		"codex forced api login":      {"codex", "home/.codex/config.toml", "forced_login_method = \"api\"\n", false, AuthIncompatible, "configuration_override", "codex_config:user:forced_login_method"},
+		"codex project config":        {"codex", "workspace/.codex/config.toml", "model_provider = \"oss\"\n", false, AuthIncompatible, "configuration_override", "codex_config:project:model_provider"},
+		"codex compatible config":     {"codex", "home/.codex/config.toml", "# model_provider = \"azure\"\nmodel_provider = \"openai\"\npreferred_auth_method = \"chatgpt\"\nforced_login_method = \"chatgpt\"\n", false, AuthSubscriptionObserved, "", ""},
+		"claude api key helper":       {"claude", "home/.claude/settings.json", `{"apiKeyHelper":"/usr/local/bin/print-secret"}`, false, AuthIncompatible, "configuration_override", "claude_settings:user:apiKeyHelper"},
+		"claude settings environment": {"claude", "workspace/.claude/settings.json", `{"env":{"ANTHROPIC_API_KEY":"sk-ant-secret","ANTHROPIC_BASE_URL":"https://desktop.invalid","CLAUDE_CODE_OAUTH_TOKEN":"synthetic-oauth"}}`, false, AuthSubscriptionObserved, "", ""},
+		"claude local bedrock":        {"claude", "workspace/.claude/settings.local.json", `{"env":{"CLAUDE_CODE_USE_BEDROCK":"1"}}`, false, AuthSubscriptionObserved, "", ""},
+		"claude console login":        {"claude", "home/.claude/settings.json", `{"forceLoginMethod":"console"}`, false, AuthIncompatible, "configuration_override", "claude_settings:user:forceLoginMethod"},
+		"claude aws export":           {"claude", "home/.claude/settings.json", `{"awsCredentialExport":"/bin/creds"}`, false, AuthIncompatible, "configuration_override", "claude_settings:user:awsCredentialExport"},
+		"claude managed helper":       {"claude", "managed/managed-settings.json", `{"apiKeyHelper":"x"}`, true, AuthIncompatible, "configuration_override", "claude_settings:managed:apiKeyHelper"},
+		"claude invalid settings":     {"claude", "home/.claude/settings.json", `{"apiKeyHelper":`, false, AuthUnproven, "configuration_unreadable", ""},
+		"claude compatible setting":   {"claude", "home/.claude/settings.json", `{"forceLoginMethod":"claudeai","env":{"DISABLE_TELEMETRY":"1"},"permissions":{}}`, false, AuthSubscriptionObserved, "", ""},
 	} {
 		t.Run(name, func(t *testing.T) {
 			fixture := newAuthFixture(t, tc.runtimeID)
@@ -376,7 +360,7 @@ func TestAuthReportExcludesSecretsAndAccountIdentifiers(t *testing.T) {
 			}
 		}
 	}
-	if !strings.Contains(strings.Join(reports[4].Overrides, ","), "claude_settings:user:env:unnamed") {
+	if strings.Join(reports[4].Overrides, ",") != "claude_settings:user:apiKeyHelper" {
 		t.Fatalf("unsafe key name not replaced: %+v", reports[4])
 	}
 }
@@ -465,7 +449,7 @@ func TestAuthPreflightInspectsAncestorAndWorktreeProjectSettings(t *testing.T) {
 			t.Fatal(err)
 		}
 		report := check(t, "claude", fixture, claudeStatus())
-		if report.Status != AuthIncompatible || strings.Join(report.Overrides, ",") != "claude_settings:project_local:env:ANTHROPIC_API_KEY" {
+		if report.Status != AuthSubscriptionObserved || len(report.Overrides) != 0 {
 			t.Fatalf("report=%+v", report)
 		}
 	})

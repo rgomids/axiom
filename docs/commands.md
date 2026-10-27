@@ -662,19 +662,18 @@ axiom runtime claude status
 axiom runtime claude auth
 ```
 
-`runtime <codex|claude> auth` is the read-only CLI subscription authentication
-preflight ([#272 contract](specifications/004-mvp-v1-baseline/issue-272-cli-subscription-auth-preflight.md)).
-It runs only `<runtime> --version` and the vendor status command
-(`codex login status`, `claude auth status --json`) for the executable on `PATH`
-with this shell's environment, and inspects API-key, provider, helper and
-gateway overrides in that environment and in the Runtime configuration. It
-reports `subscription_observed`, `unproven`, `incompatible`, `unavailable` or
-`unsupported`, with the version, the observed method, the executable digest and
-override names only; it never logs in, refreshes, runs inference or reads
-credential values. Only `subscription_observed` succeeds, and it still reports
-`usability: unproven_until_real_dispatch`: a login status is not proof of a
-usable subscription or of billing. Graph dispatch configured for the
-subscription scenario repeats this check on each child's exact invocation.
+`runtime <codex|claude> auth` is the read-only CLI login observation
+([#272 contract](specifications/004-mvp-v1-baseline/issue-272-cli-subscription-auth-preflight.md)).
+It runs vendor version/status commands with the shell's unchanged environment
+and working directory. Environment variable names, including Claude settings
+`env` entries, do not determine authentication compatibility. The CLI's reported
+login method, executable identity and explicit non-environment configuration
+checks determine the result. Only `subscription_observed` succeeds; API-key or
+missing login, ambiguous status and observation failures remain failures.
+Success is not proof of effective routing, billing, usability or Project readiness.
+No login, refresh, inference or global environment change is performed. Stage
+dispatch retains its existing environment isolation and repeats the same check
+on each child's effective invocation.
 
 Codex standalone skill names accept lowercase letters, digits and hyphens, so
 the requested semantic `axiom:<skill>` names are invoked as:

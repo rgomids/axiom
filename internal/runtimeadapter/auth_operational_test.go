@@ -57,7 +57,7 @@ func TestOperationalAuthVersionIsOnlyDiagnosticMetadata(t *testing.T) {
 
 func TestOperationalAuthPreservesConcreteFailureBoundaries(t *testing.T) {
 	for _, runtimeID := range []string{"codex", "claude"} {
-		for _, scenario := range []string{"version-timeout", "version-cancelled", "version-drift", "version-disappeared", "status-cancelled", "status-drift", "status-unrecognized", "not-logged-in", "api-override", "unsafe-configuration"} {
+		for _, scenario := range []string{"version-timeout", "version-cancelled", "version-drift", "version-disappeared", "status-cancelled", "status-drift", "status-unrecognized", "not-logged-in", "unsafe-configuration"} {
 			t.Run(runtimeID+"/"+scenario, func(t *testing.T) {
 				fixture := newAuthFixture(t, runtimeID)
 				target := fixture.target(runtimeID)
@@ -106,13 +106,6 @@ func TestOperationalAuthPreservesConcreteFailureBoundaries(t *testing.T) {
 				}}
 				wantCalls := 2
 				switch scenario {
-				case "api-override":
-					variable := "OPENAI_API_KEY"
-					if runtimeID == "claude" {
-						variable = "ANTHROPIC_API_KEY"
-					}
-					target.Environment = append(target.Environment, variable+"=synthetic-override")
-					wantCalls = 0
 				case "unsafe-configuration":
 					path := fixture.home + "/.codex/config.toml"
 					content := `forced_login_method = "api"`

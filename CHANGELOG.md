@@ -4,8 +4,9 @@
 
 ### Bug fixes
 
-- Exclude Claude's local session messaging token from model authentication
-  overrides; endpoint and credential overrides remain blocked.
+- Stop rejecting Runtime authentication by environment variable names, including
+  Claude Desktop routing and settings `env` entries; preserve vendor login,
+  executable identity and explicit non-environment configuration checks.
 - Add Project context and observed Axiom version headers to conversational
   skill responses, preserving unmodified explicit JSON output.
 

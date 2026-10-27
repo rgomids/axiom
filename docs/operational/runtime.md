@@ -26,34 +26,25 @@ versions. Explicit raw JSON output is unchanged.
 
 ## Authentication environment
 
-`axiom --json runtime claude auth` observes the current shell's effective
-environment and configuration. An `environment_override` diagnostic names
-variables without exposing their values. Inspect their owner before changing
-them: a host or managed gateway may require them. Do not delete host credentials
-or persist a global environment change merely to clear a readiness diagnostic.
+`axiom --json runtime <codex|claude> auth` observes the vendor's login status
+with the current shell's environment and working directory. Axiom does not
+classify environment variable names as authentication or billing overrides,
+including entries under `env` in Claude settings. `ANTHROPIC_BASE_URL`, OAuth,
+API-key and Desktop session variables do not cause an early refusal. Do not
+remove host-managed variables to clear an authentication diagnostic.
 
-`CLAUDE_CODE_MESSAGING_TOKEN` authenticates local session messaging, so its
-presence alone does not block model authentication. `ANTHROPIC_BASE_URL`
-changes the model endpoint and remains blocked by the local subscription
-contract. `CLAUDE_CODE_OAUTH_TOKEN` also remains outside that contract; this
-does not prove API-key billing. Anthropic documents it as subscription OAuth
-for automation. See the official [environment reference](https://code.claude.com/docs/en/env-vars)
-and [authentication guide](https://code.claude.com/docs/en/authentication)
-(checked 2026-10-26).
+The vendor's status remains authoritative for this observation: a recognized
+subscription login succeeds; API-key login, unavailable login, ambiguous output,
+timeouts and executable identity changes retain their failure outcomes.
+Explicit non-environment configuration overrides (such as a provider selection or
+credential helper) remain checked. A positive login observation proves neither
+which route an inference uses nor subscription billing or token usability.
 
-For the local subscription scenario, use an operator-controlled shell with the
-intended local login and environment, then repeat the diagnostic there. A
-positive login observation in that shell does not repair a host-managed gateway
-or prove readiness in another host. Profiles and Workflow selection do not
-change this authentication boundary; inference still needs separate authority.
-
-The shell diagnostic and a Stage child are different targets. Stage execution
-uses `StageEnvironment` to construct a closed environment without inherited
-provider routing or credentials, then checks authentication against that exact
-child invocation. An incompatible Desktop shell does not establish that the
-Stage child is incompatible. Conversely, a successful clean-shell observation
-cannot replace the child check or establish overall Project readiness. Do not
-change the Desktop's global environment to reconcile these scopes.
+Stage execution retains its existing closed environment (`StageEnvironment`)
+and repeats authentication against its exact effective invocation. No new host
+scope, endpoint allowlist or alternate admission path is introduced. A successful
+shell diagnostic does not establish overall Project readiness or replace the
+child check. Neither check changes the parent environment.
 
 ## Man pages
 

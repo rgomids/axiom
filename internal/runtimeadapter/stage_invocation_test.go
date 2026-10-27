@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/rgomids/axiom/internal/executiongraph"
@@ -106,18 +107,23 @@ func TestStageAuthDoesNotInheritDesktopRouting(t *testing.T) {
 		t.Fatal(err)
 	}
 	parent := fixture.target("claude")
-	if report := preflight.Check(context.Background(), parent); report.Status != AuthIncompatible || len(runner.calls) != 0 {
-		t.Fatalf("parent override not blocked: %+v", report)
+	if report := preflight.Check(context.Background(), parent); !report.DispatchAllowed() || len(runner.calls) != 2 {
+		t.Fatalf("parent login not observed: %+v", report)
 	}
 	child := fixture.target("claude")
 	child.Environment, err = StageEnvironment("claude", parent.Environment)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if report := preflight.Check(context.Background(), child); !report.DispatchAllowed() || len(runner.calls) != 2 {
+	for _, entry := range child.Environment {
+		if strings.HasPrefix(entry, "ANTHROPIC_") || strings.HasPrefix(entry, "CLAUDE_CODE_") {
+			t.Fatal("Desktop environment inherited by Stage")
+		}
+	}
+	if report := preflight.Check(context.Background(), child); !report.DispatchAllowed() || len(runner.calls) != 4 {
 		t.Fatalf("isolated child login not observed: %+v", report)
 	}
-	if report := preflight.Check(context.Background(), parent); report.Status != AuthIncompatible || len(runner.calls) != 2 {
+	if report := preflight.Check(context.Background(), parent); !report.DispatchAllowed() || len(runner.calls) != 6 {
 		t.Fatalf("parent environment changed: %+v", report)
 	}
 }
