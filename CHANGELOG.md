@@ -34,6 +34,13 @@
   Projects created by `project configure` carry no policy and block until an
   authored policy is installed.
 
+## [0.22.3](https://github.com/rgomids/axiom/compare/v0.22.2...v0.22.3) (2026-10-27)
+
+
+### Bug Fixes
+
+* **runtime:** remove environment-name authentication rejection ([#362](https://github.com/rgomids/axiom/issues/362)) ([a319f2b](https://github.com/rgomids/axiom/commit/a319f2bc4b70a62220308971b55330cbbebd826a))
+
 ## [0.22.2](https://github.com/rgomids/axiom/compare/v0.22.1...v0.22.2) (2026-10-26)
 
 
