@@ -113,10 +113,11 @@ func validHelpInputs(operation action, args []string) bool {
 		if len(args) == 0 {
 			return true
 		}
-		if len(args) != 1 {
+		name, operation, ok := parseSkillInspectArgs(args)
+		if !ok {
 			return false
 		}
-		_, ok := inspectSkill(args[0])
+		_, ok = inspectSkillOperation(name, operation)
 		return ok
 	}
 	switch {
@@ -218,7 +219,7 @@ func renderHelp(writer io.Writer, command *commandDefinition, path []string) int
 	if len(command.children) > 0 {
 		text.WriteString(" <command>")
 	} else if command.operation == skillInspectAction {
-		text.WriteString(" <skill-name>")
+		text.WriteString(" <skill-name> [--operation <name>]")
 	} else {
 		hasFlags := false
 		commandFlagSet(command.operation).VisitAll(func(*flag.Flag) { hasFlags = true })
@@ -279,6 +280,7 @@ func renderHelp(writer io.Writer, command *commandDefinition, path []string) int
 		}
 		if command.operation == skillInspectAction {
 			text.WriteString("\nRequired argument: <skill-name> = axiom-project | axiom-work-item | axiom-workflow | axiom-runtime.\n")
+			text.WriteString("Optional: --operation <name> restricts the payload to one operation of that skill, such as create.\n")
 		}
 		fmt.Fprintf(&text, "\nExample:\n  %s\n", commandExample(command.operation, path))
 	}

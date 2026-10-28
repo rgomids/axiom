@@ -1,5 +1,14 @@
 # Specifications
 
+## 014 — CLI operability for smaller models
+
+[Specification revision 1](014-small-model-cli-operability/spec.md) replays the
+0.22.3 `govsm` Work Item incident with a fake Provider and makes refusals
+recoverable without a new wire field: stable `<code>[:--<flag>]` handles in the
+existing `details`, specific Work Item texts, `skill inspect --operation` scoped
+contracts and skill guidance that preserves confirmed identifiers. Empirical
+small-model qualification is NOT_RUN; human acceptance pending.
+
 ## 013 — Runtime/Profile diagnostics and complete guided Project setup
 
 [Specification revision 1](013-runtime-diagnostics-guided-project-setup/spec.md)

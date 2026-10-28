@@ -262,6 +262,7 @@ they are never an admission dependency. No registry or probe receipt is required
 ```bash
 axiom skill inspect axiom-project
 axiom --json skill inspect axiom-work-item
+axiom --json skill inspect axiom-work-item --operation create
 axiom skill inspect axiom-workflow
 axiom skill inspect axiom-runtime
 ```
@@ -289,6 +290,23 @@ describes, and never grants, authority. Each command includes its CLI spelling a
 at that boundary. Domain validation may require additional content before a
 mutation, as stated in descriptions. Fully guided skill invocation still accepts
 missing inputs and asks for them. No workflow argument belongs on `skill inspect`.
+
+`--operation <name>` (or `--operation=<name>`) restricts the same payload to one
+operation name listed by the unrestricted inspection, such as Work Item
+`create` or Project `list`: `skill.operations[]` holds only that operation and
+`skill.commands[]` only its commands. It is a view of the same registrations,
+never a second registry; an unknown operation is a validation failure. A
+Runtime uses it to load only the contract it is about to execute.
+
+A refused Work Item or workflow selector command sets the canonical `details`
+field to a stable handle: `<code>` or `<code>:--<flag>`, for example
+`unknown_input:--title`, `duplicate_input:--project`,
+`missing_required_input:--provider-repository` or `conflicting_input:--work-item`.
+A refused Work Item application result sets `details` to its category, such as
+`draft_incomplete`, `invalid_draft_input`, `repository_not_configured`,
+`provider_unauthenticated`, `provider_unavailable` or
+`provider_invalid_response`. Successful results keep `details` empty. The
+handle explains a refusal; it never relaxes validation or grants authority.
 
 Both discovery and parsing use the same flag registrations and presence rules.
 Unknown/duplicate/conflicting invocation inputs retain their validation errors;
