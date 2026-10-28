@@ -11,6 +11,13 @@ Inspection stops there: do not collect inputs or execute an operation. The binar
 owns argument names, requirements, accepted forms, and executable command
 metadata; do not maintain a second argument registry in this skill.
 
+Before executing a selected operation, run
+`axiom --json skill inspect axiom-work-item --operation <operation>` without presenting
+it and build the command only from that operation's `commands[].arguments`:
+names, `requiredWhen` conditions and accepted forms. Never invent a flag. On a
+refusal, read `details` (`<code>` or `<code>:--<flag>`) and change only the
+named input; never repeat an unchanged command.
+
 Supported domain operations are `create`, `run`, `status`, `plan`, `list`, `show`, `update`, `comment`, `close`, `reopen`, `delivery.packet`, `delivery.decision`, `delivery.rework`, `delivery.prepare`, `delivery.preview`, `delivery.apply`, `delivery.inspect`, `delivery.reconcile`, `stage.run`, `stage.status`, `stage.cancel`, `stage.retry`, `stage.reconcile`, `stage.integrate`, `coordination.list`, and `coordination.show`.
 Any other operation, such as `delete` or Execution `cancel`, is unsupported:
 report that it is not available and do not run a Lingo command for it. Work
@@ -123,10 +130,23 @@ Axiom-authored elaboration. Do not invent environments, actors, deadlines,
 technical commitments, or acceptance Evidence.
 
 Collect only missing target facts: Project selector, Project-scoped repository
-key, and explicit GitHub `owner/repository`. Do not infer the target from CWD or
-Git remotes. Use `story`, `bug`, or `task` according to delivery intent; a
+key, and explicit GitHub `owner/repository`. Do not infer the target from CWD,
+Git remotes or memory. Once the user states or confirms them, reuse those exact
+values for inspection, preview and the authorized repeat; ask again only when
+Lingo reports one missing, ambiguous or invalid, or the user changes it. Use `story`, `bug`, or `task` according to delivery intent; a
 story requires beneficiary and concrete value. Preserve explicitly requested
 provider classifications and let Lingo validate them.
+
+Pass each section through the inputs listed by the scoped `create` inspection:
+a verbatim user section uses its own flag; an Axiom-authored section uses
+`--elaborated-section <name>=<text>`; never both for one section. There is no
+`--title` or `--body`. Read-only inspection, `project validate` and the preview
+need no confirmation: continue through them. A `draft_incomplete` result lists
+`questions`; ask only those, or supply clearly marked elaboration, and preview
+again. Stop for a Provider or configuration code in `details` (for example
+`provider_unauthenticated`, `provider_unavailable`, `provider_invalid_response`
+or `work_item_capability_unavailable`): report `result` and `next` and do not
+retry until the operator resolves it.
 
 Run `axiom --json work-item create` without authority first. Present the
 complete returned draft, authorship/assumptions, target, effects, expected
@@ -399,6 +419,29 @@ Use leading `axiom --json` internally for every domain operation, both natural
 intent and explicit skill invocation. The user need not request raw JSON.
 Consume one canonical JSON document from the same invocation; never parse the
 terminal presentation or repeat a mutation to obtain a different view.
+
+### Response context header
+
+Begin each normal Axiom domain response with a Markdown heading `### Axiom · <Project>`
+when the current operation has one unambiguously observed target Project. Use its
+human name (slug only if name is absent), escaped as inert single-line Markdown.
+Do not use a Repository name, guess a Project from the working directory, or carry
+a previous Project into an unscoped operation. For Project listing, no Project,
+multiple targets or unresolved identity, use `### Axiom` with no separator.
+
+Immediately below, write `*Versão <version>*`, using `provenance.version` from the
+same canonical result, never the vendor CLI version, a release tag or skill text.
+If unavailable, write `*Versão não observada*`; do not invent or reuse a stale
+version. Preserve dirty/unknown source qualifications and conflicting versions
+when multiple results contribute: use `*Versão conflitante*` and name every
+conflicting observed version in the body. Normalize label line breaks, control
+and Unicode format characters to spaces, collapse whitespace, escape HTML and
+Markdown structural punctuation; keep Unicode names readable and inert.
+Escape metadata as inert single-line Markdown.
+Then give the effective result, blockers and next action in ordinary concise prose.
+This header changes host presentation only; no new CLI renderer, domain status,
+extra LLM call or automatic diagram is needed. Explicit raw JSON requests retain
+the unchanged canonical JSON with no added header or subtitle.
 
 The host writes the normal conversational response itself: objective, effective
 result, material blockers/risks/decision, then the smallest supported next action.

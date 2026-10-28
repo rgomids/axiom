@@ -1,0 +1,136 @@
+# Plan 013 — Diagnósticos de Runtime/Profile e setup guiado
+
+**Proposed — revisão 3, 2026-10-26** (revisão 2: CR-356-01, CR-356-02; revisão 3: Model Advisor, ampliação de escopo do mantenedor). Implementa a [Spec 013](spec.md).
+
+## Decisões técnicas locais
+
+| Decisão | Escolha | Justificativa |
+|---|---|---|
+| Forma do diagnóstico | Lista aditiva `runtimeAuthoring.diagnostics[]` | Preserva categorias/contratos (RD-04); várias violações visíveis de uma vez |
+| Fonte da explicação | `runtimeprofile.ProfileViolations` ao lado das regras | Mantém regras e explicação no mesmo pacote; `Validate` intocado; teste de concordância (RD-08) |
+| Recusas de `editCandidate` | Mapeamento código → diagnóstico em `runtimeapplication` | Sem nova lógica de domínio; somente explicação |
+| `next` do completion | Primeiro diagnóstico + escopo declarativo | Terminal mostra `next` no topo; paridade via JSON único |
+| Wizard | Orientação na skill `axiom-project` + nota em `axiom-runtime` | Requisito de não criar mecanismo paralelo; operações canônicas já cobrem toda a jornada |
+| Ordem da jornada (CR-356-01) | Identidade → inspeção de Workflow → Profiles → política G-1 → seleção → validate | Única ordem viável com contratos atuais: `project workflow list/show` exigem Project; G-1 recusa Project com Workflow selecionado; readiness só é observada após a seleção |
+| `--enabled` em Profile (CR-356-02) | Diagnóstico em `inputDiagnostics`, parser intocado | Menor mudança; categoria `invalid_input` e JSON preservados; erro específico em JSON e humano |
+
+Nenhuma decisão arquitetural durável nova: ADR não requerida. ADR-0023/0024/0030
+e ADR-0032 preservadas.
+
+## technical_decisions
+
+1. **CR-356-01 — bootstrap parcial em vez de nova superfície.** Alternativa
+   avaliada: inspecionar built-ins sem Project (`project workflow list/show`
+   sem `--project`). Rejeitada nesta correção por adicionar contrato CLI/skill
+   metadata; o bootstrap usa somente operações publicadas, sem nova fonte de
+   definições nem resolução duplicada.
+2. **Derivação de requisitos** apenas do resultado público de `project
+   workflow show`: união de `capabilities`, complexidades e um par
+   role/complexity por Agent para preferências; nenhum valor fixo no teste.
+3. **Pin de skill-set não publicado substituído.** O manifesto intermediário
+   `295fbd…` existiu só nesta branch; o pin passa ao novo embutido, sem entrada
+   em `sharedSkillHistory`.
+4. **Demais rejeições de `safeAuthoring`** (`--cascade` fora de remove,
+   campos de Profile ou `--enabled` em list/show/remove/…) são inalcançáveis
+   pelo parser, que só registra essas flags nas operações válidas; mantêm o
+   fallback.
+
+5. **Model Advisor como orientação de skill (revisão 3).** Os contratos atuais
+   já aceitam um modelo como intenção (`modelSupport: unconfirmed`) e separam
+   autoria de autenticação. A pesquisa é uma capacidade do host conversacional,
+   e nenhuma necessidade observável exige serviço, port, comando ou estado
+   persistente. Por isso o Advisor vive em `axiom-runtime` (dono dos Profiles),
+   e `axiom-project` o oferece na etapa 4. Sem ADR: não há decisão arquitetural
+   durável; reverter é editar a skill.
+6. **Fixtures sintéticas** com fornecedores e modelos fictícios (`va-*`,
+   `vb-*`) tornam os casos MA independentes de dados comerciais voláteis. Um
+   teste de guarda impede nomes comerciais e preços nas skills e fixtures.
+7. **Linhas pré-existentes reconciliadas:** “never recommend a concrete
+   model/effort” sem fonte autoritativa passou a reconhecer documentação
+   oficial registrada pelo Advisor como fonte de recomendação, nunca de
+   suporte.
+
+8. **Avaliação comportamental (MA-356-01)** reutiliza o padrão de
+   `scripts/maintainer-agent-eval.py`: verificações offline sempre e cenários
+   reais opcionais por `--runtime`, com status BLOCKED/NOT_RUN e nunca PASS
+   sem resposta. Novo `scripts/model-advisor-eval.py`, sem serviço nem
+   framework persistente.
+9. **Entradas controladas:** as skills são copiadas byte a byte (digest
+   registrado); as necessidades dos Agents vêm do binário real (`project
+   workflow show` em root isolado); as fontes são sintéticas e nomeadas
+   explicitamente no prompt (a ferramenta Read do Claude não lista diretórios).
+10. **Avaliação determinística:** a resposta termina com um anexo JSON fixo
+    (`ADVISOR-RESULT`); as asserções conferem anexo e prosa (IDs citados ⊆
+    fontes, nomes comerciais, status, custo, hierarquia, mutações e próxima
+    operação). Nenhum modelo avalia outro. O anexo é instrumentação do
+    avaliador, não um contrato do produto.
+11. **Modelo fixado sem fallback:** variáveis de ambiente com `MODEL` no nome
+    são removidas (sem ler valores); o modelo observado no stream deve ser o
+    fixado, senão BLOCKED. A bateria de um runtime para no primeiro BLOCKED.
+12. **Correção de avaliador por re-grade:** `--regrade` reavalia respostas
+    armazenadas, sem inferência; o status original fica preservado ao lado do
+    reavaliado.
+
+13. **Pin override explícito:** `--pin RUNTIME=MODEL` só por decisão do
+    mantenedor, validado e registrado; nunca fallback automático. Usado para
+    Codex `gpt-6.1-sol` após o `model_not_found` de `gpt-6.1-luna`.
+14. **Avaliador v3:** a ordem de gate e o canal prosa-ou-anexo para MA-10 foram
+    introduzidos após observar respostas do Codex; mantêm as propriedades,
+    são divulgados na Evidence e reaplicados a todos os relatórios.
+
+15. **Exit status agregado (MA-356-02):** `statuses()` enumera cada par
+    runtime × cenário solicitado (ausência = NOT_RUN; no `--regrade`, o status
+    reavaliado prevalece e registros sem resposta mantêm o seu). `outcome()`
+    devolve 0 somente se a lista não estiver vazia e tudo for PASS. Um código
+    único para não-sucesso basta, e as categorias continuam visíveis no stdout
+    e no relatório. A execução sem `--runtime` passou de 0 para 1: continua
+    informativa, mas não é bateria aprovada.
+
+## deferred_findings
+
+- **DF-013-01** Inspeção de definições built-in sem Project permitiria
+  configurar Profiles antes de publicar qualquer Project; exige decisão de
+  contrato CLI.
+- **DF-013-02** Project com Workflow selecionado e sem política não tem
+  caminho de edição G-1 (“requires schema 2 or 3”); exige operação aprovada
+  própria.
+
+- **DF-013-03** Medir consumo real por Profile (tokens, quotas) para basear
+  recomendações de economia em dados observados; exige Evidence de execução
+  e decisão própria.
+- **DF-013-04** Interface oficial de descoberta de modelos por Runtime, se um
+  fornecedor documentar uma sem autenticação; avaliar adapter próprio.
+
+- **DF-013-05** O avaliador não verifica a fidelidade ao estado do wizard: no
+  MA-05 do Claude, a resposta chama o Workflow de “selected” quando o estado
+  dizia escolhido e inspecionado.
+- **DF-013-06** A política de testes fixa `gpt-6.1-luna` para Codex, mas a
+  conta ChatGPT o recusa; a bateria usou `gpt-6.1-sol` por decisão do
+  mantenedor. Atualizar a política operacional é decisão própria.
+- **DF-013-07** O Codex CLI não expõe o modelo efetivo nos eventos JSON; a
+  Evidence do Codex depende só da flag fixada.
+- **DF-013-08** O anexo `ADVISOR-RESULT` admite interpretações diferentes
+  (modelo do operador como recomendação); um schema mais explícito reduziria
+  a dependência da prosa.
+
+## Arquivos
+
+- `internal/runtimeprofile/violations.go` — `Violation`, `ProfileViolations`.
+- `internal/runtimeapplication/authoring.go` — `AuthoringDiagnostic`,
+  `inputDiagnostics`, `candidateDiagnostics`, `refusalDiagnostics`, `next`.
+- `internal/codexruntime/skills/axiom-{project,runtime}/SKILL.md`,
+  `manifest.go` (histórico v0.22.0), `testdata/pre-guided-setup/`.
+- Documentação: `docs/commands.md`, `docs/operational/{runtime,project,troubleshooting}.md`.
+
+## Testes
+
+- Unit: `internal/runtimeapplication/authoring_diagnostics_test.go`.
+- E2E binário isolado: `cmd/lingo/guided_setup_journey_test.go` (executáveis
+  sintéticos que falham se invocados).
+- Skills: `internal/codexruntime/guided_setup_skill_test.go`.
+
+## Rollout e rollback
+
+Mudança aditiva no JSON e nas skills. Rollback = reverter o PR; skills
+anteriores continuam reconhecidas pelo histórico compartilhado. Sem migração
+de dados.

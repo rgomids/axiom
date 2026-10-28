@@ -28,14 +28,9 @@ Order (first failure wins, fail closed):
 
 1. Executable identity (`ExecutableIdentity`), basename and, at dispatch, the
    reviewed `executableDigest`.
-2. Environment overrides — names only:
-   Codex `OPENAI_*`, `AZURE_OPENAI_*`, `CODEX_API_KEY`;
-   Claude `ANTHROPIC_*`, `CLAUDE_CODE_USE_*`, `CLAUDE_CODE_SKIP_*`,
-   `CLOUD_ML_*`, `VERTEX_*`, `CLAUDE_CODE_OAUTH_TOKEN`,
-   `AWS_BEARER_TOKEN_BEDROCK`, `CLAUDE_CODE_API_KEY_HELPER_TTL_MS`; plus any
-   `CODEX_*` / `CLAUDE_CODE_*` name containing `TOKEN`, `API_KEY` or `URL`
-   (for example `CLAUDE_CODE_API_KEY_FILE_DESCRIPTOR`).
-   Duplicate keys are ambiguous.
+2. Environment structure only: reject ambiguous duplicate keys or malformed
+   entries. Do not classify names or values as authentication/billing overrides.
+   Name classification is also absent for `env` entries in Claude settings.
 3. Configuration overrides — key names only, values never retained:
    Codex `<CODEX_HOME or HOME/.codex>/{config,managed_config}.toml`,
    `<dir>/.codex/config.toml` for every project directory (below) and
@@ -47,9 +42,8 @@ Order (first failure wins, fail closed):
    `<dir>/.claude/settings.json` and `<dir>/.claude/settings.local.json` for
    every project directory, the
    platform managed settings and its `managed-settings.d/*.json` drop-ins (`apiKeyHelper`, `awsCredentialExport`,
-   `awsAuthRefresh`, `gcpAuthRefresh`, `forceLoginMethod` ≠ `claudeai`, and the
-   environment names above under `env`). Project directories are the working
-   directory and every ancestor (a superset of the repository root the vendor
+   `awsAuthRefresh`, `gcpAuthRefresh`, `forceLoginMethod` ≠ `claudeai`).
+   Project directories are the working directory and every ancestor (a superset of the repository root the vendor
    resolves), plus the main checkout of any Git worktree among them (followed
    through `.git` → `gitdir` → `commondir`), because Claude also loads
    `settings.local.json` from there. TOML keys are decoded (bare, literal and
@@ -68,19 +62,62 @@ timeout and 8 KiB of output that is classified and discarded.
 
 | Status | Meaning | Dispatch |
 | --- | --- | --- |
-| `subscription_observed` | Vendor status reports ChatGPT / claude.ai first-party login; no override observed | allowed |
+| `subscription_observed` | Vendor status reports ChatGPT / claude.ai first-party login; no explicit configuration override observed | allowed |
 | `unproven` | Unrecognized, ambiguous, timed out, unreadable configuration, changed executable | blocked |
-| `incompatible` | API-key/provider/helper/config override, API-key login, credential reference | blocked |
+| `incompatible` | Explicit provider/helper/config override, API-key login, credential reference | blocked |
 | `unavailable` | Not logged in, executable missing | blocked |
 | `unsupported` | No recognized status surface on the installed version | blocked |
 
 Every report carries `usability: unproven_until_real_dispatch` and
 `revalidation: before_each_dispatch`. A positive status is not usability or
 billing proof: vendor status can report a cached login whose token expired,
-and on Codex 0.159.1 / Claude 2.1.295 the status surface keeps reporting the
-subscription login while `CODEX_API_KEY` / `ANTHROPIC_API_KEY` would take
-precedence in `codex exec` / `claude --print`. That is why environment and
-configuration are inspected independently (observed read-only 2026-10-08).
+and the status surface may report a subscription login even when an environment
+variable would select a different inference route. Environment variable names
+are not used to infer compatibility or billing. Effective inference route and
+billing remain unproven by this login-only observation.
+
+### Maintainer decision — operator-owned API configuration (2026-10-26)
+
+The maintainer explicitly decided that API-key configuration on the operator's
+machine is the operator's responsibility. Axiom must not block authentication or
+dispatch merely because an API key or authentication routing override is configured,
+or because the vendor reports an API-key login rather than a subscription login.
+This is a deliberate admission-policy change, not proof that inference uses a
+subscription or a particular billing route.
+
+At most, Axiom may issue a non-blocking notice identifying the configuration key
+name. It must not read the secret value for that notice, copy it into Evidence,
+or change/remove the operator's configuration. A notice does not require a
+confirmation or become an additional admission gate.
+
+This decision supersedes the subscription-only API-key/override refusal criteria
+of #272 and the corresponding inherited acceptance requirement in #278. Preserve
+historical acceptance evidence; future validation must test notification without
+refusal, secret-free reporting and truthful unknown routing/billing. Actual login
+failures, executable identity and separate execution authority remain distinct.
+
+Implementation reconciliation is pending: PR #362 at `a54a0c7` removes environment
+classification, but still refuses vendor-reported API-key login and explicit
+provider/helper configuration. It does not implement an API-key presence notice.
+Recording this decision does not claim those remaining changes or real Runtime
+acceptance are complete. The older implementation description below remains a
+snapshot until the code and linked acceptance records are reconciled.
+
+### Environment classification removal (2026-10-26)
+
+The maintainer authorized removing the environment-name admission policy after
+Claude Desktop's routing environment was rejected. Remove that classifier from
+both the shell diagnostic and effective-invocation preflight, including the
+indirect scan of Claude settings `env`. Keep one preflight path and its existing
+report format: no host/child scope field, endpoint allowlist or second admission
+mode. Preserve executable identity, vendor status classification, explicit
+non-environment configuration checks and Stage environment isolation.
+
+Acceptance: Desktop routing, OAuth, API-key and future vendor environment names
+reach vendor status unchanged and do not enter reports; vendor-reported API-key,
+missing or ambiguous login still fails; explicit provider/helper configuration
+checks and malformed/duplicate environment detection remain effective. This
+amends only environment-name classification, not actual execution authority.
 
 ## Dispatch integration
 

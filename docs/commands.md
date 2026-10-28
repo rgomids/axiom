@@ -192,6 +192,17 @@ state, identities or dependencies require another preview. `runtime-default`
 means no Axiom override; successful authoring saves intent and proves no vendor
 model, effort support or authentication. Inspect read-back after apply.
 
+A refusal carries `runtimeAuthoring.diagnostics`: each entry names the `code`
+(`field_required`, `field_invalid`, `binding_missing`, `profile_missing`,
+`runtime_absent`, `configuration_conflict`, `configuration_invalid`), the CLI
+`field`, the `rule` and the `next` action, also shown in terminal output. For
+example, omitting `--capabilities` returns `candidate_invalid` with
+`field_required` on `--capabilities`; `--complexities` stays optional. These
+are local declaration checks: authentication is not evaluated, so do not change
+credentials or environment variables to resolve them. `validate-candidate`
+confirms declaration only; `modelSupport` and `effortSupport` stay
+`unconfirmed`.
+
 Profile create/edit changes model intent, effort, capabilities and complexity.
 Binding edit changes eligibility through `--enabled`; enable/disable use the
 same preview protocol. Removing one of several Runtimes publishes a new
@@ -251,6 +262,7 @@ they are never an admission dependency. No registry or probe receipt is required
 ```bash
 axiom skill inspect axiom-project
 axiom --json skill inspect axiom-work-item
+axiom --json skill inspect axiom-work-item --operation create
 axiom skill inspect axiom-workflow
 axiom skill inspect axiom-runtime
 ```
@@ -278,6 +290,23 @@ describes, and never grants, authority. Each command includes its CLI spelling a
 at that boundary. Domain validation may require additional content before a
 mutation, as stated in descriptions. Fully guided skill invocation still accepts
 missing inputs and asks for them. No workflow argument belongs on `skill inspect`.
+
+`--operation <name>` (or `--operation=<name>`) restricts the same payload to one
+operation name listed by the unrestricted inspection, such as Work Item
+`create` or Project `list`: `skill.operations[]` holds only that operation and
+`skill.commands[]` only its commands. It is a view of the same registrations,
+never a second registry; an unknown operation is a validation failure. A
+Runtime uses it to load only the contract it is about to execute.
+
+A refused Work Item or workflow selector command sets the canonical `details`
+field to a stable handle: `<code>` or `<code>:--<flag>`, for example
+`unknown_input:--title`, `duplicate_input:--project`,
+`missing_required_input:--provider-repository` or `conflicting_input:--work-item`.
+A refused Work Item application result sets `details` to its category, such as
+`draft_incomplete`, `invalid_draft_input`, `repository_not_configured`,
+`provider_unauthenticated`, `provider_unavailable` or
+`provider_invalid_response`. Successful results keep `details` empty. The
+handle explains a refusal; it never relaxes validation or grants authority.
 
 Both discovery and parsing use the same flag registrations and presence rules.
 Unknown/duplicate/conflicting invocation inputs retain their validation errors;
@@ -651,19 +680,18 @@ axiom runtime claude status
 axiom runtime claude auth
 ```
 
-`runtime <codex|claude> auth` is the read-only CLI subscription authentication
-preflight ([#272 contract](specifications/004-mvp-v1-baseline/issue-272-cli-subscription-auth-preflight.md)).
-It runs only `<runtime> --version` and the vendor status command
-(`codex login status`, `claude auth status --json`) for the executable on `PATH`
-with this shell's environment, and inspects API-key, provider, helper and
-gateway overrides in that environment and in the Runtime configuration. It
-reports `subscription_observed`, `unproven`, `incompatible`, `unavailable` or
-`unsupported`, with the version, the observed method, the executable digest and
-override names only; it never logs in, refreshes, runs inference or reads
-credential values. Only `subscription_observed` succeeds, and it still reports
-`usability: unproven_until_real_dispatch`: a login status is not proof of a
-usable subscription or of billing. Graph dispatch configured for the
-subscription scenario repeats this check on each child's exact invocation.
+`runtime <codex|claude> auth` is the read-only CLI login observation
+([#272 contract](specifications/004-mvp-v1-baseline/issue-272-cli-subscription-auth-preflight.md)).
+It runs vendor version/status commands with the shell's unchanged environment
+and working directory. Environment variable names, including Claude settings
+`env` entries, do not determine authentication compatibility. The CLI's reported
+login method, executable identity and explicit non-environment configuration
+checks determine the result. Only `subscription_observed` succeeds; API-key or
+missing login, ambiguous status and observation failures remain failures.
+Success is not proof of effective routing, billing, usability or Project readiness.
+No login, refresh, inference or global environment change is performed. Stage
+dispatch retains its existing environment isolation and repeats the same check
+on each child's effective invocation.
 
 Codex standalone skill names accept lowercase letters, digits and hyphens, so
 the requested semantic `axiom:<skill>` names are invoked as:
@@ -1046,9 +1074,9 @@ open and merged-unpublished Release PRs, the release plan), `state` and
 
 | `state` | `next_action` | Meaning |
 |---|---|---|
-| `no_release_in_progress` | `none`, `start_release` or `blocked` | nothing releasable; the plan passed; or the plan or the previous-release check refused (`reason`) |
+| `no_release_in_progress` | `none`, `start_release`, `qualify_main`, `await_run` or `blocked` | nothing releasable; the plan passed and the native suite succeeded at `main`; the native suite never ran at `main` (`release.sh qualify`), is running, or failed; or the plan or the previous-release check refused (`reason`) |
 | `release_pr_starting` | `await_run` | a Release Please run is in flight |
-| `release_pr_open` | `review_release_pr`, `refresh_release_pr` or `blocked` | human review and merge (after a branch update when only validated hidden commits are behind); a releasable commit or another planned version since it was built; or `main` no longer validates, is red, or the planned tag has a release |
+| `release_pr_open` | `review_release_pr`, `refresh_release_pr`, `qualify_main`, `await_run` or `blocked` | human review and merge (after a branch update when only validated hidden commits are behind); a releasable commit or another planned version since it was built; or `main` no longer validates, is red, or the planned tag has a release |
 | `release_pr_merged` / `release_candidate` | `prepare` or `blocked` | build and verify the exact set of the release commit (or RC revision) |
 | `preparing` / `publishing` | `await_run` | a preparation or publication run is in flight (a publication waits for the `release` environment approval) |
 | `awaiting_publication_authority` | `authorize_publication` | the envelope of the newest verified prepared run, with `preview_digest` |
@@ -1072,6 +1100,20 @@ Start a release (preflight, then Release Please; no tag, release or artifact):
 ./scripts/release-plan.sh --main-ref origin/main
 ./scripts/release.sh start
 ```
+
+`start_release` and `refresh_release_pr` also require the native suite
+(`nightly.yml`: Linux/macOS race suites, release contracts, upgrade journeys)
+to have succeeded at the exact `main` SHA ([ADR-0036](decisions/0036-native-qualification-gates-release-start.md)).
+`status` reports `main_native` (`success`, `failure`, `pending`, `missing`)
+and `main_native_run`; a missing run reports `next_action=qualify_main`:
+
+```bash
+./scripts/release.sh qualify
+```
+
+`qualify` dispatches `nightly.yml` on `main`, waits and prints `status`
+again; it publishes nothing. A failed run blocks the start until `main` is
+fixed or a human re-runs it.
 
 `release-plan.sh` is Git-only: for every first-parent commit since the last
 release commit it requires a Conventional Commit subject and declared or

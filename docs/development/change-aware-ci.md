@@ -29,11 +29,17 @@ Reproduce locally with Go from `go.mod`:
 
 - `suite (linux|macos)`: `go test -race ./...` (Linux with coverage), vet,
   build, module verification, repository checks and the bounded dogfooding
-  smoke; Linux retains a report-only code health snapshot.
+  smoke; Linux retains a report-only code health snapshot. macOS serializes
+  packages (`-p=1`), so its tests run as two shards on separate runners:
+  `suite (macos, cmd/lingo)` tests only `cmd/lingo`, and `suite (macos)` tests
+  every other package and runs the repository-wide checks.
 - `contracts`: release pipeline, native acceptance, release flow, delivery,
   recovery, Release PR dispatch and code health contracts.
 - `upgrade-journeys (linux|macos)`: owned N → candidate upgrades from public
-  release assets. Release preparation proposes using its immutable workflow SHA
+  release assets. One inventory-driven selection names the host archive and
+  pinned verifier of each earlier release, and is first applied to the
+  candidate's own inventory: a candidate that the next release could not fetch
+  as its previous release fails here, not in that release's preparation. Release preparation proposes using its immutable workflow SHA
   for the harness alone; product builds, suites and contracts keep the release
   SHA ([ADR-0031](../decisions/0031-release-validation-harness-pin.md), Proposed).
 
@@ -41,7 +47,7 @@ It runs from three callers; a failed job fails the calling run:
 
 | Caller | Trigger | Role |
 | --- | --- | --- |
-| `nightly.yml` | daily schedule and `workflow_dispatch` | visible native regression signal on the default branch or a dispatched ref |
+| `nightly.yml` | daily schedule and `workflow_dispatch` (also by `release.sh qualify`) | visible native regression signal on the default branch or a dispatched ref; a success at the exact `main` SHA is required to start or refresh a release ([ADR-0036](../decisions/0036-native-qualification-gates-release-start.md)) |
 | `native-acceptance-qualification.yml` | `workflow_dispatch` | non-publishing qualification; `verify-propagation` requires the native suite to succeed |
 | `release-artifacts.yml` | release preparation | gates publication: `verify-prepared-release.sh` accepts only a fully successful run, so a failed or missing native suite at the release revision blocks the preview and publication |
 

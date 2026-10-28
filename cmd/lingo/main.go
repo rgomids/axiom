@@ -1277,7 +1277,16 @@ func workItemResult(result workitem.Result, source provenance.Value) cli.Result 
 	if result.Link.ExternalID != "" {
 		references = append(references, "provider:"+result.Link.Provider+":"+result.Link.Resource+"#"+result.Link.ExternalID)
 	}
-	response := canonicalCompletion(facts, message, references, next, source)
+	// A refusal carries its stable category as the existing details handle so a
+	// Runtime can branch on a code instead of interpreting prose.
+	details := ""
+	if result.Status != completion.Success {
+		details = result.Category
+	}
+	response, ok := newCompletionWithDetails(facts, message, references, next, details, source)
+	if !ok {
+		response = cli.Result{Status: cli.Failed, Category: "application_unavailable"}
+	}
 	response.Category = result.Category
 	response.Draft = result.Draft
 	response.Selection = result.Selection
@@ -1341,8 +1350,43 @@ func workItemResultText(result workitem.Result) (string, string) {
 		return "Work Item link loaded", "Use only separately authorized later operations"
 	case "provider_create_ambiguous":
 		return "GitHub create result is ambiguous", "Repeat the same reviewed draft to reconcile only; Axiom will not create again while the durable attempt is pending"
-	case "provider_rate_limited", "provider_unavailable":
+	case "provider_unavailable":
+		if result.Status == completion.Failure {
+			return "GitHub capability could not be reached", "Check whether the GitHub CLI used by Axiom is available, authenticated and reachable from this Runtime, then preview again"
+		}
 		return "GitHub capability is temporarily unavailable", "Retry the same operation after provider recovery"
+	case "provider_rate_limited":
+		return "GitHub capability is temporarily unavailable", "Retry the same operation after provider recovery"
+	case "provider_unauthenticated":
+		return "GitHub authentication is unavailable to Axiom", "Ask the operator to authenticate the GitHub CLI used by Axiom, then preview again"
+	case "provider_invalid_response":
+		return "GitHub rejected the request or returned an unexpected response", "Confirm the explicit owner/repository exists and the authenticated account can access it, then preview again"
+	case "provider_ambiguous":
+		return "GitHub outcome is uncertain", "Inspect the Provider before repeating; do not repeat the effect while its outcome is uncertain"
+	case "provider_create_failed", "provider_read_failed":
+		return "GitHub request did not complete", "Inspect Provider availability, then preview again"
+	case "invalid_draft_input":
+		return "Work Item section input is invalid or conflicting", "Supply each section once, either verbatim or as --elaborated-section, as bounded text without surrounding whitespace"
+	case "secret_rejected":
+		return "Work Item input resembles a credential", "Remove credential-like content and preview again"
+	case "draft_too_large":
+		return "Work Item draft is too large", "Shorten the sections and preview again"
+	case "invalid_classification":
+		return "Work Item classification input is invalid", "Provide at most 16 bounded classification labels"
+	case "draft_invalid":
+		return "Work Item draft could not be rendered", "Review the section content and preview again"
+	case "invalid_work_item_input":
+		return "Work Item target input is invalid", "Provide --project, --repository and --provider-repository <owner>/<repository> explicitly"
+	case "invalid_provider_target":
+		return "Provider repository is invalid", "Use the exact <owner>/<repository> the user confirmed"
+	case "repository_not_configured":
+		return "Repository key is not configured in this Project", "Use a Repository key reported by project show for this Project"
+	case "work_item_capability_unavailable":
+		return "Project has no ready Work Item Provider", "Run project validate and configure the Work Item Provider through axiom-project"
+	case "project_not_found", "invalid_project_selector":
+		return "Project selector did not match a configured Project", "Use a Project slug or UUID reported by project list"
+	case "project_ambiguous":
+		return "Project selector is ambiguous", "Use the exact Project UUID reported by project list"
 	case "local_create_attempt_recovery_required", "local_create_attempt_conflict", "local_create_attempt_failed":
 		return "Create-attempt state is not safely writable", "Inspect protected local state; no GitHub create was issued by this execution"
 	case "work_item_ambiguous":
@@ -1374,6 +1418,10 @@ func canonicalCompletion(facts completion.Facts, message string, references []st
 }
 
 func newCompletion(facts completion.Facts, message string, references []string, next string, source provenance.Value) (cli.Result, bool) {
+	return newCompletionWithDetails(facts, message, references, next, "", source)
+}
+
+func newCompletionWithDetails(facts completion.Facts, message string, references []string, next, details string, source provenance.Value) (cli.Result, bool) {
 	statement, err := provenance.NewText(message, provenance.AxiomAuthored)
 	if err != nil {
 		return cli.Result{}, false
@@ -1385,7 +1433,7 @@ func newCompletion(facts completion.Facts, message string, references []string, 
 			return cli.Result{}, false
 		}
 	}
-	canonical, err := completion.New(facts, statement, references, nextAction, "", source)
+	canonical, err := completion.New(facts, statement, references, nextAction, details, source)
 	if err != nil {
 		return cli.Result{}, false
 	}

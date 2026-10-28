@@ -309,6 +309,70 @@ var sharedSkillHistory = []skillSetRevision{
 		"axiom-work-item": "ea5476f17d1962c0938968fa726a006a01c4d79913ff3988e3d11aaf64af49f3",
 		"axiom-workflow":  "580ca950da69046632543523d41447544e979f9f2237278ac39377772fc4f5e5",
 	}},
+	// Full shared revision replaced by AXM-39 conversational presentation (012).
+	{skillSetVersion: "3", binaryCompatibility: "3", skills: map[string]string{
+		"axiom-project":   "a249ea87133eeefd53f7e6bccf8b5d083c2bf87802f8141ec85183d52d9a892d",
+		"axiom-runtime":   "90a725ed0ac96aa3378b3c9860f5357c8ef63b090662a19d362c24c8cc0aad0b",
+		"axiom-work-item": "ea5476f17d1962c0938968fa726a006a01c4d79913ff3988e3d11aaf64af49f3",
+		"axiom-workflow":  "8b47aa65611d28395eab3695ce4ca90773e541800f72d4189838565268a7f235",
+	}},
+	// Complete four-skill revision replaced by AXM-39 attempt-13 corrections.
+	{skillSetVersion: "3", binaryCompatibility: "3", skills: map[string]string{
+		"axiom-project":   "775ab63f1c428156cce595cfe587039462d8e0a713b156fcce90f61c479d158d",
+		"axiom-runtime":   "165fa61ab665ea819805b2343a00e61b24bce50a32252ee85446039f7b31636d",
+		"axiom-work-item": "ea5476f17d1962c0938968fa726a006a01c4d79913ff3988e3d11aaf64af49f3",
+		"axiom-workflow":  "efdfbcd65cdffd3b3e3003e86caa8eb81f904ed9501c8f7bf22139a908154a76",
+	}},
+	// Complete shared revision replaced by AXM-39 attempt-15 corrections.
+	{skillSetVersion: "3", binaryCompatibility: "3", skills: map[string]string{
+		"axiom-project":   "52cde467850d0f51f10a219e5e8b0ae69a74bc22b65413501d0ef628a0e63050",
+		"axiom-runtime":   "39b21768a263f5702afd7f637e46e333d3cc87b60400bb24371e8cf2035fc02e",
+		"axiom-work-item": "ea5476f17d1962c0938968fa726a006a01c4d79913ff3988e3d11aaf64af49f3",
+		"axiom-workflow":  "4df6fc93426cd9532a9f2a7cc2df6d58962c59eb9b0f91f9d032c73140f640b7",
+	}},
+	// Complete four-skill revision replaced by AXM-39 attempt-16 answer audits.
+	{skillSetVersion: "3", binaryCompatibility: "3", skills: map[string]string{
+		"axiom-project":   "42b86e7c5cd6a9929545382d640ee1957e60d2ec6b8076551f7ed60b7fc95604",
+		"axiom-runtime":   "b35c1b2781f9b2b7939f8a86bf0aa8d6a9741ef9b9ee580b66b2f3573e9252db",
+		"axiom-work-item": "ea5476f17d1962c0938968fa726a006a01c4d79913ff3988e3d11aaf64af49f3",
+		"axiom-workflow":  "68e9d8d5b8b5f303e99b7fd7a6c18c7bf964aea6b3e9b1346a1705c6f64f2639",
+	}},
+	// Complete shared revision published in v0.22.0, replaced by the
+	// Specification 013 guided setup and refusal diagnostics.
+	{skillSetVersion: "3", binaryCompatibility: "3", skills: map[string]string{
+		"axiom-project":   "fddb0c49313c98f5b726acb9eb6356cc6c47c4cebf7a521079758fb1f0b8f647",
+		"axiom-runtime":   "aeed4e7cfc8c81c37935d630086ab7920b422421d5876119b72841ec06931bd9",
+		"axiom-work-item": "ea5476f17d1962c0938968fa726a006a01c4d79913ff3988e3d11aaf64af49f3",
+		"axiom-workflow":  "20b6d727b97505623df2cf3adb570bb042a5c02a74c05e6ffcf5d196f8d44270",
+	}},
+	// Before response context headers; retain ownership of the published skills.
+	{skillSetVersion: "3", binaryCompatibility: "3", skills: map[string]string{
+		"axiom-project":   "b4754fcce56c4af1225664804783ef1044e65bdea3781c2d66cca97afd8f87c5",
+		"axiom-runtime":   "8d2e9568fe383417e87e7f1985984cf1f77f43e78b38d5dc2ce07c61e8924c64",
+		"axiom-work-item": "ea5476f17d1962c0938968fa726a006a01c4d79913ff3988e3d11aaf64af49f3",
+		"axiom-workflow":  "20b6d727b97505623df2cf3adb570bb042a5c02a74c05e6ffcf5d196f8d44270",
+	}},
+	// PR #360 initial header guidance, before CR-360-01 qualification refinements.
+	{skillSetVersion: "3", binaryCompatibility: "3", skills: map[string]string{
+		"axiom-project":   "bed0c51da9b0f8148aa1e14189e5cc28b6903287887f9df9cfe88a94a06f22b9",
+		"axiom-runtime":   "23a42d1c29de8811f401531b64d8ffd20b5be659b60c47ddd80155e34b3567cc",
+		"axiom-work-item": "044125bd0b9c168bb004c6e7b6b622f02e2065be8f83ffc4accf4cd3a1da3cd1",
+		"axiom-workflow":  "f214b4b5836b139214065f61cd3a9e00bd42ba31789137a261134fc3c35ec8c9",
+	}},
+	// Shared revision before environment-name authentication classification was removed.
+	{skillSetVersion: "3", binaryCompatibility: "3", skills: map[string]string{
+		"axiom-project":   "4c6e5602212420e9cc23d10a299d6b494c08a1417f4747fc93ca507cd38c257f",
+		"axiom-runtime":   "3649c248b036a7864e418b308edd4e83ae86514924738fc57cc9e34e0639b7c1",
+		"axiom-work-item": "dfa0a34033dbbf4109f724085e1fed7f813d194362262e68cec683d8ffa6532a",
+		"axiom-workflow":  "899abc6a29c6ece448535f844ddaefb7a2419a9f7cfb0533b534b47af89236b7",
+	}},
+	// Shared revision before operation-scoped inspection and refusal details.
+	{skillSetVersion: "3", binaryCompatibility: "3", skills: map[string]string{
+		"axiom-project":   "4c6e5602212420e9cc23d10a299d6b494c08a1417f4747fc93ca507cd38c257f",
+		"axiom-runtime":   "6ffde6e410088649d59fefff37859aadf0209939907e51d216fef6b0f50ebc8e",
+		"axiom-work-item": "dfa0a34033dbbf4109f724085e1fed7f813d194362262e68cec683d8ffa6532a",
+		"axiom-workflow":  "899abc6a29c6ece448535f844ddaefb7a2419a9f7cfb0533b534b47af89236b7",
+	}},
 }
 
 // currentRevision is the skill set embedded in this binary.

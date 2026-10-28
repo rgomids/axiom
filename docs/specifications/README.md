@@ -1,5 +1,52 @@
 # Specifications
 
+## 014 — CLI operability for smaller models
+
+[Specification revision 1](014-small-model-cli-operability/spec.md) replays the
+0.22.3 `govsm` Work Item incident with a fake Provider and makes refusals
+recoverable without a new wire field: stable `<code>[:--<flag>]` handles in the
+existing `details`, specific Work Item texts, `skill inspect --operation` scoped
+contracts and skill guidance that preserves confirmed identifiers. Empirical
+small-model qualification is NOT_RUN; human acceptance pending.
+
+## 013 — Runtime/Profile diagnostics and complete guided Project setup
+
+[Specification revision 1](013-runtime-diagnostics-guided-project-setup/spec.md)
+adds field-level `runtimeAuthoring.diagnostics` to local Runtime/Profile refusals
+(the v0.22.0 `govsm` missing-`--capabilities` incident) without changing public
+categories, and a complete `axiom-project` guided setup from Runtime/Profile
+through Workflow selection and a three-dimension final summary. Revision 3
+(maintainer scope extension) adds a skill-level Model Advisor with sourced,
+provenance-tagged recommendations and a degraded manual mode. [Plan](013-runtime-diagnostics-guided-project-setup/plan.md),
+[Tasks](013-runtime-diagnostics-guided-project-setup/tasks.md) and
+[Evidence](013-runtime-diagnostics-guided-project-setup/evidence.md). Native
+Codex/Claude conversations NOT_RUN; human acceptance pending.
+
+## 012 — Conversational Project and Stage presentation
+
+[Specification revision 1](012-conversational-project-stage-presentation/spec.md)
+captures the approved [AXM-39](https://linear.app/rgomids/issue/AXM-39) Intake
+baseline: human Project identity, progressive Stage/Agent details, truthful
+Runtime/Profile and readiness presentation. [Examples/test protocol](012-conversational-project-stage-presentation/examples.md)
+and [Specify Evidence](012-conversational-project-stage-presentation/evidence-specify.md)
+preserve documentary coverage and the native protocol. [Implementation Plan r1](012-conversational-project-stage-presentation/plan.md)
+maps actual shared skills, semantic harnesses, AC/cases, dependency and installed-host
+gates, future decomposition and rollback. [Plan Evidence](012-conversational-project-stage-presentation/evidence-plan.md)
+separates documentary checks from future product validation. [Tasks r1](012-conversational-project-stage-presentation/tasks.md)
+and [Tasks Evidence](012-conversational-project-stage-presentation/evidence-tasks.md)
+define eight causal work packages and separate native authorization gates.
+[Implementation Evidence](012-conversational-project-stage-presentation/evidence-implementation.md)
+records shared guidance, synthetic C01–C16 regressions, both-root history/upgrade
+checks and partial AC/Task reconciliation. Native Codex/Claude conversations remain
+NOT_RUN: attempt-05 T07 BLOCKED_HOST_BASELINE; official owned-upgrade preview
+refuses divergent_equivalent_version. Backup/restore rehearsal and isolated
+generation-2 docs checks pass; active host retains pre-012 skills and
+source_unqualified docs. Both subscription logins observed through official
+auth in temporary child environments; usability unproven. No managed-file or
+credential mutation. T08 PARTIAL.
+No product acceptance or canonical Execution
+advancement; DF-01 remains deferred for pre-merge.
+
 ## 011 — Rendered Workflow presentation
 
 [Specification editorial e1](011-rendered-workflow-presentation/spec.md) and

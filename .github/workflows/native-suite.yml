@@ -27,17 +27,29 @@ defaults:
 
 jobs:
   suite:
-    name: suite (${{ matrix.platform }})
+    name: suite (${{ matrix.label }})
+    # macOS serializes packages (-p=1, process observer isolation), so its suite
+    # is the sum of every package. It runs as two shards on separate runners:
+    # cmd/lingo alone and every other package; repository-wide checks run once,
+    # with the second shard.
     strategy:
       fail-fast: false
       matrix:
         include:
           - platform: linux
+            label: linux
             runner: ubuntu-24.04
+            shard: all
           - platform: macos
+            label: macos
             runner: macos-15
+            shard: rest
+          - platform: macos
+            label: macos, cmd/lingo
+            runner: macos-15
+            shard: cli
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -54,20 +66,33 @@ jobs:
           echo "AXIOM_TEST_PROBE_STATE_ROOT=$probe_state" >> "$GITHUB_ENV"
       - name: Unit, integration and black-box tests with race detector
         if: matrix.platform == 'macos'
-        run: go test -race ./... -p=1 -timeout=20m
+        env:
+          SHARD: ${{ matrix.shard }}
+        run: |
+          cli=github.com/rgomids/axiom/cmd/lingo
+          case "$SHARD" in
+            cli) packages=$cli ;;
+            rest) packages=$(go list ./... | grep -vxF "$cli") ;;
+            *) echo "unknown macOS shard: $SHARD" >&2; exit 1 ;;
+          esac
+          # shellcheck disable=SC2086 # one Go package path per word
+          go test -race -p=1 -timeout=25m $packages
       - name: Linux tests with race detector and coverage
         if: matrix.platform == 'linux'
         run: |
           mkdir -p coverage
           go test -race -covermode=atomic -coverprofile=coverage/coverage.out ./... -timeout=20m
       - name: Static and build checks
+        if: matrix.shard != 'cli'
         run: |
           go vet ./...
           go build ./...
           go mod verify
       - name: Repository checks
+        if: matrix.shard != 'cli'
         run: ./scripts/validate-repository.sh .
       - name: Bounded dogfooding smoke test
+        if: matrix.shard != 'cli'
         run: ./scripts/dogfood-poc.sh
       - name: Collect code health snapshot
         id: health
@@ -145,29 +170,46 @@ jobs:
           cache: true
       - name: Build the candidate release archives
         run: ./scripts/build-release-archives.sh --format 2 --version "9999.0.0-acceptance.${GITHUB_RUN_NUMBER}" --output "$RUNNER_TEMP/candidate"
-      - name: Fetch published earlier releases
+      - name: Check the candidate as a previous release and fetch published earlier releases
         env:
           ROW: ${{ matrix.row }}
         run: |
+          # select_assets SHA256SUMS VERSION prints the host archive and, when the
+          # inventory pins one, the standalone verifier a later release fetches
+          # from VERSION. macOS is macos-27-arm64 in format 1 releases and
+          # macos-arm64 in format 2; a missing or ambiguous name fails.
+          select_assets() {
+            local sums=$1 version=$2 names archive target helper
+            names="axiom-$version-$ROW.tar.gz"
+            [[ "$ROW" != macos-27-arm64 ]] || names="$names axiom-$version-macos-arm64.tar.gz"
+            archive=$(awk -v names="$names" 'BEGIN {n = split(names, list, " "); for (i = 1; i <= n; i++) want[list[i]] = 1} ($2 in want) {print $2}' "$sums")
+            [[ -n "$archive" && "$archive" != *$'\n'* ]] || { echo "missing or ambiguous host archive in $version inventory" >&2; return 1; }
+            target=$ROW
+            [[ "$ROW" != macos-27-arm64 ]] || target=darwin-arm64
+            helper=$(awk -v prefix="axiom-verifier-$version-" -v suffix="-$target" \
+              'index($2, prefix) == 1 && substr($2, length($2)-length(suffix)+1) == suffix {print $2}' "$sums")
+            if [[ -n "$helper" ]]; then
+              [[ "$helper" =~ ^axiom-verifier-[0-9A-Za-z.+-]+$ ]] || { echo 'invalid or ambiguous verifier inventory' >&2; return 1; }
+            fi
+            printf '%s\n' "$archive" $helper
+          }
+          # The candidate is the next release's previous: the same selection must
+          # resolve its own inventory to files it built, so a naming or format
+          # change fails here instead of in the next release preparation.
+          candidate_assets=$(select_assets "$RUNNER_TEMP/candidate/SHA256SUMS" "9999.0.0-acceptance.${GITHUB_RUN_NUMBER}")
+          for asset in $candidate_assets; do
+            [[ -f "$RUNNER_TEMP/candidate/$asset" ]] || { echo "candidate inventory names $asset, which was not built" >&2; exit 1; }
+          done
           # Tags exist only for published releases; N is the newest stable one.
           latest=$(git for-each-ref --format='%(refname:short)' 'refs/tags/v*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n 1)
           for tag in "$latest" v0.1.1; do
             dir="$RUNNER_TEMP/previous-$tag"
             mkdir -p "$dir"
-            version=${tag#v}
-            for asset in SHA256SUMS "axiom-$version-$ROW.tar.gz"; do
+            curl -fsSL --retry 4 -o "$dir/SHA256SUMS" "https://github.com/$GITHUB_REPOSITORY/releases/download/$tag/SHA256SUMS"
+            assets=$(select_assets "$dir/SHA256SUMS" "${tag#v}")
+            for asset in $assets; do
               curl -fsSL --retry 4 -o "$dir/$asset" "https://github.com/$GITHUB_REPOSITORY/releases/download/$tag/$asset"
             done
-            # Current v1 releases pin a standalone verifier; old releases do not.
-            # Fetch only the helper named by this release's checksum inventory.
-            target=$ROW
-            [[ "$ROW" != macos-27-arm64 ]] || target=darwin-arm64
-            helper=$(awk -v prefix="axiom-verifier-$version-" -v suffix="-$target" \
-              'index($2, prefix) == 1 && substr($2, length($2)-length(suffix)+1) == suffix {print $2}' "$dir/SHA256SUMS")
-            if [[ -n "$helper" ]]; then
-              [[ "$helper" =~ ^axiom-verifier-[0-9A-Za-z.+-]+$ ]] || { echo 'invalid or ambiguous verifier inventory' >&2; exit 1; }
-              curl -fsSL --retry 4 -o "$dir/$helper" "https://github.com/$GITHUB_REPOSITORY/releases/download/$tag/$helper"
-            fi
             printf 'PREVIOUS_%s=%s\n' "${tag//./_}" "$dir" >>"$GITHUB_ENV"
           done
           printf 'PREVIOUS_LATEST=%s\n' "$RUNNER_TEMP/previous-$latest" >>"$GITHUB_ENV"

@@ -1,0 +1,30 @@
+{
+ "skills": {
+  "axiom-project": "b4754fcce56c4af1225664804783ef1044e65bdea3781c2d66cca97afd8f87c5",
+  "axiom-runtime": "8d2e9568fe383417e87e7f1985984cf1f77f43e78b38d5dc2ce07c61e8924c64"
+ },
+ "pinned": {
+  "claude": "claude-haiku-5-5",
+  "codex": "gpt-6.1-luna"
+ },
+ "results": {
+  "codex": {
+   "cli": "codex-cli 0.163.0",
+   "MA-01": {
+    "status": "BLOCKED",
+    "reason": "codex did not answer (exit 1): -luna` not found. Defaulting to fallback metadata; this can degrade performance and cause issues.\"}} | {\"type\":\"error\",\"message\":\"{\\\"type\\\":\\\"error\\\",\\\"status\\\":400,\\\"error\\\":{\\\"type\\\":\\\"invalid_request_error\\\",\\\"message\\\":\\\"The 'gpt-6.1-luna' model is not supported when using Codex with a ChatGPT account.\\\",\\\"code\\\":\\\"model_not_found\\\"}}\"} | {\"type\":\"turn.failed\",\"error\":{\"message\":\"{\\\"type\\\":\\\"error\\\",\\\"status\\\":400,\\\"error\\\":{\\\"type\\\":\\\"invalid_request_error\\\",\\\"message\\\":\\\"The 'gpt-6.1-luna' model is not supported when using Codex with a ChatGPT account.\\\",\\\"code\\\":\\\"model_not_found\\\"}}\"}}",
+    "prompt_sha256": "39433b203013af1e26c613f2e080ca7bbc6856e1463caa37eb86de4f65fd0b55",
+    "inputs": {
+     "context/state.md": "22c437fbfc39c80adcee4ef56798303dd8bd7865c62ef015832c6e6920e0c40a",
+     "context/workflow-show.json": "2b1ccc1048d3afd14d11d3a3b998bd814b0fb682ac5671ceae1b386d9fb7671f",
+     "skills/axiom-project/SKILL.md": "b4754fcce56c4af1225664804783ef1044e65bdea3781c2d66cca97afd8f87c5",
+     "skills/axiom-runtime/SKILL.md": "8d2e9568fe383417e87e7f1985984cf1f77f43e78b38d5dc2ce07c61e8924c64",
+     "sources/S-A.md": "58b440068cf14a738ccde4ceb0eb7a1c238a7175ed366329cfd9ee5f89b74cdc",
+     "sources/S-B.md": "06382c1ef80dfcde1e62880773e26d13e90c8c4b0dff8790371db94eed912a70",
+     "sources/S-C.md": "ed2a33c32419e01f746dbd33f2c833ead6e7ee0f86afbb7082c3c8ccba764410"
+    }
+   }
+  }
+ },
+ "workflowNeedsSha256": "2b1ccc1048d3afd14d11d3a3b998bd814b0fb682ac5671ceae1b386d9fb7671f"
+}

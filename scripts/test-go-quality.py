@@ -117,8 +117,12 @@ class WorkflowContract(unittest.TestCase):
                         './scripts/validate-repository.sh .', 'python3 scripts/test-go-quality.py'):
             self.assertIn(command, gate)
         native = (ROOT / '.github/workflows/native-suite.yml').read_text()
-        for command in ('go test -race ./...', './scripts/test-release-pipeline.sh',
-                        './scripts/test-upgrade-journeys.sh'):
+        for command in ('go test -race -covermode=atomic -coverprofile=coverage/coverage.out ./...',
+                        'go test -race -p=1 -timeout=25m $packages',
+                        'cli) packages=$cli ;;',
+                        'rest) packages=$(go list ./... | grep -vxF "$cli") ;;',
+                        'shard: cli', 'shard: rest',
+                        './scripts/test-release-pipeline.sh', './scripts/test-upgrade-journeys.sh'):
             self.assertIn(command, native)
         rules = json.loads((ROOT / '.github/rulesets/main.json').read_text())
         checks = next(r['parameters']['required_status_checks'] for r in rules['rules']

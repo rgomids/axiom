@@ -94,3 +94,53 @@ func TestWorkflowShowSyntheticPresentationEnvelopeMatchesProducer(t *testing.T) 
 		})
 	}
 }
+
+// AXM-39 uses the real JSON producer with independently authored list payload.
+// Empty name/slug cases that the producer cannot supply remain explicitly
+// adversarial observations in the semantic oracle, not advertised valid state.
+func TestPresentation012ProjectPayloadMatchesProducer(t *testing.T) {
+	wire, err := os.ReadFile("testdata/presentation/012/projects.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var projects []ProjectListView
+	if err := json.Unmarshal(wire, &projects); err != nil {
+		t.Fatal(err)
+	}
+	canonical := canonicalResult(t, completion.Success, nil, "", completionProvenance(t))
+	service := &canonicalRecordingService{Result: Result{Completion: &canonical, Projects: projects}}
+	var out bytes.Buffer
+	if code := RunInteractive(context.Background(), []string{"--json", "project", "list"}, service, completionProvenance(t), nil, &out, &bytes.Buffer{}); code != ExitSuccess {
+		t.Fatal("producer failed", code)
+	}
+	var event struct {
+		Projects json.RawMessage `json:"projects"`
+	}
+	if err := json.Unmarshal(out.Bytes(), &event); err != nil {
+		t.Fatal(err)
+	}
+	var want, got any
+	if err := json.Unmarshal(wire, &want); err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(event.Projects, &got); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(want, got) {
+		t.Fatal("synthetic list payload differs from producer")
+	}
+	// Show cannot supply name. Correlation needs the exact full ID and a
+	// compatible observation, never a shared prefix or conversational position.
+	view := ProjectView{ID: "11111111-1111-4111-8111-111111111112", Slug: "orbita", Source: "synthetic-source", Repositories: []RepositoryView{}}
+	show, _ := json.Marshal(view)
+	var fields map[string]any
+	if err := json.Unmarshal(show, &fields); err != nil {
+		t.Fatal(err)
+	}
+	if _, exists := fields["name"]; exists {
+		t.Fatal("show acquired a name field")
+	}
+	if projects[0].ID == view.ID || projects[1].ID != view.ID || projects[1].Name != "Órbita" {
+		t.Fatal("fixture no longer exercises exact ID correlation")
+	}
+}

@@ -345,8 +345,12 @@ check 'Legacy Done is never a delivery state the scripts set' bash -c "
 corrections=$repository_root/.github/delivery-corrections.txt
 check 'every reviewed correction names a commit of main history' bash -c "
   grep -Ev '^(#|$)' '$corrections' | while read -r sha _; do git -C '$repository_root' cat-file -e \"\$sha^{commit}\" || exit 1; done"
+# Each row sits in a block whose first line records its human-reviewed reason.
+check 'every reviewed correction carries its reason above it' awk '
+  /^$/ {commented = 0; started = 0; next}
+  /^#/ {if (!started) commented = 1; started = 1; next}
+  {started = 1; if (!commented) exit 1}' "$corrections"
 check 'the v0.2.0 legacy reconciliations are exactly #143 -> #129 and #148 -> #147; #132 is not completed' bash -c "
-  [[ \$(grep -Evc '^(#|$)' '$corrections') == 9 ]] &&
   grep -Fxq 'f04dbf38db4cb609256ede47e5fbcbe7a16c6487 related=129 completes=129' '$corrections' &&
   grep -Fxq 'fc6cdf4749943df93ec4d91c473fe5152f4bc186 related=147 completes=147' '$corrections' &&
   ! grep -Ev '^#' '$corrections' | grep -q '132'"
@@ -359,6 +363,9 @@ check 'PR #149 supersedes PR #128 without claiming an Issue relationship' grep -
 
 check 'PR #310 restores its validated relationship without claiming completion' grep -Fxq \
   '5e1c995ab57ed3fbd54e5b72288607140d031e7d related=306 completes=none' "$corrections"
+
+check 'PR #343 restores its validated empty relationship without claiming an Issue' grep -Fxq \
+  'ecba1496a357a5503f8e68d08a1d48a413a95089 related=none completes=none' "$corrections"
 
 check 'reverted CI/CD Slices 1-4 deliver none of #227, #234, #236, #238 in v0.6.0' bash -c "
   grep -Fxq 'f4819ccd178b1e0222b0e6cccbd5c77900f9d1f5 related=154,227 completes=none' '$corrections' &&

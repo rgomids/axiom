@@ -202,13 +202,13 @@ class NativeContract(unittest.TestCase):
     def test_workflow_fetches_inventory_pinned_previous_verifier(self):
         root = Path(__file__).resolve().parent.parent
         workflow = (root / ".github/workflows/native-suite.yml").read_text()
-        step = workflow.split("      - name: Fetch published earlier releases\n", 1)[1].split("      - name:", 1)[0]
+        step = workflow.split("      - name: Check the candidate as a previous release and fetch published earlier releases\n", 1)[1].split("      - name:", 1)[0]
         command = textwrap.dedent(step.split("        run: |\n", 1)[1])
         with tempfile.TemporaryDirectory() as temporary:
             tmp = Path(temporary)
             fakebin = tmp / "fakebin"
             fakebin.mkdir()
-            (fakebin / "git").write_text("#!/bin/sh\nprintf 'v0.21.1\\nv0.1.1\\n'\n")
+            (fakebin / "git").write_text("#!/bin/sh\nprintf 'v0.21.2\\nv0.1.1\\n'\n")
             (fakebin / "curl").write_text("""#!/bin/bash
 set -eu
 while (($#)); do
@@ -220,11 +220,15 @@ while (($#)); do
   esac
 done
 asset=${url##*/}
+# Format 2 (v0.21.2) renamed the macOS archive; format 1 (v0.1.1) keeps macos-27-arm64.
+case "$url" in
+  */v0.21.2/*) inventory="axiom-verifier-0.21.2-abcdef-$TARGET axiom-0.21.2-$ROW2.tar.gz" ;;
+  *) inventory="axiom-0.1.1-$ROW.tar.gz" ;;
+esac
 if [[ "$asset" == SHA256SUMS ]]; then
-  case "$url" in
-    */v0.21.1/*) printf '%064d  axiom-verifier-0.21.1-abcdef-%s\\n' 0 "$TARGET" >"$output" ;;
-    *) printf '%064d  old-archive.tar.gz\\n' 0 >"$output" ;;
-  esac
+  for name in $inventory; do printf '%064d  %s\\n' 0 "$name"; done >"$output"
+elif [[ " $inventory " != *" $asset "* ]]; then
+  exit 22
 elif [[ "$asset" == axiom-verifier-* && "${REJECT_HELPER:-0}" == 1 ]]; then
   exit 22
 else
@@ -233,13 +237,16 @@ fi
 """)
             for executable in fakebin.iterdir():
                 executable.chmod(0o755)
-            for row, target in (("linux-amd64", "linux-amd64"), ("macos-27-arm64", "darwin-arm64")):
+            for row, row2, target in (("linux-amd64", "linux-amd64", "linux-amd64"),
+                                      ("macos-27-arm64", "macos-arm64", "darwin-arm64")):
                 for reject in ("0", "1"):
                     with self.subTest(row=row, reject=reject):
                         work = tmp / (row + reject)
                         work.mkdir()
-                        env = {"PATH": str(fakebin) + ":/usr/bin:/bin", "ROW": row, "TARGET": target,
-                               "RUNNER_TEMP": str(work), "GITHUB_ENV": str(work / "env"),
+                        self.stage_candidate(work, ["axiom-9999.0.0-acceptance.7-" + row2 + ".tar.gz",
+                                                    "axiom-verifier-9999.0.0-acceptance.7-abcdef-" + target])
+                        env = {"PATH": str(fakebin) + ":/usr/bin:/bin", "ROW": row, "ROW2": row2, "TARGET": target,
+                               "RUNNER_TEMP": str(work), "GITHUB_ENV": str(work / "env"), "GITHUB_RUN_NUMBER": "7",
                                "GITHUB_REPOSITORY": "fixture/repo", "REJECT_HELPER": reject}
                         result = subprocess.run(["bash", "-eo", "pipefail", "-c", command], env=env,
                                                 capture_output=True, text=True)
@@ -247,9 +254,39 @@ fi
                             self.assertEqual(result.returncode, 22, result.stderr)
                         else:
                             self.assertEqual(result.returncode, 0, result.stderr)
-                            helper = work / "previous-v0.21.1" / ("axiom-verifier-0.21.1-abcdef-" + target)
+                            helper = work / "previous-v0.21.2" / ("axiom-verifier-0.21.2-abcdef-" + target)
                             self.assertEqual(helper.read_text(), "fixture")
+                            archive = work / "previous-v0.21.2" / ("axiom-0.21.2-" + row2 + ".tar.gz")
+                            self.assertEqual(archive.read_text(), "fixture")
+                            self.assertTrue((work / "previous-v0.1.1" / ("axiom-0.1.1-" + row + ".tar.gz")).is_file())
                             self.assertFalse(list((work / "previous-v0.1.1").glob("axiom-verifier-*")))
+            # The candidate is the next release's previous: an inventory the
+            # selection cannot resolve to built files fails before any download.
+            for row, built, listed, message in (
+                    ("macos-27-arm64", [], ["axiom-9999.0.0-acceptance.7-macos-arm64.tar.gz"], "was not built"),
+                    ("macos-27-arm64", None, ["axiom-9999.0.0-acceptance.7-macos-arm64e.tar.gz"], "missing or ambiguous host archive"),
+                    ("macos-27-arm64", None, ["axiom-9999.0.0-acceptance.7-macos-arm64.tar.gz",
+                                              "axiom-9999.0.0-acceptance.7-macos-27-arm64.tar.gz"], "missing or ambiguous host archive"),
+                    ("linux-amd64", None, ["axiom-9999.0.0-acceptance.7-linux-amd64.tar.gz",
+                                           "axiom-verifier-9999.0.0-acceptance.7-a-linux-amd64",
+                                           "axiom-verifier-9999.0.0-acceptance.7-b-linux-amd64"], "invalid or ambiguous verifier inventory")):
+                with self.subTest(candidate=listed):
+                    work = Path(tempfile.mkdtemp(dir=tmp))
+                    self.stage_candidate(work, listed, listed if built is None else built)
+                    env = {"PATH": str(fakebin) + ":/usr/bin:/bin", "ROW": row, "RUNNER_TEMP": str(work),
+                           "GITHUB_ENV": str(work / "env"), "GITHUB_RUN_NUMBER": "7", "GITHUB_REPOSITORY": "fixture/repo"}
+                    result = subprocess.run(["bash", "-eo", "pipefail", "-c", command], env=env, capture_output=True, text=True)
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertIn(message, result.stderr)
+                    self.assertFalse(list(work.glob("previous-*")))
+
+    @staticmethod
+    def stage_candidate(work, listed, built=None):
+        candidate = work / "candidate"
+        candidate.mkdir()
+        (candidate / "SHA256SUMS").write_text("".join("0" * 64 + "  " + name + "\n" for name in listed))
+        for name in listed if built is None else built:
+            (candidate / name).write_text("candidate")
 
     def test_strict_gate_and_no_publication(self):
         root = Path(__file__).resolve().parent.parent

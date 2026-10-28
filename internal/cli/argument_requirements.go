@@ -75,7 +75,7 @@ func skillRequirements(operation action, v requestInput) []inputRequirement {
 		{name: "repository", required: true, missing: v.repository == ""},
 	}
 	if operation == workItemCreateAction {
-		return append(rules, inputRequirement{name: "provider-repository", required: true, missing: v.providerRepository == ""})
+		return append(append(rules, inputRequirement{name: "provider-repository", required: true, missing: v.providerRepository == ""}), workItemSectionRequirements()...)
 	}
 	rules = append(rules, inputRequirement{"number", false, "--work-item is absent (legacy alternative)", v.workItem == "", v.number <= 0})
 	if operation == workItemSelectAction {
@@ -133,4 +133,17 @@ func repeatableFlags(set *flag.FlagSet) map[string]bool {
 		}
 	})
 	return result
+}
+
+// workItemSectionRequirements describes when the application gathers each draft
+// section. They are discovery metadata only: content gaps are returned as
+// draft questions, never rejected by the parser.
+func workItemSectionRequirements() []inputRequirement {
+	rules := []inputRequirement{{name: "problem", when: "application: before preview, unless --elaborated-section problem=<text> supplies it; --intent supplies it only when both are absent"}}
+	for _, section := range [][2]string{{"desired-outcome", "desired_outcome"}, {"context", "context"}, {"scope", "scope"}, {"constraints", "constraints"}, {"non-goals", "non_goals"}, {"acceptance", "acceptance_expectations"}} {
+		rules = append(rules, inputRequirement{name: section[0], when: "application: before preview, unless --elaborated-section " + section[1] + "=<text> supplies it"})
+	}
+	return append(rules,
+		inputRequirement{name: "beneficiary", when: "application: --type story"},
+		inputRequirement{name: "value", when: "application: --type story"})
 }

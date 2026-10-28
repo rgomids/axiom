@@ -16,6 +16,36 @@ prove inference, billing or future availability. A Model Execution requires
 its own applicable preview and authority. Inspect persisted status and result
 records; an acknowledgement or exit code alone does not prove successful work.
 
+## Response context
+
+Axiom skills begin normal conversational responses with `Axiom · <Project>`
+and a version subtitle taken from that command's `provenance.version`.
+Project listings and unscoped or ambiguous operations show only `Axiom`.
+Missing version evidence stays explicit; Runtime CLI versions are not Axiom
+versions. Explicit raw JSON output is unchanged.
+
+## Authentication environment
+
+`axiom --json runtime <codex|claude> auth` observes the vendor's login status
+with the current shell's environment and working directory. Axiom does not
+classify environment variable names as authentication or billing overrides,
+including entries under `env` in Claude settings. `ANTHROPIC_BASE_URL`, OAuth,
+API-key and Desktop session variables do not cause an early refusal. Do not
+remove host-managed variables to clear an authentication diagnostic.
+
+The vendor's status remains authoritative for this observation: a recognized
+subscription login succeeds; API-key login, unavailable login, ambiguous output,
+timeouts and executable identity changes retain their failure outcomes.
+Explicit non-environment configuration overrides (such as a provider selection or
+credential helper) remain checked. A positive login observation proves neither
+which route an inference uses nor subscription billing or token usability.
+
+Stage execution retains its existing closed environment (`StageEnvironment`)
+and repeats authentication against its exact effective invocation. No new host
+scope, endpoint allowlist or alternate admission path is introduced. A successful
+shell diagnostic does not establish overall Project readiness or replace the
+child check. Neither check changes the parent environment.
+
 ## Man pages
 
 Use the installed Markdown/help when no `man` reader is available. The intended
@@ -55,5 +85,25 @@ This is a preview. Apply the same candidate with its returned
 `--expected-revision`, `--preview-digest` and `--authorize-local`. Re-preview
 after any input or state changes. Example identifiers are local choices;
 successful authoring does not prove vendor support or authentication.
+
+A refusal carries `runtimeAuthoring.diagnostics`: each entry names the `code`
+(`field_required`, `field_invalid`, `binding_missing`, `profile_missing`,
+`runtime_absent`, `configuration_conflict`, `configuration_invalid`), the CLI
+`field`, the `rule` and the `next` action, also shown in terminal output. For
+example, omitting `--capabilities` returns `candidate_invalid` with
+`field_required` on `--capabilities`; `--complexities` stays optional. These
+are local declaration checks: authentication is not evaluated, so do not change
+credentials or environment variables to resolve them. `validate-candidate`
+confirms declaration only; `modelSupport` and `effortSupport` stay
+`unconfirmed`.
+
+During guided setup, `axiom-runtime` can act as a Model Advisor: it
+recommends models for each Profile from the Workflow's Agent needs and an
+optional preference (economy, balanced, quality), citing official vendor
+documentation the host retrieves with your permission. Recommendations carry
+their source and date and keep account availability and effort support
+unconfirmed; API prices are not subscription cost. Without sources it says so
+and lets you name the model. Nothing is created until you approve the exact
+preview.
 
 Continue to [Workflow](workflow.md) or [Troubleshooting](troubleshooting.md).

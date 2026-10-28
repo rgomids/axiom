@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Bug fixes
+
+- Stop rejecting Runtime authentication by environment variable names, including
+  Claude Desktop routing and settings `env` entries; preserve vendor login,
+  executable identity and explicit non-environment configuration checks.
+- Add Project context and observed Axiom version headers to conversational
+  skill responses, preserving unmodified explicit JSON output.
+
 ### Features
 
 - Effective Project context with a persistent local default, isolated session
@@ -25,6 +33,43 @@
   reviewed resolution digest; omitted Runtime no longer defaults to Codex.
   Projects created by `project configure` carry no policy and block until an
   authored policy is installed.
+
+## [0.22.3](https://github.com/rgomids/axiom/compare/v0.22.2...v0.22.3) (2026-10-27)
+
+
+### Bug Fixes
+
+* **runtime:** remove environment-name authentication rejection ([#362](https://github.com/rgomids/axiom/issues/362)) ([a319f2b](https://github.com/rgomids/axiom/commit/a319f2bc4b70a62220308971b55330cbbebd826a))
+
+## [0.22.2](https://github.com/rgomids/axiom/compare/v0.22.1...v0.22.2) (2026-10-26)
+
+
+### Bug Fixes
+
+* clarify Claude authentication and add response context ([#360](https://github.com/rgomids/axiom/issues/360)) ([5cc8cb4](https://github.com/rgomids/axiom/commit/5cc8cb4ff3c0461cb49a3d7c2c048fdba910264f))
+
+## [0.22.1](https://github.com/rgomids/axiom/compare/v0.22.0...v0.22.1) (2026-10-26)
+
+
+### Bug Fixes
+
+* **ci:** check the candidate as the next release's previous ([#355](https://github.com/rgomids/axiom/issues/355)) ([c00156f](https://github.com/rgomids/axiom/commit/c00156f169f8aad3032e3c47e47539f02da12876))
+* **delivery:** propose squash metadata corrections automatically ([#354](https://github.com/rgomids/axiom/issues/354)) ([943a804](https://github.com/rgomids/axiom/commit/943a80474b2928340fa21b80dfa10fd3c572b943))
+* improve runtime profile diagnostics and project setup wizard ([#356](https://github.com/rgomids/axiom/issues/356)) ([4799c65](https://github.com/rgomids/axiom/commit/4799c65f5cc5199ca9fe26cd1584d971aa0bf2e8))
+* **release:** fetch previous archive named by its checksum inventory ([#352](https://github.com/rgomids/axiom/issues/352)) ([fd37a1b](https://github.com/rgomids/axiom/commit/fd37a1b3e3fa4afddc76d4a051335f99ad3d7fb6))
+* **release:** start releases only from a natively qualified main ([#353](https://github.com/rgomids/axiom/issues/353)) ([158c5fe](https://github.com/rgomids/axiom/commit/158c5feb78d1c292bdc0fbe075db0cdd1497b555))
+
+## [0.22.0](https://github.com/rgomids/axiom/compare/v0.21.2...v0.22.0) (2026-10-25)
+
+
+### Features
+
+* **skills:** clarify Project and Stage presentation (AXM-39) ([#343](https://github.com/rgomids/axiom/issues/343)) ([ecba149](https://github.com/rgomids/axiom/commit/ecba1496a357a5503f8e68d08a1d48a413a95089))
+
+
+### Bug Fixes
+
+* **delivery:** restore squash metadata of PR [#343](https://github.com/rgomids/axiom/issues/343) ([#350](https://github.com/rgomids/axiom/issues/350)) ([94a5b7b](https://github.com/rgomids/axiom/commit/94a5b7bbac58544617cc0853327aa22f1ee189a8))
 
 ## [0.21.2](https://github.com/rgomids/axiom/compare/v0.21.1...v0.21.2) (2026-10-24)
 
