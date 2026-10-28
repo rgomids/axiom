@@ -27,6 +27,13 @@ axiom work-item create --project <slug-or-id> --repository <repository-key> \
   --provider-repository <owner/repository> --type task
 ```
 
+Discover only the create contract, including when each section is gathered,
+with `axiom --json skill inspect axiom-work-item --operation create`. A refusal
+names its cause in `details`, for example `unknown_input:--title`,
+`draft_incomplete` (answer only the returned `questions`) or a Provider code such
+as `provider_unauthenticated`; correct only that input instead of repeating the
+command unchanged.
+
 GitHub operations require an authenticated GitHub CLI session and configured
 Project integration. This external effect is separate from offline
 installation and local Project inspection.

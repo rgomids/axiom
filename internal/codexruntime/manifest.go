@@ -366,6 +366,13 @@ var sharedSkillHistory = []skillSetRevision{
 		"axiom-work-item": "dfa0a34033dbbf4109f724085e1fed7f813d194362262e68cec683d8ffa6532a",
 		"axiom-workflow":  "899abc6a29c6ece448535f844ddaefb7a2419a9f7cfb0533b534b47af89236b7",
 	}},
+	// Shared revision before operation-scoped inspection and refusal details.
+	{skillSetVersion: "3", binaryCompatibility: "3", skills: map[string]string{
+		"axiom-project":   "4c6e5602212420e9cc23d10a299d6b494c08a1417f4747fc93ca507cd38c257f",
+		"axiom-runtime":   "6ffde6e410088649d59fefff37859aadf0209939907e51d216fef6b0f50ebc8e",
+		"axiom-work-item": "dfa0a34033dbbf4109f724085e1fed7f813d194362262e68cec683d8ffa6532a",
+		"axiom-workflow":  "899abc6a29c6ece448535f844ddaefb7a2419a9f7cfb0533b534b47af89236b7",
+	}},
 }
 
 // currentRevision is the skill set embedded in this binary.
