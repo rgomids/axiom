@@ -95,10 +95,13 @@ func BuildStageInvocation(request StageInvocationRequest) (executiongraph.Invoca
 		argv = append(argv, "--print", "--model", p.Model, "--input-format", "text", "--permission-prompts", "none", "--permission-mode", "dontAsk", "--allowedTools", tools, "--add-dir", request.Inbox)
 	case "cursor-agent":
 		// Cursor Agent CLI: non-interactive print mode with explicit workspace.
-		// Force skips interactive prompts; repository write stays in workspace.
-		// Read-only stages run from the inbox path.
+		// Force skips interactive prompts for authorized repository-writing stages.
+		// Read-only stages are refused: CWD/inbox switching is not a filesystem
+		// boundary, --force authorizes commands, and the installed CLI sandbox
+		// (workspace_readwrite) has not been validated to block absolute-path
+		// writes outside the workspace. Fail closed instead of claiming isolation.
 		if !request.RepositoryWrite {
-			cwd = request.Inbox
+			return executiongraph.Invocation{}, ErrReadOnlyIsolationUnsupported
 		}
 		argv = append(argv, "-p", "--model", p.Model, "--output-format", "text", "--force", "--workspace", cwd)
 	default:

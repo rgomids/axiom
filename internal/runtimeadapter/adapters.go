@@ -13,6 +13,10 @@ import (
 
 var ErrInvalidAdapterConfiguration = errors.New("invalid runtime adapter configuration")
 
+// ErrReadOnlyIsolationUnsupported refuses a RepositoryWrite=false stage when the
+// Runtime exposes no validated filesystem/process boundary for that mode.
+var ErrReadOnlyIsolationUnsupported = errors.New("runtime lacks validated read-only isolation")
+
 type CommandProfile struct {
 	RuntimeID, ModelProfileID string
 	Executable                string
