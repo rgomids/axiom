@@ -238,7 +238,6 @@ func displayName(name string) string {
 	return heading(name)
 }
 
-
 func heading(value string) string {
 	return map[string]string{
 		"problem": "Problem", "desired_outcome": "Desired outcome", "context": "Context",

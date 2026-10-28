@@ -223,7 +223,6 @@ func (a Adapter) Comment(ctx context.Context, resource, selector, message string
 	return nil
 }
 
-
 // ReviseDocument applies a reviewed revision to the current Issue document.
 // A title revision replaces only the title. A section revision replaces only
 // the content region of each named Axiom section and the authorship statement

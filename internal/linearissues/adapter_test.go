@@ -7,8 +7,8 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"strconv"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -47,8 +47,8 @@ func TestCreateReadViaFakeBin(t *testing.T) {
 				"success": true,
 				"issue": map[string]any{
 					"id": "issue-1", "identifier": "AXM-39",
-					"url": "https://linear.app/rgomids/issue/AXM-39",
-					"state": map[string]any{"type": "unstarted"},
+					"url":         "https://linear.app/rgomids/issue/AXM-39",
+					"state":       map[string]any{"type": "unstarted"},
 					"description": "<!-- axiom:work-item-draft:" + strings.Repeat("a", 64) + " -->\n",
 				},
 			},
@@ -56,7 +56,7 @@ func TestCreateReadViaFakeBin(t *testing.T) {
 		`issue(id: $id)`: map[string]any{
 			"issue": map[string]any{
 				"id": "issue-1", "identifier": "AXM-39",
-				"url": "https://linear.app/rgomids/issue/AXM-39",
+				"url":   "https://linear.app/rgomids/issue/AXM-39",
 				"state": map[string]any{"type": "started"},
 				"title": "T", "description": "body",
 				"labels": map[string]any{"nodes": []any{}},
