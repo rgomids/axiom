@@ -177,14 +177,19 @@ func (s Service) Update(ctx context.Context, input UpdateInput, previewDigest st
 	if failure.Category != "" {
 		return failure
 	}
-	external, current, err := s.lifecycle.ReadDocument(ctx, link.Resource, link.ExternalID)
+	lifecycle := s.lifecycleFor(link.Provider)
+	capability := s.capabilityFor(link.Provider)
+	if lifecycle == nil || capability == nil {
+		return result(completion.Failure, "work_item_capability_unavailable")
+	}
+	external, current, err := lifecycle.ReadDocument(ctx, link.Resource, link.ExternalID)
 	if err != nil {
 		return providerFailure(err, "provider_read_failed")
 	}
-	if !s.capability.ValidExternal(link.Resource, link.ExternalID, external) {
+	if !capability.ValidExternal(link.Resource, link.ExternalID, external) {
 		return result(completion.Failure, "invalid_provider_response")
 	}
-	proposed, err := s.lifecycle.ReviseDocument(current, revision)
+	proposed, err := lifecycle.ReviseDocument(current, revision)
 	if err != nil {
 		if errors.Is(err, ErrDocumentTooLarge) {
 			return result(completion.ValidationFailure, "draft_too_large")
@@ -206,11 +211,11 @@ func (s Service) Update(ctx context.Context, input UpdateInput, previewDigest st
 		preview.Effects = []string{"update_provider_work_item_document"}
 	}
 	return s.applyChange(ctx, link, &preview, previewDigest, authorized, "work_item_unchanged", func() Result {
-		updated, err := s.lifecycle.UpdateDocument(ctx, link.Resource, link.ExternalID, change)
+		updated, err := lifecycle.UpdateDocument(ctx, link.Resource, link.ExternalID, change)
 		if err != nil {
 			return providerFailure(err, "provider_mutation_failed")
 		}
-		if !s.capability.ValidExternal(link.Resource, link.ExternalID, updated) {
+		if !capability.ValidExternal(link.Resource, link.ExternalID, updated) {
 			return result(completion.Failure, "invalid_provider_response")
 		}
 		return Result{Status: completion.Success, Category: "work_item_updated", Link: link}
@@ -234,7 +239,11 @@ func (s Service) Comment(ctx context.Context, target Target, selector, message, 
 	preview.Comment = message
 	preview.Effects = []string{"create_provider_comment"}
 	return s.applyChange(ctx, link, &preview, previewDigest, authorized, "", func() Result {
-		if err := s.lifecycle.Comment(ctx, link.Resource, link.ExternalID, message); err != nil {
+		lifecycle := s.lifecycleFor(link.Provider)
+		if lifecycle == nil {
+			return result(completion.Failure, "work_item_capability_unavailable")
+		}
+		if err := lifecycle.Comment(ctx, link.Resource, link.ExternalID, message); err != nil {
 			var provider *ProviderError
 			if errors.As(err, &provider) && provider.EffectNotCommitted {
 				return providerFailure(err, "provider_mutation_failed")
@@ -267,11 +276,16 @@ func (s Service) setState(ctx context.Context, operation ChangeOperation, target
 	if failure.Category != "" {
 		return failure
 	}
-	external, err := s.capability.Read(ctx, link.Resource, link.ExternalID)
+	capability := s.capabilityFor(link.Provider)
+	lifecycle := s.lifecycleFor(link.Provider)
+	if capability == nil || lifecycle == nil {
+		return result(completion.Failure, "work_item_capability_unavailable")
+	}
+	external, err := capability.Read(ctx, link.Resource, link.ExternalID)
 	if err != nil {
 		return providerFailure(err, "provider_read_failed")
 	}
-	if !s.capability.ValidExternal(link.Resource, link.ExternalID, external) {
+	if !capability.ValidExternal(link.Resource, link.ExternalID, external) {
 		return result(completion.Failure, "invalid_provider_response")
 	}
 	preview := s.changePreview(operation, link, external)
@@ -288,11 +302,11 @@ func (s Service) setState(ctx context.Context, operation ChangeOperation, target
 	return s.applyChange(ctx, link, &preview, previewDigest, authorized, noop, func() Result {
 		changed := external
 		if external.State != desired {
-			changed, err = s.lifecycle.SetState(ctx, link.Resource, link.ExternalID, desired)
+			changed, err = lifecycle.SetState(ctx, link.Resource, link.ExternalID, desired)
 			if err != nil {
 				return providerFailure(err, "provider_mutation_failed")
 			}
-			if !s.capability.ValidExternal(link.Resource, link.ExternalID, changed) || changed.State != desired {
+			if !capability.ValidExternal(link.Resource, link.ExternalID, changed) || changed.State != desired {
 				return result(completion.Failure, "invalid_provider_response")
 			}
 		}
@@ -354,14 +368,16 @@ func (s Service) lifecycleLink(ctx context.Context, target Target, selector stri
 	if category != "" {
 		return Link{}, result(completion.ValidationFailure, category)
 	}
-	if s.capability == nil || s.lifecycle == nil || project.Provider != s.capability.ProviderID() {
+	capability := s.capabilityFor(project.Provider)
+	lifecycle := s.lifecycleFor(project.Provider)
+	if capability == nil || lifecycle == nil {
 		return Link{}, result(completion.ValidationFailure, "work_item_capability_unavailable")
 	}
 	shown := s.Show(ctx, target, selector)
 	if shown.Status != completion.Success {
 		return Link{}, shown
 	}
-	if shown.Link.Provider != s.capability.ProviderID() || !s.capability.ValidResource(shown.Link.Resource) {
+	if shown.Link.Provider != capability.ProviderID() || !capability.ValidResource(shown.Link.Resource) {
 		return Link{}, result(completion.ValidationFailure, "work_item_capability_unavailable")
 	}
 	return shown.Link, Result{}

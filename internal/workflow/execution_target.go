@@ -2,6 +2,7 @@ package workflow
 
 import (
 	"context"
+	"regexp"
 	"strconv"
 )
 
@@ -41,7 +42,18 @@ func (s Service) ValidateTarget(ctx context.Context, target Target) (ResolvedTar
 	return resolved, Result{}
 }
 
+// linearIdentifierPattern accepts Linear issue identifiers (TEAM-N).
+var linearIdentifierPattern = regexp.MustCompile(`^[A-Z][A-Z0-9]{0,9}-[1-9][0-9]{0,9}$`)
+
 func validWorkItemSelector(value string) bool {
 	number, err := strconv.Atoi(value)
-	return err == nil && number > 0 && strconv.Itoa(number) == value
+	if err == nil && number > 0 && strconv.Itoa(number) == value {
+		return true
+	}
+	return ValidLinearWorkItemSelector(value)
+}
+
+// ValidLinearWorkItemSelector reports whether value is a Linear issue identifier (TEAM-N).
+func ValidLinearWorkItemSelector(value string) bool {
+	return linearIdentifierPattern.MatchString(value)
 }

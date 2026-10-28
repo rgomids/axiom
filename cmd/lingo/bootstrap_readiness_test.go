@@ -242,11 +242,11 @@ func TestBlockedPreflightPerformsNoEffects(t *testing.T) {
 	t.Setenv("AXIOM_GH_BIN", gh)
 	env.service = compose()
 	repository := writeTree(t, filepath.Join(env.workspace, "main"), map[string]string{"README.md": "x"})
-	for _, provider := range []string{"", "linear"} {
+	for _, provider := range []string{"", "jira"} {
 		slug := "blocked" + provider
 		configureProject(t, env.service, slug, "Blocked", "main="+repository, provider)
 		before := snapshotTrees(t, env.root, env.state, env.workspace)
-		want := map[string]string{"": "capability_mapping_missing", "linear": "provider_unsupported"}[provider]
+		want := map[string]string{"": "capability_mapping_missing", "jira": "provider_unsupported"}[provider]
 		service := env.service.(lifecycleService)
 		results := map[string]cli.Result{
 			"create":  service.WorkItemCreate(context.Background(), cli.WorkItemInput{Project: slug, Repository: "main", ProviderRepository: "owner/repo", Intent: "x", Problem: "x", DesiredOutcome: "x", Context: "x", Scope: "x", Constraints: "x", NonGoals: "x", Acceptance: "x", PreviewDigest: "any", AuthorizeExternal: true}),
@@ -306,7 +306,7 @@ func TestGuidedBootstrapAsksOnlyForUnresolvedRemote(t *testing.T) {
 	if code != cli.ExitSuccess {
 		t.Fatalf("exit %d output=%s prompts=%s", code, output.String(), prompts.String())
 	}
-	for _, want := range []string{"Work Item provider (github or none): ", "1) https://github.com/acme/core.git", "2) https://github.com/acme/fork.git", "Remote for core (number, locator, or none): ", "Publish this exact proposal? [yes/no]: "} {
+	for _, want := range []string{"Work Item provider (github, linear, or none): ", "1) https://github.com/acme/core.git", "2) https://github.com/acme/fork.git", "Remote for core (number, locator, or none): ", "Publish this exact proposal? [yes/no]: "} {
 		if !strings.Contains(prompts.String(), want) {
 			t.Fatalf("prompt %q missing: %s", want, prompts.String())
 		}

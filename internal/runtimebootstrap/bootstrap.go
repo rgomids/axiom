@@ -204,3 +204,28 @@ func Detect(ctx context.Context, lookPath LookPath, runtimes []Runtime) Report {
 	}
 	return report
 }
+
+// CursorConfigurationRoot returns Cursor's effective configuration directory:
+// CURSOR_CONFIG_DIR when set, otherwise ~/.cursor.
+func CursorConfigurationRoot(getenv func(string) string, home string) (string, error) {
+	if override := getenv("CURSOR_CONFIG_DIR"); override != "" {
+		return safeRoot(override)
+	}
+	if home == "" {
+		return "", ErrUnsafeConfigurationRoot
+	}
+	return safeRoot(filepath.Join(home, ".cursor"))
+}
+
+// CursorSkillsRoot is the Cursor user-global skill root,
+// <configuration directory>/skills. Override AXIOM_CURSOR_SKILLS_ROOT wins when set.
+func CursorSkillsRoot(getenv func(string) string, home string) (string, error) {
+	if override := getenv("AXIOM_CURSOR_SKILLS_ROOT"); override != "" {
+		return safeRoot(override)
+	}
+	root, err := CursorConfigurationRoot(getenv, home)
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(root, "skills"), nil
+}

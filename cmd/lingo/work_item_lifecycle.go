@@ -78,7 +78,7 @@ func lifecycleTarget(input cli.WorkItemInput) workitem.Target {
 // unsupportedWorkItemProvider rejects an exact selector naming a Provider this
 // build does not implement, before any Provider call.
 func unsupportedWorkItemProvider(input cli.WorkItemInput, s lifecycleService) *cli.Result {
-	if input.Provider == "" || input.Provider == "github" {
+	if input.Provider == "" || input.Provider == "github" || input.Provider == "linear" {
 		return nil
 	}
 	result := workItemResult(workitem.Result{Status: completion.ValidationFailure, Category: "invalid_work_item_input"}, s.provenance)

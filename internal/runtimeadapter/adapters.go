@@ -61,6 +61,8 @@ func (r InvocationResolver) ResolveInvocation(ctx context.Context, child executi
 		argv = append(argv, "exec", "--model", profile.Model)
 	case "claude":
 		argv = append(argv, "--print", "--model", profile.Model)
+	case "cursor-agent":
+		argv = append(argv, "-p", "--model", profile.Model, "--output-format", "text", "--force")
 	default:
 		return executiongraph.Invocation{}, ErrInvalidAdapterConfiguration
 	}
@@ -113,7 +115,7 @@ func (r InvocationResolver) ResolveInvocation(ctx context.Context, child executi
 }
 
 func validCommandProfile(profile CommandProfile) bool {
-	if profile.RuntimeID != "codex" && profile.RuntimeID != "claude" || profile.ModelProfileID == "" || profile.Model == "" || !filepath.IsAbs(profile.Executable) || profile.OutputMax <= 0 || profile.OutputMax > executiongraph.MaxCapturedOutputBytes || len(profile.Arguments) > 32 || len(profile.Environment) > 32 {
+	if profile.RuntimeID != "codex" && profile.RuntimeID != "claude" && profile.RuntimeID != "cursor-agent" || profile.ModelProfileID == "" || profile.Model == "" || !filepath.IsAbs(profile.Executable) || profile.OutputMax <= 0 || profile.OutputMax > executiongraph.MaxCapturedOutputBytes || len(profile.Arguments) > 32 || len(profile.Environment) > 32 {
 		return false
 	}
 	if filepath.Base(profile.Executable) != profile.RuntimeID {

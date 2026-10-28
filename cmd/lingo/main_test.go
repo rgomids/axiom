@@ -397,7 +397,7 @@ func TestConfigureReportsCommittedPortableStateWhenLocalPublicationFails(t *test
 }
 
 func TestWorkItemJourneyRequiresReadyConfiguredCapability(t *testing.T) {
-	for _, provider := range []string{"", "linear"} {
+	for _, provider := range []string{"", "jira"} {
 		t.Run("provider-"+provider, func(t *testing.T) {
 			root := filepath.Join(t.TempDir(), "projects")
 			state := filepath.Join(t.TempDir(), "state")
@@ -410,7 +410,7 @@ func TestWorkItemJourneyRequiresReadyConfiguredCapability(t *testing.T) {
 			service := compose()
 			configureProject(t, service, "capability", "Capability", "main="+repository, provider)
 			result := service.WorkItemCreate(context.Background(), cli.WorkItemInput{Project: "capability", Repository: "main", ProviderRepository: "owner/repo", Intent: "Blocked", AuthorizeExternal: true})
-			want := map[string]string{"": "capability_mapping_missing", "linear": "provider_unsupported"}[provider]
+			want := map[string]string{"": "capability_mapping_missing", "jira": "provider_unsupported"}[provider]
 			// The preflight reports the exact readiness blocker before any effect.
 			if result.Completion == nil || result.Completion.Status() != completion.ValidationFailure || result.Category != want || result.Preflight == nil || result.Preflight.Blockers[0].Code != want {
 				t.Fatalf("provider %q work item result = %#v", provider, result)

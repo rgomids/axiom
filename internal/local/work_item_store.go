@@ -106,10 +106,27 @@ func (s WorkItemStore) Load(ctx context.Context, projectID, repositoryKey, provi
 	if err := ctx.Err(); err != nil {
 		return workitem.Link{}, err
 	}
-	if len(project.ValidateIdentity(projectID, "work-item")) != 0 || !project.ValidSlug(repositoryKey) || !validV1GitHubNumber(externalID) {
+	if len(project.ValidateIdentity(projectID, "work-item")) != 0 || !project.ValidSlug(repositoryKey) {
 		return workitem.Link{}, ErrUnsafe
 	}
-	if (provider == "") != (resource == "") || provider != "" && (provider != "github" || !validV1GitHubRepository(resource)) {
+	if (provider == "") != (resource == "") {
+		return workitem.Link{}, ErrUnsafe
+	}
+	if provider != "" {
+		switch provider {
+		case "github":
+			if !validV1GitHubRepository(resource) || !validV1GitHubNumber(externalID) {
+				return workitem.Link{}, ErrUnsafe
+			}
+		case "linear":
+			if !validV1LinearIdentifier(resource, externalID) {
+				return workitem.Link{}, ErrUnsafe
+			}
+		default:
+			return workitem.Link{}, ErrUnsafe
+		}
+	} else if !validV1GitHubNumber(externalID) && !v1LinearIdentifier.MatchString(externalID) {
+		// Legacy Load without provider still accepts github numbers or linear identifiers.
 		return workitem.Link{}, ErrUnsafe
 	}
 	root, items, projectRoot, err := s.openProject(projectID, false)
@@ -332,12 +349,26 @@ func decodeWorkItem(wire []byte) (workitem.Link, error) {
 }
 
 func validV1WorkItemLink(link workitem.Link) (int, bool) {
-	if len(project.ValidateIdentity(link.ProjectID, "work-item")) != 0 || !project.ValidSlug(link.RepositoryKey) || link.Provider != "github" || !validV1GitHubRepository(link.Resource) || !validV1GitHubNumber(link.ExternalID) {
+	if len(project.ValidateIdentity(link.ProjectID, "work-item")) != 0 || !project.ValidSlug(link.RepositoryKey) || (link.State != "OPEN" && link.State != "CLOSED") {
 		return 0, false
 	}
-	number, _ := strconv.Atoi(link.ExternalID)
-	expectedURL := fmt.Sprintf("https://github.com/%s/issues/%d", link.Resource, number)
-	return number, link.URL == expectedURL && (link.State == "OPEN" || link.State == "CLOSED")
+	switch link.Provider {
+	case "github":
+		if !validV1GitHubRepository(link.Resource) || !validV1GitHubNumber(link.ExternalID) {
+			return 0, false
+		}
+		number, _ := strconv.Atoi(link.ExternalID)
+		expectedURL := fmt.Sprintf("https://github.com/%s/issues/%d", link.Resource, number)
+		return number, link.URL == expectedURL
+	case "linear":
+		if !validV1LinearIdentifier(link.Resource, link.ExternalID) || !validV1LinearURL(link.ExternalID, link.URL) {
+			return 0, false
+		}
+		// Linear identifiers are not plain integers; keep sort key 0.
+		return 0, true
+	default:
+		return 0, false
+	}
 }
 
 func validV1GitHubNumber(value string) bool {
@@ -350,6 +381,25 @@ var v1GitHubSegment = regexp.MustCompile(`^[A-Za-z0-9_.-]+$`)
 func validV1GitHubRepository(value string) bool {
 	parts := strings.Split(value, "/")
 	return len(parts) == 2 && parts[0] != "." && parts[0] != ".." && parts[1] != "." && parts[1] != ".." && v1GitHubSegment.MatchString(parts[0]) && v1GitHubSegment.MatchString(parts[1])
+}
+
+var v1LinearTeamKey = regexp.MustCompile(`^[A-Z][A-Z0-9]{0,9}$`)
+var v1LinearIdentifier = regexp.MustCompile(`^[A-Z][A-Z0-9]{0,9}-[1-9][0-9]{0,9}$`)
+
+func validV1LinearTeamKey(value string) bool { return v1LinearTeamKey.MatchString(value) }
+
+func validV1LinearIdentifier(resource, externalID string) bool {
+	return validV1LinearTeamKey(resource) && v1LinearIdentifier.MatchString(externalID) && strings.HasPrefix(externalID, resource+"-")
+}
+
+func validV1LinearURL(identifier, raw string) bool {
+	if raw == "" || len(raw) > 512 || !strings.HasPrefix(raw, "https://linear.app/") {
+		return false
+	}
+	// https://linear.app/<workspace>/issue/<identifier>[/...]
+	rest := strings.TrimPrefix(raw, "https://linear.app/")
+	parts := strings.Split(rest, "/")
+	return len(parts) >= 3 && parts[0] != "" && parts[1] == "issue" && parts[2] == identifier
 }
 
 func loadExactWorkItem(root *os.Root, projectID, repositoryKey, provider, resource, externalID string) (workitem.Link, error) {
@@ -472,7 +522,17 @@ func createAttemptName(target workitem.DraftTarget) string {
 }
 
 func validDraftTarget(target workitem.DraftTarget) bool {
-	return len(project.ValidateIdentity(target.ProjectID, "work-item")) == 0 && project.ValidSlug(target.RepositoryKey) && target.Provider == "github" && validV1GitHubRepository(target.Resource)
+	if len(project.ValidateIdentity(target.ProjectID, "work-item")) != 0 || !project.ValidSlug(target.RepositoryKey) {
+		return false
+	}
+	switch target.Provider {
+	case "github":
+		return validV1GitHubRepository(target.Resource)
+	case "linear":
+		return validV1LinearTeamKey(target.Resource)
+	default:
+		return false
+	}
 }
 
 func validCreateAttempt(attempt workitem.CreateAttempt) bool {
@@ -483,7 +543,14 @@ func validCreateAttempt(attempt workitem.CreateAttempt) bool {
 	case workitem.CreateAttemptPending, workitem.CreateAttemptRetryAllowed:
 		return attempt.ExternalID == ""
 	case workitem.CreateAttemptConfirmed:
-		return validV1GitHubNumber(attempt.ExternalID)
+		switch attempt.Target.Provider {
+		case "github":
+			return validV1GitHubNumber(attempt.ExternalID)
+		case "linear":
+			return validV1LinearIdentifier(attempt.Target.Resource, attempt.ExternalID)
+		default:
+			return false
+		}
 	default:
 		return false
 	}

@@ -50,7 +50,7 @@ func TestSetupProposalCapabilityAndEffectsAreExplicit(t *testing.T) {
 	if len(issues) != 0 || missing.Preview().Capability.Readiness != projectapp.CapabilityMissing {
 		t.Fatal("missing capability not explicit", issues)
 	}
-	base.WorkItemProvider = "linear"
+	base.WorkItemProvider = "jira"
 	unsupported, issues := projectapp.PrepareSetup(manifest.Codec{}, base, observation)
 	if len(issues) != 0 || unsupported.Preview().Capability.Readiness != projectapp.CapabilityUnsupported {
 		t.Fatal("unsupported capability silently changed", issues)

@@ -25,8 +25,13 @@ func workflowStartInput(input cli.WorkflowInput) (cli.WorkflowInput, bool) {
 		}
 		input.Provider, input.ProviderRepository, input.ExternalID = provider, resource, id
 	} else if input.ExternalID != "" {
+		if input.Number != 0 {
+			return input, false
+		}
 		number, err := strconv.Atoi(input.ExternalID)
-		if err != nil || number <= 0 || strconv.Itoa(number) != input.ExternalID || input.Number != 0 {
+		githubOK := err == nil && number > 0 && strconv.Itoa(number) == input.ExternalID
+		linearOK := input.Provider == "linear" && workflow.ValidLinearWorkItemSelector(input.ExternalID)
+		if !githubOK && !linearOK {
 			return input, false
 		}
 	} else if input.Number <= 0 {

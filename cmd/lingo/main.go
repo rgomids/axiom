@@ -17,6 +17,7 @@ import (
 	"github.com/rgomids/axiom/internal/codexruntime"
 	"github.com/rgomids/axiom/internal/completion"
 	"github.com/rgomids/axiom/internal/githubissues"
+	"github.com/rgomids/axiom/internal/linearissues"
 	"github.com/rgomids/axiom/internal/install"
 	"github.com/rgomids/axiom/internal/local"
 	"github.com/rgomids/axiom/internal/manifest"
@@ -154,14 +155,20 @@ func composeWithProvenance(source provenance.Value) cli.Service {
 	if err != nil {
 		return cli.NewUnavailableService(source)
 	}
-	github, githubErr := githubissues.New(os.Getenv("AXIOM_GH_BIN"))
-	var capability workitem.Capability
-	var lifecycle workitem.Lifecycle
-	if githubErr == nil {
-		capability = github
-		lifecycle = github
+	capabilities := map[string]workitem.Capability{}
+	lifecycles := map[string]workitem.Lifecycle{}
+	projections := map[string]workflow.ProjectionCapability{}
+	if github, err := githubissues.New(os.Getenv("AXIOM_GH_BIN")); err == nil {
+		capabilities["github"] = github
+		lifecycles["github"] = github
+		projections["github"] = github
 	}
-	workItemService := workitem.New(workItemResolver{installation: installation, portable: store}, capability, lifecycle, workItems, source)
+	if linear, err := linearissues.New(os.Getenv("AXIOM_LINEAR_BIN")); err == nil {
+		capabilities["linear"] = linear
+		lifecycles["linear"] = linear
+		projections["linear"] = linear
+	}
+	workItemService := workitem.NewProviders(workItemResolver{installation: installation, portable: store}, capabilities, lifecycles, workItems, source)
 	workflows, err := local.NewWorkflowStore(state)
 	if err != nil {
 		return cli.NewUnavailableService(source)
@@ -175,7 +182,7 @@ func composeWithProvenance(source provenance.Value) cli.Service {
 	if err != nil {
 		return cli.NewUnavailableService(source)
 	}
-	workflowService := workflow.New(workflowResolver{installation}, workflowWorkItems{workItemService}, workflows, github, references, source, nil, nil).WithDefinitions(workflowDefinitions{installation, store}, references).WithProfileContract()
+	workflowService := workflow.New(workflowResolver{installation}, workflowWorkItems{workItemService}, workflows, workflow.ProjectionRouter{ByProvider: projections}, references, source, nil, nil).WithDefinitions(workflowDefinitions{installation, store}, references).WithProfileContract()
 	return lifecycleService{lifecycle: projectapp.NewLifecycle(store, manifest.Codec{}, local.IdentityAllocator{}), portable: store, installation: installation, operational: operational, projectCatalog: projectapp.NewProjectCatalog(installation, installation).WithOperationalState(operational), codex: codex, workItems: workItemService, workflows: workflowService, projectsRoot: root, stateRoot: state, skillsRoot: codexSkillsRoot(), runtimes: discoverRuntimeRoots(), provenance: source}
 }
 
@@ -1456,6 +1463,8 @@ func observeSkills() []cli.SkillObservation {
 	}
 	manifest := skillExpectation().Manifest
 	codex, codexErr := codexruntime.New(codexSkillsRoot())
-	claude, claudeErr := discoverRuntimeRoots().claude()
-	return []cli.SkillObservation{observe("codex", codex, codexErr, manifest), observe("claude", claude, claudeErr, manifest)}
+	roots := discoverRuntimeRoots()
+	claude, claudeErr := roots.claude()
+	cursor, cursorErr := roots.cursor()
+	return []cli.SkillObservation{observe("codex", codex, codexErr, manifest), observe("claude", claude, claudeErr, manifest), observe("cursor-agent", cursor, cursorErr, manifest)}
 }

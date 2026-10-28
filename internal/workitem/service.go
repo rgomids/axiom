@@ -220,15 +220,53 @@ const (
 )
 
 type Service struct {
-	resolver   Resolver
-	capability Capability
-	lifecycle  Lifecycle
-	store      Store
-	source     provenance.Value
+	resolver     Resolver
+	capability   Capability // single-provider composition (tests / backward path)
+	lifecycle    Lifecycle
+	capabilities map[string]Capability
+	lifecycles   map[string]Lifecycle
+	store        Store
+	source       provenance.Value
 }
 
 func New(resolver Resolver, capability Capability, lifecycle Lifecycle, store Store, source provenance.Value) Service {
-	return Service{resolver: resolver, capability: capability, lifecycle: lifecycle, store: store, source: source}
+	service := Service{resolver: resolver, capability: capability, lifecycle: lifecycle, store: store, source: source}
+	if capability != nil {
+		service.capabilities = map[string]Capability{capability.ProviderID(): capability}
+	}
+	if lifecycle != nil && capability != nil {
+		service.lifecycles = map[string]Lifecycle{capability.ProviderID(): lifecycle}
+	}
+	return service
+}
+
+// NewProviders composes multiple Work Item providers selected by Project.Provider.
+func NewProviders(resolver Resolver, capabilities map[string]Capability, lifecycles map[string]Lifecycle, store Store, source provenance.Value) Service {
+	return Service{resolver: resolver, capabilities: capabilities, lifecycles: lifecycles, store: store, source: source}
+}
+
+func (s Service) capabilityFor(provider string) Capability {
+	if s.capabilities != nil {
+		if capability := s.capabilities[provider]; capability != nil {
+			return capability
+		}
+	}
+	if s.capability != nil && s.capability.ProviderID() == provider {
+		return s.capability
+	}
+	return nil
+}
+
+func (s Service) lifecycleFor(provider string) Lifecycle {
+	if s.lifecycles != nil {
+		if lifecycle := s.lifecycles[provider]; lifecycle != nil {
+			return lifecycle
+		}
+	}
+	if s.lifecycle != nil {
+		return s.lifecycle
+	}
+	return nil
 }
 
 func (s Service) Prepare(ctx context.Context, input DraftInput) Result {
@@ -251,9 +289,12 @@ func (s Service) Prepare(ctx context.Context, input DraftInput) Result {
 	target.ProjectID = project.ID
 	preview, err := s.preview(draft, target)
 	if err != nil {
+		if err.Error() == "work_item_capability_unavailable" {
+			return result(completion.ValidationFailure, "work_item_capability_unavailable")
+		}
 		return result(completion.ValidationFailure, "draft_invalid")
 	}
-	if classifier, ok := s.capability.(DocumentClassifier); ok {
+	if classifier, ok := s.capabilityFor(target.Provider).(DocumentClassifier); ok {
 		document, err := classifier.ClassifyDocument(ctx, draft, target, preview.ProviderDocument, draft.Classification)
 		if err != nil {
 			return providerFailure(err, "provider_classification_failed")
@@ -316,7 +357,7 @@ func (s Service) Create(ctx context.Context, input DraftInput, previewDigest str
 }
 
 func (s Service) verifyCreated(ctx context.Context, preview DraftPreview, created Result) Result {
-	verifier, ok := s.capability.(DocumentVerifier)
+	verifier, ok := s.capabilityFor(preview.Target.Provider).(DocumentVerifier)
 	if !ok || created.Status != completion.Success {
 		return created
 	}
@@ -362,9 +403,13 @@ func (s Service) resumeCreate(ctx context.Context, preview DraftPreview, attempt
 }
 
 func (s Service) executeCreate(ctx context.Context, preview DraftPreview, attempt CreateAttempt) Result {
-	external, err := s.capability.Create(ctx, CreateRequest{Resource: preview.Target.Resource, Correlation: preview.Correlation, Document: preview.ProviderDocument})
+	capability := s.capabilityFor(preview.Target.Provider)
+	if capability == nil {
+		return result(completion.Failure, "work_item_capability_unavailable")
+	}
+	external, err := capability.Create(ctx, CreateRequest{Resource: preview.Target.Resource, Correlation: preview.Correlation, Document: preview.ProviderDocument})
 	if err == nil {
-		if !s.capability.ValidExternal(preview.Target.Resource, external.ID, external) {
+		if !capability.ValidExternal(preview.Target.Resource, external.ID, external) {
 			return result(completion.Failure, "invalid_provider_response")
 		}
 		return s.persistAndConfirmAttempt(ctx, attempt, external)
@@ -424,11 +469,15 @@ func (s Service) PreviewSelect(ctx context.Context, target Target, selector stri
 	if selector == "" {
 		return result(completion.ValidationFailure, "invalid_work_item_input")
 	}
-	external, err := s.capability.Read(ctx, resolved.Resource, selector)
+	capability := s.capabilityFor(resolved.Provider)
+	if capability == nil {
+		return result(completion.Failure, "work_item_capability_unavailable")
+	}
+	external, err := capability.Read(ctx, resolved.Resource, selector)
 	if err != nil {
 		return providerFailure(err, "provider_read_failed")
 	}
-	if !s.capability.ValidExternal(resolved.Resource, selector, external) {
+	if !capability.ValidExternal(resolved.Resource, selector, external) {
 		return result(completion.Failure, "invalid_provider_response")
 	}
 	link, loadErr := s.store.Load(ctx, project.ID, resolved.RepositoryKey, resolved.Provider, resolved.Resource, selector)
@@ -481,7 +530,9 @@ func (s Service) Show(ctx context.Context, target Target, selector string) Resul
 	}
 	provider := ""
 	if target.ProviderResource != "" {
-		provider = s.capability.ProviderID()
+		if capability := s.capabilityFor(project.Provider); capability != nil {
+			provider = capability.ProviderID()
+		}
 	}
 	link, err := s.store.Load(ctx, project.ID, repositoryKey, provider, target.ProviderResource, selector)
 	if err != nil {
@@ -504,8 +555,11 @@ func (s Service) resolveLinked(ctx context.Context, input Target) (Project, stri
 	if category != "" {
 		return Project{}, "", result(completion.ValidationFailure, category)
 	}
-	if input.ProviderResource != "" && (s.capability == nil || project.Provider != s.capability.ProviderID() || !s.capability.ValidResource(input.ProviderResource)) {
-		return Project{}, "", result(completion.ValidationFailure, "invalid_work_item_input")
+	if input.ProviderResource != "" {
+		capability := s.capabilityFor(project.Provider)
+		if capability == nil || !capability.ValidResource(input.ProviderResource) {
+			return Project{}, "", result(completion.ValidationFailure, "invalid_work_item_input")
+		}
 	}
 	for _, repository := range project.Repositories {
 		if repository.Key == input.RepositoryKey {
@@ -523,10 +577,11 @@ func (s Service) resolve(ctx context.Context, input Target) (Project, DraftTarge
 	if category != "" {
 		return Project{}, DraftTarget{}, result(completion.ValidationFailure, category)
 	}
-	if s.capability == nil || project.Provider != s.capability.ProviderID() {
+	capability := s.capabilityFor(project.Provider)
+	if capability == nil {
 		return Project{}, DraftTarget{}, result(completion.ValidationFailure, "work_item_capability_unavailable")
 	}
-	if !s.capability.ValidResource(input.ProviderResource) {
+	if !capability.ValidResource(input.ProviderResource) {
 		return Project{}, DraftTarget{}, result(completion.ValidationFailure, "invalid_provider_target")
 	}
 	for _, repository := range project.Repositories {
@@ -547,7 +602,11 @@ func (s Service) preview(draft Draft, target DraftTarget) (DraftPreview, error) 
 		Provenance string
 	}{target, draft, effects, ExpectedRevisions{Local: "missing"}, provenanceIdentity(s.source)}
 	correlation := digestValue(semantic)
-	document, err := s.capability.Render(draft, target, correlation, s.source)
+	capability := s.capabilityFor(target.Provider)
+	if capability == nil {
+		return DraftPreview{}, errors.New("work_item_capability_unavailable")
+	}
+	document, err := capability.Render(draft, target, correlation, s.source)
 	if err != nil {
 		return DraftPreview{}, err
 	}
@@ -557,14 +616,18 @@ func (s Service) preview(draft Draft, target DraftTarget) (DraftPreview, error) 
 }
 
 func (s Service) reconcile(ctx context.Context, preview DraftPreview) (External, Result) {
-	items, err := s.capability.ReconcileCreate(ctx, preview.Target.Resource, preview.Correlation)
+	capability := s.capabilityFor(preview.Target.Provider)
+	if capability == nil {
+		return External{}, result(completion.Failure, "work_item_capability_unavailable")
+	}
+	items, err := capability.ReconcileCreate(ctx, preview.Target.Resource, preview.Correlation)
 	if err != nil {
 		return External{}, providerFailure(err, "provider_reconciliation_failed")
 	}
 	if len(items) == 0 {
 		return External{}, Result{}
 	}
-	if len(items) != 1 || !s.capability.ValidExternal(preview.Target.Resource, items[0].ID, items[0]) {
+	if len(items) != 1 || !capability.ValidExternal(preview.Target.Resource, items[0].ID, items[0]) {
 		return External{}, result(completion.Failure, "provider_reconciliation_ambiguous")
 	}
 	return items[0], Result{}

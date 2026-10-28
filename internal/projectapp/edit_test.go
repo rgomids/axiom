@@ -189,7 +189,7 @@ func TestEditScalarPreserveSetAndRemove(t *testing.T) {
 	}
 
 	linear := mustPreview(t, f, projectapp.EditIntent{WorkItemProvider: set("linear")})
-	if id, ok := workItemProvider(t, linear.Project()); !ok || id != "linear" || linear.Preview().Capability.Readiness != projectapp.CapabilityUnsupported {
+	if id, ok := workItemProvider(t, linear.Project()); !ok || id != "linear" || linear.Preview().Capability.Readiness != projectapp.CapabilityReady {
 		t.Fatalf("provider set = %q readiness=%s", id, linear.Preview().Capability.Readiness)
 	}
 	if linear.Project().State().Name != "Sample" {

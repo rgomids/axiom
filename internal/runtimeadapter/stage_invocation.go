@@ -52,7 +52,7 @@ func BuildStageInvocation(request StageInvocationRequest) (executiongraph.Invoca
 	}
 	for _, entry := range request.ParentEnvironment {
 		key, _, _ := strings.Cut(entry, "=")
-		if strings.EqualFold(key, "CODEX_HOME") || strings.EqualFold(key, "CLAUDE_CONFIG_DIR") {
+		if strings.EqualFold(key, "CODEX_HOME") || strings.EqualFold(key, "CLAUDE_CONFIG_DIR") || strings.EqualFold(key, "CURSOR_CONFIG_DIR") {
 			return executiongraph.Invocation{}, ErrEffortConfigurationUnsafe
 		}
 		if p.RuntimeID == "claude" && strings.EqualFold(key, "CLAUDE_CODE_EFFORT_LEVEL") {
@@ -93,6 +93,14 @@ func BuildStageInvocation(request StageInvocationRequest) (executiongraph.Invoca
 			tools = strings.TrimSuffix(tools, ",Bash("+request.AxiomPath+":*)") + ",Bash"
 		}
 		argv = append(argv, "--print", "--model", p.Model, "--input-format", "text", "--permission-prompts", "none", "--permission-mode", "dontAsk", "--allowedTools", tools, "--add-dir", request.Inbox)
+	case "cursor-agent":
+		// Cursor Agent CLI: non-interactive print mode with explicit workspace.
+		// Force skips interactive prompts; repository write stays in workspace.
+		// Read-only stages run from the inbox path.
+		if !request.RepositoryWrite {
+			cwd = request.Inbox
+		}
+		argv = append(argv, "-p", "--model", p.Model, "--output-format", "text", "--force", "--workspace", cwd)
 	default:
 		return executiongraph.Invocation{}, ErrInvalidAdapterConfiguration
 	}
@@ -103,7 +111,7 @@ func BuildStageInvocation(request StageInvocationRequest) (executiongraph.Invoca
 // Correlation variables are never inherited: a value in the supervisor's own
 // environment belongs to no attempt. Only the attempt context may set them.
 func StageEnvironment(runtimeID string, parent []string) ([]string, error) {
-	if runtimeID != "codex" && runtimeID != "claude" {
+	if runtimeID != "codex" && runtimeID != "claude" && runtimeID != "cursor-agent" {
 		return nil, ErrInvalidAdapterConfiguration
 	}
 	values := map[string]string{}
@@ -112,7 +120,7 @@ func StageEnvironment(runtimeID string, parent []string) ([]string, error) {
 		if !ok || !stageEnvironmentKey(key) || strings.ContainsRune(entry, '\x00') {
 			return nil, ErrInvalidAdapterConfiguration
 		}
-		allowed := key == "HOME" || key == "USER" || key == "LOGNAME" || key == "PATH" || key == "SHELL" || key == "TMPDIR" || key == "LANG" || strings.HasPrefix(key, "LC_") || runtimeID == "codex" && key == "CODEX_HOME" || runtimeID == "claude" && key == "CLAUDE_CONFIG_DIR"
+		allowed := key == "HOME" || key == "USER" || key == "LOGNAME" || key == "PATH" || key == "SHELL" || key == "TMPDIR" || key == "LANG" || strings.HasPrefix(key, "LC_") || runtimeID == "codex" && key == "CODEX_HOME" || runtimeID == "claude" && key == "CLAUDE_CONFIG_DIR" || runtimeID == "cursor-agent" && key == "CURSOR_CONFIG_DIR"
 		if !allowed {
 			continue
 		}

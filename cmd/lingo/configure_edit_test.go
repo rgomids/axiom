@@ -201,7 +201,7 @@ func TestEditPreviewRepositoryAndProviderSemanticsOverRealStores(t *testing.T) {
 		env.runEdit(t, cli.ExitFailure, "validation_failure", "Explicit selector input is invalid", conflict...)
 	}
 	linear, _ := env.runEdit(t, cli.ExitSuccess, "success", "Project edit preview ready", "--project", "sample", "--work-item-provider", "linear")
-	if linear.Edit.Capability.Provider != "linear" || linear.Edit.Capability.Readiness != projectapp.CapabilityUnsupported || linear.Edit.Name != "Sample" {
+	if linear.Edit.Capability.Provider != "linear" || linear.Edit.Capability.Readiness != projectapp.CapabilityReady || linear.Edit.Name != "Sample" {
 		t.Fatalf("provider set = %+v", linear.Edit)
 	}
 }

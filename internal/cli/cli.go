@@ -38,6 +38,8 @@ type Service interface {
 	RuntimeCodexStatus(context.Context) Result
 	RuntimeClaudeInstall(context.Context) Result
 	RuntimeClaudeStatus(context.Context) Result
+	RuntimeCursorInstall(context.Context) Result
+	RuntimeCursorStatus(context.Context) Result
 	FirstRun(context.Context) Result
 	Resolve(context.Context, ResolveInput) Result
 	Show(context.Context, ResolveInput) Result
@@ -383,10 +385,13 @@ func RunInteractive(ctx context.Context, args []string, service Service, source 
 		}
 		return emitResponse(stdout, mode, runtimeProfilePreviewAction, profiles.RuntimeProfilePreview(ctx, input))
 	}
-	if commandMatches(args, codexAuthAction) || commandMatches(args, claudeAuthAction) {
+	if commandMatches(args, codexAuthAction) || commandMatches(args, claudeAuthAction) || commandMatches(args, cursorAuthAction) {
 		operation, runtimeID := codexAuthAction, "codex"
 		if commandMatches(args, claudeAuthAction) {
 			operation, runtimeID = claudeAuthAction, "claude"
+		}
+		if commandMatches(args, cursorAuthAction) {
+			operation, runtimeID = cursorAuthAction, "cursor-agent"
 		}
 		if len(args) != 3 {
 			return emitParserFailure(stdout, mode, operation, "invalid_input", source)
@@ -515,7 +520,7 @@ func parserFailureText(operation action, issue string) (string, string) {
 	if operation == runtimeProfileValidateAction {
 		return "Runtime profile validation input is invalid", "Run runtime profile validate without flags or arguments"
 	}
-	if operation == codexAuthAction || operation == claudeAuthAction {
+	if operation == codexAuthAction || operation == claudeAuthAction || operation == cursorAuthAction {
 		return "Runtime authentication preflight input is invalid", "Run runtime codex auth or runtime claude auth without flags or arguments"
 	}
 	if issue == "incomplete_edit_authority" {
@@ -630,8 +635,11 @@ const (
 	codexStatusAction       action = "runtime_codex_status"
 	claudeInstallAction     action = "runtime_claude_install"
 	claudeStatusAction      action = "runtime_claude_status"
+	cursorInstallAction     action = "runtime_cursor-agent_install"
+	cursorStatusAction      action = "runtime_cursor-agent_status"
 	codexAuthAction         action = "runtime_codex_auth"
 	claudeAuthAction        action = "runtime_claude_auth"
+	cursorAuthAction        action = "runtime_cursor-agent_auth"
 	firstRunAction          action = "first_run"
 )
 
@@ -690,9 +698,9 @@ func request(args []string, service Service) (action, requestInput, *string) {
 	if len(args) == 1 && command.operation == firstRunAction {
 		return firstRunAction, requestInput{}, nil
 	}
-	if len(args) == 3 && args[0] == "runtime" && (args[1] == "codex" || args[1] == "claude") {
+	if len(args) == 3 && args[0] == "runtime" && (args[1] == "codex" || args[1] == "claude" || args[1] == "cursor-agent") {
 		operation := command.operation
-		if operation == codexInstallAction || operation == codexStatusAction || operation == claudeInstallAction || operation == claudeStatusAction {
+		if operation == codexInstallAction || operation == codexStatusAction || operation == claudeInstallAction || operation == claudeStatusAction || operation == cursorInstallAction || operation == cursorStatusAction {
 			return operation, requestInput{}, nil
 		}
 		return "unknown", requestInput{}, category("invalid_command")
@@ -963,7 +971,7 @@ func workItemFlagSet(operation action, values *requestInput) *flag.FlagSet {
 	}
 	set.StringVar(&values.repository, "repository", "", "Project-scoped Repository selector; `<key>`.")
 	set.StringVar(&values.providerRepository, "provider-repository", "", "Explicit provider target; `<owner/repository>`. Conflicts with --work-item.")
-	set.StringVar(&values.workItem, "work-item", "", "Exact existing Work Item; `github:<owner>/<repository>#<number>`. Alternative to --number; rejected by create.")
+	set.StringVar(&values.workItem, "work-item", "", "Exact existing Work Item; `github:<owner>/<repository>#<number>` or `linear:<team>#<TEAM-N>`. Alternative to --number; rejected by create.")
 	set.StringVar(&values.previewDigest, "preview-digest", "", "Exact reviewed preview digest; `<digest>`. Required for authorized publication.")
 	set.BoolVar(&values.authorizeExternal, "authorize-external", false, "Explicit authority for the exact reviewed Provider effect; boolean.")
 	set.BoolVar(&values.authorizeLocal, "authorize-local", false, "Explicit authority for the exact local effect; boolean. Never inferred by discovery.")
@@ -1014,7 +1022,7 @@ func workflowFlagSet(operation action, values *requestInput) *flag.FlagSet {
 	set.SetOutput(io.Discard)
 	set.StringVar(&values.project, "project", "", "Configured Project identity; `<uuid-or-slug>`.")
 	set.StringVar(&values.repository, "repository", "", "Project-scoped Repository selector; `<key>`.")
-	set.StringVar(&values.workItem, "work-item", "", "Exact existing Work Item; `github:<owner>/<repository>#<number>`. Alternative to --number; rejected by create.")
+	set.StringVar(&values.workItem, "work-item", "", "Exact existing Work Item; `github:<owner>/<repository>#<number>` or `linear:<team>#<TEAM-N>`. Alternative to --number; rejected by create.")
 	set.StringVar(&values.execution, "execution", "", "Exact Execution identity; `<execution-id>`. Required with --work-item except start; start rejects that combination.")
 	set.IntVar(&values.number, "number", 0, "Legacy Work Item number; `<positive-integer>`. Alternative to --work-item.")
 	if operation == workflowStartAction {
@@ -1114,14 +1122,52 @@ func invalidFlagSyntax(set *flag.FlagSet, args []string, repeatable map[string]b
 func parseWorkItemSelector(value string) (string, string, string, bool) {
 	provider, target, found := strings.Cut(value, ":")
 	resource, externalID, numbered := strings.Cut(target, "#")
-	if !found || !numbered || provider != "github" || !validProviderResource(resource) {
+	if !found || !numbered {
 		return "", "", "", false
 	}
-	number, err := strconv.Atoi(externalID)
-	if err != nil || number <= 0 || strconv.Itoa(number) != externalID {
+	switch provider {
+	case "github":
+		if !validProviderResource(resource) {
+			return "", "", "", false
+		}
+		number, err := strconv.Atoi(externalID)
+		if err != nil || number <= 0 || strconv.Itoa(number) != externalID {
+			return "", "", "", false
+		}
+		return provider, resource, externalID, true
+	case "linear":
+		if !validLinearTeamKey(resource) || !validLinearIdentifier(resource, externalID) {
+			return "", "", "", false
+		}
+		return provider, resource, externalID, true
+	default:
 		return "", "", "", false
 	}
-	return provider, resource, externalID, true
+}
+
+func validLinearTeamKey(value string) bool {
+	if value == "" || len(value) > 10 {
+		return false
+	}
+	for i, character := range value {
+		if character >= 'A' && character <= 'Z' {
+			continue
+		}
+		if i > 0 && character >= '0' && character <= '9' {
+			continue
+		}
+		return false
+	}
+	return true
+}
+
+func validLinearIdentifier(resource, externalID string) bool {
+	if !validLinearTeamKey(resource) || !strings.HasPrefix(externalID, resource+"-") {
+		return false
+	}
+	suffix := strings.TrimPrefix(externalID, resource+"-")
+	number, err := strconv.Atoi(suffix)
+	return err == nil && number > 0 && strconv.Itoa(number) == suffix && validLinearTeamKey(resource)
 }
 
 func validProviderResource(value string) bool {
@@ -1270,6 +1316,10 @@ func dispatch(ctx context.Context, operation action, input requestInput, service
 		return service.RuntimeClaudeInstall(ctx)
 	case claudeStatusAction:
 		return service.RuntimeClaudeStatus(ctx)
+	case cursorInstallAction:
+		return service.RuntimeCursorInstall(ctx)
+	case cursorStatusAction:
+		return service.RuntimeCursorStatus(ctx)
 	case firstRunAction:
 		return service.FirstRun(ctx)
 	}
@@ -1405,7 +1455,7 @@ func runInteractiveSelectors(ctx context.Context, mode outputMode, operation act
 	}{
 		{&values.project, "Project UUID or slug: "},
 		{&values.repository, "Project repository key: "},
-		{&values.workItem, "Work Item selector (github:owner/repository#number): "},
+		{&values.workItem, "Work Item selector (github:owner/repository#number or linear:TEAM#TEAM-N): "},
 	}
 	if knownWorkflow(operation) && operation != workflowStartAction {
 		fields = append(fields, struct {
@@ -1642,7 +1692,7 @@ func promptConfiguration(scanner *bufio.Scanner, prompts io.Writer, current Conf
 		}
 	}
 	if current.WorkItemProvider == "" {
-		current.WorkItemProvider, ok = readPromptLine(scanner, prompts, "Work Item provider (github or none): ", true)
+		current.WorkItemProvider, ok = readPromptLine(scanner, prompts, "Work Item provider (github, linear, or none): ", true)
 		if !ok {
 			return ConfigureInput{}, false
 		}
@@ -1689,6 +1739,8 @@ func (UnavailableService) RuntimeCodexInstall(context.Context) Result   { return
 func (UnavailableService) RuntimeCodexStatus(context.Context) Result    { return unavailable() }
 func (UnavailableService) RuntimeClaudeInstall(context.Context) Result  { return unavailable() }
 func (UnavailableService) RuntimeClaudeStatus(context.Context) Result   { return unavailable() }
+func (UnavailableService) RuntimeCursorInstall(context.Context) Result  { return unavailable() }
+func (UnavailableService) RuntimeCursorStatus(context.Context) Result   { return unavailable() }
 func (UnavailableService) FirstRun(context.Context) Result              { return unavailable() }
 func (UnavailableService) Resolve(context.Context, ResolveInput) Result { return unavailable() }
 func (s UnavailableService) Show(context.Context, ResolveInput) Result {

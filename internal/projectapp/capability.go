@@ -10,9 +10,12 @@ import (
 // capabilities in this build. It is composition data, not Project intent.
 type ProviderCatalog map[string][]string
 
-// SupportedProviders is the MVP implementation catalog: GitHub is the only
-// Work Item Provider implementation. It is not a domain requirement.
-var SupportedProviders = ProviderCatalog{"github": {WorkItemCapability}}
+// SupportedProviders is the implementation catalog for Work Item Providers
+// in this build. It is composition data, not a domain requirement.
+var SupportedProviders = ProviderCatalog{
+	"github": {WorkItemCapability},
+	"linear": {WorkItemCapability},
+}
 
 func (c ProviderCatalog) supports(providerID, capability string) bool {
 	for _, supported := range c[providerID] {

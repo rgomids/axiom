@@ -166,7 +166,7 @@ func (p AuthPreflight) Check(ctx context.Context, target AuthTarget) AuthReport 
 	if p.runner != nil {
 		report.EvidenceKind = p.runner.EvidenceKind()
 	}
-	if target.RuntimeID != "codex" && target.RuntimeID != "claude" {
+	if target.RuntimeID != "codex" && target.RuntimeID != "claude" && target.RuntimeID != "cursor-agent" {
 		report.RuntimeID = ""
 		return report.with(AuthUnsupported, "runtime_unsupported")
 	}
@@ -211,10 +211,13 @@ func (p AuthPreflight) Check(ctx context.Context, target AuthTarget) AuthReport 
 	if after, err := ExecutableIdentity(target.Executable); err != nil || after != identity {
 		return report.with(AuthUnproven, "executable_identity_changed")
 	}
-	if target.RuntimeID == "codex" {
+	switch target.RuntimeID {
+	case "codex":
 		command.Argv = []string{target.Executable, "login", "status"}
-	} else {
+	case "claude":
 		command.Argv = []string{target.Executable, "auth", "status", "--json"}
+	case "cursor-agent":
+		command.Argv = []string{target.Executable, "status", "--format", "json"}
 	}
 	status := p.runner.RunStatus(ctx, command)
 	if !status.Started {
@@ -224,10 +227,13 @@ func (p AuthPreflight) Check(ctx context.Context, target AuthTarget) AuthReport 
 		return report.with(AuthUnproven, "status_timeout")
 	}
 	var outcome AuthStatus
-	if target.RuntimeID == "codex" {
+	switch target.RuntimeID {
+	case "codex":
 		report.Method, outcome, reason = classifyCodexStatus(status)
-	} else {
+	case "claude":
 		report.Method, outcome, reason = classifyClaudeStatus(status)
+	case "cursor-agent":
+		report.Method, outcome, reason = classifyCursorStatus(status)
 	}
 	// The status commands ran the file; it must still be the inspected one.
 	if after, err := ExecutableIdentity(target.Executable); err != nil || after != identity {
@@ -872,4 +878,28 @@ func (b *boundedOutput) Write(value []byte) (int, error) {
 		b.remaining -= len(keep)
 	}
 	return len(value), nil
+}
+
+// classifyCursorStatus interprets `cursor-agent status --format json`.
+// Fail-closed: only an explicit logged-in / authenticated signal is Ready.
+func classifyCursorStatus(status StatusResult) (method string, outcome AuthStatus, reason string) {
+	method = "cursor-agent-status"
+	if status.ExitCode != 0 {
+		if status.ExitCode == 1 {
+			return method, AuthUnavailable, "not_logged_in"
+		}
+		return method, AuthUnproven, "status_failed"
+	}
+	output := strings.TrimSpace(string(status.Output))
+	if output == "" {
+		return method, AuthUnproven, "status_empty"
+	}
+	lower := strings.ToLower(output)
+	if strings.Contains(lower, `"loggedin":true`) || strings.Contains(lower, `"logged_in":true`) || strings.Contains(lower, `"authenticated":true`) || strings.Contains(lower, `"isauthenticated":true`) {
+		return method, AuthSubscriptionObserved, "authenticated"
+	}
+	if strings.Contains(lower, `"loggedin":false`) || strings.Contains(lower, `"logged_in":false`) || strings.Contains(lower, `"authenticated":false`) {
+		return method, AuthUnavailable, "not_logged_in"
+	}
+	return method, AuthUnproven, "status_unrecognized"
 }
