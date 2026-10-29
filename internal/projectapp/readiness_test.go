@@ -83,7 +83,7 @@ func TestReadinessMatrix(t *testing.T) {
 		},
 		"provider unsupported": {
 			edit: func(s *project.State) {
-				s.Providers = project.Configured([]project.Provider{{Key: "work-items", ID: "linear"}})
+				s.Providers = project.Configured([]project.Provider{{Key: "work-items", ID: "jira"}})
 			},
 			effective: "blocked", workItem: "provider_unsupported", execution: "provider_unsupported",
 		},

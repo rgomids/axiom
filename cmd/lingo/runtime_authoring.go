@@ -93,7 +93,7 @@ func (s runtimeAuthoringStore) Recover(ctx context.Context, r runtimeapplication
 }
 
 func passiveRuntimeInventory(ctx context.Context) []runtimeapplication.DetectedRuntime {
-	inventory := runtimebootstrap.Detect(ctx, exec.LookPath, []runtimebootstrap.Runtime{{ID: "codex", Executable: "codex"}, {ID: "claude", Executable: "claude"}})
+	inventory := runtimebootstrap.Detect(ctx, exec.LookPath, []runtimebootstrap.Runtime{{ID: "codex", Executable: "codex"}, {ID: "claude", Executable: "claude"}, {ID: "cursor-agent", Executable: "cursor-agent"}})
 	out := []runtimeapplication.DetectedRuntime{}
 	for _, r := range inventory.Runtimes {
 		out = append(out, runtimeapplication.DetectedRuntime{RuntimeID: r.ID, Installed: r.Present, Integration: "unobserved"})

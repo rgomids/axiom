@@ -25,6 +25,7 @@ func TestStageArgvGolden(t *testing.T) {
 		{"codex", true, []string{"/bin/codex", "exec", "--model", "model", "--ignore-user-config", "--ephemeral", "-", "--sandbox", "workspace-write", "-C", "/work", "--add-dir", "/inbox"}, "/work"},
 		{"claude", false, []string{"/bin/claude", "--print", "--model", "model", "--input-format", "text", "--permission-prompts", "none", "--permission-mode", "dontAsk", "--allowedTools", "Read,Glob,Grep,Write,Bash(/bin/axiom:*)", "--add-dir", "/inbox"}, "/inbox"},
 		{"claude", true, []string{"/bin/claude", "--print", "--model", "model", "--input-format", "text", "--permission-prompts", "none", "--permission-mode", "dontAsk", "--allowedTools", "Read,Glob,Grep,Write,Edit,Bash(/bin/axiom:*)", "--add-dir", "/inbox"}, "/work"},
+		{"cursor-agent", true, []string{"/bin/cursor-agent", "-p", "--model", "model", "--output-format", "text", "--force", "--workspace", "/work"}, "/work"},
 	} {
 		t.Run(tc.runtime+tc.cwd, func(t *testing.T) {
 			inv, err := BuildStageInvocation(StageInvocationRequest{Profile: CommandProfile{RuntimeID: tc.runtime, Executable: "/bin/" + tc.runtime, Model: "model"}, Workspace: "/work", Inbox: "/inbox", AxiomPath: "/bin/axiom", RepositoryWrite: tc.write})
@@ -35,6 +36,44 @@ func TestStageArgvGolden(t *testing.T) {
 				t.Fatal("empty environment inherited")
 			}
 		})
+	}
+}
+
+func TestCursorReadOnlyStageFailsClosedWithoutValidatedIsolation(t *testing.T) {
+	outside := nativeFixturePath("/outside-secret")
+	inbox := nativeFixturePath("/inbox")
+	workspace := nativeFixturePath("/work")
+	request := StageInvocationRequest{
+		Profile:         CommandProfile{RuntimeID: "cursor-agent", Executable: nativeFixturePath("/bin/cursor-agent"), Model: "model"},
+		Workspace:       workspace,
+		Inbox:           inbox,
+		AxiomPath:       nativeFixturePath("/bin/axiom"),
+		RepositoryWrite: false,
+	}
+	if _, err := BuildStageInvocation(request); !errors.Is(err, ErrReadOnlyIsolationUnsupported) {
+		t.Fatalf("read-only cursor dispatch accepted: %v", err)
+	}
+	// Changing CWD/inbox must not be treated as isolation: an absolute path
+	// outside the inbox remains reachable under the previous argv shape.
+	if stageContains(inbox, outside) {
+		t.Fatalf("fixture outside path unexpectedly contained in inbox")
+	}
+	if stageContains(workspace, outside) {
+		t.Fatalf("fixture outside path unexpectedly contained in workspace")
+	}
+	writeRequest := request
+	writeRequest.RepositoryWrite = true
+	inv, err := BuildStageInvocation(writeRequest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if inv.CWD != workspace || !slices.Contains(inv.Argv, "--force") || !slices.Contains(inv.Argv, workspace) {
+		t.Fatalf("authorized write path altered: %+v", inv)
+	}
+	for _, denied := range []string{outside, inbox} {
+		if slices.Contains(inv.Argv, denied) && denied == outside {
+			t.Fatalf("outside path injected into argv: %v", inv.Argv)
+		}
 	}
 }
 
@@ -76,21 +115,29 @@ func TestStageInvocationRefusesInheritedConfigurationAndEffort(t *testing.T) {
 }
 
 func TestStageEnvironmentClosed(t *testing.T) {
-	parent := []string{"HOME=/home/example", "PATH=/bin", "CODEX_HOME=/vendor", "CLAUDE_CONFIG_DIR=/other", "LANG=C", "LC_ALL=C", "AXIOM_ATTEMPT_ID=a", "GH_TOKEN=synthetic", "OPENAI_API_KEY=synthetic", "AWS_ACCESS_KEY_ID=synthetic", "AXIOM_UNKNOWN=synthetic"}
-	for _, runtime := range []string{"codex", "claude"} {
+	parent := []string{"HOME=/home/example", "PATH=/bin", "CODEX_HOME=/vendor", "CLAUDE_CONFIG_DIR=/other", "CURSOR_CONFIG_DIR=/cursor", "CURSOR_API_KEY=synthetic", "LANG=C", "LC_ALL=C", "AXIOM_ATTEMPT_ID=a", "GH_TOKEN=synthetic", "OPENAI_API_KEY=synthetic", "AWS_ACCESS_KEY_ID=synthetic", "AXIOM_UNKNOWN=synthetic"}
+	for _, runtime := range []string{"codex", "claude", "cursor-agent"} {
 		env, err := StageEnvironment(runtime, parent)
 		if err != nil {
 			t.Fatal(err)
 		}
 		want := []string{"HOME=/home/example", "PATH=/bin", "LANG=C", "LC_ALL=C"}
-		if runtime == "codex" {
+		switch runtime {
+		case "codex":
 			want = append(want, "CODEX_HOME=/vendor")
-		} else {
+		case "claude":
 			want = append(want, "CLAUDE_CONFIG_DIR=/other")
+		case "cursor-agent":
+			want = append(want, "CURSOR_CONFIG_DIR=/cursor")
 		}
 		slices.Sort(want)
 		if !slices.Equal(env, want) {
-			t.Fatal(env)
+			t.Fatal(runtime, env)
+		}
+		for _, entry := range env {
+			if strings.HasPrefix(entry, "CURSOR_API_KEY=") {
+				t.Fatal("cursor api key inherited")
+			}
 		}
 	}
 	if _, err := StageEnvironment("codex", []string{"HOME=a", "HOME=b"}); err == nil {

@@ -23,6 +23,9 @@ type runtimeRoots struct {
 	claudeConfigRoot  string
 	claudeSkillsRoot  string
 	claudeSkillsError error
+	cursorConfigRoot  string
+	cursorSkillsRoot  string
+	cursorSkillsError error
 }
 
 func discoverRuntimeRoots() runtimeRoots {
@@ -36,6 +39,8 @@ func discoverRuntimeRoots() runtimeRoots {
 	}
 	roots.claudeConfigRoot, _ = runtimebootstrap.ClaudeConfigurationRoot(os.Getenv, home)
 	roots.claudeSkillsRoot, roots.claudeSkillsError = runtimebootstrap.ClaudeSkillsRoot(os.Getenv, home)
+	roots.cursorConfigRoot, _ = runtimebootstrap.CursorConfigurationRoot(os.Getenv, home)
+	roots.cursorSkillsRoot, roots.cursorSkillsError = runtimebootstrap.CursorSkillsRoot(os.Getenv, home)
 	return roots
 }
 
@@ -44,6 +49,13 @@ func (r runtimeRoots) claude() (codexruntime.Service, error) {
 		return codexruntime.Service{}, r.claudeSkillsError
 	}
 	return codexruntime.NewClaude(r.claudeSkillsRoot)
+}
+
+func (r runtimeRoots) cursor() (codexruntime.Service, error) {
+	if r.cursorSkillsError != nil {
+		return codexruntime.Service{}, r.cursorSkillsError
+	}
+	return codexruntime.NewCursor(r.cursorSkillsRoot)
 }
 
 func (s lifecycleService) RuntimeClaudeInstall(ctx context.Context) cli.Result {
@@ -62,6 +74,22 @@ func (s lifecycleService) RuntimeClaudeStatus(ctx context.Context) cli.Result {
 	return runtimeStatus(service.Inspect(ctx), "Claude", "claude", s.provenance)
 }
 
+func (s lifecycleService) RuntimeCursorInstall(ctx context.Context) cli.Result {
+	service, err := s.runtimes.cursor()
+	if err != nil {
+		return cli.Result{Status: cli.Failed, Category: "cursor_skill_root_unavailable"}
+	}
+	return runtimeResult(service.Install(ctx))
+}
+
+func (s lifecycleService) RuntimeCursorStatus(ctx context.Context) cli.Result {
+	service, err := s.runtimes.cursor()
+	if err != nil {
+		return canonicalCompletion(completion.Facts{ValidationFailed: true}, "Cursor configuration directory is unsafe", nil, "Set CURSOR_CONFIG_DIR or AXIOM_CURSOR_SKILLS_ROOT to an absolute path or unset them", s.provenance)
+	}
+	return runtimeStatus(service.Inspect(ctx), "Cursor Agent", "cursor-agent", s.provenance)
+}
+
 // firstRunConflictNext is the deterministic next step for a Runtime whose
 // integration is blocked by preserved artifacts listed as conflict lines.
 const firstRunConflictNext = "Review each reported conflict artifact in that Runtime's skill root; Axiom preserves it and never overwrites it. Keep it, or move it aside if it is not yours, then run axiom first-run again"
@@ -72,6 +100,7 @@ func (s lifecycleService) FirstRun(ctx context.Context) cli.Result {
 	runtimes := []runtimebootstrap.Runtime{
 		{ID: "codex", Executable: "codex", ConfigurationRoot: s.runtimes.codexConfigRoot, Integration: func() (runtimebootstrap.Integration, error) { return s.codex, nil }},
 		{ID: "claude", Executable: "claude", ConfigurationRoot: s.runtimes.claudeConfigRoot, Integration: func() (runtimebootstrap.Integration, error) { return s.runtimes.claude() }},
+		{ID: "cursor-agent", Executable: "cursor-agent", ConfigurationRoot: s.runtimes.cursorConfigRoot, Integration: func() (runtimebootstrap.Integration, error) { return s.runtimes.cursor() }},
 	}
 	report := runtimebootstrap.Run(ctx, s.runtimes.lookPath, runtimes)
 	view := bootstrapView(report)
@@ -88,7 +117,7 @@ func (s lifecycleService) FirstRun(ctx context.Context) cli.Result {
 	case cancelled:
 		response = canonicalCompletion(completion.Facts{WasInterrupted: true}, "First run was interrupted", references, "Run axiom first-run again", s.provenance)
 	case report.Detected() == 0:
-		response = canonicalCompletion(completion.Facts{Completed: true}, "No supported Runtime is currently available", nil, "Install Codex or Claude yourself if needed, then run axiom first-run again; Project setup does not require a Runtime", s.provenance)
+		response = canonicalCompletion(completion.Facts{Completed: true}, "No supported Runtime is currently available", nil, "Install Codex, Claude, or Cursor Agent yourself if needed, then run axiom first-run again; Project setup does not require a Runtime", s.provenance)
 	case report.Failed() == 0:
 		response = canonicalCompletion(completion.Facts{Completed: true}, "Axiom integration is configured for every detected Runtime", references, "Run project configure with explicit Project inputs", s.provenance)
 	case report.Failed() < report.Detected():
@@ -118,7 +147,7 @@ func bootstrapView(report runtimebootstrap.Report) cli.BootstrapView {
 // directory: what a child without an explicit environment would inherit.
 // Child dispatch repeats it against the exact effective invocation.
 func (s lifecycleService) RuntimeAuth(ctx context.Context, runtimeID string) cli.Result {
-	label := map[string]string{"codex": "Codex", "claude": "Claude"}[runtimeID]
+	label := map[string]string{"codex": "Codex", "claude": "Claude", "cursor-agent": "Cursor Agent"}[runtimeID]
 	report := runtimeadapter.AuthReport{RuntimeID: runtimeID, Status: runtimeadapter.AuthUnavailable, Reason: "executable_unavailable", Method: "unknown", Version: "unknown", EvidenceKind: runtimeadapter.EvidenceLocalObservation, Usability: runtimeadapter.UsabilityUnproven, Revalidation: runtimeadapter.RevalidateBeforeDispatch}
 	preflight, err := runtimeadapter.NewAuthPreflight(runtimeadapter.OSStatusRunner{}, runtimeadapter.DefaultManagedConfiguration())
 	cwd, cwdErr := os.Getwd()

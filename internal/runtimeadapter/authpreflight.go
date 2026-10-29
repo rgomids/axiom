@@ -130,19 +130,21 @@ type AuthPreflight struct {
 type ManagedConfiguration struct {
 	ClaudeSettings []string
 	CodexConfig    []string
+	CursorConfig   []string
 }
 
 func NewAuthPreflight(runner StatusRunner, managed ManagedConfiguration) (AuthPreflight, error) {
 	if runner == nil {
 		return AuthPreflight{}, ErrInvalidAdapterConfiguration
 	}
-	for _, path := range append(append([]string(nil), managed.ClaudeSettings...), managed.CodexConfig...) {
+	for _, path := range append(append(append([]string(nil), managed.ClaudeSettings...), managed.CodexConfig...), managed.CursorConfig...) {
 		if !filepath.IsAbs(path) {
 			return AuthPreflight{}, ErrInvalidAdapterConfiguration
 		}
 	}
 	managed.ClaudeSettings = append([]string(nil), managed.ClaudeSettings...)
 	managed.CodexConfig = append([]string(nil), managed.CodexConfig...)
+	managed.CursorConfig = append([]string(nil), managed.CursorConfig...)
 	return AuthPreflight{runner: runner, managed: managed}, nil
 }
 
@@ -166,7 +168,7 @@ func (p AuthPreflight) Check(ctx context.Context, target AuthTarget) AuthReport 
 	if p.runner != nil {
 		report.EvidenceKind = p.runner.EvidenceKind()
 	}
-	if target.RuntimeID != "codex" && target.RuntimeID != "claude" {
+	if target.RuntimeID != "codex" && target.RuntimeID != "claude" && target.RuntimeID != "cursor-agent" {
 		report.RuntimeID = ""
 		return report.with(AuthUnsupported, "runtime_unsupported")
 	}
@@ -211,10 +213,13 @@ func (p AuthPreflight) Check(ctx context.Context, target AuthTarget) AuthReport 
 	if after, err := ExecutableIdentity(target.Executable); err != nil || after != identity {
 		return report.with(AuthUnproven, "executable_identity_changed")
 	}
-	if target.RuntimeID == "codex" {
+	switch target.RuntimeID {
+	case "codex":
 		command.Argv = []string{target.Executable, "login", "status"}
-	} else {
+	case "claude":
 		command.Argv = []string{target.Executable, "auth", "status", "--json"}
+	case "cursor-agent":
+		command.Argv = []string{target.Executable, "status", "--format", "json"}
 	}
 	status := p.runner.RunStatus(ctx, command)
 	if !status.Started {
@@ -224,10 +229,13 @@ func (p AuthPreflight) Check(ctx context.Context, target AuthTarget) AuthReport 
 		return report.with(AuthUnproven, "status_timeout")
 	}
 	var outcome AuthStatus
-	if target.RuntimeID == "codex" {
+	switch target.RuntimeID {
+	case "codex":
 		report.Method, outcome, reason = classifyCodexStatus(status)
-	} else {
+	case "claude":
 		report.Method, outcome, reason = classifyClaudeStatus(status)
+	case "cursor-agent":
+		report.Method, outcome, reason = classifyCursorStatus(status)
 	}
 	// The status commands ran the file; it must still be the inspected one.
 	if after, err := ExecutableIdentity(target.Executable); err != nil || after != identity {
@@ -299,7 +307,9 @@ func (p AuthPreflight) configurationOverrides(runtimeID string, environment map[
 		return nil, "configuration_root_unresolved"
 	}
 	var files []configurationFile
-	if runtimeID == "codex" {
+	var overrides []string
+	switch runtimeID {
+	case "codex":
 		root := environment["CODEX_HOME"]
 		if root == "" && filepath.IsAbs(home) {
 			root = filepath.Join(home, ".codex")
@@ -314,7 +324,7 @@ func (p AuthPreflight) configurationOverrides(runtimeID string, environment map[
 		for _, path := range p.managed.CodexConfig {
 			files = append(files, configurationFile{"managed", path})
 		}
-	} else {
+	case "claude":
 		root := environment["CLAUDE_CONFIG_DIR"]
 		if root == "" && filepath.IsAbs(home) {
 			root = filepath.Join(home, ".claude")
@@ -336,8 +346,32 @@ func (p AuthPreflight) configurationOverrides(runtimeID string, environment map[
 				files = append(files, configurationFile{"managed", dropIn})
 			}
 		}
+	case "cursor-agent":
+		// Cursor's documented API-key and endpoint auth sources are environment
+		// driven; presence selects a non-subscription path and is fail-closed.
+		if _, present := environment["CURSOR_API_KEY"]; present {
+			overrides = append(overrides, "cursor_env:CURSOR_API_KEY")
+		}
+		if _, present := environment["CURSOR_API_ENDPOINT"]; present {
+			overrides = append(overrides, "cursor_env:CURSOR_API_ENDPOINT")
+		}
+		root := environment["CURSOR_CONFIG_DIR"]
+		if root == "" && filepath.IsAbs(home) {
+			root = filepath.Join(home, ".cursor")
+		}
+		if !filepath.IsAbs(root) {
+			return nil, "configuration_root_unresolved"
+		}
+		files = append(files, configurationFile{"user", filepath.Join(root, "cli-config.json")})
+		for _, directory := range directories {
+			files = append(files, configurationFile{"project", filepath.Join(directory, ".cursor", "cli-config.json")})
+		}
+		for _, path := range p.managed.CursorConfig {
+			files = append(files, configurationFile{"managed", path})
+		}
+	default:
+		return nil, "configuration_root_unresolved"
 	}
-	var overrides []string
 	seen := map[string]bool{}
 	for _, file := range files {
 		if seen[file.path] {
@@ -352,10 +386,13 @@ func (p AuthPreflight) configurationOverrides(runtimeID string, environment map[
 			continue
 		}
 		var fileOverrides []string
-		if runtimeID == "codex" {
+		switch runtimeID {
+		case "codex":
 			fileOverrides, ok = codexConfigOverrides(content, "codex_config:"+file.scope+":")
-		} else {
+		case "claude":
 			fileOverrides, ok = claudeSettingsOverrides(content, "claude_settings:"+file.scope+":")
+		case "cursor-agent":
+			fileOverrides, ok = cursorConfigOverrides(content, "cursor_config:"+file.scope+":")
 		}
 		if !ok {
 			return nil, "configuration_unreadable"
@@ -750,6 +787,29 @@ func claudeSettingsOverrides(content []byte, prefix string) ([]string, bool) {
 	return overrides, true
 }
 
+// cursorConfigOverrides reports Cursor cli-config keys that select an API-key
+// or non-default endpoint auth path. Values are never retained. Unparseable
+// configuration remains unproven.
+func cursorConfigOverrides(content []byte, prefix string) ([]string, bool) {
+	var settings map[string]json.RawMessage
+	if err := json.Unmarshal(content, &settings); err != nil {
+		return nil, false
+	}
+	var overrides []string
+	for _, key := range []string{"apiKey", "api_key", "cursorApiKey", "authToken", "accessToken"} {
+		if _, exists := settings[key]; exists {
+			overrides = append(overrides, prefix+key)
+		}
+	}
+	if raw, exists := settings["endpoint"]; exists {
+		var endpoint string
+		if json.Unmarshal(raw, &endpoint) != nil || endpoint != "" && endpoint != "https://api2.cursor.sh" {
+			overrides = append(overrides, prefix+"endpoint")
+		}
+	}
+	return overrides, true
+}
+
 var versionPattern = regexp.MustCompile(`\b(\d{1,6}\.\d{1,6}\.\d{1,6}(?:-(?:alpha|beta|rc)(?:\.\d{1,4})?)?)\b`)
 
 func versionToken(output []byte) string {
@@ -872,4 +932,73 @@ func (b *boundedOutput) Write(value []byte) (int, error) {
 		b.remaining -= len(keep)
 	}
 	return len(value), nil
+}
+
+// classifyCursorStatus interprets `cursor-agent status --format json`.
+// Fail-closed: isAuthenticated alone is not subscription evidence. Only the
+// vendor authenticated login shape with a refresh-token session may dispatch;
+// API-key / unrecognized / incomplete shapes stay unproven or incompatible.
+func classifyCursorStatus(result StatusResult) (string, AuthStatus, string) {
+	var status struct {
+		Status          *string `json:"status"`
+		IsAuthenticated *bool   `json:"isAuthenticated"`
+		HasAccessToken  *bool   `json:"hasAccessToken"`
+		HasRefreshToken *bool   `json:"hasRefreshToken"`
+		AuthMethod      *string `json:"authMethod"`
+		AuthType        *string `json:"authType"`
+	}
+	output := result.Output
+	start, end := bytes.IndexByte(output, '{'), bytes.LastIndexByte(output, '}')
+	if start < 0 || end < start || json.Unmarshal(output[start:end+1], &status) != nil {
+		if result.ExitCode != 0 {
+			if result.ExitCode == 1 {
+				return "unknown", AuthUnavailable, "not_logged_in"
+			}
+			return "unknown", AuthUnsupported, "status_surface_unsupported"
+		}
+		if len(bytes.TrimSpace(output)) == 0 {
+			return "unknown", AuthUnproven, "status_empty"
+		}
+		return "unknown", AuthUnproven, "status_unrecognized"
+	}
+	if status.Status == nil || status.IsAuthenticated == nil {
+		if result.ExitCode != 0 {
+			return "unknown", AuthUnsupported, "status_surface_unsupported"
+		}
+		return "unknown", AuthUnproven, "status_unrecognized"
+	}
+	authMethod := ""
+	if status.AuthMethod != nil {
+		authMethod = strings.ToLower(strings.TrimSpace(*status.AuthMethod))
+	} else if status.AuthType != nil {
+		authMethod = strings.ToLower(strings.TrimSpace(*status.AuthType))
+	}
+	switch {
+	case authMethod != "" && (strings.Contains(authMethod, "api") || authMethod == "key" || authMethod == "token"):
+		return "api_key", AuthIncompatible, "api_key_login"
+	case authMethod != "" && (strings.Contains(authMethod, "bedrock") || strings.Contains(authMethod, "third") || strings.Contains(authMethod, "provider")):
+		return "third_party", AuthIncompatible, "provider_override"
+	case authMethod != "" && authMethod != "login" && authMethod != "browser" && authMethod != "cursor" && authMethod != "subscription" && authMethod != "user":
+		return "unknown", AuthUnproven, "auth_method_unrecognized"
+	}
+	switch strings.ToLower(strings.TrimSpace(*status.Status)) {
+	case "unauthenticated":
+		return "none", AuthUnavailable, "not_logged_in"
+	case "partially-authenticated":
+		return "unknown", AuthUnproven, "status_ambiguous"
+	case "authenticated":
+		if !*status.IsAuthenticated {
+			return "unknown", AuthUnproven, "status_ambiguous"
+		}
+		// Browser/user login stores a refresh token; API-key mode must not be
+		// inferred as a subscription session from isAuthenticated alone.
+		if status.HasRefreshToken == nil || !*status.HasRefreshToken {
+			return "unknown", AuthUnproven, "status_unrecognized"
+		}
+		if result.ExitCode != 0 {
+			return "unknown", AuthUnproven, "status_ambiguous"
+		}
+		return "cursor-login", AuthSubscriptionObserved, ""
+	}
+	return "unknown", AuthUnproven, "status_unrecognized"
 }

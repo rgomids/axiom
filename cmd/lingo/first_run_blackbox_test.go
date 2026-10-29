@@ -140,14 +140,14 @@ func TestExecutableFirstRunRuntimeMatrix(t *testing.T) {
 	t.Run("neither", func(t *testing.T) {
 		m := newFirstRunMachine(t, binary)
 		event, _ := m.run(0, "--json", "first-run")
-		if event.Status != "success" || event.Result != "No supported Runtime is currently available" || event.FirstRun.Detected != 0 || len(event.FirstRun.Runtimes) != 2 {
+		if event.Status != "success" || event.Result != "No supported Runtime is currently available" || event.FirstRun.Detected != 0 || len(event.FirstRun.Runtimes) != 3 {
 			t.Fatalf("event = %+v", event)
 		}
 		if len(m.files()) != 0 {
 			t.Fatalf("zero-Runtime first run wrote %v", m.files())
 		}
 		_, human := m.run(0, "first-run")
-		if !strings.Contains(human, "runtime: codex, executable: codex, present: false, configurationWithoutExecutable: false, state: absent") || !strings.Contains(human, "runtime: claude, executable: claude, present: false, configurationWithoutExecutable: false, state: absent") {
+		if !strings.Contains(human, "runtime: codex, executable: codex, present: false, configurationWithoutExecutable: false, state: absent") || !strings.Contains(human, "runtime: claude, executable: claude, present: false, configurationWithoutExecutable: false, state: absent") || !strings.Contains(human, "runtime: cursor-agent, executable: cursor-agent, present: false, configurationWithoutExecutable: false, state: absent") {
 			t.Fatalf("human output = %s", human)
 		}
 	})
@@ -160,6 +160,9 @@ func TestExecutableFirstRunRuntimeMatrix(t *testing.T) {
 		}
 		if present, state, _, _ := m.runtime(event, "claude"); present || state != "absent" {
 			t.Fatalf("claude = %v %s", present, state)
+		}
+		if present, state, _, _ := m.runtime(event, "cursor-agent"); present || state != "absent" {
+			t.Fatalf("cursor-agent = %v %s", present, state)
 		}
 		m.assertNoRuntimeExecution()
 		m.assertOnlySkillRoots("/.agents/skills")
@@ -198,6 +201,45 @@ func TestExecutableFirstRunRuntimeMatrix(t *testing.T) {
 		}
 		if len(m.files()) != 0 {
 			t.Fatalf("default ~/.claude was used: %v", m.files())
+		}
+	})
+
+	t.Run("cursor-agent only with default configuration root", func(t *testing.T) {
+		m := newFirstRunMachine(t, binary, "cursor-agent")
+		event, _ := m.run(0, "--json", "first-run")
+		if present, state, _, _ := m.runtime(event, "cursor-agent"); !present || state != "configured" {
+			t.Fatalf("cursor-agent = %+v", event)
+		}
+		if present, _, _, _ := m.runtime(event, "codex"); present {
+			t.Fatal("codex reported present")
+		}
+		if present, _, _, _ := m.runtime(event, "claude"); present {
+			t.Fatal("claude reported present")
+		}
+		if _, err := os.Stat(filepath.Join(m.home, ".cursor", "skills", "axiom-work-item", "SKILL.md")); err != nil {
+			t.Fatal(err)
+		}
+		m.assertNoRuntimeExecution()
+		m.assertOnlySkillRoots("/.cursor/skills")
+		status, _ := m.run(0, "--json", "runtime", "cursor-agent", "status")
+		if status.Result != "Lingo and Cursor Agent skills are compatible" {
+			t.Fatalf("cursor-agent status = %+v", status)
+		}
+	})
+
+	t.Run("cursor-agent honors CURSOR_CONFIG_DIR", func(t *testing.T) {
+		m := newFirstRunMachine(t, binary, "cursor-agent")
+		configuration := filepath.Join(t.TempDir(), "cursor-work")
+		m.extra = []string{"CURSOR_CONFIG_DIR=" + configuration}
+		event, _ := m.run(0, "--json", "first-run")
+		if _, state, _, _ := m.runtime(event, "cursor-agent"); state != "configured" {
+			t.Fatalf("event = %+v", event)
+		}
+		if _, err := os.Stat(filepath.Join(configuration, "skills", "axiom-project", "SKILL.md")); err != nil {
+			t.Fatal(err)
+		}
+		if len(m.files()) != 0 {
+			t.Fatalf("default ~/.cursor was used: %v", m.files())
 		}
 	})
 
@@ -313,18 +355,18 @@ func TestExecutableFirstRunRuntimeMatrix(t *testing.T) {
 
 	t.Run("configuration directory without executable is absent", func(t *testing.T) {
 		m := newFirstRunMachine(t, binary)
-		for _, directory := range []string{".claude", ".codex"} {
+		for _, directory := range []string{".claude", ".codex", ".cursor"} {
 			if err := os.MkdirAll(filepath.Join(m.home, directory), 0o700); err != nil {
 				t.Fatal(err)
 			}
 		}
 		event, _ := m.run(0, "--json", "first-run")
-		for _, id := range []string{"codex", "claude"} {
+		for _, id := range []string{"codex", "claude", "cursor-agent"} {
 			if present, state, _, stale := m.runtime(event, id); present || state != "absent" || !stale {
 				t.Fatalf("%s = %+v", id, event)
 			}
 		}
-		if strings.Join(m.files(), ",") != "/.claude,/.codex" {
+		if strings.Join(m.files(), ",") != "/.claude,/.codex,/.cursor" {
 			t.Fatalf("stale configuration changed: %v", m.files())
 		}
 	})

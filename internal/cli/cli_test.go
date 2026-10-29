@@ -28,6 +28,7 @@ func TestRunDelegatesEachLifecycleOperation(t *testing.T) {
 		{"runtime install", []string{"runtime", "codex", "install"}, "runtime-install"},
 		{"runtime status", []string{"runtime", "codex", "status"}, "runtime-status"},
 		{"claude install", []string{"runtime", "claude", "install"}, "runtime-claude-install"},
+		{"cursor install", []string{"runtime", "cursor-agent", "install"}, "runtime-cursor-agent-install"},
 		{"claude status", []string{"runtime", "claude", "status"}, "runtime-claude-status"},
 		{"first run", []string{"first-run"}, "first-run"},
 		{"resolve", []string{"project", "resolve", "--selector", "alpha"}, "resolve:alpha"},
@@ -381,6 +382,14 @@ func (s *recordingService) RuntimeClaudeInstall(context.Context) Result {
 }
 func (s *recordingService) RuntimeClaudeStatus(context.Context) Result {
 	s.call = "runtime-claude-status"
+	return Result{Status: Succeeded, Category: "applied"}
+}
+func (s *recordingService) RuntimeCursorInstall(context.Context) Result {
+	s.call = "runtime-cursor-agent-install"
+	return Result{Status: Succeeded, Category: "applied"}
+}
+func (s *recordingService) RuntimeCursorStatus(context.Context) Result {
+	s.call = "runtime-cursor-agent-status"
 	return Result{Status: Succeeded, Category: "applied"}
 }
 func (s *recordingService) FirstRun(context.Context) Result {

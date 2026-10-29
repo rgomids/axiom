@@ -144,3 +144,42 @@ func claudeReceiptBytes(root string, revision skillSetRevision) ([]byte, error) 
 	}
 	return []byte(builder.String()), nil
 }
+
+// cursorIntegration has no Axiom history of its own before this release: only
+// shared revisions are Cursor-owned. RuntimeID is cursor-agent so the
+// executable basename matches the Cursor Agent CLI alias (not the generic
+// "agent" name that would collide with unrelated tools).
+var cursorIntegration = integration{
+	runtime:      "cursor-agent",
+	legacySkills: map[string][]string{},
+	receiptFor:   cursorReceiptBytes,
+}
+
+// NewCursor returns the Axiom integration for the Cursor user-global skill
+// root, normally <Cursor configuration directory>/skills.
+func NewCursor(root string) (Service, error) {
+	service, err := New(root)
+	if err != nil {
+		return Service{}, err
+	}
+	service.integration = cursorIntegration
+	return service, nil
+}
+
+// cursorReceiptBytes records ownership of the thin skill set under a Cursor
+// skill root. Same shape as Claude; runtime=cursor-agent.
+func cursorReceiptBytes(root string, revision skillSetRevision) ([]byte, error) {
+	if strings.ContainsAny(root, "\n\r") {
+		return nil, errors.New("unsafe skill root")
+	}
+	digest, err := revision.manifestDigest()
+	if err != nil {
+		return nil, err
+	}
+	var builder strings.Builder
+	builder.WriteString("formatVersion=1\nruntime=cursor-agent\nskillsRoot=" + root + "\nskillSetVersion=" + revision.skillSetVersion + "\nbinaryCompatibility=" + revision.binaryCompatibility + "\nmanifestSha256=" + digest + "\n")
+	for _, name := range revision.names() {
+		builder.WriteString("skill." + name + "=" + revision.skills[name] + "\n")
+	}
+	return []byte(builder.String()), nil
+}

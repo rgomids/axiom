@@ -272,7 +272,7 @@ func TestBootstrapPreviewIsDeterministicAndBounded(t *testing.T) {
 	if !strings.Contains(string(wire), `"grantsAuthority":false`) || first.Preview().Capability.Readiness != projectapp.CapabilityReady {
 		t.Fatalf("authority/capability disclosure missing: %s", wire)
 	}
-	input.WorkItemProvider = "linear"
+	input.WorkItemProvider = "jira"
 	if unsupported := prepare(t, input); unsupported.Preview().Capability.Readiness != projectapp.CapabilityUnsupported || !unsupported.Publishable() {
 		t.Fatal("unsupported Provider must be declared truthfully and remain publishable")
 	}

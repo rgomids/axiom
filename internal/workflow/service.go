@@ -1093,7 +1093,7 @@ func replayed(state State, expected uint64, requestDigest string) bool {
 
 // SupportedRuntime reports whether id names a Runtime that may conduct a new
 // Execution. The closed set matches the operator-authorized Runtime paths.
-func SupportedRuntime(id string) bool { return id == "codex" || id == "claude" }
+func SupportedRuntime(id string) bool { return id == "codex" || id == "claude" || id == "cursor-agent" }
 
 func equivalentStart(state State, projectID, repositoryKey string, item WorkItem, runtimeID string) bool {
 	return ValidState(state) && state.ProjectID == projectID && state.RepositoryKey == repositoryKey && state.RuntimeID == runtimeID && state.WorkItem == item
