@@ -42,6 +42,13 @@ Present its `skill` payload and stop when inspection was requested. The binary
 owns executable commands, argument forms and authority metadata. Use only
 operations returned by that inspection; never maintain another registry.
 
+Before executing a selected operation, run
+`axiom --json skill inspect axiom-runtime --operation <operation>` without presenting
+it and build the command only from that operation's `commands[].arguments`:
+names, `requiredWhen` conditions and accepted forms. Never invent a flag. On a
+refusal, read `details` (`<code>` or `<code>:--<flag>`) and change only the
+named input; never repeat an unchanged command.
+
 Use canonical `runtime binding` and `runtime profile` commands for local
 configuration. Read exact state before preparing changes. Missing or retired
 state leads to explicit setup; a pre-stable format 1/2 record is never used or

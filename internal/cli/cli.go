@@ -446,7 +446,7 @@ func RunInteractive(ctx context.Context, args []string, service Service, source 
 	if len(args) >= 2 && args[0] == "work-item" && args[1] == "create" && stdin != nil {
 		values, ok := workItemFlags(workItemCreateAction, args[2:])
 		if !ok {
-			return emitParserFailure(stdout, mode, workItemCreateAction, "invalid_input", source)
+			return emitParserFailureWithDetails(stdout, mode, workItemCreateAction, "invalid_input", selectorInputDiagnosis(workItemCreateAction, args[2:], "invalid_input"), source)
 		}
 		if !completeWorkItemCreate(values) {
 			return runInteractiveWorkItemCreate(ctx, mode, values, service, stdin, stdout, stderr)
@@ -469,7 +469,10 @@ func RunInteractive(ctx context.Context, args []string, service Service, source 
 	}
 	operation, input, result := request(args, service)
 	if result != nil {
-		if operation == validateAction || operation == showAction || selectorAction(operation) || *result == "invalid_input" && (operation == configureAction || operation == resolveAction) || *result == "incomplete_edit_authority" {
+		if selectorAction(operation) {
+			return emitParserFailureWithDetails(stdout, mode, operation, *result, selectorInputDiagnosis(operation, args[2:], *result), source)
+		}
+		if operation == validateAction || operation == showAction || *result == "invalid_input" && (operation == configureAction || operation == resolveAction) || *result == "incomplete_edit_authority" {
 			return emitParserFailure(stdout, mode, operation, *result, source)
 		}
 		return emit(stdout, mode, event{Operation: operation, Status: Failed, Category: *result})
@@ -488,6 +491,12 @@ func flagSupplied(args []string, name string) bool {
 }
 
 func emitParserFailure(writer io.Writer, mode outputMode, operation action, issue string, source provenance.Value) int {
+	return emitParserFailureWithDetails(writer, mode, operation, issue, "", source)
+}
+
+// emitParserFailureWithDetails adds a bounded diagnosis handle, such as
+// `unknown_input:--title`, to the existing completion details.
+func emitParserFailureWithDetails(writer io.Writer, mode outputMode, operation action, issue, details string, source provenance.Value) int {
 	message, next := parserFailureText(operation, issue)
 	statement, err := provenance.NewText(message, provenance.AxiomAuthored)
 	if err != nil {
@@ -497,7 +506,7 @@ func emitParserFailure(writer io.Writer, mode outputMode, operation action, issu
 	if err != nil {
 		return ExitFailure
 	}
-	result, err := completion.NewValidationFailure(statement, nextAction, source)
+	result, err := completion.New(completion.Facts{ValidationFailed: true}, statement, nil, nextAction, details, source)
 	if err != nil {
 		return ExitFailure
 	}
@@ -512,7 +521,7 @@ func parserFailureText(operation action, issue string) (string, string) {
 		return "Documentation inspection input is invalid", "Run docs inspect with only leading --json or --human"
 	}
 	if operation == skillInspectAction {
-		return "Skill inspection input is invalid", "Run skill inspect with one exact embedded skill name and no workflow arguments"
+		return "Skill inspection input is invalid", "Run skill inspect with one exact embedded skill name, optionally one --operation name, and no workflow arguments"
 	}
 	if operation == runtimeProfilePreviewAction {
 		return "Runtime profile preview input is invalid", "Provide explicit Project, role, complexity and capabilities"
@@ -980,7 +989,7 @@ func workItemFlagSet(operation action, values *requestInput) *flag.FlagSet {
 	}
 	if operation == workItemCreateAction {
 		set.Var(&values.elaboratedSections, "elaborated-section", "Axiom-authored section; `<name>=<content>`. Names: problem, desired_outcome, context, scope, constraints, non_goals, acceptance_expectations. Conflicts with a verbatim value for that section.")
-		set.StringVar(&values.intent, "intent", "", "Original user intent; `<text>`. May supply the initial problem for guided elaboration.")
+		set.StringVar(&values.intent, "intent", "", "Original user intent; `<text>`. Becomes the user-authored problem only when neither --problem nor --elaborated-section problem is supplied.")
 		set.StringVar(&values.itemType, "type", "", "Work Item delivery type; `<story|bug|task>`. Domain requires a type before publication.")
 		set.StringVar(&values.beneficiary, "beneficiary", "", "Who benefits from a story; `<text>`. Domain requires this for story publication.")
 		set.StringVar(&values.value, "value", "", "Concrete story benefit; `<text>`. Domain requires this for story publication.")
@@ -1084,39 +1093,11 @@ func workflowFlags(operation action, args []string) (requestInput, bool) {
 	return values, true
 }
 
+// Go flag accepts single-hyphen aliases and silently overwrites duplicates.
+// Reject unsupported syntax before handing any arguments to it.
 func invalidFlagSyntax(set *flag.FlagSet, args []string, repeatable map[string]bool) bool {
-	seen := make(map[string]bool)
-	for index := 0; index < len(args); index++ {
-		value := args[index]
-		// Go flag accepts single-hyphen aliases and silently overwrites duplicates.
-		// Reject unsupported syntax before handing any arguments to it.
-		if value == "--" || !strings.HasPrefix(value, "--") {
-			return true
-		}
-		name := strings.TrimPrefix(value, "--")
-		hasValue := false
-		if separator := strings.IndexByte(name, '='); separator >= 0 {
-			name = name[:separator]
-			hasValue = true
-		}
-		current := set.Lookup(name)
-		if current == nil {
-			return true
-		}
-		if !repeatable[name] && seen[name] {
-			return true
-		}
-		seen[name] = true
-		boolean, isBoolean := current.Value.(interface{ IsBoolFlag() bool })
-		if hasValue || isBoolean && boolean.IsBoolFlag() {
-			continue
-		}
-		if index+1 >= len(args) {
-			return true
-		}
-		index++
-	}
-	return false
+	code, _ := flagSyntaxIssue(set, args, repeatable)
+	return code != ""
 }
 
 func parseWorkItemSelector(value string) (string, string, string, bool) {

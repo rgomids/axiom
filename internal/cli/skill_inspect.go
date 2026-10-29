@@ -295,12 +295,48 @@ func skillCommandName(operation action) string {
 }
 
 func inspectSkill(name string) (skillInspection, bool) {
+	return inspectSkillOperation(name, "")
+}
+
+// parseSkillInspectArgs accepts `<skill-name>` optionally followed by one
+// `--operation <name>` (or `--operation=<name>`) restriction.
+func parseSkillInspectArgs(args []string) (string, string, bool) {
+	switch {
+	case len(args) == 1:
+		return args[0], "", true
+	case len(args) == 2 && strings.HasPrefix(args[1], "--operation="):
+		operation := strings.TrimPrefix(args[1], "--operation=")
+		return args[0], operation, operation != ""
+	case len(args) == 3 && args[1] == "--operation" && args[2] != "":
+		return args[0], args[2], true
+	}
+	return "", "", false
+}
+
+// inspectSkillOperation restricts the same payload to one declared operation
+// and only its commands, so a Runtime loads the contract it is about to use
+// instead of the whole skill. It is a view, never a second registry.
+func inspectSkillOperation(name, selected string) (skillInspection, bool) {
 	operations := skillOperations(name)
 	if len(operations) == 0 {
 		return skillInspection{}, false
 	}
+	if selected != "" {
+		operations = nil
+		for _, spec := range skillOperationSpecs(name) {
+			if spec.name == selected {
+				operations = append(operations, spec.actions...)
+			}
+		}
+		if len(operations) == 0 {
+			return skillInspection{}, false
+		}
+	}
 	result := skillInspection{Name: name, Operations: []skillOperation{}, Commands: make([]skillCommand, 0, len(operations))}
 	for _, spec := range skillOperationSpecs(name) {
+		if selected != "" && spec.name != selected {
+			continue
+		}
 		item := skillOperation{Name: spec.name, Commands: []string{}, Modes: make([]skillOperationMode, 0, len(spec.modes))}
 		for _, operation := range spec.actions {
 			item.Commands = append(item.Commands, skillCommandName(operation))
@@ -351,10 +387,14 @@ func InspectSkill(args []string, source provenance.Value, output io.Writer) (boo
 	if len(args) == 0 || args[0] != "skill" {
 		return false, 0
 	}
-	if len(args) != 3 || !commandMatches(args, skillInspectAction) {
+	if len(args) < 3 || !commandMatches(args, skillInspectAction) {
 		return true, emitParserFailure(output, mode, skillInspectAction, "invalid_input", source)
 	}
-	skill, ok := inspectSkill(args[2])
+	name, operation, ok := parseSkillInspectArgs(args[2:])
+	if !ok {
+		return true, emitParserFailure(output, mode, skillInspectAction, "invalid_input", source)
+	}
+	skill, ok := inspectSkillOperation(name, operation)
 	if !ok {
 		return true, emitParserFailure(output, mode, skillInspectAction, "invalid_input", source)
 	}

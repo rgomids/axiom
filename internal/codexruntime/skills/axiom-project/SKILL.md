@@ -48,6 +48,13 @@ Inspection stops there: do not collect inputs or execute an operation. The binar
 owns argument names, requirements, accepted forms, authority metadata, and
 executable command metadata; do not maintain a second argument registry here.
 
+Before executing a selected operation, run
+`axiom --json skill inspect axiom-project --operation <operation>` without presenting
+it and build the command only from that operation's `commands[].arguments`:
+names, `requiredWhen` conditions and accepted forms. Never invent a flag. On a
+refusal, read `details` (`<code>` or `<code>:--<flag>`) and change only the
+named input; never repeat an unchanged command.
+
 Supported domain operations are `configure`, `list`, `show`, `validate`, `archive`, `reactivate`, `integration`, and `workflow.select`.
 Any other operation, such as `delete`, `uninstall`, or credential revocation, is
 unsupported: report that it is not available and do not run a Lingo command for
