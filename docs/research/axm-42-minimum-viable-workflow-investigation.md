@@ -1,13 +1,15 @@
 # AXM-42 — Investigation: minimum viable Axiom workflow
 
 Status: **Research / Proposed** (not product acceptance).  
-HEAD inspected: `440e44a68638e08e901fd3f87f5b15cd395a6365` (matches prompt baseline).  
-Installed CLI observed: Axiom `0.22.3` (`revision: 6ccfbfc10a89`) — provenance only; not treated as proof of HEAD binary.  
-Authority: GitHub source at HEAD = technical; Linear AXM-42 Intake = product/operational baseline.  
-Scope: read-only Specify. No implementation, ADR rewrite, PR, merge or live inference.
+**Research snapshot HEAD** (code inspection baseline for matrix A–L): `440e44a68638e08e901fd3f87f5b15cd395a6365`.  
+**Specify PR head** (artifact first appeared / analytical review): `74b668460ef8f53de7323fce54f2f0adc61d646d` — [PR #366](https://github.com/rgomids/axiom/pull/366). File paths under `docs/research/` did **not** exist at `440e44a…` (blob 404); they exist from the Specify commit onward. Matrix evidence lines refer to the **snapshot** tree unless noted.  
+Installed CLI observed at snapshot time: Axiom `0.22.3` (`revision: 6ccfbfc10a89`) — provenance only; not treated as proof of snapshot or PR-head binary.  
+Authority: GitHub source at inspected SHA = technical; Linear AXM-42 Intake = product/operational baseline ([accepted baseline comment](https://linear.app/rgomids/issue/AXM-42#comment-274fd7e0)).  
+Scope: read-only Specify (+ doc correction). No implementation, accepted-ADR rewrite, merge or live inference.
 
 Related: [AXM-42](https://linear.app/rgomids/issue/AXM-42), [AXM-12](https://linear.app/rgomids/issue/AXM-12), [AXM-29](https://linear.app/rgomids/issue/AXM-29).  
-Proposed contract: [Spec 015 (Proposed)](../specifications/015-minimum-viable-operational-workflow/spec.md).
+Proposed contract: [Spec 015 (Proposed)](../specifications/015-minimum-viable-operational-workflow/spec.md).  
+Prior Specify completion event (published): [Linear comment 4ee399c9](https://linear.app/rgomids/issue/AXM-42#comment-4ee399c9) — do not overwrite.
 
 ---
 
@@ -56,15 +58,15 @@ Scenario: Project with **two** Repositories, one Work Item, default Workflow, Co
 6. Cross-Runtime: children publish into attempt inbox under supervisor context; host `coordination publish` outside child context fails (`child_context_required`).
 7. `delivery packet` → preview/apply (`--authorize-push`/`--authorize-pr`) → `delivery decision --authorize-human` → optional `delivery rework`.
 
-### Proposed minimum (Spec 015 — Proposed until human MATERIAL decision)
+### Proposed minimum (Spec 015 — Intake baseline locked; Proposed until Spec acceptance)
 
-1. Configure Project + 2 repo bindings + Codex/Claude Profiles once.
-2. Select or accept a **minimal default Workflow** (≤3 agent stages or single-stage task path); SDD remains available as optional template.
+1. Configure Project + 2 repo bindings + Codex/Claude Profiles once (defaults or user selection; no extraneous ceremony).
+2. Accept the **minimal default Workflow** (Intake-settled); SDD remains an optional template.
 3. Link or create Work Item (Provider for create; allow already-linked WI).
-4. `workflow start` once; runtime choice from Project defaults.
-5. **First slice:** single-agent `stage run` without operator-authored Plan JSON or operator-published Validator Policy digest — Axiom derives plan from Workflow stage binding and uses Project-default/empty validators until integrate needs commands.
-6. Auto-advance eligible stages; stop only for humanGates / missing input / external auth.
-7. Multi-agent / dual-Runtime: structured inbox exchange under dispatch (slice 2).
+4. From the linked Work Item, start the default Workflow in **one natural user action**; Runtime from Project defaults/permissions.
+5. **First slice:** single-agent dispatch **without** operator-authored Plan, manually published Validator Policy/digest, Project-default policy object, or per-stage manual graph preview — Axiom derives plan/graph **internally**; vendor auth/compat failures surface on real execution.
+6. Auto-advance eligible stages (Intake-settled); stop only for humanGates / missing Axiom-owned input / explicit external/sensitive auth.
+7. Multi-agent / dual-Runtime: structured inbox exchange under dispatch (slice 2); graph may stay INTERNAL.
 8. Multi-repo outcome + optional authorized PR (slice 3). Preserve: secrets out of manifests, no unapproved destructive/external effects, no fabricated evidence, attempt identity/logs, no blind retry of uncertain mutations.
 
 ---
@@ -92,26 +94,40 @@ Counterarguments (do not remove as “overengineering” alone): A integrate com
 
 ## 4. Spec / ADR impact map (Proposed — do not rewrite historical ADRs)
 
+### 4.1 Intake-settled (not open product options)
+
+Do **not** reopen as mandatory human gates: minimal default Workflow; auto-advance of eligible stages; no manual Plan / policy digest / public policy ceremony on the happy path; no external certification. Encoding is Orchestrator-delegated within baseline.
+
+### 4.2 Accepted-artifact tension
+
 | Artifact | Conflict with MVP slim | Proposed handling |
 |----------|------------------------|-------------------|
-| Spec 007 | Stage plan + validator policy as operator-facing gates; SDD-shaped defaults | Amend **after** MATERIAL approval; 015 proposes superseding *operator ceremony*, not graph safety |
+| Spec 007 | Stage plan + validator policy as operator-facing gates; SDD-shaped journey language | **Proposed supersession of operator ceremony only** after explicit Spec 015 / amendment acceptance; preserve graph safety, ceilings, humanGates, delivery auth. 015 must not silently rewrite 007. |
 | ADR-0032 | Aligned (no certification) | Keep |
-| ADR-0009/0026/0027/0028 | Keep internals | Preserve; simplify UX façade |
+| ADR-0009/0026/0027/0028 | Keep internals | Preserve; simplify UX façade; migration/effect boundaries = open (4.3) |
 | ADR-0020/0003/0005 | Keep | Keep |
 | ADR-0025 fragments already limited by 0032 | — | No further silent supersession |
-| Persisted Executions | format/bindings | Migration: historical remain inspect/cancel/reconcile; new starts use slim path; no silent rewrite of ledgers |
+| Persisted Executions | format/bindings | Historical remain inspect/cancel/reconcile; new starts may use slim path; no silent ledger rewrite |
 
-**MATERIAL human decisions required before Implement of removals:** (1) Validator Policy public author vs Project-default auto; (2) auto-derived Plan for single-agent; (3) minimal default Workflow vs keep SDD-10 as default; (4) auto-advance policy; (5) whether local-only work may start without Provider create.
+### 4.3 Truly open (implementation / compatibility)
+
+1. Schema migration / own-effect boundaries when slim path coexists with historical Executions.  
+2. Optional local/stub WI identity without Provider create — only if it changes Provider product contracts.  
+3. Exact Spec 007 (and any ADR) amendment text — human accepts package before historical rewrite.
+
+**What human acceptance of Spec 015 would decide:** authorize Plan/Implement of the slim path + precise amendment package — **not** re-litigate Intake product direction.
 
 ---
 
 ## 5. Incremental vertical slices (Proposed)
 
+Normative product AC live in [Spec 015 § Acceptance criteria B](../specifications/015-minimum-viable-operational-workflow/spec.md) (P-AC1–P-AC6). Summary:
+
 | Slice | Observable AC | Deps | Regression intent |
 |-------|---------------|------|-------------------|
-| **S1** | Single-agent stage dispatch completes attempt with logs/status **without** manual Plan file or operator-published policy digest | MATERIAL decisions 1–2 | Existing journey tests updated; forbid secret leakage |
-| **S2** | Two Runtimes exchange structured inbox records under one multi-agent stage | S1 + dual auth | coordination_ingest + blackbox |
-| **S3** | Two-repo Project produces reviewed outcome + optional authorized PR | S1–S2 + delivery auth | delivery packet/decision unchanged boundaries |
+| **S1** | Single-agent dispatch with logs/status **without** manual Plan / policy digest / ceremonial transition (P-AC1, P-AC2, P-AC5) | Intake baseline (settled) | Journey tests updated; forbid secret leakage |
+| **S2** | Two Runtimes structured Q/A; unblock; auto-advance without “continue” (P-AC3) | S1 + dual Runtime available | coordination_ingest + blackbox; live R2 **NOT_RUN** until authorized |
+| **S3** | Two-repo Project outcomes + optional authorized PR (P-AC4–P-AC6) | S1–S2 + delivery auth | delivery packet/decision unchanged boundaries; live R3 **NOT_RUN** until authorized |
 
 ---
 
@@ -140,4 +156,4 @@ Counterarguments (do not remove as “overengineering” alone): A integrate com
 
 ## Next gate
 
-`specification_review_and_material_architecture_decision` — human review of Spec 015 + matrix A/B/E especially; then authorized Plan. No Implement of gate removals under this Specify authorization.
+`re_review_PR_366` — analytical re-review of Spec 015 correction (F1–F4) on the same PR. Spec acceptance / ADR amendment / Plan / Implement / live R2–R3 remain separately authorized. No Implement of gate removals under this Specify correction authorization.

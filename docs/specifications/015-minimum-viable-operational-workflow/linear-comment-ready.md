@@ -1,108 +1,42 @@
-# Ready-to-post Linear comment (AXM-42)
+# Linear comment artifacts — AXM-42 Specify
 
-`linear_published: false` — Linear MCP `needsAuth` in this environment; no `LINEAR_API_KEY`. Paste onto the same AXM-42 issue after authentication.
+## Historical snapshot (attempt-01, pre-PR / pre-linkback)
 
----
+**Archival only.** Captured when research existed only in the local worktree, **before** [PR #366](https://github.com/rgomids/axiom/pull/366) and before the published Linear `stage.completed` event. It is **not** an unperformed “ready-to-post” instruction for the current branch state.
+
+- Snapshot investigation baseline SHA: `440e44a68638e08e901fd3f87f5b15cd395a6365` (code inspected; research file **not** on that commit — `blob/440e44a…/docs/research/axm-42-…` → 404).
+- First commit containing these docs / reviewed HEAD: `74b668460ef8f53de7323fce54f2f0adc61d646d`.
+- Published Specify completion (do **not** overwrite): [AXM-42 comment 4ee399c9](https://linear.app/rgomids/issue/AXM-42#comment-4ee399c9).
+- Valid research permalink at review SHA: https://github.com/rgomids/axiom/blob/74b668460ef8f53de7323fce54f2f0adc61d646d/docs/research/axm-42-minimum-viable-workflow-investigation.md
+
+### Preserved attempt-01 body (historical wording)
+
+<details>
+<summary>Expand historical ready-to-post text (attempt-01)</summary>
 
 ## AXM-42 Specify — investigation + Proposed Spec 015 (attempt-01)
 
 **Outcome:** COMPLETED (research + Proposed Specification delivered locally).  
-**HEAD:** `440e44a68638e08e901fd3f87f5b15cd395a6365`  
-**Artifacts:**  
-- https://github.com/rgomids/axiom/blob/440e44a68638e08e901fd3f87f5b15cd395a6365/docs/research/axm-42-minimum-viable-workflow-investigation.md *(paths exist in worktree; commit/PR not created — paste after authorized commit or attach worktree paths)*  
+**HEAD (investigation baseline):** `440e44a68638e08e901fd3f87f5b15cd395a6365`  
+**Artifacts (paths; GitHub blob at 440e44a was invalid — use 74b6684+ after PR):**  
 - `docs/research/axm-42-minimum-viable-workflow-investigation.md`  
 - `docs/specifications/015-minimum-viable-operational-workflow/spec.md`
 
-### Executive finding
+First real dispatch blocked primarily by Axiom product ceremony (Plan + validator digest without public publisher; SDD ritual; manual advance), not by ADR-0032 certification. Live Codex/Claude E2E **NOT_RUN**. Linear publish from that session was **REPORT_PENDING** at snapshot time; later published as comment `4ee399c9`.
 
-First real dispatch is blocked primarily by **Axiom product gaps/ceremony**, not by ADR-0032 certification (already removed) and not by CI/release:
+**event_id (historical, already published):** `AXM-42:specify:attempt-01:stage.completed:440e44a68638e08e901fd3f87f5b15cd395a6365`
 
-1. **S0** — `workflow stage run` requires `--validator-policy <digest>` (`internal/cli/workflow_stage.go:238`; load `cmd/lingo/stage_dispatch.go:57-58`) but **no public CLI** publishes policies (tests seed `ValidatorPolicyService.Apply` only).  
-2. **S0** — Manual `--plan` JSON + authority ceiling required for run.  
-3. **S1** — Ready path is SDD-shaped (r2 = 10 stages; configured Executions need manual `advance`; humanGates on plan/implementation/review/completion).  
-4. **S1** — Declarative Runtime allowlists/v4 admission remain (selection, not certification).  
-5. **S2** — Preview/apply + dual authority; WI/Provider before start.
+</details>
 
-Exploratory 29/10 claims: Plan + missing Validator publisher **confirmed**; `reasoning-effort-low` as required capability **unsupported** at HEAD (string absent); TOML/`configuration_invalid` and rebind **not reproduced** here. Live Codex/Claude E2E **NOT_RUN**.
+---
 
-### Recommendations (Proposed)
+## Current correction handoff (correction-01)
 
-| ID | Class | Action |
-|----|-------|--------|
-| A | INTERNALIZE/AUTO | Project-default / empty policy for run; public author or keep digest only when integrate runs commands |
-| B | INTERNALIZE/AUTO | Derive single-agent Plan from Workflow binding |
-| C | PRESERVE_MINIMAL | Keep allowlists; do not restore certification |
-| D | PRESERVE external; INTERNALIZE local coalesce where safe | Keep `--authorize-external` for spawn |
-| E | OPTIONAL full SDD; ship minimal default + auto-advance | |
-| F–L | See investigation matrix | Preserve process safety, delivery auth, child inbox |
+Use this section for the **new** Linear report after Spec 015 F1–F4 correction on the **same** PR #366. Do not re-post attempt-01. Do not claim merge/acceptance.
 
-**Next gate:** human MATERIAL review of Spec 015 (especially A/B/E) before any Implement of removals. AXM-12 remains blocked outbound until this lands as accepted product direction.
+**PR:** https://github.com/rgomids/axiom/pull/366  
+**Prior review:** https://github.com/rgomids/axiom/pull/366#pullrequestreview-5707420506 (F1–F4 analytical REQUEST_CHANGES / GitHub COMMENT)  
+**Spec:** https://github.com/rgomids/axiom/blob/spec/axm-42-minimum-viable-workflow/docs/specifications/015-minimum-viable-operational-workflow/spec.md  
+**Research:** https://github.com/rgomids/axiom/blob/spec/axm-42-minimum-viable-workflow/docs/research/axm-42-minimum-viable-workflow-investigation.md  
 
-### Verification
-
-| Check | Status |
-|-------|--------|
-| Source inspection @ 440e44a | PASS |
-| `go test ./internal/stageexecution/ -run 'TestValidatorPolicy\|TestAdmit'` | PASS |
-| Live Codex/Claude | NOT_RUN |
-| Linear API publish from this session | NOT_RUN / REPORT_PENDING |
-
->>> Dados estruturados do evento — abrir JSON
-
-AWF-EVENT:v1
-<!-- axiom-workflow-event:v1 -->
-```json
-{
-  "schema_version": 1,
-  "event_id": "AXM-42:specify:attempt-01:stage.completed:440e44a68638e08e901fd3f87f5b15cd395a6365",
-  "work_item": "AXM-42",
-  "stage": "specify",
-  "type": "stage.completed",
-  "attempt": "attempt-01",
-  "outcome": "completed",
-  "publisher": "runtime-executor",
-  "verification": "reported",
-  "artifact_revision": "440e44a68638e08e901fd3f87f5b15cd395a6365",
-  "technical_decisions": [
-    {
-      "id": "TD-01",
-      "summary": "Deliver Proposed Spec 015 + research under docs/; no Implement of gate removals",
-      "rationale": "Specify authorization is research-only; MATERIAL architecture/product changes need human decision"
-    },
-    {
-      "id": "TD-02",
-      "summary": "Classify A/B as INTERNALIZE/AUTO rather than REMOVE",
-      "rationale": "Counterargument: unreviewed integrate argv and unbounded effects; preserve safety via defaults"
-    }
-  ],
-  "deferred_findings": [
-    {
-      "id": "DF-01",
-      "summary": "Builtin embed vs listed r2 default drift (r1 wire vs 10-stage r2)",
-      "evidence": "internal/workflowdefinition/definition.go Builtin(); default-sdd-r2.json"
-    }
-  ],
-  "evidence": [
-    {
-      "kind": "source_inspection",
-      "status": "PASS",
-      "url": "https://github.com/rgomids/axiom/tree/440e44a68638e08e901fd3f87f5b15cd395a6365"
-    },
-    {
-      "kind": "unit_test",
-      "status": "PASS",
-      "detail": "go test ./internal/stageexecution/ -run TestValidatorPolicy|TestAdmit"
-    },
-    {
-      "kind": "live_runtime_e2e",
-      "status": "NOT_RUN"
-    },
-    {
-      "kind": "linear_comment",
-      "status": "NOT_RUN",
-      "detail": "MCP needsAuth; ready-to-post in linear-comment-ready.md"
-    }
-  ],
-  "next_gate": "specification_review_and_material_architecture_decision"
-}
-```
+Fill `pr_head_sha` / `event_id` with the **actual** pushed correction commit after push. If Linear MCP is unavailable, keep `linear_published:false` and leave payload for operator paste — see `completion-receipt-specify-correction-01.json`.
