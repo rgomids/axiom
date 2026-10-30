@@ -1,8 +1,9 @@
 # Specification 015 — Minimum viable operational workflow
 
-Status: **Proposed — correction-03**. Specification + Research only; no implementation authority or architecture acceptance.
-Technical baseline: main `440e44a68638e08e901fd3f87f5b15cd395a6365`; correction-03 starts from confirmed PR HEAD `3558bba51b0af11091f3d41305af264ba060d7bc` on [PR #366](https://github.com/rgomids/axiom/pull/366).
+Status: **Proposed — correction-04**. Specification + Research only; no implementation authority or architecture acceptance.
+Technical baseline: main `440e44a68638e08e901fd3f87f5b15cd395a6365`; correction-04 starts from fetched PR HEAD `cc709b7c0ecf4ba9b796d13ec692be0c55660a1d` on [PR #366](https://github.com/rgomids/axiom/pull/366).
 Authority: [accepted Intake](https://linear.app/rgomids/issue/AXM-42#comment-274fd7e0) plus the **new human product direction** [7a717e9f](https://linear.app/rgomids/issue/AXM-42#comment-7a717e9f). [AR-01](https://github.com/rgomids/axiom/pull/366#pullrequestreview-5708094263) supersedes the favorable assessment under the previous baseline. F1–F4 corrections and historical receipts remain archival facts.
+Controlling review: [2026-10-30 five scoped decisions](https://github.com/rgomids/axiom/pull/366#pullrequestreview-5719376804). These decisions authorize this reconciliation only; the complete replacement architecture remains Proposed.
 Inspectable code inventory, deletion candidates, contract clauses and evidence gaps: [research](../../research/axm-42-minimum-viable-workflow-investigation.md).
 
 ## Problem
@@ -21,7 +22,7 @@ A mechanism may survive only with evidence of its distinct Axiom-owned invariant
 - No model capability certification, predicted vendor compatibility or code-quality guarantee; no universal preflight/test battery for the MVP.
 - No plugin framework, new infrastructure or distributed orchestration guarantees.
 - No loss of authorized target boundaries, secret protection, real process cancellation, uncertain-effect visibility or material-effect authorization.
-- No permanent dual-mode persistence or compatibility wrapper as the default migration strategy.
+- No historical Execution migration/conversion, old-attempt resume, active legacy engine, conversion service or required historical-reader UI.
 
 ## Architecture target (Proposed)
 
@@ -36,9 +37,9 @@ Use these responsibilities with the fewest representations; the names below do n
 | Agent attempt | Nested Execution identity/status/process correlation and confirmed/unknown effects, rather than another independently versioned lifecycle/store |
 | Messages and artifacts | Attempt-owned message log and artifact references associated with Execution; content is not authority and does not require duplicate graph/coordination objects |
 
-Workflow stages and agent definitions drive dispatch directly. A transient in-memory schedule may resolve dependencies; no independently persisted Stage Plan, graph proposal lifecycle, Validator Policy or replacement Project-default policy object is required. Keep only authorized effect bounds at their owner and enforce them at dispatch/effect boundaries without duplicating policy objects.
+Each Workflow stage MUST explicitly support one or more agents, each with configurable Runtime, model, reasoning effort and instructions. Parallel subagents are REQUIRED functionality. Profiles are optional reusable inputs; Axiom never selects a best model automatically by capability or complexity. Workflow stages and agent definitions drive dispatch directly. A transient in-memory schedule may resolve dependencies; no independently persisted Stage Plan, graph proposal lifecycle, Validator Policy or replacement Project-default policy object is required. Keep only authorized effect bounds at their owner and enforce them at dispatch/effect boundaries without duplicating policy objects.
 
-New single-agent and multi-agent starts MUST use the same Execution state model and scheduler path. Do not fabricate graph children for a single agent. Delete the redundant ledger/store/codec paths after bounded legacy retirement; merely making them private fails this specification. Exact encoding and transaction primitives are reversible Plan choices if they meet these contracts.
+New single-agent and multi-agent starts MUST use the same Execution state model and scheduler path. Do not fabricate graph children for a single agent. Delete the redundant ledger/store/codec paths at the safe breaking cutover; merely making them private fails this specification. Exact encoding and transaction primitives are reversible Plan choices if they meet these contracts.
 
 ## Normal operation
 
@@ -59,15 +60,19 @@ Work Item linking remains the normal traceability path. A provider-free local id
 
 For new executions, the **frozen per-attempt invocation snapshot within Execution** is the sole effective Runtime/model/effort authority. A named Profile is an optional reusable input, not a mandatory generated artifact. Selecting Profile B instead of A selects B's whole configured tuple; directly requesting another effort while using A is an override of A's input, not selection of a different Profile. Under accepted ADR-0024 the latter is forbidden. This proposal deliberately changes that boundary and requires explicit human material acceptance before implementation.
 
-Resolve each field in this order: explicit run selection > selected Workflow agent default > machine-local invocation default. A Profile reference at any level supplies its tuple at that level; explicit fields at that same level replace the corresponding Profile defaults. Reject conflicting values at the same precedence and ambiguous/missing selections; never rank candidates or infer effort from complexity. Effort is either an explicit opaque adapter token or explicitly selected `runtime-default` (no Axiom effort selector, no asserted concrete vendor level). Missing effort is not implicit runtime-default. Record the safe input provenance, selected Profile identity/digest when used, and resulting tuple; an overridden tuple must not be presented as the unchanged Profile.
+Resolve each field in this order: explicit per-agent run override > explicit selected Workflow agent configuration > explicitly configured machine-local default. A Profile reference at any level supplies its tuple at that level; explicit fields at that same level replace the corresponding Profile defaults. Reject conflicting values at the same precedence and ambiguous/missing selections; never rank candidates or infer effort from complexity. Effort is either an explicit opaque adapter token or explicitly selected `runtime-default` (no Axiom effort selector, no asserted concrete vendor level). Missing effort is not implicit runtime-default. Freeze the effective instructions alongside Runtime/model/effort for each agent attempt. Record the safe input provenance, selected Profile identity/digest when used, and resulting tuple; an overridden tuple must not be presented as the unchanged Profile.
 
 For example, configure local Runtime/model plus `runtime-default` once, then request an explicit effort for a run without creating a Profile. Alternatively select an existing Profile and explicitly replace its effort for that run. Both freeze the effective choice before dispatch under actual permission. Snapshot edits are forbidden; changed defaults or a new explicit selection require a new attempt with new provenance, never rebinding an existing attempt or blindly retrying unknown effects. Retry without a new selection retains the prior tuple and rechecks current authority. No inherited argv/env/vendor setting may silently win over the frozen choice: ambiguous/conflicting effective sources produce a sanitized diagnostic. Vendor rejection is an observed failure; no automatic model, effort, Profile or vendor substitution.
 
 This is a proposed partial supersession of ADR-0024 Decision/Consequences and Spec 007 #306 PE-01–PE-05/PE-05a and AC-PE1/AC-PE3 **only where they require sole Profile effort, forbid direct input overrides, require two Profiles for different efforts, or project only Profile provenance**. Preserve truthful identity, bounded safe source inspection, immutable provenance and no fallback. Predictive proof/preflight removals are separately mapped in Research, not implied by this ownership change. Spec 007 WF-008 and its schema-2/Stage Plan annotations must point to the new prospective contract when accepted; do not re-enable historical Workflow schema-1 effort semantics as the new format.
 
-Compatibility: old Workflow/Profile/Execution/graph bytes and meanings remain unchanged; no resume can manufacture snapshot provenance or reinterpret historical requested effort as a current default. Existing explicitly selected Profiles may supply unchanged defaults to a **new** attempt with recorded lineage; no auto-generation, silent conversion or rebinding. Existing attempts remain governed by their original frozen contract pending the bounded S1–S3 disposition below. Unsupported old state blocks safely rather than enabling a parallel legacy engine. Exact encoding/version is a Plan choice after material acceptance.
+Cutover: only new-format Executions may run after the pre-MVP breaking cutover. No migration, conversion, old-attempt resume or active legacy engine is required or permitted by this proposal. Preserve raw old state as an inert backup where feasible for investigation; do not reinterpret its provenance. Previously published receipts remain historical facts, not runtime compatibility obligations. Existing explicitly selected Profiles may supply inputs to a new attempt without conversion/rebinding of an old Execution. Before cutover inventory actual active/unknown attempts; safely stop owned processes where possible, or BLOCK cutover when effects cannot be established. Never replay unknown external mutations. No historical-reader UI or migration service is required. Exact new encoding/version remains a Plan choice after material acceptance.
 
 Alternatives: sole Profile ownership preserves ADR-0024 but requires extra Profiles for each effort choice; automatic ephemeral Profile generation hides that ceremony while retaining redundant ownership. The recommended snapshot rule removes that requirement at the cost of explicit prospective supersession and per-attempt provenance. Ownership/compatibility becomes harder to change after persisted attempts exist. This recommendation is **not accepted architecture**.
+
+## Parallel work and integration
+
+For two or more agents editing the same Repository, recommend an isolated Git Worktree and independent branch per agent. The principal Orchestrator owns the integration branch, serializes cherry-picks/merges, resolves conflicts explicitly, runs post-merge checks and records final integration status before marking work integrated. Worktrees do not guarantee conflict-free merges or protect shared external state. Preserve aggregate CAS, runner fencing, attempt correlation and effect authorization across parallel work. This adds no Git management subsystem or delivery slice.
 
 ## Safety proof obligations
 
@@ -84,15 +89,21 @@ These are required outcomes, **not** mandates for historical leases, epochs, rec
 
 ### Specify completion (this correction)
 
-The short normative contract and research A–L inventory must identify removals/consolidations, exact evidence, ownership, simpler alternatives, concrete counterexamples, migration and confidence. Each unresolved safety claim has a narrow S1 experiment and decision deadline. The deletion budget names what Plan must measure, without inventing reductions. Proposed contract supersession is explicit; accepted history is unchanged. Docs checks do not constitute product acceptance.
+The short normative contract and research A–L inventory must identify removals/consolidations, exact evidence, ownership, simpler alternatives, concrete counterexamples, cutover and confidence. Each unresolved safety claim has a narrow S1 experiment and decision deadline. The deletion budget names what Plan must measure, without inventing reductions. Proposed contract supersession is explicit; accepted history is unchanged. Docs checks do not constitute product acceptance.
 
-### Product acceptance (later authorized implementation)
+### Normative technical completion and later Product acceptance
+
+During Specify, Plan, Tasks, Implement and review, automated validation is limited to unit tests, isolated deterministic stub/fault simulations and ordinary non-E2E repository/document checks. No automated real product E2E, live Codex+Claude invocation as a validation test, actual multi-repository external mutation or test PR publication. Documentation publication on this authorized PR is not a product test.
+
+**Implementation Complete** means all S1–S3 code plus unit/isolated technical checks are complete. Slice completion requires its scoped technical evidence, never a real vendor demo. **Product Accepted** is a separate, later maintainer manual end-to-end journey after all S1–S3 code is complete: configure Project, bind Repositories, configure Workflow and agents/Runtimes, create/link Work Item, start/run, observe progress/logs, inspect trustworthy Evidence/results and diagnose real errors, including collaboration and review/rework. Synthetic checks establish technical contracts, not that manual acceptance.
+
+The P-ACs below remain later manually verifiable product requirements; P-AC5/7 also require deterministic technical evidence.
 
 | ID | Observable pass condition |
 |---|---|
-| P-AC1 | Configured Project + linked Work Item starts the ready default through one run action without Plan/Policy/graph ceremony; deleted services/stores/commands are evidenced, not merely hidden |
+| P-AC1 | Configured Project with per-stage/per-agent Runtime, model, effort and instructions, optional Profiles and no automatic best-model selection + linked Work Item starts the ready default through one run action without Plan/Policy/graph ceremony; deleted services/stores/commands are evidenced, not merely hidden |
 | P-AC2 | Real single-agent attempt produces truthful durable state/logs/artifacts and actionable failure/unknown-effect recovery |
-| P-AC3 | Codex and Claude exchange a question/answer, unblock dependent work and advance eligible stages automatically using one Execution/message path |
+| P-AC3 | Codex and Claude parallel subagents exchange a question/answer, safely integrate same-repository work under the principal Orchestrator, unblock dependent work and advance eligible stages automatically using one Execution/message path |
 | P-AC4 | A Project with two Repositories exposes repository-specific outcomes/artifacts under the same Execution |
 | P-AC5 | Safety obligations pass targeted fault/cancel/concurrency/unknown-effect checks; no fabricated CI, provider outcome or success |
 | P-AC6 | Review/rework and optional PR use one path, preserving evidence and explicit effect authority without delivery-object ceremony |
@@ -100,18 +111,19 @@ The short normative contract and research A–L inventory must identify removals
 
 **Negative tests:** trivial dispatch creates no Policy/Plan store or format; new starts create no duplicate Execution ledger; no repeated manual graph preview/apply; no mandatory vendor-compatibility/auth preflight; optional delivery requires no independent Packet/Publication/Decision lifecycle. Denial of unauthorized writes/messages/effects and refusal of blind replay must still work after removal.
 
-Real two-repository Codex+Claude E2E and R2/R3 qualification: **NOT_RUN**, pending later explicit execution authority. Synthetic checks alone cannot pass P-AC2–P-AC6's real execution scenarios.
+Real two-repository Codex+Claude journey and R2/R3 qualification: **NOT_RUN**; reserved for later maintainer manual Product acceptance after S1–S3. No real E2E is required at individual slice completion.
 
-## Delivery slices and bounded migration
+## Delivery slices and safe breaking cutover
 
 | Slice | Required outcome and deletion evidence |
 |---|---|
-| S1 | Remove first-dispatch blockers **and obsolete policy/plan/admission/storage/CLI abstractions**; establish canonical Execution for new starts; demonstrate first real single-agent dispatch when authorized (P-AC1/2/5). Close research gaps before committing the dependent implementation contract; unresolved material choices return for human decision, not a permanent keep |
-| S2 | Minimal cross-Runtime messaging, dependent scheduling and automatic eligible stage transitions (P-AC3); delete duplicate coordination and stage/gate representations supported by evidence |
-| S3 | Unified repository outcomes and simplified authorized optional PR/rework (P-AC4/6); retire duplicate delivery lifecycles |
-| Migration, only if indispensable | Inventory actual preexisting records in Plan without importing private data. Preserve original bytes as inert archives; stop new writes to retired formats at S1 cutover. Resolve active/uncertain attempts before conversion or leave them explicitly blocked for safe disposition. Convert inspectable history to canonical references with verified lineage; retire operational legacy readers/writers by completion of S3, before MVP qualification. If unsafe, block cutover for a concrete decision rather than extend dual mode indefinitely |
+| S1 | Remove first-dispatch blockers **and obsolete policy/plan/admission/storage/CLI abstractions**; establish canonical Execution for new starts; verify single-agent dispatch contracts with isolated stubs (technical coverage for P-AC1/2/5). Close research gaps before committing the dependent implementation contract; unresolved material choices return for human decision, not a permanent keep |
+| S2 | Required parallel subagents, cross-Runtime messaging, dependent scheduling and automatic eligible stage transitions, verified with isolated stubs (technical coverage for P-AC3); delete duplicate coordination and stage/gate representations supported by evidence |
+| S3 | Unified repository outcomes and simplified authorized optional PR/rework, verified with isolated repository/Provider stubs (technical coverage for P-AC4/6); retire duplicate delivery lifecycles |
 
-Rollback may preserve archived bytes and restore the prior binary before cutover; it must not replay external effects or resume legacy writers against new-format executions. Plan must establish backup/read-back/rollback evidence and the actual population needing migration; no migration service is assumed.
+Keep exactly **S1, S2, S3**. Plan/Tasks may order internal checks with explicit per-slice value, dependencies and scope freeze; do not create extra slices, Linear cards, Specs or recurring human gates for technical local choices. Optional discoveries become deferred findings. Only a new material architectural/product/design conflict returns for human decision.
+
+The cutover is an S1 safety obligation, not another slice: inventory actual active/unknown attempts without importing private state, preserve raw backup where feasible and stop safely or BLOCK before switching to new-format-only Executions. Delete obsolete runtime readers/writers and conversion promises; retaining published receipt history does not require old runtime compatibility. Plan evidence covers inventory, backup feasibility, safe-stop/blocked disposition and isolated refusal of old-attempt resume and unknown-effect replay. Rollback must not replay effects, restart old attempts or point a prior binary at new-format state; no old-format operational fallback is promised.
 
 ## Contract evolution and real acceptance gate
 
@@ -126,10 +138,11 @@ The [research contract map](../../research/axm-42-minimum-viable-workflow-invest
 | ADR-0027 | Supersede independent single-stage operational ledger/authority codec for new runs; attempts belong to canonical Execution |
 | ADR-0028 | Retain the limited observable process-control boundary; amend any required historical stop-receipt representation only where consolidated. No stronger process containment guarantee |
 | ADR-0032 | Preserve no-certification direction; amend remaining mandatory admission/configuration ceremony where direct authorized execution and observed error suffice |
-| ADR-0024 and Spec 007 #306 | Partially supersede sole Profile ownership/no direct override and Profile-only projection for new attempts as specified above; retain old meanings, immutable effective identity and no silent substitution |
+| ADR-0024 and Spec 007 #306 | Partially supersede sole Profile ownership/no direct override and Profile-only projection for new attempts as specified above; retain inert historical meanings, immutable effective identity and no silent substitution |
+| Historical compatibility: ADR-0024 Compatibility scope, Spec 007 #306 PE-04 / version matrix / compatibility corpus; ADR-0027 Decision bullets 5/9 | Propose replacing required operational old-format decoding/inspection with the pre-MVP new-Execution-only cutoff. Preserve historical bytes/meanings in feasible raw backup and published receipts; no conversion, resume or legacy engine. Inventory active/unknown attempts and safely stop or BLOCK before cutover; preserve protected publication, monotonic fencing and no replay |
 | Direct dependencies (including ADR-0025 and protected publication ADR-0007) | Amend only Profile/dispatch/authority/persistence clauses actually contradicted by consolidation, as enumerated in research. Keep secret/target/publication safety outcomes; no wholesale implicit supersession |
 
-**Recommendation:** accept one coherent structural replacement contract, with the smallest explicit amendment/supersession package required by ADR-0018, before implementation. Alternative: incremental internalization retains multi-object recovery/maintenance cost and fails the new direction. Trade-off: consolidation requires bounded migration and may reduce independently addressable historical interfaces; persistence cutover and public command retirement become costly to reverse. Encoding, helper layout and flag coalescing remain TECHNICAL_LOCAL, not new product gates.
+**Recommendation:** accept one coherent structural replacement contract, with the smallest explicit amendment/supersession package required by ADR-0018, before implementation. Alternative: incremental internalization retains multi-object recovery/maintenance cost and fails the new direction. Trade-off: consolidation requires a safe breaking cutover and may reduce independently addressable historical interfaces; persistence cutover and public command retirement become costly to reverse. Encoding, helper layout and flag coalescing remain TECHNICAL_LOCAL, not new product gates.
 
 The human has accepted the **direction**, not this exact architecture. Next gate is **re-review of revised Spec 015 and explicit human material acceptance of its architecture/contract evolution**. No Plan/Implement, merge/release/delivery acceptance or AXM-12 unblock is claimed here.
 
