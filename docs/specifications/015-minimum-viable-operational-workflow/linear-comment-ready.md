@@ -47,7 +47,7 @@ First real dispatch blocked primarily by Axiom product ceremony (Plan + validato
 See session handoff / operator paste for the human-readable report + AWF-EVENT `correction-01`.
 
 
-## Correction-02 — structural replacement proposal
+## Historical executor snapshot — correction-02 structural replacement proposal
 
 Correction-01 above is archival; its F1–F4 facts and event identities remain
 unchanged. The human direction changed in Linear comment `7a717e9f` and review
@@ -101,7 +101,7 @@ above as evidence. This is not an added MVP requirement or an assertion that
 remote CI failed. Observe remote checks on the exact published HEAD separately.
 
 
-### Publication limits observed in this session
+### Publication limits observed in the correction-02 executor session (historical)
 
 `git add` failed creating `/home/grokbot/axiom/.git/worktrees/axm-42/index.lock`
 with `Read-only file system`; no commit/push occurred. The staged sensitive-file
@@ -117,3 +117,12 @@ The Linear completion-comment write was also refused by the same approval-policy
 restriction. No correction-02 comment was published and no raw remote read-back
 is claimed. The generated local receipt carries `linear_published:false`,
 `REPORT_PENDING` and `stage.partial`; it includes the actual unchanged PR SHA.
+
+
+## Canonical publication read-back — correction-03 / F6
+
+The correction-02 section above preserves what its executor observed **before Maestro publication**; its c3a53af HEAD and failed writes are historical, not current publication status. Remote AXM-42 [correction-02 receipt 4f4b9cf8-16c2-4d43-b460-eae29314a8e3](https://linear.app/rgomids/issue/AXM-42#comment-4f4b9cf8-16c2-4d43-b460-eae29314a8e3), read back through the authenticated connector during correction-03, records Maestro commit/push at `3558bba51b0af11091f3d41305af264ba060d7bc` and the published PARTIAL event. GitHub PR read-back independently confirmed that SHA as correction-03 input. Earlier receipts remain unchanged.
+
+Current publication truth is [PR #366](https://github.com/rgomids/axiom/pull/366) for live HEAD/checks and the deduplicated `AXM-42/specify/correction-03/HEAD` completion event on [AXM-42](https://linear.app/rgomids/issue/AXM-42) for this correction's exact SHA, checks and publication outcome. This document does not predeclare a commit, CI pass or callback. F5 now proposes explicit per-attempt snapshot ownership/precedence and partial ADR-0024/Spec 007 #306 supersession; acceptance remains pending. F6 is reconciled by this appended remote pointer, not by rewriting historical observations.
+
+Next gate: `re-review-PR366-then-human-material-acceptance`. No implementation, merge, release, closure or AXM-12 unblock authority. If no real continuation integration exists, the completion event is the checkpoint for orchestrator consumption, not a claim of dispatch.

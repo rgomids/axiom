@@ -1,7 +1,7 @@
 # Specification 015 — Minimum viable operational workflow
 
-Status: **Proposed — correction-02**. Specification + Research only; no implementation authority or architecture acceptance.
-Technical baseline: main `440e44a68638e08e901fd3f87f5b15cd395a6365`; correction starts from confirmed PR HEAD `c3a53af4f08c1ead6328d05a5fc675e1cfcb8bcc` on [PR #366](https://github.com/rgomids/axiom/pull/366).
+Status: **Proposed — correction-03**. Specification + Research only; no implementation authority or architecture acceptance.
+Technical baseline: main `440e44a68638e08e901fd3f87f5b15cd395a6365`; correction-03 starts from confirmed PR HEAD `3558bba51b0af11091f3d41305af264ba060d7bc` on [PR #366](https://github.com/rgomids/axiom/pull/366).
 Authority: [accepted Intake](https://linear.app/rgomids/issue/AXM-42#comment-274fd7e0) plus the **new human product direction** [7a717e9f](https://linear.app/rgomids/issue/AXM-42#comment-7a717e9f). [AR-01](https://github.com/rgomids/axiom/pull/366#pullrequestreview-5708094263) supersedes the favorable assessment under the previous baseline. F1–F4 corrections and historical receipts remain archival facts.
 Inspectable code inventory, deletion candidates, contract clauses and evidence gaps: [research](../../research/axm-42-minimum-viable-workflow-investigation.md).
 
@@ -54,6 +54,20 @@ Axiom validates its own input identity, repository targets and real permissions.
 Optional stage-defined validation commands may run only with authority for their actual effects. They provide concrete output checks without an independent Policy publisher/store/digest. A stage without such commands must not require a placeholder Policy.
 
 Work Item linking remains the normal traceability path. A provider-free local identity is not required: justify a concrete blocked use case and reconcile existing identity contracts before adopting it. Resolve the research gap in S1; do not build speculative provider orchestration.
+
+## Invocation ownership and precedence (Proposed; F5)
+
+For new executions, the **frozen per-attempt invocation snapshot within Execution** is the sole effective Runtime/model/effort authority. A named Profile is an optional reusable input, not a mandatory generated artifact. Selecting Profile B instead of A selects B's whole configured tuple; directly requesting another effort while using A is an override of A's input, not selection of a different Profile. Under accepted ADR-0024 the latter is forbidden. This proposal deliberately changes that boundary and requires explicit human material acceptance before implementation.
+
+Resolve each field in this order: explicit run selection > selected Workflow agent default > machine-local invocation default. A Profile reference at any level supplies its tuple at that level; explicit fields at that same level replace the corresponding Profile defaults. Reject conflicting values at the same precedence and ambiguous/missing selections; never rank candidates or infer effort from complexity. Effort is either an explicit opaque adapter token or explicitly selected `runtime-default` (no Axiom effort selector, no asserted concrete vendor level). Missing effort is not implicit runtime-default. Record the safe input provenance, selected Profile identity/digest when used, and resulting tuple; an overridden tuple must not be presented as the unchanged Profile.
+
+For example, configure local Runtime/model plus `runtime-default` once, then request an explicit effort for a run without creating a Profile. Alternatively select an existing Profile and explicitly replace its effort for that run. Both freeze the effective choice before dispatch under actual permission. Snapshot edits are forbidden; changed defaults or a new explicit selection require a new attempt with new provenance, never rebinding an existing attempt or blindly retrying unknown effects. Retry without a new selection retains the prior tuple and rechecks current authority. No inherited argv/env/vendor setting may silently win over the frozen choice: ambiguous/conflicting effective sources produce a sanitized diagnostic. Vendor rejection is an observed failure; no automatic model, effort, Profile or vendor substitution.
+
+This is a proposed partial supersession of ADR-0024 Decision/Consequences and Spec 007 #306 PE-01–PE-05/PE-05a and AC-PE1/AC-PE3 **only where they require sole Profile effort, forbid direct input overrides, require two Profiles for different efforts, or project only Profile provenance**. Preserve truthful identity, bounded safe source inspection, immutable provenance and no fallback. Predictive proof/preflight removals are separately mapped in Research, not implied by this ownership change. Spec 007 WF-008 and its schema-2/Stage Plan annotations must point to the new prospective contract when accepted; do not re-enable historical Workflow schema-1 effort semantics as the new format.
+
+Compatibility: old Workflow/Profile/Execution/graph bytes and meanings remain unchanged; no resume can manufacture snapshot provenance or reinterpret historical requested effort as a current default. Existing explicitly selected Profiles may supply unchanged defaults to a **new** attempt with recorded lineage; no auto-generation, silent conversion or rebinding. Existing attempts remain governed by their original frozen contract pending the bounded S1–S3 disposition below. Unsupported old state blocks safely rather than enabling a parallel legacy engine. Exact encoding/version is a Plan choice after material acceptance.
+
+Alternatives: sole Profile ownership preserves ADR-0024 but requires extra Profiles for each effort choice; automatic ephemeral Profile generation hides that ceremony while retaining redundant ownership. The recommended snapshot rule removes that requirement at the cost of explicit prospective supersession and per-attempt provenance. Ownership/compatibility becomes harder to change after persisted attempts exist. This recommendation is **not accepted architecture**.
 
 ## Safety proof obligations
 
@@ -112,7 +126,8 @@ The [research contract map](../../research/axm-42-minimum-viable-workflow-invest
 | ADR-0027 | Supersede independent single-stage operational ledger/authority codec for new runs; attempts belong to canonical Execution |
 | ADR-0028 | Retain the limited observable process-control boundary; amend any required historical stop-receipt representation only where consolidated. No stronger process containment guarantee |
 | ADR-0032 | Preserve no-certification direction; amend remaining mandatory admission/configuration ceremony where direct authorized execution and observed error suffice |
-| Direct dependencies (including ADR-0024/0025 and protected publication ADR-0007) | Amend only Profile/dispatch/authority/persistence clauses actually contradicted by consolidation, as enumerated in research. Keep secret/target/publication safety outcomes; no wholesale implicit supersession |
+| ADR-0024 and Spec 007 #306 | Partially supersede sole Profile ownership/no direct override and Profile-only projection for new attempts as specified above; retain old meanings, immutable effective identity and no silent substitution |
+| Direct dependencies (including ADR-0025 and protected publication ADR-0007) | Amend only Profile/dispatch/authority/persistence clauses actually contradicted by consolidation, as enumerated in research. Keep secret/target/publication safety outcomes; no wholesale implicit supersession |
 
 **Recommendation:** accept one coherent structural replacement contract, with the smallest explicit amendment/supersession package required by ADR-0018, before implementation. Alternative: incremental internalization retains multi-object recovery/maintenance cost and fails the new direction. Trade-off: consolidation requires bounded migration and may reduce independently addressable historical interfaces; persistence cutover and public command retirement become costly to reverse. Encoding, helper layout and flag coalescing remain TECHNICAL_LOCAL, not new product gates.
 
