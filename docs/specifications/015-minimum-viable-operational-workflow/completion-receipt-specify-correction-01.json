@@ -5,7 +5,8 @@
   "result": "COMPLETED",
   "outcome": "completed",
   "pr_url": "https://github.com/rgomids/axiom/pull/366",
-  "pr_head_sha": "b50ccca27037ee868c984055bd397631322a437a",
+  "pr_head_sha_note": "Prefer git tip of branch spec/axm-42-minimum-viable-workflow at publish time; Linear AWF event carries the authoritative tip SHA.",
+  "spec_correction_sha": "b50ccca27037ee868c984055bd397631322a437a",
   "prior_reviewed_sha": "74b668460ef8f53de7323fce54f2f0adc61d646d",
   "review_url": "https://github.com/rgomids/axiom/pull/366#pullrequestreview-5707420506",
   "finding_disposition": [
@@ -56,8 +57,8 @@
     },
     {
       "kind": "pr_checks_correction_head",
-      "status": "NOT_RUN",
-      "detail": "CI for b50ccca not yet observed at receipt write"
+      "status": "UNKNOWN",
+      "detail": "CI for tip SHA — observe Actions on PR #366"
     },
     {
       "kind": "live_codex_claude_e2e",
@@ -99,7 +100,7 @@
     }
   ],
   "remaining_work": [
-    "Analytical re-review of PR #366 on head b50ccca",
+    "Analytical re-review of PR #366 on current tip",
     "Human Spec 015 acceptance + precise Spec 007/ADR amendment package (separate)",
     "Authorized Plan/Implement of slim path (separate)",
     "Authorized live R2/R3 Codex+Claude E2E (separate)",
@@ -115,6 +116,6 @@
   "limitations": [
     "Linear MCP needsAuth; interactive auth unavailable in this agent environment — correction comment not published from session",
     "No merge, release, Spec acceptance, ADR rewrite, or gate-removal Implement performed",
-    "CI for new head may still be pending at receipt time"
+    "CI for correction tip may still be pending/unknown at receipt time"
   ]
 }
