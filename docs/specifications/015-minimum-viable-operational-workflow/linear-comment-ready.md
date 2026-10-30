@@ -37,10 +37,10 @@ First real dispatch blocked primarily by Axiom product ceremony (Plan + validato
 | Field | Value |
 |-------|-------|
 | PR | https://github.com/rgomids/axiom/pull/366 |
-| Head SHA | `b50ccca27037ee868c984055bd397631322a437a` |
+| Head SHA | `d07cf5fe76f9852b545b7502740117af46cc8aeb` (spec body correction: `b50ccca27037ee868c984055bd397631322a437a`) |
 | Prior review | https://github.com/rgomids/axiom/pull/366#pullrequestreview-5707420506 |
-| Spec @ head | https://github.com/rgomids/axiom/blob/b50ccca27037ee868c984055bd397631322a437a/docs/specifications/015-minimum-viable-operational-workflow/spec.md |
-| Research @ head | https://github.com/rgomids/axiom/blob/b50ccca27037ee868c984055bd397631322a437a/docs/research/axm-42-minimum-viable-workflow-investigation.md |
+| Spec @ tip | https://github.com/rgomids/axiom/blob/d07cf5fe76f9852b545b7502740117af46cc8aeb/docs/specifications/015-minimum-viable-operational-workflow/spec.md |
+| Research @ tip | https://github.com/rgomids/axiom/blob/d07cf5fe76f9852b545b7502740117af46cc8aeb/docs/research/axm-42-minimum-viable-workflow-investigation.md |
 | Receipt | `completion-receipt-specify-correction-01.json` |
 | Linear publish (this session) | `false` / REPORT_PENDING (MCP needsAuth) |
 
