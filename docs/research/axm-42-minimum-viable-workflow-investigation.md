@@ -1,159 +1,223 @@
-# AXM-42 — Investigation: minimum viable Axiom workflow
+# AXM-42 — Minimum viable workflow: structural reduction investigation
 
-Status: **Research / Proposed** (not product acceptance).  
-**Research snapshot HEAD** (code inspection baseline for matrix A–L): `440e44a68638e08e901fd3f87f5b15cd395a6365`.  
-**Specify PR head** (artifact first appeared / analytical review): `74b668460ef8f53de7323fce54f2f0adc61d646d` — [PR #366](https://github.com/rgomids/axiom/pull/366). File paths under `docs/research/` did **not** exist at `440e44a…` (blob 404); they exist from the Specify commit onward. Matrix evidence lines refer to the **snapshot** tree unless noted.  
-Installed CLI observed at snapshot time: Axiom `0.22.3` (`revision: 6ccfbfc10a89`) — provenance only; not treated as proof of snapshot or PR-head binary.  
-Authority: GitHub source at inspected SHA = technical; Linear AXM-42 Intake = product/operational baseline ([accepted baseline comment](https://linear.app/rgomids/issue/AXM-42#comment-274fd7e0)).  
-Scope: read-only Specify (+ doc correction). No implementation, accepted-ADR rewrite, merge or live inference.
+Status: **Research / Proposed, correction-02**. This is a deletion and consolidation proposal, not product acceptance or implementation authority.
 
-Related: [AXM-42](https://linear.app/rgomids/issue/AXM-42), [AXM-12](https://linear.app/rgomids/issue/AXM-12), [AXM-29](https://linear.app/rgomids/issue/AXM-29).  
-Proposed contract: [Spec 015 (Proposed)](../specifications/015-minimum-viable-operational-workflow/spec.md).  
-Prior Specify completion event (published): [Linear comment 4ee399c9](https://linear.app/rgomids/issue/AXM-42#comment-4ee399c9) — do not overwrite.
+Technical baselines: main `440e44a68638e08e901fd3f87f5b15cd395a6365`; inspected PR head `c3a53af4f08c1ead6328d05a5fc675e1cfcb8bcc`. `git diff 440e44a c3a53af -- internal cmd` is empty: code citations below apply to both trees. Research artifacts did not exist at main; their first Specify commit was `74b668460ef8f53de7323fce54f2f0adc61d646d`. The observed installed CLI `0.22.3` / revision `6ccfbfc10a89` is provenance only, never proof that this source was executed.
 
----
+Product authority: [AXM-42](https://linear.app/rgomids/issue/AXM-42), with the latest human decision [7a717e9f-bde7-49ee-aa4e-c5865e42508a](https://linear.app/rgomids/issue/AXM-42#comment-7a717e9f-bde7-49ee-aa4e-c5865e42508a). That decision supersedes the favorable analytical baseline for this correction: hiding existing structures behind automatic generation is insufficient. [PR review 5708094263](https://github.com/rgomids/axiom/pull/366#pullrequestreview-5708094263), AR-01, is the current review constraint, not approval. Earlier [accepted Intake baseline](https://linear.app/rgomids/issue/AXM-42#comment-274fd7e0) and [Specify completion 4ee399c9](https://linear.app/rgomids/issue/AXM-42#comment-4ee399c9) remain historical receipts. The primary executor read back the human decision and GitHub review; repository text records their scoped authority rather than copying private provider content.
 
-## 1. Executive finding
+Related: [Proposed Spec 015](../specifications/015-minimum-viable-operational-workflow/spec.md), AXM-12 and AXM-29. No code changes, live inference, commits, external writes, Spec acceptance or historical ADR amendments are authorized by this document.
 
-### Root causes that block a first real dispatch (confirmed at HEAD)
+## Finding and reduction boundary
 
-| Sev | Cause | Evidence | Owner |
-|-----|-------|----------|-------|
-| **S0** | `workflow stage run` **requires** `--validator-policy <digest>`, but there is **no public CLI** to author/publish a Validator Policy. Tests seed via `ValidatorPolicyService.Apply` only. | `internal/cli/workflow_stage.go:238`; `cmd/lingo/stage_dispatch.go:57-58` → `ErrValidatorPolicy`; seed only in `cmd/lingo/stage_journey_blackbox_test.go:257-269`; help lists flag as required. | Axiom product gap |
-| **S0** | `workflow stage run` **requires** a manual `--plan` JSON (authority ceiling / agents) before preview/apply. | `internal/cli/workflow_stage.go:238`; `docs/commands.md:1868-1918`; compile ceiling `internal/workflowcompiler/compiler.go` (graph/single). | Axiom UX / authority model |
-| **S1** | Configured Executions do **not** auto-advance between stages; each stage needs plan→run→(integrate)→`advance --stage-result`, plus human `fact` gates on SDD stages. | `internal/workflow/gates.go:48-54`; default SDD r2 = **10 stages**, 4 `humanGates` (`internal/workflowdefinition/default-sdd-r2.json`). | Product ritual vs orchestration |
-| **S1** | Runtime selection still uses **declarative** allowlists (runtime/profile/role/complexity/capabilities) and v4 frozen Profile admission — distinct from removed certification (ADR-0032). Misaligned Profile → `no_allowed_match` / admission errors. | `internal/runtimeapplication/policy_v4.go:79-176`; `internal/stageexecution/admission.go:56-132`; ADR-0032 accepted. | Axiom-owned selection |
-| **S2** | Preview/apply + `--authorize-local` (+ `--authorize-external` for vendor spawn) on every mutating stage step. Correct for external consent; high ceremony for local-only ops. | `docs/commands.md:1912-1922`; `internal/stageexecution/run.go:71-85`. | Safety protocol |
-| **S2** | `workflow start` requires a linked Work Item / Provider identity before stage work. | `docs/commands.md:1967-1985`; WI input in SDD intake. | Product coupling |
+The first dispatch is blocked by Axiom's own contracts: mandatory operator Plan JSON and Validator Policy digest, including a policy store with no public publisher. Removing the prompts while generating the same approved-plan/policy/graph/ledger stack would leave the underlying coupling intact. The proposed target removes those parallel concepts from new executions: **one durable Execution aggregate**, small attempt/process/message records under it, one run path for one or several agents, a minimal default Workflow, automatic eligible progression and one delivery lifecycle.
 
-### Confirmed non-causes (do not blame these for first-dispatch failure)
+Safety outcomes remain requirements; current representations must justify their cost. Authorization binds actual effects and exact targets; uncertain effects stop automatic retry; cancellation fences new work and confirms only observable process-group stop; credentials remain machine-local; results and messages are untrusted and correlated; missing evidence never becomes success. These outcomes do not prove that each policy object, receipt codec, compiler DTO, mirror or ledger must survive.
 
-- **CI/release/native-suite** do not gate local `stage run` (J).
-- **Capability certification / CapabilityProven** removed from admission per ADR-0032; `Admit` is proof-free (`admission.go:56-57`).
-- Literal string `reasoning-effort-low` as a **required Profile capability**: **not present** in HEAD tree (grep empty). Compiler may synthesize `reasoning-effort-*` tokens for adapters; Profile must not declare them (`violations.go`). Exploratory 29/10 claim → **reported/unverified** as current required capability gate.
+Classification: **REMOVE** deletes a new-path concept and its producers/consumers; **CONSOLIDATE** removes competing owners or representations; **KEEP (PROVEN)** retains a specific demonstrated invariant/control, not a whole subsystem by association; **INVESTIGATE GAP** names a bounded experiment needed before selecting encoding or retiring an old writer. An old-format reader retained for compatibility is not a second new-execution engine.
 
-### Unsupported / unverified (exploratory 29/10 govsm)
+## Journey and ownership
 
-| Claim | Status at HEAD |
-|-------|----------------|
-| Repository binding mismatch forced rebind | Plausible (readiness `repository_binding_missing` / install binding rules) — **not reproduced** in this session |
-| Valid Codex TOML → `configuration_invalid` | Parser/effort inspection can refuse unsafe/invalid TOML (`effort_v4`, auth preflight) — **not reproduced** here |
-| Manual Plan required | **Confirmed** |
-| Validator Policy digest required, no public publisher | **Confirmed** |
-| No real dispatch occurred | Session did **not** invoke live Codex/Claude; journey tests seed policy artificially — live E2E **NOT_RUN** |
+Current configured journey: configure Project/bindings/Profiles and Runtime policy → select Workflow → link/create Work Item → `workflow start --runtime-preview` → for each stage, possibly `fact`, author `stage plan --plan`, `stage run` preview/apply with Plan/policy/workspace and authorizations → optional `stage integrate` → `advance --stage-result` → delivery packet/prepare/preview/apply/decision/rework. SDD r2 has ten stages and four `humanGates`; configured execution does not automatically advance (`internal/workflow/gates.go:48`, `:75`). Coordination publishing is child-context-bound (`cmd/lingo/stage_publish.go:29`). CI/release is outside this dispatch chain.
 
----
+Proposed journey: configure Project, two repository bindings and minimal selected Codex/Claude invocation bindings once → link/create the Work Item → one start/run action using the minimal default Workflow → observe status/logs, respond only to a real blocker or required effect authorization → Axiom progresses on validated results → optionally authorize exact push/PR targets → record human acceptance or rejection/rework in that same delivery lifecycle. No manual policy publication, Plan JSON, graph preview or ceremonial stage advance. Runtime/model/effort comes from explicit defaults or user choice, without a mandatory Profile-v4 generation; vendor support is observed during authorized execution, never predicted by Axiom capabilities or complexity scores.
 
-## 2. Current vs proposed user sequence
+Domain/application owns Execution truth; CLI/Lingo is a thin adapter; Project owns defaults and permissions; Runtime owns invocation/authentication; Git/Provider adapters own observed external effects. Provider issues and comments are projections, never alternate execution truth. The inventory below follows those owner chains rather than treating a failing leaf check as the root cause.
 
-Scenario: Project with **two** Repositories, one Work Item, default Workflow, Codex + Claude messages, rework, optional PR.
+## A–L: deletion inventory, invariants and experiments
 
-### Current (configured path, HEAD)
+### A — REMOVE standalone Validator Policy
 
-1. `project configure` / bindings / Runtime Profiles (v4) + Project runtime policy — preview/`--authorize-local`.
-2. `project workflow select` (builtin r1 embed or listed r2) — digest tuple.
-3. `work-item create|select` (Provider).
-4. `workflow start` ×2 with `--runtime-preview`.
-5. Per stage (×10 on SDD r2): optional `fact` → **`stage plan --plan plan.json`** → **`stage run` preview** (`--plan`, `--validator-policy`, `--workspace-root`) → apply (`--preview-digest --authorize-local --authorize-external`) → multi-agent: `stage integrate` → `advance --stage-result`.
-6. Cross-Runtime: children publish into attempt inbox under supervisor context; host `coordination publish` outside child context fails (`child_context_required`).
-7. `delivery packet` → preview/apply (`--authorize-push`/`--authorize-pr`) → `delivery decision --authorize-human` → optional `delivery rework`.
+**Evidence and chain.** `internal/cli/workflow_stage.go:132`, `:238`, `:248` require a digest for run/integrate; `cmd/lingo/stage_dispatch.go:57` loads it before compilation. `internal/stageexecution/validator_policy.go:29`, `:35`, `:59` expose Preview/Apply/Commands only internally. `internal/validatorpolicy/policy.go:29`, `:41`, `:61` define format-1 Definition + reviewed Policy; **zero commands is invalid**, so an automatic empty policy is not an existing solution. `internal/local/validator_policy_store.go:28`, `:50`, `:76` owns `validator-policies` storage. Dependency owner: CLI digest → dispatch observation → policy store → integration `ValidatorCommands` (`internal/stageexecution/integrate.go:55`, `:284`) → Git validation argv. Test seeding in `cmd/lingo/stage_journey_blackbox_test.go:257` bypasses the missing publisher.
 
-### Proposed minimum (Spec 015 — Intake baseline locked; Proposed until Spec acceptance)
+**Disposition and deletion.** Remove `--validator-policy`, the standalone Definition/Review/Policy publishing lifecycle and new-path store/load dependency; do not add a publisher or Project default policy to legitimize the prerequisite. Consolidate explicit validation argv and its authorization into the stage/Execution contract. Optional validations are empty by absence, never a forged reviewed policy. Keep strict argv/working-directory validation and honest validation results.
 
-1. Configure Project + 2 repo bindings + Codex/Claude Profiles once (defaults or user selection; no extraneous ceremony).
-2. Accept the **minimal default Workflow** (Intake-settled); SDD remains an optional template.
-3. Link or create Work Item (Provider for create; allow already-linked WI).
-4. From the linked Work Item, start the default Workflow in **one natural user action**; Runtime from Project defaults/permissions.
-5. **First slice:** single-agent dispatch **without** operator-authored Plan, manually published Validator Policy/digest, Project-default policy object, or per-stage manual graph preview — Axiom derives plan/graph **internally**; vendor auth/compat failures surface on real execution.
-6. Auto-advance eligible stages (Intake-settled); stop only for humanGates / missing Axiom-owned input / explicit external/sensitive auth.
-7. Multi-agent / dual-Runtime: structured inbox exchange under dispatch (slice 2); graph may stay INTERNAL.
-8. Multi-repo outcome + optional authorized PR (slice 3). Preserve: secrets out of manifests, no unapproved destructive/external effects, no fabricated evidence, attempt identity/logs, no blind retry of uncertain mutations.
+**Failure and simpler alternative.** An agent-supplied validation command must not silently become trusted host execution. Snapshot the permitted command and bounded workspace in the same Execution authority before host invocation; a real new effect asks for authority. This preserves command safety without policy IDs/digests as a parallel product concept.
 
----
+**Migration / confidence / S1 gap.** High confidence in the redundant first-dispatch gate; medium in removal of every consumer. Keep historical policy bytes readable for historical integration/evidence. S1: stub one stage with no validator policy, then a permitted validator and a changed/unapproved argv; prove absent-policy success, argv refusal before effect, and old-policy inspection. Record remaining imports before deleting the package; no live vendor call.
 
-## 3. Decision matrix (A–L)
+### B — REMOVE approved operational Plan and competing compilation models
 
-| ID | Journey step | Current gate | Evidence | Why | Owner | Impact | Class | Simplest alternative | Risk if wrong | Conf. |
-|----|--------------|--------------|----------|-----|-------|--------|-------|----------------------|---------------|-------|
-| A | stage run / integrate | `--validator-policy` digest required; no public publish | `workflow_stage.go:238`; `stage_dispatch.go:57-58`; Apply only in tests | Separate reviewed test argv from agent/plan (PD-7) | Axiom | **Blocks first run** | **INTERNALIZE/AUTO** for run; PRESERVE digest at integrate when commands non-empty; add public author OR Project default empty policy | Unreviewed argv could run at integrate | HIGH |
-| B | stage plan / run | Manual Plan JSON + authorityCeiling | `workflow_stage.go:238`; stage plan CLI; compiler ceiling | Explicit effect ceiling before spawn | Axiom | Blocks first run | **INTERNALIZE/AUTO** single-agent from Workflow binding; OPTIONAL explicit plan for multi-agent/advanced | Over-broad effects if ceiling wrong | HIGH |
-| C | runtime select / admit | Allowlist runtime/profile/capabilities/complexity; v4 frozen; **no** certification | `policy_v4.go:79-176`; `admission.go:90-132`; ADR-0032 | Selection without vendor proof | Axiom | Onboarding friction | **PRESERVE_MINIMAL** allowlist+v4; OPTIONAL complexity; do not restore certification | Ambiguous/unsafe Profile match | HIGH |
-| D | mutations | preview + digest + `--authorize-local`; external for spawn | `run.go:71-85`; commands.md | CAS + consent | Axiom / external | Ceremony | **PRESERVE_MINIMAL** external+costly; **INTERNALIZE** coalesce local preview/apply for stage integrate/cancel where safe | Stale apply / unpaid inference | HIGH |
-| E | workflow shape / advance | Default SDD 10 stages; no auto-advance when configured | `default-sdd-r2.json` (10); `gates.go:48-54`; Builtin embed = r1 wire | SDD completeness | Product | Ritual cost | **OPTIONAL/ADVANCED** full SDD; ship **minimal ready Workflow** + auto-advance eligible | Skipping material human gates | HIGH |
-| F | before start | Linked Work Item / Provider | commands.md start blockers | Traceability | Product+Provider | Blocks start | **PRESERVE_MINIMAL** link; do not require create-from-Axiom for local-only tasks if WI already exists | Orphan executions | MED |
-| G | persistence | Graph3 + single_stage ledger + companions | ADR-0009/0026/0027 | Durable dispatch | Axiom | Complexity | **PRESERVE_MINIMAL** dual format; hide from happy path | Broken recovery | HIGH |
-| H | retry / crash | Receipts, leases, epochs, reconcile, process group | ADR-0028; retry docs | Process safety | Axiom | Ops | **PRESERVE_MINIMAL**; no speculative guarantees beyond observed | Double mutation / orphan processes | HIGH |
-| I | delivery | Packet → publication → decision/rework | commands.md delivery; #277 | Human accept ≠ technical complete | Axiom+Provider | Post-MVP path | **OPTIONAL** until PR desired; PRESERVE auth boundaries | Accidental push/PR | HIGH |
-| J | CI/release | validate-repository / native-suite | `.github/workflows/*` | Repo hygiene / release | Maintainer | Does **not** block local dispatch | **PRESERVE_MINIMAL** | Weakening release gates | HIGH |
-| K | config / identity | TOML/effort diagnostics; repo binding; project context | Spec 013; readiness; install bindings | Honest diagnostics | Axiom+vendor files | Friction | **PRESERVE_MINIMAL** diagnostics; improve messages (013) | Silent wrong repo/runtime | MED |
-| L | first dispatch / cross-Runtime | Child-context coordination; per-Runtime auth | stage_publish / coordination_ingest; frozen_stage auth | Inbox integrity | Axiom | Multi-agent | **PRESERVE_MINIMAL** child inbox; ensure dual Runtime auth before graph | Cross-talk / forged publish | HIGH |
+**Evidence and chain.** `internal/workflowcompiler/stage_plan.go:32` defines format-1 `PlanDocument` (`plan`, `authorityCeiling`), `:93` StagePlanRequest and `:103` StagePlan (current operational version 3 at `:20`). `cmd/lingo/stage_dispatch.go:53`, `:60` reads Plan JSON and constructs compiler input. `internal/workflowcompiler/compiler.go:292` requires `Plan.Approved`; `:313`, `:331` compare work units, stage agents and ceilings; `:254` branches single versus graph. Owner: operator file → CLI → StagePlan → compiled WorkUnit/Proposal → dispatch preview → persisted input material → supervisor.
 
-Counterarguments (do not remove as “overengineering” alone): A integrate commands without review; B unbounded effects; C silent Profile substitution; D replay after drift; H blind retry of uncertain Git/remote; I push without human; L cross-child inbox forgery.
+**Disposition and deletion.** Remove operator `--plan` from run/retry and the mandatory `stage plan` lifecycle; retire PlanDocument, PlanRef and approved operational-plan requirement for new starts. Consolidate stage intent, selected Runtime, bounded effects and attempt parameters directly into Execution. Do not retain the full ApprovedPlan → WorkUnit → Proposal chain under an automatic Plan generator. Human engineering Plan/Tasks artifacts are separate and remain possible in an optional SDD template.
 
----
+**Failure and simpler alternative.** Need: no inferred permission expansion or outside-workspace write. A single Execution effect envelope can bound the selected stage and agents; work allocation may derive an ephemeral queue from it. Retaining effect checks does not require separate approved Plan identity, digest and publication truth.
 
-## 4. Spec / ADR impact map (Proposed — do not rewrite historical ADRs)
+**Migration / confidence / S1 gap.** High confidence in operator and duplicate-model cost; medium in how much compiler code can be deleted. Keep old StagePlan/Plan readers only where historical evidence needs them; no recompile of history. S1: lower one stage directly to an invocation descriptor without PlanDocument/ApprovedPlan, run one stub, and reject an out-of-scope effect. Compare producer/consumer imports and serialized fields; if the old chain is still mandatory, the experiment has failed structural reduction.
 
-### 4.1 Intake-settled (not open product options)
+### C — REMOVE predictive capability/complexity selection policy; KEEP explicit identity and permission
 
-Do **not** reopen as mandatory human gates: minimal default Workflow; auto-advance of eligible stages; no manual Plan / policy digest / public policy ceremony on the happy path; no external certification. Encoding is Orchestrator-delegated within baseline.
+**Evidence and chain.** `internal/runtimeapplication/policy_v4.go:48` EvaluatePolicy intersects Project allowlists, portable profiles and local profiles; `:79` begins candidate iteration; `:122` chooses role/complexity preference; `:167` declaresRequest filters capabilities and complexity. `:157` CheckPolicy detects drift. `internal/stageexecution/admission.go:62`, `:90`, `:118` gates current Execution/Profile formats and frozen Profile availability. Owner: Project metadata + local v4 configuration → candidate selector → compiler resolution → frozen Execution binding → admission. Capability declarations are selection filters, **not certification**; ADR-0032 already removed CapabilityProven/probes.
 
-### 4.2 Accepted-artifact tension
+**Disposition and deletion.** Remove predictive capability and complexity eligibility, per-role/per-complexity selection rules and duplicate portable/local model-selection declarations from the new run path. Consolidate one explicit default/override invocation selection and actual user restrictions; no mandatory named Profile or Profile generation. Keep chosen Runtime/model/effort identity, observable auth, no silent substitution, revocation and exact-effect checks. A disabled or disallowed selection remains a concrete permission error; an unsupported vendor option becomes observed operational failure.
 
-| Artifact | Conflict with MVP slim | Proposed handling |
-|----------|------------------------|-------------------|
-| Spec 007 | Stage plan + validator policy as operator-facing gates; SDD-shaped journey language | **Proposed supersession of operator ceremony only** after explicit Spec 015 / amendment acceptance; preserve graph safety, ceilings, humanGates, delivery auth. 015 must not silently rewrite 007. |
-| ADR-0032 | Aligned (no certification) | Keep |
-| ADR-0009/0026/0027/0028 | Keep internals | Preserve; simplify UX façade; migration/effect boundaries = open (4.3) |
-| ADR-0020/0003/0005 | Keep | Keep |
-| ADR-0025 fragments already limited by 0032 | — | No further silent supersession |
-| Persisted Executions | format/bindings | Historical remain inspect/cancel/reconcile; new starts may use slim path; no silent ledger rewrite |
+**Failure and simpler alternative.** Removing all checks could select an unauthorized Runtime or silently change model/effort. Resolve the selected/default invocation once under permission, snapshot its effective inputs, and compare only identity/authority drift. No `capability_unknown`, support registry, certification or profile score is needed.
 
-### 4.3 Truly open (implementation / compatibility)
+**Migration / confidence / S1 gap.** High confidence in filters; medium in separating permission fields from prediction fields throughout manifest/config schemas. Preserve old v4 configurations/readers and explicit existing selections; never reinterpret old declarations as new authority. S1: a minimal selected stub invocation with no Profile-v4/capability/complexity catalogue must run; denied/disabled target and ambiguous missing default must refuse clearly; vendor option rejection must persist failure without fallback or proof fabrication.
 
-1. Schema migration / own-effect boundaries when slim path coexists with historical Executions.  
-2. Optional local/stub WI identity without Provider create — only if it changes Provider product contracts.  
-3. Exact Spec 007 (and any ADR) amendment text — human accepts package before historical rewrite.
+### D — CONSOLIDATE authority and preview state
 
-**What human acceptance of Spec 015 would decide:** authorize Plan/Implement of the slim path + precise amendment package — **not** re-litigate Intake product direction.
+**Evidence and chain.** `internal/stageexecution/run.go:63`, `:71` checks local/external authorization and reobserves preview before publish/spawn. `internal/stageexecution/preview.go:62` repeats policy, validator policy, binary and child-rights digests. `internal/executiongraph/dispatch_inputs.go:20` retains preview JSON format 1/2. `cmd/lingo/stage_dispatch.go:158` publishes retained inputs differently for graph and single. Owner: CLI flags/digest → preview observation → publisher/authority receipts → input store → detached starter.
 
----
+**Disposition and deletion.** Consolidate selected intent, exact effect authorization and pre-spawn attempt state in the one Execution transaction. Remove separate new-path policy-digest bookkeeping, repeated local preview/apply ceremonies, retained full-preview mirror and split authority publication contracts where the aggregate contains the same facts. One user authorization may cover a bounded run; new effects outside it still stop. Automatic local commits are internal CAS operations, not new human prompts.
 
-## 5. Incremental vertical slices (Proposed)
+**Failure and simpler alternative.** Crash between authority commit and spawn can cause duplicate work; stale target consent can authorize a changed repo. Keep a pre-spawn attempt marker, immutable authorized target/effects, current revision and single-runner fence. Freshness comparison can use the relevant aggregate revision rather than parallel reviewed DTO generations. Unknown spawn/effect state never auto-retries.
 
-Normative product AC live in [Spec 015 § Acceptance criteria B](../specifications/015-minimum-viable-operational-workflow/spec.md) (P-AC1–P-AC6). Summary:
+**Migration / confidence / S1 gap.** High confidence in repeated representations; medium in atomic write/launch simplification. Existing receipts remain inert evidence under existing meanings. S1: crash before commit, after commit/before spawn, and after spawn/before terminal save; assert zero unauthorized/double spawn and explicit unknown state. Compare the number of writable authority/state owners, not just prompt count.
 
-| Slice | Observable AC | Deps | Regression intent |
-|-------|---------------|------|-------------------|
-| **S1** | Single-agent dispatch with logs/status **without** manual Plan / policy digest / ceremonial transition (P-AC1, P-AC2, P-AC5) | Intake baseline (settled) | Journey tests updated; forbid secret leakage |
-| **S2** | Two Runtimes structured Q/A; unblock; auto-advance without “continue” (P-AC3) | S1 + dual Runtime available | coordination_ingest + blackbox; live R2 **NOT_RUN** until authorized |
-| **S3** | Two-repo Project outcomes + optional authorized PR (P-AC4–P-AC6) | S1–S2 + delivery auth | delivery packet/decision unchanged boundaries; live R3 **NOT_RUN** until authorized |
+### E — CONSOLIDATE minimal Workflow and automatic progression
 
----
+**Evidence and chain.** `internal/workflowdefinition/definition.go:29`, `:32` embed r2 and r1; `:159` Builtin() uses the legacy default, while `:367` exposes explicit revisions. `default-sdd-r2.json` contains ten stages/four human gates. `internal/workflow/gates.go:48`, `:75` requires configured `advance`; only legacy Intake is Automatic. `internal/workflow/configured.go:229`, `:538` supplies configured phase gates and transition validation. Owner: builtin/selection → definition binding → lifecycle projection → gate action → CLI `fact`/`advance`.
 
-## 6. E2E qualification (NOT synthetic substitute for R2/R3)
+**Disposition and deletion.** Remove SDD as mandatory default and hard-coded phase obligations from the minimal path. Ship a minimal ready Workflow with one work stage and a completion outcome; additional validation/review/delivery stages require a concrete configured need. Retain SDD as an explicit template. Consolidate progression with the run loop: validated outputs trigger eligible next stages without a “continue” or synthetic human fact. Keep explicit configured human gates and effect permissions.
 
-| Check | Result |
-|-------|--------|
-| Source inspection HEAD `440e44a…` | PASS |
-| `go test ./internal/stageexecution/ -run TestValidatorPolicy\|TestAdmit` | PASS |
-| `go test ./internal/cli/ -run TestWorkflowStage…` | SKIP (no matching tests) |
-| Live Codex inference | **NOT_RUN** (out of Specify authority) |
-| Live Claude inference | **NOT_RUN** |
-| Dual-Runtime structured exchange on real repos | **NOT_RUN** |
-| Exploratory 29/10 repro | **NOT_RUN** / treated as reported |
-| Linear comment publish | **NOT_RUN** (MCP needsAuth; no API key in environment) |
+**Failure and simpler alternative.** Exit zero can mask missing work, and automatic traversal can skip a real decision. Progress only on stage result validation plus current gate satisfaction. Use the same result commit to select next work; no separate operator round trip to repeat the committed evidence.
 
----
+**Migration / confidence / S1 gap.** High confidence in present ritual and settled product direction; medium in projection/schema deletion boundaries. Existing executions retain pinned r1/r2 behavior; new minimal defaults cannot replace their snapshots. S1: two stub stages auto-progress; missing output, human gate, cancellation and unknown effect each stop; optional SDD still exposes its explicit gates. Do not redefine ten legacy Provider lifecycle labels to fit three new stage names.
 
-## 7. Technical decisions (Orchestrator, reversible)
+### F — CONSOLIDATE Work Item linkage; INVESTIGATE GAP in provider prerequisite
 
-1. Artifacts placed under `docs/research/` + Proposed Spec 015 — research/proposed only.  
-2. Delegation: three explore inventories (A/B/D, C/K, E–I) + one (J/L); Orchestrator spot-checked CLI help, admission, policy_v4, gates, validator CLI absence.  
-3. Classification bias: prefer INTERNALIZE/AUTO over REMOVE for safety-bearing mechanisms.
+**Evidence and chain.** `internal/workflow/service.go:93`, `:97`, `:287` defines WorkItem/WorkItems and resolves linkage at Start; `internal/workflow/execution_target.go:19`, `:44` validates selectors. `internal/local/workflow_store.go:130`, `:383` addresses persisted execution by repository and Work Item. `docs/commands.md:1967` documents start blockers. Owner: Work Item domain → Provider/linked identity resolution → workflow target → local Execution address → later Provider projection.
 
----
+**Disposition and deletion.** Keep an explicit Work Item link as traceability input for this scope, but remove any requirement to create an already-linked item through Axiom or publish a Provider update merely to dispatch. Consolidate linkage into Execution identity; provider metadata is an optional projection. A local/stub Work Item identity is an investigation, not a claimed existing capability or an excuse to broaden S1.
 
-## Next gate
+**Failure and simpler alternative.** Wrong item/repository creates misattributed work and delivery. Validate the selected local link and repository binding; read-only provider verification may diagnose unavailable identity without turning projection writes into execution prerequisites.
 
-`re_review_PR_366` — analytical re-review of Spec 015 correction (F1–F4) on the same PR. Spec acceptance / ADR amendment / Plan / Implement / live R2–R3 remain separately authorized. No Implement of gate removals under this Specify correction authorization.
+**Migration / confidence / S1 gap.** Medium confidence: public APIs couple storage address and lookup to Work Item. Preserve existing addresses/links. S1: an already-linked fixture with Provider write adapter unavailable still dispatches; a deliberately mismatched link refuses. Trace every required Provider read and decide whether offline link validity can be established; no fabricated Provider acceptance. A new local identity needs a separately scoped contract amendment.
+
+### G — CONSOLIDATE Execution state; REMOVE ledger split; INVESTIGATE GAP in retirement boundary
+
+**Evidence and chain.** `internal/workflow/service.go:125` State owns workflow truth; `internal/local/workflow_store.go:39`, `:238`, `:306` serializes it under `executions/v1`. `internal/executiongraph/successor.go:13`, `:20`, `:31` defines Graph3/operational Graph4, child Executions and attempts. `internal/executiongraph/single_stage.go:17`, `:58`, `:76` defines single_stage_run formats 1/2 and authority v2. `internal/local/graph_store.go:121`, `:160` stores `graphs/v1`; `internal/local/single_stage_store.go:37`, `:198`, `:283` owns `single-stage-runs/v1` and separate commits. Owner: workflow State + graph/single stores → distinct authority codecs and supervisors → outcome projection back to State. ADR-0027 explicitly chose this additional ledger over changing Execution3; it cannot be silently ignored.
+
+**Disposition and deletion.** New starts use one versioned durable Execution aggregate containing stage position, attempts, authorities, cancellation and delivery state. Agent tasks/attempts are subordinate records, not child Executions with independent lifecycle truth. Remove graph and single operational ledgers/writers, their binding-generation comparisons and duplicate stage-outcome projection for the new path. A dependency queue may be derived from agent tasks without a separate persistent Graph lifecycle. Historical readers are compatibility obligations, not justification for perpetuating parallel writers.
+
+**Failure and simpler alternative.** Concurrent supervisors or stale workflow transitions can authorize conflicting effects. One aggregate CAS plus one runner fence, bounded task dependencies and correlated attempt IDs preserves these invariants with fewer cross-store commits. Parallel task writes must serialize safely; a single record is a target, not a proven throughput or durability claim.
+
+**Migration / confidence / S1 gap.** High confidence in multiple owners; medium in aggregate encoding and contention. Select an explicit new discriminator; never append fields under a historical closed codec. Retain old bytes and inspect/cancel/reconcile paths. No automatic conversion of active/unknown attempts. **INVESTIGATE GAP, deadline S1 before dependent implementation:** one and two stub agents run through the same aggregate/engine; competing saves and a killed writer cannot lose an attempt or manufacture success. Freeze representative old fixtures and test read-only admission before retiring any writer.
+
+### H — CONSOLIDATE supervisors; KEEP (PROVEN) process safety; INVESTIGATE GAP in minimum fields
+
+**Evidence and chain.** Graph `internal/stageexecution/supervisor.go:77`, `:195`, `:367`; single `internal/stageexecution/single.go:98`, `:208`, `:338`; retry `retry.go:166`, `:245` versus `single_lifecycle.go:384`; reconcile `reconcile.go:147` versus `single_lifecycle.go:276`. `internal/local/run_lease.go:72`, `:170` fences the runner. `internal/executiongraph/successor.go:40`, `:60` persists attempt/process correlation. `internal/executiongraph/classify.go:57` requires correlated records; `process_posix.go:26`, `:38`, `:54`, `:86`, `:104` implements group stop, PID reuse fencing and known escape observation. Owner: authority → supervisor/lease → adapter process → inbox/result → terminal classification → retry/reconcile authority.
+
+**Disposition and deletion.** Remove separate graph/single/resume/retry execution engines and their duplicated state services; one run loop starts or resumes eligible attempts and one status/cancel/reconcile implementation reads the aggregate. Keep attempt identity, bounded timeout, PID/start/group identity, persisted cancel intent, a single-runner fence, truthful terminal state and explicit recovery after uncertainty. Do not retain every reconciliation fact/receipt/epoch variant by default; map each retained field to a tested race or evidence requirement.
+
+**Failure and simpler alternative.** A stale worker can save success after cancel, PID reuse can signal an unrelated process, and lost terminal save can hide mutations. These are concrete controls to preserve in the smaller engine. ADR-0028 guarantees only main process/own POSIX group plus observable known escapes; escaped, reparented descendants remain outside the guarantee. Never claim host-wide containment or treat exit zero as stage success.
+
+**Migration / confidence / S1 gap.** High confidence in duplicate paths and safety needs; medium in minimum fields. Legacy unknown attempts require legacy observation/cancel support, no redispatch. **INVESTIGATE GAP, deadline S1 before dependent implementation:** one common stub runner covers cancel-before-spawn, cancel-during-run, stale save, PID identity mismatch, timeout, and lost terminal write; unknown remains unknown, no automatic mutating retry. The experiment must justify each surviving epoch/fact field by a failure, and count duplicate paths actually deleted.
+
+### I — CONSOLIDATE delivery into one Execution-owned lifecycle
+
+**Evidence and chain.** `internal/workflow/delivery.go:55`, `:73`, `:97` composes Stage evidence into DeliveryPacket; `cmd/lingo/delivery.go:58` separately reads graph/single evidence. `internal/workflow/delivery_publication.go:55`, `:73`, `:129`, `:193`, `:273` manages preview/publication/reconcile; `internal/workflow/delivery_decision.go:11`, `:48` stores another decision; `cmd/lingo/delivery_decision.go:77` creates rework. CLI `internal/cli/workflow_stage.go:325` through `:332` exposes packet, decision, rework, prepare, preview, apply, inspect, reconcile. Owner: stage stores → packet → publication store → remote observation → decision → rework Execution/lifecycle projection.
+
+**Disposition and deletion.** One Execution-owned delivery lifecycle records readiness, optional local/remote outcome, precise publication authorization, human disposition and rework link. Remove independent packet/publication/decision truth owners and repeated evidence copies for new executions; views/exports may be derived or immutable evidence references. Unify user interaction so “deliver” handles the current phase; inspect/recover remain legitimate operations when state is uncertain. No PR is required for local completion.
+
+**Failure and simpler alternative.** Lost response after push/PR can create duplicate remote effects; human acceptance cannot be inferred from technical success. Keep exact repo/remote/base/head targets and separate granted push/PR effects, persisted in-flight/unknown outcome and read-back reconciliation. Consolidation does not grant merge, release, closure or human acceptance. Rejected work stays immutable; a new linked Execution may handle rework without a separate delivery state machine.
+
+**Migration / confidence / S1 gap.** High confidence in ownership duplication; medium in retained artifact/export references. Preserve old packets/publications/decisions byte-for-byte and retain old unknown-publication reconciliation. S1: local delivery without packet ceremony; fake remote “effect happened, response lost” must stop and reconcile without a second push/PR; missing push or PR authority refuses; technical pass never sets human acceptance.
+
+### J — KEEP (PROVEN) repository validation outside product dispatch
+
+**Evidence and chain.** `.github/workflows/` and `scripts/validate-repository.sh` own maintainer validation/release, while `cmd/lingo/stage_dispatch.go:246` invokes domain run services directly. There is no CI/native-suite call in that local dispatch path. Dependency owner: repository/CI → merge/release assurance; not Workflow → stage admission. Scope of this finding is source call-chain inspection, not a universal statement about every deployment.
+
+**Disposition and deletion.** Remove any product prerequisite or documentation claim that passing a repository release/native battery is required to run an installed stage. Keep proportionate repository validation and publication boundaries; delete tests/fixtures whose sole subject is a retired component, retaining outcome/security regressions against the replacement. No every-suite-forever requirement is inferred; there is no evidenced runtime gate here to delete. Do not inflate the deletion budget by counting unrelated CI removal.
+
+**Failure and simpler alternative.** Weakening release verification can ship broken artifacts without reducing local dispatch friction. Keep deterministic validation in the maintainer path and test the installed run path independently with bounded stubs.
+
+**Migration / confidence / S1 gap.** High confidence in the inspected dispatch chain; no persisted migration. S1: stub installed journey from a workspace without maintainer scripts, while repository validation of the reduction remains a separate check. Record proof of no CI dependency; do not claim a live installed Runtime acceptance run.
+
+### K — CONSOLIDATE configuration; KEEP target/secrets checks; INVESTIGATE GAP in parser boundaries
+
+**Evidence and chain.** `internal/runtimeapplication/policy_v4.go:17` consumes one active-v4 record; `internal/stageexecution/admission.go:118` separately consumes config and frozen Profile; `cmd/lingo/stage_dispatch.go:142` obtains stage Runtime policy. Spec 013 owns diagnostics; Spec 007 binding and ADR-0020 own retained identity. Owner: machine-local Runtime/Profile/config/auth + repo binding → Project context → selection/admission → invocation. TOML errors and exploratory repository rebind problems are reported observations, not reproduced facts in this session.
+
+**Parser/preflight source boundary.** `internal/runtimeadapter/authpreflight.go:164` invokes a separate status check; `:295` scans configuration overrides and `:474` parses Codex configuration. Graph and single compose it independently at `cmd/lingo/stage_supervisor.go:88` and `cmd/lingo/stage_single.go:325`. `internal/runtimeadapter/effort_sources.go:497` implements a second bounded TOML selector parser; `internal/runtimeadapter/stage_effort.go:78` checks effective effort sources. Remove mandatory status-preflight dispatch admission and its duplicate composition from the normal run path; an optional diagnostic may remain only if it has a concrete consumer. Parser overlap is **INVESTIGATE GAP**: S1 must compare the two fixture sets, identify input fields actually needed for safe invocation, and decide a single bounded reader or deletion before changing dependent adapters. Do not infer that two parsers are equivalent merely because both process TOML.
+
+**Disposition and deletion.** Consolidate repeated observation/config selection into one effective invocation snapshot and actionable failure. Remove predictive vendor-version/model/effort support rules and duplicated declarative eligibility. Keep safe parsing needed to know actual argv/effort, inspect only consented sources, wrong-repository refusal, auth observation and redaction. Missing login is a concrete dependency failure; “not certified” is not.
+
+**Failure and simpler alternative.** Reading unsafe config can leak credentials or silently override effort; automatic rebind can target the wrong repo. Parse only required effective inputs, keep credential references out of Execution/logs, and refuse ambiguous targets/overrides with the smallest repair instruction. No broad vendor file import or support matrix.
+
+**Migration / confidence / S1 gap.** Medium confidence: safe parser/override checks must be separated from feature prediction. Preserve installed bindings/config readers; changing defaults cannot silently rebind old Execution. **INVESTIGATE GAP, deadline S1 before dependent implementation:** fixtures for valid TOML, malformed/unsafe config, explicit effort override, missing auth and mismatched repository; assert sanitized output and no secret serialization. The 29/10 live configuration complaint remains unverified until a sanitized authorized repro exists.
+
+### L — CONSOLIDATE coordination into minimal attempt-scoped messages
+
+**Evidence and chain.** `internal/coordination/coordination.go:41` has nine record kinds; `:79`, `:96` defines Record/Stream format 1; `:137` publishes against a Graph. `internal/coordination/inbox.go:14`, `:61` binds child context. `cmd/lingo/stage_publish.go:29`, `:62` resolves graph/single child paths separately; `internal/local/coordination_ingest.go:57`, `:160`, `:165` consumes private attempt inboxes and fences ingestion. Owner: child runtime → candidate inbox → supervisor validation/correlation → coordination stream → attempt classifier/dependency resolution.
+
+**Disposition and deletion.** Remove independent Graph-owned coordination lifecycle and graph/single resolver split for new runs. Keep a minimal Execution/attempt-scoped message log with sender/recipient, ID, correlation/reply reference, kind, bounded content and observed delivery/result status. Consolidate question/answer/blocker/result flows; contract proposal/acceptance, dependency-resolution, artifact/progress variants need a demonstrated consumer before retention. Keep message content as data, never permission or automatic evidence of another agent's success.
+
+**Failure and simpler alternative.** Forged/stale messages can unblock the wrong attempt or fake success. Private per-attempt ingress plus current attempt identity/fence and validated response/result correlation prevents cross-talk without a second graph/stream truth owner. Cross-Runtime auth remains invocation-specific; no prior behavioral certification of both vendors.
+
+**Migration / confidence / S1 gap.** High confidence in binding need; medium in kinds/stream retirement. Preserve historical streams/readers; no rewriting prior message provenance. S1: two stub agents exchange one question/answer through the common run path, with forged sender, wrong attempt, oversized payload, duplicate reply and late post-cancel result refused/deduplicated. Real Codex/Claude exchange stays S2 and **NOT_RUN**, not inferred from synthetic success.
+
+## Exact amendment implications (proposed, history preserved)
+
+A new accepted decision/amendment package is required before implementing contradictions. This research edits no accepted artifact. Follow ADR-0018: preserve original text, annotate only the accepted superseded fragments, add the new decision's `Supersedes` backlinks and reconcile the decision index. Acceptance of product direction is not acceptance of a specific new wire format.
+
+| Accepted artifact / exact affected fragment | Proposed amendment and preserved invariant |
+| --- | --- |
+| Spec 007 `spec.md:162`–`:211` stage/validator/agent/phase schema; `:267`–`:299` Execution binding; `:321`–`:361` operational approved Plan and policy resolution; `:421`–`:444` StagePlan/PlanRef CLI contracts; `:469`–`:489` delivery/rework | Replace mandatory operational Plan/policy and child-Execution compilation with direct stage/attempt execution; minimal default + automatic eligible progression; one Execution/delivery owner. Keep immutable selected definition, honest outputs, real human gates, explicit effect permission and immutable rejected history. Amend WF-007/008/009/011 and corresponding AC; do not claim Spec 015 silently overrides them. |
+| Spec 007 `amendment-276-stage-dispatch.md:43` A1 public operations, `:221` A4 dispatch authority, `:229` A5 Validator Policy, `:237` A6 effort/version consumption, `:264` PD-16 reference; successor/single persistence contracts consumed by #276 | Remove standalone validator publishing requirement and graph/single public dispatch split prospectively. Move approved argv/effect authority into Execution; preserve pre-spawn authorization, current-target checks, cancel, unknown effects and untrusted ingress. Existing ADR-0032 proof supersession remains effective. |
+| ADR-0009 `:56` decisions 1–5 parent/child Executions; `:72` decisions 6–8 envelope/resolution; `:89` decisions 10–13 dependencies/integration child; `:104` decisions 14–16 coordination; `:117` decisions 17–24 attempts/roll-up/evidence | Explicitly replace separate durable child Executions/graph lifecycle and mandatory integration child for new model with subordinate tasks/attempts, one run loop and derived dependency readiness. Remove predictive capability/complexity resolution. Keep bounded scope, authority ceiling outcome, no credentials in portable state, isolation, honest roll-up, retry and message correlation. This is real partial supersession, not “keep internals.” |
+| ADR-0020 `:24`–`:38` definitions/snapshot/rework; `:52`–`:56` graph lineage and separate sequential executor | Retain Project-owned immutable definition identities, pinned snapshot semantics and historical rework linkage; amend separate sequential/graph executor assertion and companion references that cease to own execution truth. One aggregate may retain a snapshot/reference; no mutable name-only binding. Revisit new linked rework only if Plan actually proposes changing it; current reduction does not need to. |
+| ADR-0026 decision 1–6 (`:35`–`:70`) successor Graph family, graph-state CAS, mutating admission and compatibility | Stop writing new operational Graphs after explicit new-Execution admission cutoff. Replace Graph-as-operational-owner/CAS requirement with aggregate CAS; keep same-attempt result correlation, unknown classification and immutable Graph1–4 evidence. Prior ADR-0026 supersession annotations remain historical facts. |
+| ADR-0027 Decision (`:47` onward): Option A extra ledger, unchanged Execution3, single authority v2, separate advancement; Alternatives B rejected at that time | Explicitly supersede Option A for **new** executions and select a new versioned unified Execution contract. This revisits the historically rejected broader Execution alternative; it is not an additive façade. Retain current bytes, no fake workflow transition, no fake Graph node, no automatic migration/redispatch, cancel/attempt identity and authority before spawn. |
+| ADR-0024 Decision (`0024-model-profile-effort-ownership.md:40`–`:56`) and compatibility scope (`:58`–`:78`); ADR-0025 decisions 1–4 (`0025-public-stage-dispatch-and-capability-proof.md:42`–`:68`) and decision 6 (`:106`) | Preserve Profile-owned effort/no override and invocation identity. Amend frozen multi-object tuple/admission requirements where replaced by one Execution snapshot; do not mandate a Profile generation to run. Consolidate detached supervisor, pre-spawn authority and candidate ingress rather than requiring their historical separate receipts/graph/single layouts. Keep correlated persisted classification and child output unable to mutate canonical authority. ADR-0032 already superseded proof-specific obligations; no new proof gate. |
+| ADR-0007 `0007-local-publication-and-recovery-protocol.md:72`–`:106`, architectural invariants 1–9, especially invariant 6 bounded multi-object recovery and 7 single commit point | Preserve private preparation, protected replacement, stale-authority refusal, one commit point, deterministic readers and truthful recovery. A consolidated Execution can remove cross-store publication/recovery bookkeeping where only one canonical object remains; amend only any selected mechanism that contradicts these clauses, not the safety outcomes. S1 crash-window tests must prove the simpler transaction; no invented atomicity guarantee. |
+| ADR-0028 Decision 1–6 | Keep main process/own POSIX group, PID reuse fence, known-escape veto and documented untracked escape limit. Consolidate duplicate callers only. If S1 proposes deleting a process check or strengthening stop guarantees, that specific fragment needs a new explicit amendment; no blanket supersession. |
+| Spec 004 accepted `issue-272-cli-subscription-auth-preflight.md:71`–`:72`, `:129`–`:138` repeated authentication evidence before each dispatch/retry | Propose partial supersession of mandatory preflight admission for new normal runs: attempt the authorized invocation and report actual auth/vendor failure. Keep selected executable/target identity, sanitized errors and no credential exposure. Optional diagnostics do not become run prerequisites; no change to historical observations. |
+| ADR-0032 Decision and RA-1–RA-6 / existing `Supersedes` map | Preserve no certification/probe/version registry, actual observed failure, identity/auth/authority and honest uncertainty. Proposed removal of Project capability/complexity eligibility goes beyond the retained Project Runtime Policy/Workflow binding clauses: amend only those selection-policy references, never resurrect certification. Frozen operational identity is not vendor approval. |
+
+ADR-0003/0005/0006/0007 remain applicable to thin adapters, confinement, retention and atomic publication/recovery. The reduction must prove simpler publication under their outcomes rather than silently promise filesystem durability. No new package format version is selected in Research. No mandatory authentication/compatibility probe is introduced before normal dispatch; observable invocation/auth errors are recorded during the authorized attempt.
+
+## Deletion budget and evidence Plan must deliver
+
+The budget counts retired responsibility, not just fewer screens. Baseline is **source at `c3a53af` (same code as `440e44a`)**, not an installed binary. Plan must record reproducible measured totals before selecting numeric net file/LOC/schema targets; those totals have not been computed here. Zero/one targets below are proposed architecture bounds, not invented current measurements. Retained legacy readers and tests must be reported separately from new-path code so compatibility does not conceal continuing complexity.
+
+| Metric / baseline inventory to measure | Reduction target / acceptance evidence |
+| --- | --- |
+| Public commands/flags; mandatory configuration fields; mandatory decisions/steps | Starting counts and numeric reduction targets **to measure in Plan** from CLI parsers, manifest/local schemas and fixed configured-start journey. Count normal run separately from optional authoring/effect authority; remove obsolete verbs/flags rather than rename them. One run action and no ceremonial transitions are proposed behavioral bounds, not measured savings. |
+| Independent policy/plan/delivery objects; persistence formats/stores; code/test footprint | Starting totals and numerical net reductions **to measure in Plan** from the file/API/format inventory below. Report legacy-only residue separately; do not claim observed deletions from this proposal. |
+| Mandatory operator artifacts: PlanDocument format 1, reviewed Validator Policy format 1 (`stage_plan.go:32`, `validatorpolicy/policy.go:41`) | Zero on new run path; no auto-generated equivalent Plan/policy lifecycle. Report deleted CLI flags, DTO producers, consumers and stores. |
+| Durable operational truth owners: WorkflowStore + GraphStore + SingleStageStore, plus stage-outcome projection (`local/workflow_store.go:34`, `graph_store.go:13`, `single_stage_store.go:19`, `stage_outcome.go:18`) | One new Execution aggregate writer/owner. Inventory format/kind writers and cross-store commits removed; preserve legacy inspection as an explicit residual. |
+| Supervisor/lifecycle families: graph supervisor/retry/reconcile/cancel and single supervisor/lifecycle (`stageexecution/supervisor.go`, `single.go`, `retry.go`, `reconcile.go`, `cancel.go`, `single_lifecycle.go`) | One shared run/status/cancel/reconcile implementation; no graph/single branch requiring separate operational truth. Measure function count and reachable duplicate paths. |
+| Selection: Project/runtime/profile allowlist intersections, role/complexity preferences, capability filters (`policy_v4.go:48`, `:167`) | Zero predictive eligibility filters; one selected/default invocation binding plus concrete permission/identity checks and observed auth errors. Measure surviving configuration fields and independent declarations. |
+| Default templates and progression: r1/r2 SDD, ten r2 stages/four humanGates, configured manual advance | Minimal default, zero manual advances on eligible stages; optional SDD still available. Measure prompts/commands for the fixed S1 journey, not a hypothetical average. |
+| Delivery owners: packet/publication/decision + rework adapters (`workflow/delivery*.go`, `cmd/lingo/delivery*.go`) | One Execution-owned delivery lifecycle; derived exports are not writable truth. Measure redundant evidence copies/stores/CLI verbs before setting numeric retirement budget. |
+| Messages: Record/Stream format 1, nine kinds, candidate ingestion, graph/single resolvers | Minimal attempt message facts and one ingress; retained kind requires a named consumer + failure test. Measure persisted schemas, correlation fields and duplicate resolve paths. |
+| Cross-cutting size | Plan records exact `git ls-tree` file sets, non-test/test LOC separately, exported API/types, CLI required inputs, persisted kinds/versions/writers and imports for A–L. Set explicit net deletion targets only after measurement; report actual diff and every exception at reconciliation. Moving identical code behind a façade does not count. |
+
+**Migration deadline applies to every A–L row:** stop new writes to retired formats at S1 cutover. Inventory actual historical state in Plan; preserve original bytes as inert archives. Active/unknown attempts must be resolved or explicitly blocked before conversion, never replayed. Verify lineage/reference conversion, then retire operational legacy readers/writers by S3 completion before MVP qualification. References above to retaining historical inspection/cancel/reconcile describe only this bounded transition, not indefinite dual engines. If safe retirement cannot be demonstrated, block cutover for an explicit decision. Rollback must never resume old writers against new Execution state or replay external effects.
+
+Owner chain for the reduction: accepted Spec/amendment package → S1 Plan selects aggregate/authority/compatibility boundary → Tasks assign removal producers and consumers together → implementation demonstrates retired writers/paths → deterministic evidence → review of net deletion and invariant preservation. A safety concern can retain a specific proven control; “safety-bearing subsystem” alone is not a retention rationale.
+
+## Bounded slices, experiments and receipts
+
+**S1** is one synthetic vertical run through the proposed single state/engine, including minimal Workflow auto-progression, one selected Runtime, local delivery and status/cancel/unknown effects. Run A–L negative experiments above with deterministic process/Provider stubs and isolated temporary state; no paid inference or external mutation. Plan must choose one bounded compatibility cutoff and measure deletion before expanding. Failure to eliminate old mandatory producers/consumers is a failed reduction, even if happy-path prompts disappear.
+
+**S2** builds on that same engine for real two-Runtime question/answer and rework when separately authorized; it cannot introduce a second graph engine. **S3** exercises two repository outcomes and optional authorized PR using the unified delivery lifecycle. No new end-to-end success is claimed here. Spec 015 owns normative acceptance criteria; these are research experiments to reduce architectural uncertainty.
+
+Correction-01 factual receipts remain valid and must not be overwritten by the stronger structural recommendation:
+
+- Snapshot `440e44a` versus Specify/PR head are distinct; research files did not exist at snapshot. Current `c3a53af` has identical `internal/` and `cmd/` code to snapshot.
+- Capability certification/CapabilityProven admission is removed under accepted ADR-0032. Declarative policy matching remains today and is now a deletion target, not certification evidence.
+- Literal required capability `reasoning-effort-low` was not found as a current Profile gate. Compiler/adapter effort tokens and guards against Profile declaration are different mechanisms. The 29/10 allegation remains reported/unverified.
+- Existing synthetic tests seeded policy through internal Apply and never establish public onboarding or live dispatch. Recorded targeted `go test ./internal/stageexecution/ -run TestValidatorPolicy\|TestAdmit` passed in prior investigation; `go test ./internal/cli/ -run TestWorkflowStage…` matched no tests and was **SKIP**, not PASS. These are prior receipts, not rerun evidence for correction-02.
+
+Correction-01 [archival receipt](../specifications/015-minimum-viable-operational-workflow/completion-receipt-specify-correction-01.json) records the actual reviewer mapping:
+
+| Finding | Preserved factual disposition |
+| --- | --- |
+| F1 Major | Separate Axiom-owned integrity/defaults from actual external authentication/compatibility failure; no manual Plan/Policy/graph preview on the happy path. Structural removal now strengthens this direction. |
+| F2 Major | Specify completion checklist is distinct from P-AC1–P-AC6 real product acceptance. R2/R3 remain NOT_RUN. New P-AC7 reduction evidence does not replace those scenarios. |
+| F3 Major | Minimal default, automatic eligible progression and no ceremony/certification are settled direction; exact Spec/ADR supersession is still pending material acceptance. No accepted history is silently rewritten. |
+| F4 Minor | Preserve original receipt and Linear-ready text as historical snapshots, valid Specify permalink at `74b668460ef8f53de7323fce54f2f0adc61d646d`, published Linear `4ee399c9` and PR #366. Correction-01 SHA `b50ccca27037ee868c984055bd397631322a437a` and reviewed SHA remain archival identities, not current code evidence. |
+
+| Qualification | Result / limit |
+| --- | --- |
+| Local source inspection of both SHAs | Confirmed code identity via `git diff`; path/line evidence inspected, no code execution acceptance inferred. |
+| Correction-02 behavioral experiments / new product tests | **NOT_RUN**: Plan/Implement is outside docs-only correction authority. |
+| Live Codex, Claude, dual-Runtime messaging, two-repo effects, exploratory 29/10 reproduction | **NOT_RUN**; no synthetic substitute. |
+| Documentation publication | See correction handoff/completion receipt for the actual PR HEAD and publication outcome; source inspection alone makes no publication claim. |
+| Architecture acceptance, merge, release | **NOT_RUN**; no authority inferred from documentation publication. |
+| Remaining uncertainty | Exact new codec, safe historical active-run coexistence, minimum fencing/receipt fields, parser reduction and deletion totals require bounded S1/Plan evidence. |
+
+Next gate: analytical review of correction-02 on PR #366 against the latest human decision and AR-01; Spec/ADR amendment acceptance and Plan authorization remain separate. The former blanket preference for INTERNALIZE/AUTO and preserving dual internals is withdrawn as a research recommendation. Accepted history remains intact.

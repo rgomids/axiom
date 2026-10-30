@@ -4,11 +4,13 @@
 
 [Specification (Proposed)](015-minimum-viable-operational-workflow/spec.md)
 from [AXM-42](https://linear.app/rgomids/issue/AXM-42) / [PR #366](https://github.com/rgomids/axiom/pull/366):
-slim contracts with Intake-settled minimal Workflow + auto-advance, Axiom-owned
-vs external-failure separation, normative product AC (S1–S3 / P-AC1–P-AC6), and
-matrix against investigation baseline `440e44a…` (docs on PR head).
-[Investigation](../research/axm-42-minimum-viable-workflow-investigation.md).
-Not approved; no Implement of gate removals authorized here.
+structural reduction proposal (correction-02): prefer delete/consolidate over
+hidden policy/plan, duplicate execution and delivery machinery; one Execution
+state, one run path, bounded legacy retirement and safety outcomes.
+[Investigation](../research/axm-42-minimum-viable-workflow-investigation.md)
+contains A–L deletion evidence, reduction budget and proposed contract evolution.
+Not approved; revised architecture requires re-review and explicit material
+acceptance. No implementation or live Codex/Claude inference authorized here.
 
 ## 014 — CLI operability for smaller models
 

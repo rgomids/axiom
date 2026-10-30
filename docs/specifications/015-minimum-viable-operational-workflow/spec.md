@@ -1,179 +1,123 @@
 # Specification 015 — Minimum viable operational workflow
 
-Status: **Proposed** (AXM-42 Specify correction-01). Not approved. Does not authorize Implementation, accepted-ADR rewrite, merge, release or MVP acceptance.  
-Investigation baseline SHA (research snapshot): `440e44a68638e08e901fd3f87f5b15cd395a6365`.  
-Specify PR head at last analytical review: `74b668460ef8f53de7323fce54f2f0adc61d646d` ([PR #366](https://github.com/rgomids/axiom/pull/366)).  
-Product baseline: human-approved AXM-42 Intake (workflow orchestration/coordination; Axiom owns operational behavior only) — Linear comment [`274fd7e0-e74a-4b70-9afd-14f5bf77cb6f`](https://linear.app/rgomids/issue/AXM-42#comment-274fd7e0).  
-Evidence: [research investigation](../../research/axm-42-minimum-viable-workflow-investigation.md).
+Status: **Proposed — correction-02**. Specification + Research only; no implementation authority or architecture acceptance.
+Technical baseline: main `440e44a68638e08e901fd3f87f5b15cd395a6365`; correction starts from confirmed PR HEAD `c3a53af4f08c1ead6328d05a5fc675e1cfcb8bcc` on [PR #366](https://github.com/rgomids/axiom/pull/366).
+Authority: [accepted Intake](https://linear.app/rgomids/issue/AXM-42#comment-274fd7e0) plus the **new human product direction** [7a717e9f](https://linear.app/rgomids/issue/AXM-42#comment-7a717e9f). [AR-01](https://github.com/rgomids/axiom/pull/366#pullrequestreview-5708094263) supersedes the favorable assessment under the previous baseline. F1–F4 corrections and historical receipts remain archival facts.
+Inspectable code inventory, deletion candidates, contract clauses and evidence gaps: [research](../../research/axm-42-minimum-viable-workflow-investigation.md).
 
 ## Problem
 
-The configurable Execution path can schedule and supervise Codex/Claude work, but the **operator-facing ceremony** before first dispatch exceeds the minimum needed for Axiom-owned safety: mandatory manual Stage Plan, mandatory Validator Policy digest **without a public publisher**, ten-stage SDD as the ready path, and manual advance between eligible stages. Certification was already removed (ADR-0032); remaining friction is mostly owned selection ceremony and missing product defaults — not vendor capability proof.
+Axiom's operational path has accumulated separate policy/plan objects, execution ledgers, coordination and delivery lifecycles, and repeated admission/preview ceremonies. Hiding those structures behind a shorter CLI retains their maintenance and recovery costs. Their existence, tests or historical acceptance do not establish that they remain necessary.
 
 ## Goal
 
-Define the **minimum operational contracts** so that after Project configuration, a linked Work Item can reach a **genuine Runtime dispatch** with durable status/logs in **one natural user action**, then extend to cross-Runtime collaboration, multi-Repository outcomes and optional authorized PR — without certifying vendor capabilities or promising task success.
+**Prefer delete to hide/internalize.** Remove or consolidate redundant concepts, services, stores, persistence formats and commands while delivering the smallest useful control plane: a configured Project with 1..N Repositories, a Work Item, default/custom Workflow with optional SDD template, Codex/Claude dispatch and collaboration, automatic eligible progression, truthful results/error recovery, and optional authorized reviewed delivery.
 
-## Non-goals
+A mechanism may survive only with evidence of its distinct Axiom-owned invariant, the concrete failure if removed, and why a meaningfully simpler mechanism cannot satisfy it. Missing evidence means a bounded investigation, not indefinite preservation.
 
-- Plugin SDK, general policy engines, distributed control plane.
-- Model-support certification, executable allowlists-as-compatibility, behavioral probes as admission.
-- Weakening process safety (leases, uncertain-effect fences, secret hygiene, write confinement, supervisor/cancel/recovery).
-- Replacing live R2/R3 qualification with synthetic CI alone.
-- Silent supersession of accepted ADRs (explicit proposed impact only; human acceptance required before historical rewrite).
+## Non-goals and boundaries
 
-## Actors
+- No implementation, new ADR, accepted-record rewrite, new Work Item/PR, merge, release or live inference in this correction.
+- No model capability certification, predicted vendor compatibility or code-quality guarantee; no universal preflight/test battery for the MVP.
+- No plugin framework, new infrastructure or distributed orchestration guarantees.
+- No loss of authorized target boundaries, secret protection, real process cancellation, uncertain-effect visibility or material-effect authorization.
+- No permanent dual-mode persistence or compatibility wrapper as the default migration strategy.
 
-- Operator (human): configures Project, grants external/human authority, accepts delivery.
-- Axiom (Lingo): loads/validates own state, schedules stages, dispatches/supervises, records truthfully.
-- Runtime agents (Codex/Claude): perform work under attempt confinement; not certified by Axiom.
-- Providers (GitHub/Linear when supported): Work Item identity and optional PR/push effects.
+## Architecture target (Proposed)
 
-## Slim contracts (Proposed)
+Use these responsibilities with the fewest representations; the names below do not require separate services, tables or stores.
 
-### Separation of concerns (normative)
+| Responsibility | Minimum representation and ownership |
+|---|---|
+| Project | Durable portable repository associations, selected Workflow and explicit user restrictions; machine-local executable/workspace/credential bindings remain outside portable content |
+| Workflow | Durable definition of stages, agents, dependencies, inputs/outputs and authorized effect bounds; full SDD is an optional template |
+| Work Item | Traceable identity and intent, linked to an existing supported source without mandatory create-via-Provider; no new Provider abstraction |
+| Execution | **One canonical durable state** for Workflow binding, stage progress, attempts, outcomes, authorization facts and repository-scoped artifact references |
+| Agent attempt | Nested Execution identity/status/process correlation and confirmed/unknown effects, rather than another independently versioned lifecycle/store |
+| Messages and artifacts | Attempt-owned message log and artifact references associated with Execution; content is not authority and does not require duplicate graph/coordination objects |
 
-Dispatch eligibility MUST separate:
+Workflow stages and agent definitions drive dispatch directly. A transient in-memory schedule may resolve dependencies; no independently persisted Stage Plan, graph proposal lifecycle, Validator Policy or replacement Project-default policy object is required. Keep only authorized effect bounds at their owner and enforce them at dispatch/effect boundaries without duplicating policy objects.
 
-| Class | Examples | Timing |
-|-------|----------|--------|
-| **(a) Axiom-owned integrity** | Linked Work Item identity; Execution/Workflow binding coherence; secrets out of portable manifests; authorized target/write bounds; supervisor lease/cancel/recovery identity; communication identity; explicit authorization for sensitive/remote/destructive/costly effects | Verified **before** dispatch when they are Axiom's own input/state/permission |
-| **(b) Configuration defaults** | Selected minimal Workflow; default Profile/model/effort when unambiguous or user-selected; internally derived Stage Plan / multi-agent graph | Resolved **internally** without operator-authored Plan file, public Validator Policy digest, Project-default policy *object* ceremony, or per-stage manual graph preview |
-| **(c) External Runtime authentication / vendor compatibility / environment** | Vendor login success; model/effort vendor support; network/sandbox/host behavior; code correctness | **Not** speculative pre-gates. Observed on **actual authorized Runtime failure**; recorded as diagnostic + next safe action |
+New single-agent and multi-agent starts MUST use the same Execution state model and scheduler path. Do not fabricate graph children for a single agent. Delete the redundant ledger/store/codec paths after bounded legacy retirement; merely making them private fails this specification. Exact encoding and transaction primitives are reversible Plan choices if they meet these contracts.
 
-User-selected Runtime/Profile **restrictions** remain valid when configured as **intent/permission** (Project allowlist of permitted runtimes/profiles). They MUST NOT be repurposed as vendor-capability certification or predictive compatibility probes (ADR-0032).
+## Normal operation
 
-### Project configuration defaults
+1. Configure Project repositories, Workflow and local Runtime target once; resolve unambiguous defaults or ask for a missing user selection. Do not mandate a Profile generation, complexity taxonomy or model/effort capability catalogue.
+2. From a Work Item, **one run action** resolves current Axiom-owned inputs/authority and starts an attempt. Internal atomic publication/concurrency protection replaces repeated public preview/apply/digest/expected-revision checkpoints. Optional inspection must not become another run prerequisite.
+3. Observe real process/output/error facts; make eligible successors runnable automatically. The ready default needs only a work stage and completion outcome; additional stages/gates must serve configured work or actual authority. Full SDD remains selectable.
+4. Exchange attempt-owned messages between Codex and Claude through one channel. Authenticate sender/recipient scope at process boundaries; no repeated grant/receipt ceremony for each message or intermediate handoff object. Messages never grant permissions or satisfy human gates.
+5. Show state, logs, artifact references, confirmed effects, unknown effects and next safe action. Exit zero or an agent assertion alone does not prove stage completion or human acceptance.
+6. Expose one delivery/rework path over Execution results and review findings. Remove independent Packet/Publication/Decision/Rework lifecycle prerequisites. Record actual authorization and observed push/PR results in Execution; rejection preserves prior evidence and links subsequent work without another public object ceremony. No silent merge, release or Work Item closure.
 
-- Portable Project: repositories (`N≥1`, product AC assumes two for S3), Work Item source binding, selected Workflow ref, optional Runtime permission allowlist (intent).
-- Machine-local: Runtime bindings/Profiles, workspace preferences.
-- After first successful configure, happy path uses: **minimal ready Workflow** (Intake-settled); straightforward default Profile/model/effort per Runtime when unambiguous, or explicit user selection — **no extraneous required setup**.
-- **No** mandatory Project-default Validator Policy object, public policy publisher, or digest handoff on the happy path.
+Axiom validates its own input identity, repository targets and real permissions. User-selected Runtime restrictions are intent, never vendor capability certification. Vendor authentication, model/effort rejection, unavailable executable or other spawn/vendor errors must produce actionable observed diagnostics during the authorized attempt; no mandatory compatibility/auth probe before normal dispatch. Do not claim external sandbox, network or vendor behavior is guaranteed.
 
-### Work Item
+Optional stage-defined validation commands may run only with authority for their actual effects. They provide concrete output checks without an independent Policy publisher/store/digest. A stage without such commands must not require a placeholder Policy.
 
-- Execution is WI-scoped for traceability.
-- Start requires a **linked** Work Item identity; create-via-Provider remains available but is not the only path if an issue already exists.
-- Optional local/stub WI identity for experimentation without Provider create remains an **open implementation choice** (see Open decisions) — not a reopen of the coordination baseline.
+Work Item linking remains the normal traceability path. A provider-free local identity is not required: justify a concrete blocked use case and reconcile existing identity contracts before adopting it. Resolve the research gap in S1; do not build speculative provider orchestration.
 
-### Runtime selection
+## Safety proof obligations
 
-- Axiom verifies **own** binding/permission: configured Runtime executable identity present for the selected binding, Profile/model/effort selected (user or default), Project permission allowlist match when configured, Execution authority for the intended effect class.
-- Axiom does **not** admit or refuse on capability certification, behavioral probes, or predicted vendor auth/compat (ADR-0032).
-- On external failure during authorized spawn/run: record observed diagnostic, last confirmed state, known/unknown effects, next safe action and retry restrictions; do not preemptively invent incompatibility.
+These are required outcomes, **not** mandates for historical leases, epochs, receipts or separate reconcile entities:
 
-### Workflow / Stage / Agent execution
+- Portable configuration, logs, messages and artifact references expose no secrets.
+- Writes and messages cannot escape the authorized repository/attempt targets; authorization cannot be expanded by agent output or stale state.
+- Stop/cancel controls the owned process scope and reports observable uncertainty honestly, including process identity reuse/escape limitations.
+- Concurrent/stale writers cannot authorize conflicting work. Interrupted dispatch retains sufficient attempt/process identity to distinguish confirmed, failed and unknown effects.
+- Unknown external mutations block blind automatic replay. Recovery reports what is known and the smallest safe action; it never promises exactly-once execution.
+- Push/PR/merge/release, destructive actions and material cost require applicable explicit authority. Existing bounded authority need not be requested again ceremonially; changes to the authorized target/effect require new authority.
 
-- **Ready default (Intake-settled):** a **minimal Workflow** (Proposed shape: Intake → one work stage → Completion, or a single work stage with optional human accept). Full SDD (≤10 stages) remains a **selectable** template, not the shipped happy-path default.
-- Stage binding declares agent role, responsibilities, effects ceiling, inputs/outputs.
-- **Operator-authored Plan:** NOT required for dispatch. Axiom **derives** the Stage Plan from the bound stage (**INTERNAL**). Explicit operator Plan remains **OPTIONAL/ADVANCED**.
-- **Multi-agent:** dependency-safe plan/graph MAY remain **INTERNAL** (derived from Workflow stage binding). Per-stage **manual** graph preview/digest is **NOT** required on the happy path before apply.
-- **Eligible stages auto-advance** (Intake-settled) when Axiom-owned validators/outputs are satisfied and no humanGate fires; human interaction only for material gates, missing Axiom-owned input, or explicit external/sensitive permission.
-- **Custom/advanced validation:** OPTIONAL. MUST NOT silently execute arbitrary operator or agent commands; reviewed command policies remain an advanced path with explicit authority — never a silent happy-path requirement.
+## Acceptance
 
-### Message channel
+### Specify completion (this correction)
 
-- Attempt inbox/outbox under supervisor; records grant no authority and cannot satisfy human gates.
-- Cross-Runtime exchange uses the same channel; publish outside child attempt context remains denied.
+The short normative contract and research A–L inventory must identify removals/consolidations, exact evidence, ownership, simpler alternatives, concrete counterexamples, migration and confidence. Each unresolved safety claim has a narrow S1 experiment and decision deadline. The deletion budget names what Plan must measure, without inventing reductions. Proposed contract supersession is explicit; accepted history is unchanged. Docs checks do not constitute product acceptance.
 
-### State and logs
+### Product acceptance (later authorized implementation)
 
-- Durable and user-observable: Execution identity, revision, attempt id/status, logs, artifact refs, errors, next action.
-- Graph vs single-stage ledgers remain internal (ADR-0026/0027); happy path does not require the operator to choose format.
+| ID | Observable pass condition |
+|---|---|
+| P-AC1 | Configured Project + linked Work Item starts the ready default through one run action without Plan/Policy/graph ceremony; deleted services/stores/commands are evidenced, not merely hidden |
+| P-AC2 | Real single-agent attempt produces truthful durable state/logs/artifacts and actionable failure/unknown-effect recovery |
+| P-AC3 | Codex and Claude exchange a question/answer, unblock dependent work and advance eligible stages automatically using one Execution/message path |
+| P-AC4 | A Project with two Repositories exposes repository-specific outcomes/artifacts under the same Execution |
+| P-AC5 | Safety obligations pass targeted fault/cancel/concurrency/unknown-effect checks; no fabricated CI, provider outcome or success |
+| P-AC6 | Review/rework and optional PR use one path, preserving evidence and explicit effect authority without delivery-object ceremony |
+| P-AC7 | Plan baseline versus final inventory demonstrates actual reductions of redundant commands/flags, mandatory fields/steps, independent objects, stores/formats and associated code/tests; exceptions meet the three-part survival proof |
 
-### Errors and completion (normative)
+**Negative tests:** trivial dispatch creates no Policy/Plan store or format; new starts create no duplicate Execution ledger; no repeated manual graph preview/apply; no mandatory vendor-compatibility/auth preflight; optional delivery requires no independent Packet/Publication/Decision lifecycle. Denial of unauthorized writes/messages/effects and refusal of blind replay must still work after removal.
 
-- Failure yields a **concrete diagnostic**, last confirmed state, known vs unknown effects, next safe action, and retry restrictions.
-- Completion and failure are defined from **Axiom-owned observations** (attempt status, logs, artifacts, Provider/CI facts when actually observed) — **never** from hallucinated “AI succeeded” claims, fabricated CI, merge or Provider state.
-- Categories stay actionable; eliminate happy-path `validator_policy_unavailable` caused solely by missing public publisher/digest ceremony.
+Real two-repository Codex+Claude E2E and R2/R3 qualification: **NOT_RUN**, pending later explicit execution authority. Synthetic checks alone cannot pass P-AC2–P-AC6's real execution scenarios.
 
-### Safe retry
+## Delivery slices and bounded migration
 
-- Preserve receipt/lease/epoch/reconcile (ADR-0028). Unknown/partial external effects block automatic redispatch.
-- Explicit disposition for workspace reset.
+| Slice | Required outcome and deletion evidence |
+|---|---|
+| S1 | Remove first-dispatch blockers **and obsolete policy/plan/admission/storage/CLI abstractions**; establish canonical Execution for new starts; demonstrate first real single-agent dispatch when authorized (P-AC1/2/5). Close research gaps before committing the dependent implementation contract; unresolved material choices return for human decision, not a permanent keep |
+| S2 | Minimal cross-Runtime messaging, dependent scheduling and automatic eligible stage transitions (P-AC3); delete duplicate coordination and stage/gate representations supported by evidence |
+| S3 | Unified repository outcomes and simplified authorized optional PR/rework (P-AC4/6); retire duplicate delivery lifecycles |
+| Migration, only if indispensable | Inventory actual preexisting records in Plan without importing private data. Preserve original bytes as inert archives; stop new writes to retired formats at S1 cutover. Resolve active/uncertain attempts before conversion or leave them explicitly blocked for safe disposition. Convert inspectable history to canonical references with verified lineage; retire operational legacy readers/writers by completion of S3, before MVP qualification. If unsafe, block cutover for a concrete decision rather than extend dual mode indefinitely |
 
-### Delivery
+Rollback may preserve archived bytes and restore the prior binary before cutover; it must not replay external effects or resume legacy writers against new-format executions. Plan must establish backup/read-back/rollback evidence and the actual population needing migration; no migration service is assumed.
 
-- Technical stage completion ≠ human acceptance.
-- Packet/publication/decision/rework remain the boundary for push/PR; optional until operator requests delivery under authority.
-- Delivery never silently closes WI or merges.
+## Contract evolution and real acceptance gate
 
-## Invariants (preserve)
+The [research contract map](../../research/axm-42-minimum-viable-workflow-investigation.md) identifies precise clauses and dependent amendments. Proposed implications:
 
-Secrets out of portable manifests/logs; no unapproved destructive/external/costly effects; no writes outside authorized target; no fabricated evidence; sufficient attempt identity for recovery; no blind repeat of uncertain external mutation; communication identity integrity; supervisor cancel/recovery.
+| Accepted contract | Proposed change; what remains |
+|---|---|
+| Spec 007 WF-005/006/007/008/010/011, stage/ledger/interface/delivery sections | Partially supersede separate StagePlan/PlanRef, validator-policy authority objects, dual single/graph execution, mandatory phase/gate profile and preview-based run/delivery ceremonies. Retain Workflow intent, Work Item/repository identity, immutable provenance, actual authority and honest outcomes |
+| ADR-0009 | Partially supersede graph-specific execution/coordination architecture with one Execution and transient dependency schedule; retain dependency ordering and attempt ownership |
+| ADR-0020 | Partially amend binding publication/retention mechanisms where multi-object ceremonies are replaced; retain exact Workflow provenance so configuration edits cannot silently retarget running work |
+| ADR-0026 | Supersede separate successor-Graph persistence/admission for new runs; historical Graph bytes remain archives, not a permanent second operating model |
+| ADR-0027 | Supersede independent single-stage operational ledger/authority codec for new runs; attempts belong to canonical Execution |
+| ADR-0028 | Retain the limited observable process-control boundary; amend any required historical stop-receipt representation only where consolidated. No stronger process containment guarantee |
+| ADR-0032 | Preserve no-certification direction; amend remaining mandatory admission/configuration ceremony where direct authorized execution and observed error suffice |
+| Direct dependencies (including ADR-0024/0025 and protected publication ADR-0007) | Amend only Profile/dispatch/authority/persistence clauses actually contradicted by consolidation, as enumerated in research. Keep secret/target/publication safety outcomes; no wholesale implicit supersession |
 
-## Acceptance criteria
+**Recommendation:** accept one coherent structural replacement contract, with the smallest explicit amendment/supersession package required by ADR-0018, before implementation. Alternative: incremental internalization retains multi-object recovery/maintenance cost and fails the new direction. Trade-off: consolidation requires bounded migration and may reduce independently addressable historical interfaces; persistence cutover and public command retirement become costly to reverse. Encoding, helper layout and flag coalescing remain TECHNICAL_LOCAL, not new product gates.
 
-### A. Specify deliverable checklist (this PR / stage)
-
-Checklist for the Specify *document* delivery — **not** product MVP acceptance:
-
-1. Investigation matrix A–L published with file:line evidence at a named SHA.
-2. Spec distinguishes REMOVE vs INTERNALIZE vs OPTIONAL vs PRESERVE with counterarguments.
-3. Vertical slices S1–S3 defined with normative product AC below; happy path excludes manual Plan / Validator Policy digest / ceremonial transition.
-4. Intake-settled baseline vs truly open implementation choices explicitly separated (no reopen of settled product direction as a mandatory new human gate).
-5. Live Codex/Claude E2E listed **NOT_RUN** until separately authorized; R2/R3 live tests remain **NOT_RUN** until real authorized execution.
-
-### B. Product acceptance criteria (normative; govern later Implement / qualification)
-
-Observable user scenarios. Passing synthetic docs/CI alone does **not** satisfy these. Live R2/R3 remain **NOT_RUN** until authorized.
-
-**Shared fixture intent:** Project with **two** Repositories + Work Item source + locally available Codex and Claude.
-
-| ID | Scenario (user-observable) | Pass when | Fail when |
-|----|----------------------------|-----------|-----------|
-| **P-AC1** | From a linked Work Item, start the **default** Workflow in **one natural user action** | Dispatch path starts without operator-authored Plan, manually published Validator Policy/digest, Project-default policy object ceremony, or ceremonial stage transition | Operator must author Plan/Policy/graph digest or manually advance eligible stages on the happy path |
-| **P-AC2** | Single agent dispatches and reports observed state | Durable attempt status/logs/artifacts reflect Axiom-observed outcomes | Success claimed without attempt evidence; fabricated Provider/CI |
-| **P-AC3** | Two Runtimes exchange a structured question/answer; dependent work unblocks; eligible stages advance **without** “continue” | Inbox records under supervisor; auto-advance of eligible stages; no ceremonial human continue | Cross-Runtime blocked by missing manual Plan/preview; eligible stages stuck awaiting ceremonial continue |
-| **P-AC4** | Changes/results/artifacts traceable per Repository | Per-repo artifact/outcome refs inspectable | Orphan or unscoped outcomes without repo linkage |
-| **P-AC5** | Failure path | Concrete diagnostic, last confirmed state, known/unknown effects, next safe action, retry restrictions | Opaque failure; speculative pre-refusal without execution attempt when only vendor auth/compat is at issue |
-| **P-AC6** | Review/rework loop and optional external PR | Only under explicit authority; no silent merge/close | Push/PR/merge/close without authorization |
-
-**Slice mapping (clear tests):**
-
-| Slice | Covers | Primary checks |
-|-------|--------|----------------|
-| **S1** | Single-agent first dispatch | P-AC1, P-AC2, P-AC5 (single Runtime) |
-| **S2** | Dual-Runtime collaboration + auto-advance | P-AC1–P-AC3, P-AC5 |
-| **S3** | Multi-repo outcomes + optional authorized PR | P-AC1–P-AC6 |
-
-Live dual-Runtime / multi-repo qualification (**R2/R3**) remains **NOT_RUN** until real authorized execution produces Evidence.
+The human has accepted the **direction**, not this exact architecture. Next gate is **re-review of revised Spec 015 and explicit human material acceptance of its architecture/contract evolution**. No Plan/Implement, merge/release/delivery acceptance or AXM-12 unblock is claimed here.
 
 ## Constitution check
 
-Aligns with intent-before-implementation, honest evidence, least privilege, and smallest coherent change. Conflicts with treating full SDD ritual as mandatory for every task — resolved by making SDD optional configuration (Constitution II allows lightweight phases).
-
-## Baseline settled by Intake (do not reopen as mandatory human gates)
-
-The following are **accepted product direction** for AXM-42 (Intake). They are **not** open options for re-debate in Specify:
-
-1. Ship / select a **minimal default Workflow** (full SDD remains optional template).
-2. **Automatic progression** of eligible stages (no ceremonial “continue” / manual advance when eligible).
-3. Happy path does **not** require operator-authored Plan, manually published Validator Policy/digest, or public policy authoring ceremony.
-4. **No external Runtime capability certification**; diagnose vendor auth/compat on observed failure (ADR-0032 aligned).
-5. Preserve Axiom-owned integrity, secrets, authorized bounds, supervisor/cancel/recovery, communication identity, and explicit authorization for sensitive/remote/destructive/costly effects.
-
-Reversible technical encoding of these directions is delegated to the Orchestrator during Plan/Implement within this baseline.
-
-## Open MATERIAL / implementation choices (truly unresolved)
-
-Only items that are **not** settled by Intake and may need human input if they expand product/architecture beyond the baseline:
-
-1. **Persisted Execution / schema migration and own-effect boundaries** when introducing the slim happy path alongside historical graph/single-stage ledgers (ADR-0026/0027) — how far new starts diverge vs inspect/cancel/reconcile of old Executions.
-2. **Optional local/stub Work Item identity** without Provider create for experimentation — only if it changes Provider/traceability product contracts beyond “link existing WI”.
-3. **Concrete supersession text** for accepted Spec 007 / related ADRs where operator-facing Plan + validator-policy gates are currently normative — human must accept an amendment/supersession **before** historical artifacts are rewritten (see impact map). Do not silently accept/supersede.
-
-Technical details (CLI flag coalescing, internal plan derivation mechanics, empty-vs-absent validator representation, message schema tweaks) are **not** HUMAN_DECISION_REQUIRED when reversible and within baseline.
-
-## Spec / ADR impact map (Proposed — do not rewrite historical ADRs here)
-
-| Artifact | Material tension with Intake baseline | Proposed handling (requires human accept before historical rewrite) |
-|----------|----------------------------------------|---------------------------------------------------------------------|
-| [Spec 007](../007-configurable-workflows/spec.md) | Operator-facing `workflow stage plan`, PlanRef/StagePlan, and reviewable validator-policy artifacts as part of the configurable journey | **Proposed supersession (operator ceremony only):** happy-path Plan/validator digest become INTERNAL/OPTIONAL; graph safety, authority ceilings, humanGates, delivery auth unchanged. Amend 007 after explicit acceptance — 015 does not rewrite 007. |
-| ADR-0032 | Aligned (no certification) | Keep |
-| ADR-0009 / 0026 / 0027 / 0028 | Internal graph/single persistence, parent-child, retry | **Preserve internals**; UX façade hides dual ledger. Migration/effect boundary = open item (1) above — not silent ledger rewrite |
-| ADR-0020 | Workflow definition revision binding before Execution admission | Keep binding integrity; slim path still pins WorkflowRef/snapshot |
-| ADR-0003 / 0005 | Control plane / related | Keep |
-| ADR-0025 fragments limited by 0032 | — | No further silent supersession |
-
-**What human approval would decide** (when Spec 015 itself is accepted): whether to authorize Plan/Implement of the slim path and a precise Spec 007 / ADR amendment package — **not** whether minimal default / auto-advance / no Plan-digest ceremony / no certification are desirable (already Intake-settled).
+Intent precedes implementation; reduction evidence is deterministic where possible; Project remains distinct from Repository. Safety, truthful evidence and human authority remain mandatory outcomes. Accepted contracts/history are preserved until explicit evolution. No new constitutional conflict is proposed; the material architecture decision remains pending acceptance.

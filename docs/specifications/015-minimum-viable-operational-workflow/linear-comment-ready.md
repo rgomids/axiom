@@ -30,7 +30,7 @@ First real dispatch blocked primarily by Axiom product ceremony (Plan + validato
 
 ---
 
-## Current correction handoff (correction-01)
+## Historical correction handoff (correction-01)
 
 **New** Linear report payload for Spec 015 F1–F4 correction on the **same** PR #366. Do not re-post attempt-01. Do not claim merge/acceptance.
 
@@ -45,3 +45,75 @@ First real dispatch blocked primarily by Axiom product ceremony (Plan + validato
 | Linear publish (this session) | `false` / REPORT_PENDING (MCP needsAuth) |
 
 See session handoff / operator paste for the human-readable report + AWF-EVENT `correction-01`.
+
+
+## Correction-02 — structural replacement proposal
+
+Correction-01 above is archival; its F1–F4 facts and event identities remain
+unchanged. The human direction changed in Linear comment `7a717e9f` and review
+[AR-01](https://github.com/rgomids/axiom/pull/366#pullrequestreview-5708094263).
+Correction-02 starts from verified PR HEAD
+`c3a53af4f08c1ead6328d05a5fc675e1cfcb8bcc`; main remains
+`440e44a68638e08e901fd3f87f5b15cd395a6365`.
+
+The revised [Spec](spec.md) and
+[research](../../research/axm-42-minimum-viable-workflow-investigation.md)
+propose structural removal/consolidation, one canonical Execution, bounded
+retirement and safety outcomes. These are proposals, not implemented changes or
+accepted architecture. The completion comment for **correction-02 only** carries
+the exact final PR HEAD, validation results and event ID; do not replay either
+older attempt. No live inference, merge, release, delivery acceptance or AXM-12
+unblock is authorized or claimed.
+
+Technical decisions: bounded source-inspection delegation, Spec integration and
+validation owned by the main executor; keep accepted records and previous
+receipts unchanged; count reduction baselines in Plan rather than invent them.
+The prior builtin Workflow fixture drift finding remains deferred and does not
+expand this correction's requirements.
+
+Next gate: `re_review_revised_Spec015_and_human_material_acceptance`.
+No real callback/continuation integration was invoked; handoff is to review,
+not automatic Plan or Implementation.
+
+### Local validation evidence (correction-02)
+
+- PASS: `git diff --check`; Spec relative links and structural contract checklist.
+- PASS: `python3 scripts/check-adr-governance.py .` (37 ADRs), its 56-case
+  regression suite; automation registry (99 surfaces), its 33-case suite;
+  issue-label tests (30 cases); sensitive-file checker and its regression suite.
+- PASS: `GOCACHE=/tmp/axm42-c02-go-cache go build -o /tmp/axm42-c02-lingo ./cmd/lingo`
+  as a synthetic validator prerequisite, not a product qualification claim.
+- FAIL: `GOCACHE=/tmp/axm42-c02-go-cache ./scripts/validate-repository.sh .`
+  stops in `scripts/test_model_advisor_eval.py` (one failure, five errors).
+  `workflow_needs()` at `scripts/model-advisor-eval.py:135` raises
+  `KeyError: 'revisions'`. A synthetic-only reproduction observed configure
+  returning `Portable Project publication failed`, then workflow list
+  returning `project_not_found`. Root cause remains unverified; this
+  correction does not alter that code. The first run also lacked writable
+  default Go cache; the writable-cache rerun above is the authoritative result.
+- NOT_RUN: real Codex/Claude inference, R2/R3 two-repository E2E, process/fault
+  qualification of the proposed replacement, migration and reduction counts.
+- Secret scanner `gitleaks` unavailable; repository sensitive-file checks ran.
+
+Deferred validation finding: diagnose the existing synthetic Project publication
+failure outside this docs-only correction, with the commands and source locations
+above as evidence. This is not an added MVP requirement or an assertion that
+remote CI failed. Observe remote checks on the exact published HEAD separately.
+
+
+### Publication limits observed in this session
+
+`git add` failed creating `/home/grokbot/axiom/.git/worktrees/axm-42/index.lock`
+with `Read-only file system`; no commit/push occurred. The staged sensitive-file
+check saw an empty index and is not evidence that these edits were staged.
+Worktree sensitive-file checks passed. The GitHub metadata write tool also
+refused because it requires approval while this session's approval policy is
+`never`; no alternative write path was used. PR #366 still has HEAD
+`c3a53af4f08c1ead6328d05a5fc675e1cfcb8bcc`. Local documentation and the generated
+patch are the correction output; publication remains pending. The outdated PR
+summary requires editorial application of the prepared replacement.
+
+The Linear completion-comment write was also refused by the same approval-policy
+restriction. No correction-02 comment was published and no raw remote read-back
+is claimed. The generated local receipt carries `linear_published:false`,
+`REPORT_PENDING` and `stage.partial`; it includes the actual unchanged PR SHA.
