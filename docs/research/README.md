@@ -6,6 +6,7 @@ As hipóteses iniciais estão em [../../.agents/context/research-hypotheses.md](
 
 Análises atuais:
 
+- [AXM-42 minimum viable workflow investigation](axm-42-minimum-viable-workflow-investigation.md) — Specify read-only: gates blocking first dispatch, decision matrix A–L, Proposed Spec 015; not product acceptance.
 - [CI/CD Quality Strategy and Release Validation Gates](ci-cd-quality-strategy.md) — inventário, matriz de classes de falha, #153 como tracer, pipeline-alvo recomendado e decomposição (Issue #154); recomendação, sem implementação.
 - [Axiom and GitHub Spec-Kit Evaluation](axiom-speckit-evaluation.md) — cenários comparáveis, correção metodológica, interpretação e decisão humana final.
 - [Spec-Kit Strategic Upstream Reference](spec-kit-strategic-upstream.md) — registro durável da referência upstream, critérios e watch planejado sem automação implementada.

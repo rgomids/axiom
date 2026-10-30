@@ -1,0 +1,112 @@
+{
+  "work_item": "AXM-42",
+  "stage": "specify",
+  "attempt": "attempt-01",
+  "result": "completed",
+  "artifact_refs": [
+    "docs/research/axm-42-minimum-viable-workflow-investigation.md",
+    "docs/specifications/015-minimum-viable-operational-workflow/spec.md",
+    "docs/specifications/015-minimum-viable-operational-workflow/linear-comment-ready.md",
+    "docs/research/README.md",
+    "docs/specifications/README.md"
+  ],
+  "pr_url": null,
+  "head_sha": "440e44a68638e08e901fd3f87f5b15cd395a6365",
+  "evidence": [
+    {
+      "kind": "source_inspection",
+      "status": "PASS",
+      "detail": "HEAD matches prompt baseline; CLI help confirms required --plan and --validator-policy"
+    },
+    {
+      "kind": "unit_test",
+      "status": "PASS",
+      "detail": "go test ./internal/stageexecution/ -run 'TestValidatorPolicy|TestAdmit'"
+    },
+    {
+      "kind": "unit_test",
+      "status": "SKIP",
+      "detail": "go test ./internal/cli/ -run TestWorkflowStage — no matching tests"
+    },
+    {
+      "kind": "live_codex_claude_e2e",
+      "status": "NOT_RUN"
+    },
+    {
+      "kind": "exploratory_29_10_repro",
+      "status": "NOT_RUN",
+      "detail": "Treated as reported; Plan+validator publisher confirmed via source; reasoning-effort-low unsupported"
+    }
+  ],
+  "technical_decisions": [
+    {
+      "id": "TD-01",
+      "summary": "Research artifacts + Proposed Spec 015 only; no product code or ADR edits as accepted",
+      "rationale": "Specify authorization bounds"
+    },
+    {
+      "id": "TD-02",
+      "summary": "A/B classified INTERNALIZE/AUTO not REMOVE",
+      "rationale": "Safety counterarguments at integrate/effects ceiling"
+    },
+    {
+      "id": "TD-03",
+      "summary": "Delegated explore inventories; Orchestrator integrated and spot-checked",
+      "rationale": "axiom-orchestrate net value for parallel code inventory"
+    }
+  ],
+  "deferred_findings": [
+    {
+      "id": "DF-01",
+      "summary": "Builtin default wire is r1 while r2 10-stage is also listed — doc/default drift",
+      "evidence": "workflowdefinition Builtin(); default-sdd-r2.json"
+    }
+  ],
+  "limitations": [
+    "Linear MCP authentication unavailable in this agent environment; comment not published",
+    "No commit/PR created (not authorized)",
+    "Installed axiom binary revision 6ccfbfc differs from worktree HEAD — help used as UX evidence only",
+    "Live Runtime inference and full govsm repro not executed"
+  ],
+  "linear_published": false,
+  "linear_comment_id": null,
+  "linear_comment_url": null,
+  "report_pending": true,
+  "ready_to_post": "docs/specifications/015-minimum-viable-operational-workflow/linear-comment-ready.md",
+  "next_gate": "specification_review_and_material_architecture_decision",
+  "remaining_work": [
+    "Authenticate Linear in Cursor IDE and post linear-comment-ready.md to AXM-42",
+    "Human MATERIAL decisions on A/B/E (and F if local WI without Provider create)",
+    "Authorized Plan/Tasks only after Spec 015 acceptance — do not Implement removals under this Specify auth",
+    "Later: authorized live Codex+Claude E2E qualification"
+  ],
+  "handoff": {
+    "state": "AWAITING_EXECUTION_REPORT",
+    "objective": "AXM-42 Specify — minimum viable workflow investigation",
+    "completed_units": [
+      "E2E path reconstruction",
+      "Decision matrix A-L",
+      "Proposed Spec 015",
+      "Ready-to-post Linear receipt"
+    ],
+    "remaining_units": [
+      {
+        "unit": "Post Linear comment + verify AWF-EVENT read-back",
+        "capability": "integration",
+        "dependencies": ["Linear auth"],
+        "acceptance": "comment ID + event_id unique on AXM-42"
+      },
+      {
+        "unit": "Human MATERIAL architecture/product decision on Spec 015",
+        "capability": "human",
+        "dependencies": ["investigation artifacts"],
+        "acceptance": "explicit acceptance or revision request"
+      }
+    ],
+    "authority_granted_and_pending": {
+      "granted": "read-only research + draft Specification + local Markdown artifacts",
+      "pending": "Linear publish auth; MATERIAL accept Spec 015; Implement of removals; live inference"
+    },
+    "next_action": "Operator: auth Linear, post ready comment; review Spec 015 MATERIAL decisions"
+  }
+}

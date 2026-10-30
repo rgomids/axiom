@@ -1,5 +1,14 @@
 # Specifications
 
+## 015 — Minimum viable operational workflow (Proposed)
+
+[Specification revision 1 (Proposed)](015-minimum-viable-operational-workflow/spec.md)
+from [AXM-42](https://linear.app/rgomids/issue/AXM-42) Specify: slim contracts for
+Project/Work Item/Runtime/Workflow/messages/state/retry/delivery, decision matrix
+against HEAD `440e44a…`, and slices toward first single-agent dispatch without
+manual Plan/Validator Policy authoring. [Investigation](../research/axm-42-minimum-viable-workflow-investigation.md).
+Not approved; no Implement of gate removals authorized here.
+
 ## 014 — CLI operability for smaller models
 
 [Specification revision 1](014-small-model-cli-operability/spec.md) replays the
