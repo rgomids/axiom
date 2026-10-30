@@ -32,11 +32,16 @@ First real dispatch blocked primarily by Axiom product ceremony (Plan + validato
 
 ## Current correction handoff (correction-01)
 
-Use this section for the **new** Linear report after Spec 015 F1–F4 correction on the **same** PR #366. Do not re-post attempt-01. Do not claim merge/acceptance.
+**New** Linear report payload for Spec 015 F1–F4 correction on the **same** PR #366. Do not re-post attempt-01. Do not claim merge/acceptance.
 
-**PR:** https://github.com/rgomids/axiom/pull/366  
-**Prior review:** https://github.com/rgomids/axiom/pull/366#pullrequestreview-5707420506 (F1–F4 analytical REQUEST_CHANGES / GitHub COMMENT)  
-**Spec:** https://github.com/rgomids/axiom/blob/spec/axm-42-minimum-viable-workflow/docs/specifications/015-minimum-viable-operational-workflow/spec.md  
-**Research:** https://github.com/rgomids/axiom/blob/spec/axm-42-minimum-viable-workflow/docs/research/axm-42-minimum-viable-workflow-investigation.md  
+| Field | Value |
+|-------|-------|
+| PR | https://github.com/rgomids/axiom/pull/366 |
+| Head SHA | `b50ccca27037ee868c984055bd397631322a437a` |
+| Prior review | https://github.com/rgomids/axiom/pull/366#pullrequestreview-5707420506 |
+| Spec @ head | https://github.com/rgomids/axiom/blob/b50ccca27037ee868c984055bd397631322a437a/docs/specifications/015-minimum-viable-operational-workflow/spec.md |
+| Research @ head | https://github.com/rgomids/axiom/blob/b50ccca27037ee868c984055bd397631322a437a/docs/research/axm-42-minimum-viable-workflow-investigation.md |
+| Receipt | `completion-receipt-specify-correction-01.json` |
+| Linear publish (this session) | `false` / REPORT_PENDING (MCP needsAuth) |
 
-Fill `pr_head_sha` / `event_id` with the **actual** pushed correction commit after push. If Linear MCP is unavailable, keep `linear_published:false` and leave payload for operator paste — see `completion-receipt-specify-correction-01.json`.
+See session handoff / operator paste for the human-readable report + AWF-EVENT `correction-01`.
