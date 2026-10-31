@@ -162,6 +162,35 @@ func (s ExecutionStore) AcquireRunner(ctx context.Context, projectID, executionI
 	return s.leases.Acquire(ctx, projectID, executionID, current.RunnerGeneration)
 }
 
+// Generation exposes the lease epoch as a workflow.RunnerFence.
+func (l *RunLease) Generation() uint64 { return l.Epoch }
+
+// AcquireFence is AcquireRunner behind the workflow.RunnerFence boundary; a
+// held lease reports workflow.ErrRunnerHeld.
+func (s ExecutionStore) AcquireFence(ctx context.Context, projectID, executionID string) (workflow.RunnerFence, error) {
+	lease, err := s.AcquireRunner(ctx, projectID, executionID)
+	if errors.Is(err, ErrConflict) {
+		return nil, errors.Join(workflow.ErrRunnerHeld, err)
+	}
+	if err != nil {
+		return nil, err
+	}
+	return lease, nil
+}
+
+// UpdateFenced is Update for a fence obtained from AcquireFence (or nil).
+func (s ExecutionStore) UpdateFenced(ctx context.Context, projectID, executionID string, fence workflow.RunnerFence, mutate func(*workflow.Execution) error) (workflow.Execution, error) {
+	var lease *RunLease
+	if fence != nil {
+		l, ok := fence.(*RunLease)
+		if !ok || l == nil {
+			return workflow.Execution{}, ErrUnsafe
+		}
+		lease = l
+	}
+	return s.Update(ctx, projectID, executionID, lease, mutate)
+}
+
 // Save is the revision CAS: it commits next only if the stored revision is
 // still expected. With a lease, the lease is revalidated at the commit point
 // and must equal next's runner generation; without one (human cancel, gate,

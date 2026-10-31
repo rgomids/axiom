@@ -416,9 +416,11 @@ func (e *Execution) MarkCancelled(id string, generation uint64, diagnostic strin
 	return e.Validate()
 }
 
-// RequestCancel persists cancel intent; it fences any further scheduling.
-// Prepared-but-unspawned attempts are cancelled immediately; running ones are
-// left for the runner to stop and observe. It needs no runner lease.
+// RequestCancel persists cancel intent; it fences any further scheduling and
+// needs no runner lease. It never rewrites attempts: only the runner knows
+// whether a prepared attempt was spawned, so the runner records
+// cancelled-before-spawn, a confirmed stop, or unknown; a lost runner's
+// attempts become unknown at the next claim.
 func (e *Execution) RequestCancel(actor string, now time.Time) error {
 	if !ValidToken(actor) {
 		return ErrTransition
@@ -427,14 +429,6 @@ func (e *Execution) RequestCancel(actor string, now time.Time) error {
 		return nil
 	}
 	e.Cancel = &CancelIntent{Actor: actor, RequestedAt: now.UTC()}
-	at := now.UTC()
-	for i := range e.Stages {
-		for j := range e.Stages[i].Tasks {
-			if last := lastAttempt(e.Stages[i].Tasks[j]); last != nil && last.Status == AttemptPrepared {
-				last.Status, last.EndedAt, last.Diagnostic = AttemptCancelled, &at, "cancelled_before_spawn"
-			}
-		}
-	}
 	e.touch(now)
 	return e.Validate()
 }

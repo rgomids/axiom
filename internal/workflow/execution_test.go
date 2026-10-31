@@ -237,6 +237,15 @@ func TestCancellationBeforeAndDuringRun(t *testing.T) {
 	if err := e.RequestCancel("user:local", t0); err != nil {
 		t.Fatal(err)
 	}
+	if a, _, _ := e.FindAttempt("a1"); a.Status != AttemptPrepared {
+		t.Fatal("cancel intent rewrote an attempt only the runner can classify")
+	}
+	if len(e.Ready()) != 0 {
+		t.Fatal("cancel intent did not fence scheduling")
+	}
+	if err := e.MarkCancelled("a1", 1, "cancelled_before_spawn", t0); err != nil {
+		t.Fatal(err)
+	}
 	a, _, _ := e.FindAttempt("a1")
 	if a.Status != AttemptCancelled || e.Status != RunCancelled {
 		t.Fatalf("cancel before spawn: %s %s", a.Status, e.Status)

@@ -42,7 +42,17 @@ var (
 	ErrUnauthorizedEffect = errors.New("execution_unauthorized_effect")
 	ErrUnknownOutstanding = errors.New("execution_unknown_effect_outstanding")
 	ErrCancelled          = errors.New("execution_cancelled")
+	// ErrRunnerHeld reports that another runner holds the exclusive lease.
+	ErrRunnerHeld = errors.New("execution_runner_active")
 )
+
+// RunnerFence is an exclusive runner lease; Generation is its monotonic
+// epoch, recorded in the Execution by ClaimRunner. It is an alias so storage
+// and engine share the identical type without importing each other.
+type RunnerFence = interface {
+	Generation() uint64
+	Close() error
+}
 
 type RunStatus string
 
