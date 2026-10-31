@@ -1,16 +1,15 @@
 # Specifications
 
-## 015 — Minimum viable operational workflow (Proposed)
+## 015 — Minimum viable operational workflow
 
-[Specification (Proposed)](015-minimum-viable-operational-workflow/spec.md)
-from [AXM-42](https://linear.app/rgomids/issue/AXM-42) / [PR #366](https://github.com/rgomids/axiom/pull/366):
-structural reduction proposal (correction-04): prefer delete/consolidate over
-hidden policy/plan, duplicate execution and delivery machinery; one Execution
-state, one run path, bounded legacy retirement and safety outcomes.
-[Investigation](../research/axm-42-minimum-viable-workflow-investigation.md)
-contains A–L deletion evidence, reduction budget and proposed contract evolution.
-Not approved; revised architecture requires re-review and explicit material
-acceptance. No implementation or live Codex/Claude inference authorized here.
+[Specification correction-04](015-minimum-viable-operational-workflow/spec.md)
+for [AXM-42](https://linear.app/rgomids/issue/AXM-42) / [PR #366](https://github.com/rgomids/axiom/pull/366).
+[Subsequent human approval](https://github.com/rgomids/axiom/pull/366#pullrequestreview-5720318529)
+authorizes Plan then Tasks; the Specify artifacts retain their historical Proposed wording.
+[Plan](015-minimum-viable-operational-workflow/plan.md) and
+[deletion baseline](015-minimum-viable-operational-workflow/deletion-baseline.json)
+map the approved one-Execution direction and Research A–L to exactly S1/S2/S3.
+No implementation, merge, live validation or Product Accepted authority is implied.
 
 ## 014 — CLI operability for smaller models
 
