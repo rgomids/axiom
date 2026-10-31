@@ -2,6 +2,7 @@ package workflow
 
 import (
 	"fmt"
+	"reflect"
 	"time"
 )
 
@@ -266,6 +267,12 @@ func (e *Execution) PrepareAttempt(in PrepareInput) error {
 	default:
 		if s := effectiveStatus(*last); s != AttemptFailed && s != AttemptCancelled {
 			return fmt.Errorf("%w: last attempt is %s", ErrTransition, last.Status)
+		}
+		// Ordinary retry cannot pick up changed machine-local defaults. A new
+		// selection requires a separate explicit authorization contract; Retry
+		// alone grants no permission to replace the frozen invocation.
+		if !reflect.DeepEqual(in.Invocation, last.Invocation) {
+			return fmt.Errorf("%w: retry requires the frozen invocation", ErrTransition)
 		}
 		if len(task.Attempts) >= MaxTaskAttempts {
 			return fmt.Errorf("%w: attempt limit", ErrTransition)

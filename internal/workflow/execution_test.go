@@ -389,3 +389,22 @@ func TestTwoStubQuestionAnswerIngress(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestOrdinaryRetryCannotReplaceFrozenInvocation(t *testing.T) {
+	e := twoStageExecution(t, false)
+	run(t, &e, TaskRef{"work", "builder"}, "a1")
+	if err := e.CompleteAttempt("a1", 1, AttemptResult{ExitCode: 1, Now: t0}); err != nil {
+		t.Fatal(err)
+	}
+	changed := testInvocation("do")
+	changed.Model = "other-model"
+	before, _ := EncodeExecution(e)
+	err := e.PrepareAttempt(PrepareInput{Ref: TaskRef{"work", "builder"}, AttemptID: "a2", Generation: 1, Invocation: changed, Authority: AttemptAuthority{"app", []string{}, "user:local"}, Now: t0, Retry: true})
+	if !errors.Is(err, ErrTransition) {
+		t.Fatalf("changed retry accepted: %v", err)
+	}
+	after, _ := EncodeExecution(e)
+	if !bytes.Equal(before, after) {
+		t.Fatal("refused retry mutated the aggregate")
+	}
+}

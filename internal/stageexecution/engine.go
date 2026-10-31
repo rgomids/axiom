@@ -168,6 +168,22 @@ func (e Engine) attempt(ctx context.Context, lease workflow.RunnerFence, current
 	if err != nil {
 		return current, err
 	}
+	if isRetry {
+		// Resolve still rechecks current target/effect restrictions. An ordinary
+		// retry does not authorize selecting changed local defaults, however.
+		// Freeze the previous tuple again, including its original provenance.
+		for _, stage := range current.Stages {
+			for _, task := range stage.Tasks {
+				if stage.StageID == ref.StageID && task.AgentID == ref.AgentID && len(task.Attempts) != 0 {
+					previous := task.Attempts[len(task.Attempts)-1]
+					if invocation.Runtime != previous.Invocation.Runtime || invocation.Executable != previous.Invocation.Executable || authority.RepositoryKey != previous.Authority.RepositoryKey {
+						return current, workflow.ErrTransition
+					}
+					invocation = previous.Invocation
+				}
+			}
+		}
+	}
 	attemptID, err := e.NewID()
 	if err != nil {
 		return current, err
@@ -192,7 +208,14 @@ func (e Engine) attempt(ctx context.Context, lease workflow.RunnerFence, current
 	built, err := e.Launcher.Build(ctx, request)
 	if err != nil {
 		return update(func(x *workflow.Execution) error {
-			return x.MarkSpawnFailed(attemptID, gen, "launch_refused: "+err.Error(), e.now())
+			return x.MarkSpawnFailed(attemptID, gen, "launch_refused: check Runtime configuration and frozen selectors", e.now())
+		})
+	}
+	// Build may read configuration or prepare local output paths. Cancel intent
+	// arriving during that work still prevents any process from being spawned.
+	if e.cancelPersisted(ctx, projectID, executionID) {
+		return update(func(x *workflow.Execution) error {
+			return x.MarkCancelled(attemptID, gen, "cancelled_before_spawn", e.now())
 		})
 	}
 	stage := request.Stage

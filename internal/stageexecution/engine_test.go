@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"strings"
 	"sync/atomic"
@@ -383,5 +384,85 @@ func TestEngineIngestRejectsMessagesForNonRunningAttempts(t *testing.T) {
 	_, err := f.engine.Ingest(context.Background(), "proj", workflow.IngressContext{ExecutionID: engineExecutionID, AttemptID: "att-1", AgentID: "codex", Generation: 1}, workflow.MessageCandidate{ID: "m", Recipient: "claude", Kind: workflow.MessageQuestion})
 	if !errors.Is(err, workflow.ErrMessageRejected) {
 		t.Fatalf("message for a non-existent attempt: %v", err)
+	}
+}
+
+// A launcher is an external diagnostic boundary. Neither an error's text nor
+// configuration preparation may bypass the persisted cancel intent.
+type buildHookLauncher struct {
+	stubLauncher
+	hook func()
+}
+
+func (l buildHookLauncher) Build(ctx context.Context, r LaunchRequest) (executiongraph.Invocation, error) {
+	l.hook()
+	return l.stubLauncher.Build(ctx, r)
+}
+
+func TestEngineCancelDuringBuildPreventsSpawn(t *testing.T) {
+	f := newEngineFixture(t, twoStages(false), succeed("OUTPUT result\n"))
+	f.engine.Launcher = buildHookLauncher{hook: func() {
+		if _, err := f.engine.Cancel(context.Background(), "proj", engineExecutionID, "user:local"); err != nil {
+			t.Fatal(err)
+		}
+	}}
+	x, err := f.run(t)
+	if err != nil || x.Status != workflow.RunCancelled || f.runner.spawns.Load() != 0 {
+		t.Fatalf("cancel during Build: %v %s spawns=%d", err, x.Status, f.runner.spawns.Load())
+	}
+}
+
+func TestEngineRedactsLauncherError(t *testing.T) {
+	f := newEngineFixture(t, twoStages(false), succeed("OUTPUT result\n"))
+	f.engine.Launcher = stubLauncher{buildErr: errors.New("private-auth-canary /private/config")}
+	x, err := f.run(t)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := x.Stages[0].Tasks[0].Attempts[0]
+	if a.Status != workflow.AttemptFailed || strings.Contains(a.Diagnostic, "canary") || strings.Contains(a.Diagnostic, "/private") || f.runner.spawns.Load() != 0 {
+		t.Fatalf("unsafe launch failure: %#v", a)
+	}
+}
+
+func TestEngineRetryPreservesFrozenSelectionAfterLocalDefaultsChange(t *testing.T) {
+	f := newEngineFixture(t, twoStages(false), succeed(""))
+	x, err := f.run(t)
+	if err != nil || x.Status != workflow.RunFailed {
+		t.Fatalf("initial attempt: %v %s", err, x.Status)
+	}
+	original := x.Stages[0].Tasks[0].Attempts[0].Invocation
+	resolve := f.engine.Resolve
+	f.engine.Resolve = func(ctx context.Context, x workflow.Execution, ref workflow.TaskRef) (workflow.Invocation, workflow.AttemptAuthority, error) {
+		inv, authority, err := resolve(ctx, x, ref)
+		inv.Model = "changed-local-default"
+		return inv, authority, err
+	}
+	f.runner.run = succeed("OUTPUT result\n")
+	ref := workflow.TaskRef{StageID: "work", AgentID: "builder"}
+	x, err = f.engine.Run(context.Background(), "proj", engineExecutionID, RunOptions{Retry: &ref})
+	if err != nil || x.Status != workflow.RunCompleted || len(x.Stages[0].Tasks[0].Attempts) != 2 {
+		t.Fatalf("retry: %v %s", err, x.Status)
+	}
+	retried := x.Stages[0].Tasks[0].Attempts[1].Invocation
+	if !reflect.DeepEqual(original, retried) {
+		t.Fatal("ordinary retry changed the frozen invocation or provenance")
+	}
+}
+
+func TestEngineRetryRefusesRuntimeRetargeting(t *testing.T) {
+	f := newEngineFixture(t, twoStages(false), succeed(""))
+	if _, err := f.run(t); err != nil {
+		t.Fatal(err)
+	}
+	resolve := f.engine.Resolve
+	f.engine.Resolve = func(ctx context.Context, x workflow.Execution, ref workflow.TaskRef) (workflow.Invocation, workflow.AttemptAuthority, error) {
+		inv, authority, err := resolve(ctx, x, ref)
+		inv.Runtime = "other-runtime"
+		return inv, authority, err
+	}
+	ref := workflow.TaskRef{StageID: "work", AgentID: "builder"}
+	if _, err := f.engine.Run(context.Background(), "proj", engineExecutionID, RunOptions{Retry: &ref}); !errors.Is(err, workflow.ErrTransition) || f.runner.spawns.Load() != 1 {
+		t.Fatalf("runtime retargeted: %v spawns=%d", err, f.runner.spawns.Load())
 	}
 }
