@@ -134,3 +134,113 @@ func TestCutoverDecisionRequiresExactHumanDisposition(t *testing.T) {
 		t.Fatalf("recorded infeasible backup: %v", err)
 	}
 }
+
+func TestCutoverUnsafeRootsAndUnreadableRecordsBlock(t *testing.T) {
+	for _, name := range []string{"linked family ancestor", "linked known root", "unreadable record", "unreadable directory"} {
+		t.Run(name, func(t *testing.T) {
+			root := legacyFixture(t)
+			switch name {
+			case "linked family ancestor", "linked known root":
+				family := "graphs"
+				if name == "linked known root" {
+					family = "projects"
+				}
+				if family == "graphs" {
+					if err := os.Rename(filepath.Join(root, family), filepath.Join(t.TempDir(), "old")); err != nil {
+						t.Fatal(err)
+					}
+				}
+				if err := os.Symlink(t.TempDir(), filepath.Join(root, family)); err != nil {
+					t.Fatal(err)
+				}
+			case "unreadable record":
+				if err := os.Chmod(filepath.Join(root, "graphs/v1/proj/g.json"), 0); err != nil {
+					t.Fatal(err)
+				}
+			case "unreadable directory":
+				if err := os.Chmod(filepath.Join(root, "graphs/v1/proj"), 0); err != nil {
+					t.Fatal(err)
+				}
+				t.Cleanup(func() { _ = os.Chmod(filepath.Join(root, "graphs/v1/proj"), 0o700) })
+			}
+			inv, err := InspectCutover(context.Background(), root)
+			if err == nil && !inv.Blocked() {
+				t.Fatalf("unsafe inventory permitted: %+v", inv)
+			}
+			if err == nil && CutoverDecision(inv, disposition(inv)) == nil {
+				t.Fatal("unsafe cutover allowed")
+			}
+		})
+	}
+}
+
+func TestCutoverBackupRefusesForgedPathsAndChangedSource(t *testing.T) {
+	root := legacyFixture(t)
+	inv, err := InspectCutover(context.Background(), root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range []string{"../outside", "/absolute", "graphs/v1/../../outside", "projects/foreign.json"} {
+		forged := CutoverInventory{Files: []CutoverFile{{Path: path}}}
+		if err := BackupLegacyState(context.Background(), root, privateTestRoot(t), forged); !errors.Is(err, ErrUnsafe) {
+			t.Fatalf("forged path %q: %v", path, err)
+		}
+		if err := VerifyLegacyBackup(privateTestRoot(t), forged); !errors.Is(err, ErrUnsafe) {
+			t.Fatalf("forged verify %q: %v", path, err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(root, inv.Files[0].Path), []byte("changed"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := BackupLegacyState(context.Background(), root, privateTestRoot(t), inv); !errors.Is(err, ErrConflict) {
+		t.Fatalf("changed bytes backed up: %v", err)
+	}
+}
+
+func TestCutoverBackupVerificationRefusesSymlink(t *testing.T) {
+	root := legacyFixture(t)
+	inv, err := InspectCutover(context.Background(), root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	backup := privateTestRoot(t)
+	if err := BackupLegacyState(context.Background(), root, backup, inv); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(backup, inv.Files[0].Path)
+	if err := os.Remove(path); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join(root, inv.Files[0].Path), path); err != nil {
+		t.Fatal(err)
+	}
+	if err := VerifyLegacyBackup(backup, inv); !errors.Is(err, ErrConflict) {
+		t.Fatalf("linked backup certified: %v", err)
+	}
+}
+
+func TestCutoverUnknownNestedNamespacesAndUnsafeRootRefuse(t *testing.T) {
+	for _, name := range []string{"unknown version", "post-cutover execution", "unsafe state root"} {
+		t.Run(name, func(t *testing.T) {
+			root := legacyFixture(t)
+			switch name {
+			case "unknown version":
+				if err := os.Mkdir(filepath.Join(root, "graphs", "unknown"), 0o700); err != nil {
+					t.Fatal(err)
+				}
+			case "post-cutover execution":
+				if err := os.Mkdir(filepath.Join(root, "executions", "v2"), 0o700); err != nil {
+					t.Fatal(err)
+				}
+			case "unsafe state root":
+				if err := os.Chmod(root, 0o755); err != nil {
+					t.Fatal(err)
+				}
+			}
+			inv, err := InspectCutover(context.Background(), root)
+			if err == nil && !inv.Blocked() {
+				t.Fatalf("incomplete inventory allowed: %+v", inv)
+			}
+		})
+	}
+}

@@ -65,14 +65,47 @@ func InspectCutover(ctx context.Context, stateRoot string) (CutoverInventory, er
 	if err != nil {
 		return inv, err
 	}
-	entries, err := os.ReadDir(root)
+	directory, err := OpenOwnedDirectory(root)
+	if err != nil {
+		return inv, err
+	}
+	defer directory.Close()
+	entries, err := directory.ReadDir()
 	if err != nil {
 		return inv, err
 	}
 	for _, e := range entries {
+		if e.Type()&fs.ModeSymlink != 0 {
+			inv.Blockers = append(inv.Blockers, "symlink: "+e.Name())
+		}
 		if !cutoverKnownRoots[e.Name()] {
 			inv.Blockers = append(inv.Blockers, "unknown_state_entry: "+e.Name())
 		}
+	}
+	// These operational roots have exactly the historical v1 namespace.
+	// A new or unknown namespace cannot be omitted from a pre-switch inventory.
+	for _, family := range []string{"executions", "graphs", "single-stage-runs", "validator-policies", "run-leases"} {
+		dir, err := OpenOwnedDirectory(filepath.Join(root, family))
+		if errors.Is(err, ErrNotFound) {
+			continue
+		}
+		if err != nil {
+			inv.Blockers = append(inv.Blockers, "inventory_incomplete: "+family)
+			continue
+		}
+		versions, err := dir.ReadDir()
+		if err != nil {
+			inv.Blockers = append(inv.Blockers, "inventory_incomplete: "+family)
+		}
+		for _, version := range versions {
+			if version.Name() != "v1" || !version.IsDir() || version.Type()&fs.ModeSymlink != 0 {
+				inv.Blockers = append(inv.Blockers, "unknown_or_post_cutover_namespace: "+family+"/"+version.Name())
+			}
+		}
+		if dir.StillAtPath() != nil {
+			inv.Blockers = append(inv.Blockers, "inventory_incomplete: "+family)
+		}
+		dir.Close()
 	}
 	for _, family := range legacyFamilies {
 		base := filepath.Join(root, filepath.FromSlash(family))
@@ -122,6 +155,9 @@ func InspectCutover(ctx context.Context, stateRoot string) (CutoverInventory, er
 			inv.Blockers = append(inv.Blockers, "inventory_incomplete: "+family)
 		}
 	}
+	if err := directory.StillAtPath(); err != nil {
+		return inv, err
+	}
 	sort.Slice(inv.Files, func(a, b int) bool { return inv.Files[a].Path < inv.Files[b].Path })
 	sort.Strings(inv.Blockers)
 	return inv, nil
@@ -149,12 +185,44 @@ func probeLeaseDir(ctx context.Context, dir string) (bool, error) {
 }
 
 func hashFile(path string) (string, int64, error) {
-	wire, err := os.ReadFile(path)
+	wire, err := readCutoverFile(path)
 	if err != nil {
 		return "", 0, err
 	}
 	sum := sha256.Sum256(wire)
 	return hex.EncodeToString(sum[:]), int64(len(wire)), nil
+}
+
+// readCutoverFile reuses the rooted, private, no-symlink publication reader.
+// Oversized or unreadable records block inventory rather than being skipped.
+func readCutoverFile(path string) ([]byte, error) {
+	dir, err := OpenOwnedDirectory(filepath.Dir(path))
+	if err != nil {
+		return nil, err
+	}
+	defer dir.Close()
+	wire, err := dir.ReadFile(filepath.Base(path), MaxExecutionBytes)
+	if err != nil {
+		return nil, err
+	}
+	if err := dir.StillAtPath(); err != nil {
+		return nil, err
+	}
+	return wire, nil
+}
+
+// A supplied inventory is data, never filesystem authority. Only exact relative
+// paths within legacy families can be used to read or create backup files.
+func validCutoverPath(path string) bool {
+	if !filepath.IsLocal(path) || filepath.ToSlash(filepath.Clean(path)) != path {
+		return false
+	}
+	for _, family := range legacyFamilies {
+		if strings.HasPrefix(path, family+"/") {
+			return true
+		}
+	}
+	return false
 }
 
 // BackupLegacyState copies the raw bytes of every inventoried file into an
@@ -179,24 +247,36 @@ func BackupLegacyState(ctx context.Context, stateRoot, backupDir string, inv Cut
 	if entries, err := os.ReadDir(dest); err != nil || len(entries) != 0 {
 		return fmt.Errorf("%w: backup directory must be empty", ErrUnsafe)
 	}
+	if inv.Blocked() {
+		return ErrRecoveryRequired
+	}
 	for _, f := range inv.Files {
+		if !validCutoverPath(f.Path) {
+			return ErrUnsafe
+		}
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
 		src := filepath.Join(root, filepath.FromSlash(f.Path))
-		wire, err := os.ReadFile(src)
+		wire, err := readCutoverFile(src)
 		if err != nil {
 			return err
 		}
 		sum := sha256.Sum256(wire)
-		if hex.EncodeToString(sum[:]) != f.SHA256 {
+		if hex.EncodeToString(sum[:]) != f.SHA256 || int64(len(wire)) != f.Size {
 			return fmt.Errorf("%w: %s changed since inventory", ErrConflict, f.Path)
 		}
 		target := filepath.Join(dest, filepath.FromSlash(f.Path))
 		if err := os.MkdirAll(filepath.Dir(target), 0o700); err != nil {
 			return err
 		}
-		if err := os.WriteFile(target, wire, 0o600); err != nil {
+		dir, err := OpenOwnedDirectory(filepath.Dir(target))
+		if err != nil {
+			return err
+		}
+		err = dir.CreateExclusive(filepath.Base(target), wire, 0o600)
+		dir.Close()
+		if err != nil {
 			return err
 		}
 	}
@@ -206,6 +286,9 @@ func BackupLegacyState(ctx context.Context, stateRoot, backupDir string, inv Cut
 // VerifyLegacyBackup re-reads every backed-up file and compares its bytes.
 func VerifyLegacyBackup(backupDir string, inv CutoverInventory) error {
 	for _, f := range inv.Files {
+		if !validCutoverPath(f.Path) {
+			return ErrUnsafe
+		}
 		sum, size, err := hashFile(filepath.Join(backupDir, filepath.FromSlash(f.Path)))
 		if err != nil || sum != f.SHA256 || size != f.Size {
 			return fmt.Errorf("%w: backup of %s is missing or differs", ErrConflict, f.Path)
