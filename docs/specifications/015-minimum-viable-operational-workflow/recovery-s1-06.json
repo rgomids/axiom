@@ -1,0 +1,183 @@
+{
+  "baseline_head": "0ce0adc34d07ec56abfe949adff7e6034d45a201",
+  "snapshot_manifest_sha256": "77676143552474fd27df81fe3699d8c48a77cb8b75ed26d184e2eb861360ab0d",
+  "snapshot_permissions": "directory 0700, top-level files 0600; outside worktree",
+  "restoration": "all original existing files extracted into private scratch; bytes and modes verified; original tree untouched",
+  "index_patch_bytes": 0,
+  "deletion_intent": [],
+  "entries": [
+    {
+      "path": ".s1-03-lingo-test.log",
+      "mode": "0o600",
+      "bytes": 36764,
+      "sha256": "d6ee23dd4c98846202ec0a08f20bfb2b95aa17ea4453af2d551474f63c73cf28",
+      "ignored": true,
+      "classification": "KEEP",
+      "rationale": "Inherited ignored artifact: preserve privately and in place; excluded from publication; content not inspected."
+    },
+    {
+      "path": "cmd/lingo/execution_run.go",
+      "mode": "0o600",
+      "bytes": 38444,
+      "sha256": "79eba7bfe839415df502da7c0360a00173ed3a01ff74194fc58be5deee073de2",
+      "ignored": false,
+      "classification": "FIX",
+      "rationale": "Recover conformant typed artifact validation; repair exact lowering/bounds and adapter trust checks.",
+      "safety_scan": {
+        "kind": "bounded source-pattern triage, not consolidated secret scanner",
+        "findings": 0
+      }
+    },
+    {
+      "path": "cmd/lingo/execution_run_test.go",
+      "mode": "0o600",
+      "bytes": 30273,
+      "sha256": "d680f8d8918e5a473d44e992a1b7d706a77a067e8a7a9aab0c2d6ea6b13948da",
+      "ignored": false,
+      "classification": "KEEP",
+      "rationale": "Recover conformant typed artifact validation; repair exact lowering/bounds and adapter trust checks.",
+      "safety_scan": {
+        "kind": "bounded source-pattern triage, not consolidated secret scanner",
+        "findings": 0
+      }
+    },
+    {
+      "path": "docs/commands.md",
+      "mode": "0o600",
+      "bytes": 133961,
+      "sha256": "1afc619028aac639ef20b2ec8e51d0adafb6cc0f03e30290a83cc5213741d90e",
+      "ignored": false,
+      "classification": "KEEP",
+      "rationale": "Recover documentation and reconcile final supported subset.",
+      "safety_scan": {
+        "kind": "bounded source-pattern triage, not consolidated secret scanner",
+        "findings": 0
+      }
+    },
+    {
+      "path": "docs/operational/workflow.md",
+      "mode": "0o600",
+      "bytes": 5306,
+      "sha256": "923d69b0296653ac7a0bf37f3af3c8e209cf546b5c971f4374cbe46fe8c1ffce",
+      "ignored": false,
+      "classification": "KEEP",
+      "rationale": "Recover documentation and reconcile final supported subset.",
+      "safety_scan": {
+        "kind": "bounded source-pattern triage, not consolidated secret scanner",
+        "findings": 0
+      }
+    },
+    {
+      "path": "internal/local/execution_outputs.go",
+      "mode": "0o600",
+      "bytes": 2448,
+      "sha256": "191f9f82bad478b68e440cd5b5ac41d1757ebe0b7b90e3333b148bab37e27468",
+      "ignored": false,
+      "classification": "KEEP",
+      "rationale": "Recover conformant typed artifact validation; repair exact lowering/bounds and adapter trust checks.",
+      "safety_scan": {
+        "kind": "bounded source-pattern triage, not consolidated secret scanner",
+        "findings": 0
+      }
+    },
+    {
+      "path": "internal/local/execution_outputs_test.go",
+      "mode": "0o600",
+      "bytes": 3731,
+      "sha256": "8845f7edac0cea960a84b423b97514e7e622911069370f626a9658b0d6cc8fc0",
+      "ignored": false,
+      "classification": "KEEP",
+      "rationale": "Recover conformant typed artifact validation; repair exact lowering/bounds and adapter trust checks.",
+      "safety_scan": {
+        "kind": "bounded source-pattern triage, not consolidated secret scanner",
+        "findings": 0
+      }
+    },
+    {
+      "path": "internal/stageexecution/runtime_launcher.go",
+      "mode": "0o600",
+      "bytes": 8364,
+      "sha256": "d76c3e88d68374d2294464f16a23ded3f1e666bc4553856608fa76c4a1cc206a",
+      "ignored": false,
+      "classification": "FIX",
+      "rationale": "Recover conformant typed artifact validation; repair exact lowering/bounds and adapter trust checks.",
+      "safety_scan": {
+        "kind": "bounded source-pattern triage, not consolidated secret scanner",
+        "findings": 0
+      }
+    },
+    {
+      "path": "internal/stageexecution/runtime_launcher_test.go",
+      "mode": "0o600",
+      "bytes": 9997,
+      "sha256": "14d7c6f094d2fcf87623c86dfcfeb37eab029bb16b6fe8d0d6febdeb118dfd6d",
+      "ignored": false,
+      "classification": "KEEP",
+      "rationale": "Recover conformant typed artifact validation; repair exact lowering/bounds and adapter trust checks.",
+      "safety_scan": {
+        "kind": "bounded source-pattern triage, not consolidated secret scanner",
+        "findings": 0
+      }
+    },
+    {
+      "path": "internal/workflow/execution.go",
+      "mode": "0o600",
+      "bytes": 29569,
+      "sha256": "38daf43bdfe6d27edebb309d9ef8a3699a4af6e8a2616b8b2eba46aa3be93b14",
+      "ignored": false,
+      "classification": "FIX",
+      "rationale": "Recover conformant typed artifact validation; repair exact lowering/bounds and adapter trust checks.",
+      "safety_scan": {
+        "kind": "bounded source-pattern triage, not consolidated secret scanner",
+        "findings": 0
+      }
+    },
+    {
+      "path": "internal/workflow/execution_outputs.go",
+      "mode": "0o600",
+      "bytes": 355,
+      "sha256": "e26f0d2bad9a00ed273ba45380c98525b20a1b41198d3f20c0e1d90361a178da",
+      "ignored": false,
+      "classification": "KEEP",
+      "rationale": "Recover conformant typed artifact validation; repair exact lowering/bounds and adapter trust checks.",
+      "safety_scan": {
+        "kind": "bounded source-pattern triage, not consolidated secret scanner",
+        "findings": 0
+      }
+    },
+    {
+      "path": "internal/workflow/execution_test.go",
+      "mode": "0o600",
+      "bytes": 22915,
+      "sha256": "ec01de6e47924f5fbee725faa3bb3ee2662130ab65b4e14d2d33b8e7d36d68c8",
+      "ignored": false,
+      "classification": "KEEP",
+      "rationale": "Recover conformant typed artifact validation; repair exact lowering/bounds and adapter trust checks.",
+      "safety_scan": {
+        "kind": "bounded source-pattern triage, not consolidated secret scanner",
+        "findings": 0
+      }
+    },
+    {
+      "path": "scripts/__pycache__/maintainer-agent-eval.cpython-312.pyc",
+      "mode": "0o600",
+      "bytes": 28453,
+      "sha256": "23bfee54bae6fae178176049775bc369c7740083aaa31f312efa9ea76dedb604",
+      "ignored": true,
+      "classification": "KEEP",
+      "rationale": "Inherited ignored artifact: preserve privately and in place; excluded from publication; content not inspected."
+    },
+    {
+      "path": "scripts/__pycache__/model-advisor-eval.cpython-312.pyc",
+      "mode": "0o600",
+      "bytes": 40112,
+      "sha256": "3b67389022b8703338f465fdad09aff0d8fbccad65f7f944d59416963485d002",
+      "ignored": true,
+      "classification": "KEEP",
+      "rationale": "Inherited ignored artifact: preserve privately and in place; excluded from publication; content not inspected."
+    }
+  ],
+  "drop": [],
+  "sensitive_policy": "Ignored log and binary caches quarantined privately without content publication or deletion; source-pattern triage has no finding. No claim of gitleaks scan.",
+  "patch_restoration": "Verified git apply --no-index --check and application in private scratch seeded with initial HEAD bytes; restored tracked hashes match original dirty manifest. Archive independently restores untracked/ignored bytes and modes."
+}
