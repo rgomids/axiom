@@ -89,11 +89,11 @@ func TestWorkflowStageCommandsRouteExactInputs(t *testing.T) {
 
 func TestWorkflowStageParserRefusals(t *testing.T) {
 	for _, args := range []string{
-		"workflow run --project alpha --work-item github:owner/repo#7",                                                  // missing repository at start
-		"workflow run --project alpha --repository main --work-item github:owner/repo#7 --plan p.json",                  // retired input
-		"workflow stage retry " + executionSelectors + " --stage s",                                                     // missing agent
-		"workflow stage retry " + executionSelectors + " --stage s --agent a --validator-policy v",                      // retired input
-		"workflow stage reconcile " + executionSelectors + " --child c-1 --attempt a-1",                                 // retired input
+		"workflow run --project alpha --work-item github:owner/repo#7",                                 // missing repository at start
+		"workflow run --project alpha --repository main --work-item github:owner/repo#7 --plan p.json", // retired input
+		"workflow stage retry " + executionSelectors + " --stage s",                                    // missing agent
+		"workflow stage retry " + executionSelectors + " --stage s --agent a --validator-policy v",     // retired input
+		"workflow stage reconcile " + executionSelectors + " --child c-1 --attempt a-1",                // retired input
 		"workflow coordination list " + stageSelectors + " --wait 31s",
 		"workflow coordination show " + stageSelectors + " --child c-1",
 		"workflow coordination publish --kind result --project alpha", // lineage never comes from flags
