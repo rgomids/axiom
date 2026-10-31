@@ -139,11 +139,9 @@ func (c executionComposition) run(ctx context.Context, in cli.WorkflowStageInput
 			return c.failure(err, nil)
 		}
 		if in.ApproveGate != "" {
-			approved, err := c.engine(nil).ApproveGate(ctx, c.project.ID, in.Execution, in.ApproveGate, executionActor("human:"))
-			if err != nil {
+			if _, err := c.engine(nil).ApproveGate(ctx, c.project.ID, in.Execution, in.ApproveGate, executionActor("human:")); err != nil {
 				return c.failure(err, &x)
 			}
-			x = approved
 		}
 		x, err = c.engine(launcher).Run(ctx, c.project.ID, in.Execution, stageexecution.RunOptions{})
 		if err != nil {

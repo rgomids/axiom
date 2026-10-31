@@ -2,11 +2,8 @@ package stageexecution
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"os"
-	"time"
 
 	"github.com/rgomids/axiom/internal/executiongraph"
 	"github.com/rgomids/axiom/internal/runtimeadapter"
@@ -61,21 +58,4 @@ func PreSpawnDiagnostic(err error, operation string) *executiongraph.AttemptDiag
 		return nil
 	}
 	return d
-}
-
-func preSpawnAttempt(err error, id string, number uint32, epoch uint64, at time.Time) (executiongraph.SuccessorAttempt, bool) {
-	d := PreSpawnDiagnostic(err, "stage-run")
-	if d == nil {
-		return executiongraph.SuccessorAttempt{}, false
-	}
-	d.AttemptID = id
-	if number > 1 {
-		d.Operation = "stage-retry"
-	}
-	empty := sha256.Sum256(nil)
-	digest := hex.EncodeToString(empty[:])
-	at = at.UTC()
-	a := executiongraph.SuccessorAttempt{AttemptID: id, Number: number, LeaseEpoch: epoch, Status: executiongraph.AttemptFailed, ClassificationReason: executiongraph.ProcessFailed, ExitCode: -1, StartedAt: &at, FinishedAt: &at, PacketDigest: digest, OutputDigest: digest, ResultReference: digest, ReconciliationFacts: []executiongraph.ReconciliationFact{}}
-	a.Diagnostic = d
-	return a, true
 }

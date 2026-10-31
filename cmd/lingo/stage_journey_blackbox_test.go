@@ -32,7 +32,6 @@ type stageJourney struct {
 	workspace, repository, overlay string
 	digests                        map[string]string
 	managed                        map[string]string
-	policy                         string
 	environment                    []string
 }
 
@@ -268,17 +267,6 @@ func (j *stageJourney) startExecution(t *testing.T, workItem string) *cli.Workfl
 	return &view
 }
 
-func (j *stageJourney) script(t *testing.T, script fakeStageScript) {
-	t.Helper()
-	wire, err := json.Marshal(script)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(j.home, fakeStageRuntimeFile), wire, 0o600); err != nil {
-		t.Fatal(err)
-	}
-}
-
 func (j *stageJourney) invoke(t *testing.T, binary string, args ...string) (int, stageJourneyEvent, []byte) {
 	t.Helper()
 	command := exec.Command(binary, append([]string{"--json"}, args...)...)
@@ -306,17 +294,6 @@ func (j *stageJourney) invoke(t *testing.T, binary string, args ...string) (int,
 		}
 	}
 	return code, event, output
-}
-
-func (e stageJourneyEvent) reference(t *testing.T, prefix string) string {
-	t.Helper()
-	for _, r := range e.References {
-		if value, ok := strings.CutPrefix(r, prefix); ok {
-			return value
-		}
-	}
-	t.Fatalf("no %s reference in %+v", prefix, e.References)
-	return ""
 }
 
 func (j *stageJourney) run(t *testing.T, want int, args ...string) stageJourneyEvent {
