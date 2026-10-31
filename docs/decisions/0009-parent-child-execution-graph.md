@@ -67,6 +67,9 @@ artifacts or retained Evidence, so an ADR is required before implementation.
    may use a one-node graph where graph correlation is required, but existing
    records are not rewritten or assigned invented parents.
 
+> Superseded by [ADR-0037 — One canonical Execution for new workflow runs](0037-one-canonical-execution-for-new-runs.md#decision), accepted 2026-10-30.
+> Only durable child Executions and the separate revisioned graph lifecycle for new runs are superseded: agent attempts are nested in one Execution with a transient dependency schedule. Dependency ordering, attempt ownership, bounded scope and the remaining decisions stay in force; text preserved for traceability.
+
 ### Child scope, authority and resolution
 
 6. Every child has a bounded envelope: required role/capabilities, inputs, expected

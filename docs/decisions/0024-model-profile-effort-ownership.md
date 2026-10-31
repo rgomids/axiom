@@ -55,6 +55,9 @@ Canonical store/resolver/graph remain sole authorities. Child controls are a fro
 projection of the Profile, not editable Workflow configuration. Historical effort
 requests remain historical facts, never interpreted as current Profile defaults.
 
+> Superseded by [ADR-0037 — One canonical Execution for new workflow runs](0037-one-canonical-execution-for-new-runs.md#decision), accepted 2026-10-30.
+> For new attempts only: sole Profile effort ownership, the prohibition on direct per-run or Workflow overrides, distinct Profiles for different efforts and Profile-only projection are superseded by the frozen per-attempt invocation snapshot and per-field precedence. Truthful identity, no silent substitution, safe source inspection and inert historical meanings remain in force.
+
 ## Compatibility and evolution scope
 
 The [accepted Spec 007 amendment](../specifications/007-configurable-workflows/amendment-306-profile-effort-onboarding.md)
@@ -70,6 +73,9 @@ No universal old-reader downgrade is promised. Incompatible readers fail safely;
 FR-026 windows/forward paths and append-only compatibility corpus are required.
 Monotonic local generation survives migration and retirement; recovery and rollback
 require fresh exact authority and never reset it.
+
+> Superseded by [ADR-0037 — One canonical Execution for new workflow runs](0037-one-canonical-execution-for-new-runs.md#decision), accepted 2026-10-30.
+> Only the mandatory operational readers/inspection of old Execution/graph formats are superseded by the pre-MVP breaking cutover; historical bytes, the compatibility corpus and monotonic fencing remain.
 
 Only ADR-0022's assignment of effort to Stage/Agent and the corresponding Spec
 007 effort/schema/Stage Plan clauses are partially superseded for the new versioned

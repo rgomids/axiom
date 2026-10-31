@@ -15,6 +15,21 @@ dispatch, Provider effects, merge, publication or MVP acceptance. Consumers
 still require bounded implementation authority and their own Evidence; passing
 fixture checks establishes document consistency only.
 
+> **AXM-42 prospective reconciliation — 2026-10-30.**
+> [ADR-0037](../../decisions/0037-one-canonical-execution-for-new-runs.md#supersedes)
+> records the [human material decision](https://github.com/rgomids/axiom/pull/366#pullrequestreview-5720318529)
+> approving [Spec 015](../015-minimum-viable-operational-workflow/spec.md). For new runs
+> only, WF-005/006/007/008/009/010/011 and the stage/validator/agent schema,
+> Execution binding, operational approved Plan/policy, StagePlan/PlanRef CLI
+> and delivery/rework sections are partially superseded where they require a
+> separate StagePlan/PlanRef, a validator-policy authority object, dual
+> single/graph execution, a mandatory phase/gate profile or preview-based
+> run/delivery ceremonies. Schema-2/Stage Plan effort annotations point to the
+> Spec 015 invocation rule; historical Workflow schema-1 effort semantics are
+> not re-enabled. Workflow intent, Work Item/repository identity, immutable
+> provenance, real authority, honest outcomes and immutable rejected history
+> remain. Historical text below is preserved.
+
 Audit baseline: `c7260797aad7865419f555eea94a2eef7ae78285`; authoring inspection:
 `73dce6df0ab590b37df0e5a19b1483737bf1ca1e` (main). Existing
 `internal/workflow/service.go` fixes `mvp-v1-sequential`; Project schema 3 has no
