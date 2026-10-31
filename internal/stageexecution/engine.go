@@ -235,7 +235,11 @@ func (e Engine) attempt(ctx context.Context, lease workflow.RunnerFence, current
 		})
 	}
 	stage := request.Stage
-	runCtx, stop := context.WithTimeout(ctx, time.Duration(stage.TimeoutSeconds)*time.Second)
+	timeout := stage.TimeoutSeconds
+	if request.Agent.TimeoutSeconds != 0 {
+		timeout = request.Agent.TimeoutSeconds
+	}
+	runCtx, stop := context.WithTimeout(ctx, time.Duration(timeout)*time.Second)
 	defer stop()
 	cancelled := e.watchCancel(runCtx, stop, projectID, executionID)
 	startedCommitted := false

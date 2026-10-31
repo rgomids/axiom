@@ -109,7 +109,7 @@ func (l RuntimeLauncher) Build(ctx context.Context, r LaunchRequest) (executiong
 		ExecutionID, AttemptID, StageID, AgentID, Instructions, OutputDirectory string
 		RunnerGeneration                                                        uint64
 		Outputs                                                                 []string
-	}{r.Execution.ExecutionID, r.Attempt.AttemptID, r.Ref.StageID, r.Ref.AgentID, frozen.Instructions, inbox, r.Attempt.RunnerGeneration, r.Stage.Outputs}
+	}{r.Execution.ExecutionID, r.Attempt.AttemptID, r.Ref.StageID, r.Ref.AgentID, frozen.Instructions, inbox, r.Attempt.RunnerGeneration, attemptOutputs(r)}
 	inv.Stdin, err = json.Marshal(packet)
 	if err != nil || len(inv.Stdin) > executiongraph.MaxStdinBytes {
 		return fail()
@@ -133,7 +133,7 @@ func (l RuntimeLauncher) Collect(ctx context.Context, r LaunchRequest, p executi
 	}
 	defer root.Close()
 	var out Outcome
-	for _, name := range r.Stage.Outputs {
+	for _, name := range attemptOutputs(r) {
 		if ctx.Err() != nil {
 			return Outcome{}, ctx.Err()
 		}
@@ -179,4 +179,11 @@ func cleanRuntimePath(path string) bool {
 			return true
 		}
 	}
+}
+
+func attemptOutputs(r LaunchRequest) []string {
+	if r.Agent.OutputScope {
+		return r.Agent.Outputs
+	}
+	return r.Stage.Outputs
 }

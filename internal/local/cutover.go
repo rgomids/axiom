@@ -78,6 +78,9 @@ func InspectCutover(ctx context.Context, stateRoot string) (CutoverInventory, er
 		if e.Type()&fs.ModeSymlink != 0 {
 			inv.Blockers = append(inv.Blockers, "symlink: "+e.Name())
 		}
+		if !e.IsDir() && e.Type()&fs.ModeSymlink == 0 {
+			inv.Blockers = append(inv.Blockers, "unexpected_state_file: "+e.Name())
+		}
 		if !cutoverKnownRoots[e.Name()] {
 			inv.Blockers = append(inv.Blockers, "unknown_state_entry: "+e.Name())
 		}
@@ -312,7 +315,7 @@ type CutoverDisposition struct {
 // enabled. Every other outcome is BLOCK with the reasons to resolve.
 func CutoverDecision(inv CutoverInventory, d CutoverDisposition) error {
 	reasons := append([]string(nil), inv.Blockers...)
-	if !strings.HasPrefix(d.Actor, "human:") {
+	if !strings.HasPrefix(d.Actor, "human:") || strings.TrimSpace(strings.TrimPrefix(d.Actor, "human:")) == "" {
 		reasons = append(reasons, "disposition_requires_human_actor")
 	}
 	if d.InventoryDigest != inv.Digest() {

@@ -137,3 +137,14 @@ func TestResolvedInvocationIsAValidFrozenSnapshot(t *testing.T) {
 		t.Fatalf("resolver output rejected by Execution codec: %v", err)
 	}
 }
+
+func TestResolveInvocationRejectsShadowedLocalConflict(t *testing.T) {
+	_, err := ResolveInvocation(InvocationRequest{
+		RunOverride:  InvocationLayer{Assignments: []Assignment{{FieldRuntime, "codex"}, {FieldModel, "selected"}, {FieldEffort, "runtime-default"}, {FieldInstructions, "work"}}},
+		LocalDefault: InvocationLayer{Assignments: []Assignment{{FieldModel, "a"}, {FieldModel, "b"}}},
+		Executables:  map[string]string{"codex": "/stub/codex"},
+	})
+	if !errors.Is(err, ErrInvocationConflict) {
+		t.Fatalf("shadowed conflict: %v", err)
+	}
+}

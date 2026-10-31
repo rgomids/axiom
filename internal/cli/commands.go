@@ -67,7 +67,7 @@ func commandTree() commandDefinition {
 			leaf("close", "Preview or close Provider Work Item", workItemCloseAction), leaf("reopen", "Preview or reopen Provider Work Item", workItemReopenAction),
 			leaf("complete", "Compatibility spelling of close", workItemCompleteAction)),
 		group("workflow", "Inspect and drive Executions with explicit authority",
-			leaf("run", "Start or continue the linked Work Item's Execution and progress eligible stages", workflowRunAction),
+			leaf("run", "Run the linked Work Item with explicit inputs or LINGO_INVOCATION_DEFAULTS; progress eligible stages", workflowRunAction),
 			leaf("start", "Preview Runtime resolution or start Execution", workflowStartAction), leaf("advance", "Record technical result or evaluate Intake", workflowAdvanceAction),
 			leaf("fact", "Record explicit lifecycle fact", workflowFactAction), leaf("resume", "Resume committed Execution", workflowResumeAction),
 			leaf("status", "Inspect Execution and next gate action", workflowStatusAction), leaf("evidence", "Inspect Execution Evidence", workflowEvidenceAction),

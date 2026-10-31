@@ -73,7 +73,12 @@ axiom --json runtime binding list
 axiom --json runtime profile list
 ```
 
-After selecting an installed Runtime and model intent, propose a binding:
+A binding needs an installed supported Runtime. `axiom runtime binding create
+--runtime codex` previews a binding without a Profile catalogue; apply with the
+returned authority values. Invocation defaults are configured separately as
+explained in [Workflow](workflow.md).
+
+To create an optional Profile with the binding, choose its model and effort:
 
 ```sh
 axiom runtime binding create --runtime codex --profile operator-review \
@@ -90,7 +95,7 @@ A refusal carries `runtimeAuthoring.diagnostics`: each entry names the `code`
 (`field_required`, `field_invalid`, `binding_missing`, `profile_missing`,
 `runtime_absent`, `configuration_conflict`, `configuration_invalid`), the CLI
 `field`, the `rule` and the `next` action, also shown in terminal output. For
-example, omitting `--capabilities` returns `candidate_invalid` with
+example, when creating a Profile, omitting `--capabilities` returns `candidate_invalid` with
 `field_required` on `--capabilities`; `--complexities` stays optional. These
 are local declaration checks: authentication is not evaluated, so do not change
 credentials or environment variables to resolve them. `validate-candidate`

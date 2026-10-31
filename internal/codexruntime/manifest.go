@@ -381,6 +381,13 @@ var sharedSkillHistory = []skillSetRevision{
 		"axiom-work-item": "6984d22a126856cdd2f3ac755f29ab2c3a040e155a4423a799b1f86a70ff314a",
 		"axiom-workflow":  "8a3162a0c6afc040e121b4fd984354f5f6cb7409965b734f9f2a1e7f3481a77c",
 	}},
+	// Embedded revision before S1-05 local defaults and before-gate guidance.
+	{skillSetVersion: "3", binaryCompatibility: "3", skills: map[string]string{
+		"axiom-project":   "d55dbaa480404e437696e5bd534a32ebf40458a2b9d905ec43fd26d6276b6fac",
+		"axiom-runtime":   "ddf3f869d6f3fd0820775d6f488a3bbf50f50a0420d89d625addf6d0b757636e",
+		"axiom-work-item": "b219320fe8f1014a7d36d99b351452959b3c0056d7b44db9cff68d3b933976a3",
+		"axiom-workflow":  "8a3162a0c6afc040e121b4fd984354f5f6cb7409965b734f9f2a1e7f3481a77c",
+	}},
 }
 
 // currentRevision is the skill set embedded in this binary.

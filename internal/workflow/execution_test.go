@@ -408,3 +408,73 @@ func TestOrdinaryRetryCannotReplaceFrozenInvocation(t *testing.T) {
 		t.Fatal("refused retry mutated the aggregate")
 	}
 }
+
+func TestExecutionBeforeGateAndAgentDependencies(t *testing.T) {
+	in := NewExecutionInput{ExecutionID: testExecutionID, ProjectID: "proj", WorkItem: WorkItemLink{"linear", "AXM-42", "app"}, Repositories: []RepositoryBinding{{"app", "example/app"}}, WorkflowID: "configured", Revision: "r1", Now: t0, Stages: []StageSpec{{ID: "work", BeforeGate: true, TimeoutSeconds: 60, Outputs: []string{"result"}, Agents: []AgentSpec{{ID: "consumer", DependsOn: []string{"producer"}, OutputScope: true, Outputs: []string{"result"}, MaximumAttempts: 1}, {ID: "producer", OutputScope: true, MaximumAttempts: 1}}}}}
+	e, err := NewExecution(in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if e.Status != RunAwaitingGate || len(e.Ready()) != 0 {
+		t.Fatal("before gate did not block", e.Status, e.Ready())
+	}
+	if err := e.ApproveGate("work", "agent:spoof", t0); !errors.Is(err, ErrTransition) {
+		t.Fatal(err)
+	}
+	if err := e.ApproveGate("work", "human:operator", t0); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.ClaimRunner(1, t0); err != nil {
+		t.Fatal(err)
+	}
+	refs := e.Ready()
+	if len(refs) != 1 || refs[0].AgentID != "producer" {
+		t.Fatal(refs)
+	}
+	run(t, &e, refs[0], "produce")
+	if err := e.CompleteAttempt("produce", 1, AttemptResult{ExitCode: 0, Now: t0}); err != nil {
+		t.Fatal(err)
+	}
+	refs = e.Ready()
+	if len(refs) != 1 || refs[0].AgentID != "consumer" {
+		t.Fatal(refs)
+	}
+	run(t, &e, refs[0], "consume")
+	if err := e.CompleteAttempt("consume", 1, AttemptResult{ExitCode: 0, Now: t0}); err != nil {
+		t.Fatal(err)
+	}
+	if e.Status != RunFailed {
+		t.Fatal("missing assigned output succeeded")
+	}
+	if err := e.PrepareAttempt(PrepareInput{Ref: refs[0], AttemptID: "retry", Generation: 1, Invocation: testInvocation("do"), Authority: AttemptAuthority{"app", nil, "user:local"}, Retry: true, Now: t0}); !errors.Is(err, ErrTransition) {
+		t.Fatalf("configured limit bypassed: %v", err)
+	}
+	wire, err := EncodeExecution(e)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = DecodeExecution(wire); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestExecutionInvalidAgentControlsRefuseBeforeAttempts(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		agents []AgentSpec
+	}{
+		{"cycle", []AgentSpec{{ID: "a", DependsOn: []string{"b"}}, {ID: "b", DependsOn: []string{"a"}}}},
+		{"dangling", []AgentSpec{{ID: "a", DependsOn: []string{"missing"}}}},
+		{"negative timeout", []AgentSpec{{ID: "a", TimeoutSeconds: -1}}},
+		{"timeout overflow", []AgentSpec{{ID: "a", TimeoutSeconds: 1 << 62}}},
+		{"attempt bound", []AgentSpec{{ID: "a", MaximumAttempts: 11}}},
+		{"dangling output", []AgentSpec{{ID: "a", OutputScope: true, Outputs: []string{"missing"}}}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := NewExecution(NewExecutionInput{ExecutionID: testExecutionID, ProjectID: "proj", WorkItem: WorkItemLink{"linear", "AXM-42", "app"}, Repositories: []RepositoryBinding{{"app", "example/app"}}, WorkflowID: "configured", Revision: "r1", Now: t0, Stages: []StageSpec{{ID: "work", Agents: tc.agents, TimeoutSeconds: 60}}})
+			if !errors.Is(err, ErrExecutionInvalid) {
+				t.Fatal(err)
+			}
+		})
+	}
+}

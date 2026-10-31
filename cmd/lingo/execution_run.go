@@ -20,6 +20,7 @@ import (
 	"github.com/rgomids/axiom/internal/runtimeapplication"
 	"github.com/rgomids/axiom/internal/runtimeprofile"
 	"github.com/rgomids/axiom/internal/stageexecution"
+	"github.com/rgomids/axiom/internal/strictjson"
 	"github.com/rgomids/axiom/internal/workflow"
 	"github.com/rgomids/axiom/internal/workflowdefinition"
 )
@@ -120,6 +121,7 @@ type executionComposition struct {
 	// retrySelections are explicit overrides of one authorized new selection.
 	retrySelections []workflow.Selection
 	retryRef        *workflow.TaskRef
+	ordinaryRetry   bool
 }
 
 func (c executionComposition) run(ctx context.Context, in cli.WorkflowStageInput) cli.WorkflowStageResponse {
@@ -207,6 +209,7 @@ func (c executionComposition) retry(ctx context.Context, in cli.WorkflowStageInp
 		return c.failure(err, nil)
 	}
 	c.retrySelections, c.retryRef = selections, &ref
+	c.ordinaryRetry = !in.NewSelection
 	x, err := c.engine(launcher).Run(ctx, c.project.ID, in.Execution, stageexecution.RunOptions{Retry: &ref, NewSelection: in.NewSelection, WorkspaceDisposition: in.WorkspaceDisposition})
 	if err != nil {
 		return c.failure(err, &x)
@@ -321,21 +324,45 @@ func (c executionComposition) resolve(ctx context.Context, x workflow.Execution,
 		selections = append(selections, c.retrySelections...)
 	}
 	request := runtimeapplication.InvocationRequest{PermittedRuntimes: agent.Runtimes, Executables: map[string]string{}}
-	if request.RunOverride, err = selectionLayer(selections, ref, config); err != nil {
-		return workflow.Invocation{}, workflow.AttemptAuthority{}, err
-	}
-	request.WorkflowAgent = runtimeapplication.InvocationLayer{}
-	for field, value := range map[string]string{runtimeapplication.FieldRuntime: agent.Runtime, runtimeapplication.FieldModel: agent.Model, runtimeapplication.FieldEffort: agent.Effort, runtimeapplication.FieldInstructions: agent.Instructions} {
-		if value != "" {
-			request.WorkflowAgent.Assignments = append(request.WorkflowAgent.Assignments, runtimeapplication.Assignment{Field: field, Value: value})
+	var frozen *workflow.Invocation
+	if c.ordinaryRetry && c.retryRef != nil && *c.retryRef == ref {
+		for _, stage := range x.Stages {
+			if stage.StageID == ref.StageID {
+				for _, task := range stage.Tasks {
+					if task.AgentID == ref.AgentID && len(task.Attempts) != 0 {
+						previous := task.Attempts[len(task.Attempts)-1].Invocation
+						frozen = &previous
+					}
+				}
+			}
 		}
 	}
-	if agent.Profile != "" {
-		profile, err := profileInput(config, agent.Profile)
+	if frozen != nil {
+		for field, value := range map[string]string{runtimeapplication.FieldRuntime: frozen.Runtime, runtimeapplication.FieldModel: frozen.Model, runtimeapplication.FieldEffort: frozen.Effort, runtimeapplication.FieldInstructions: frozen.Instructions} {
+			request.RunOverride.Assignments = append(request.RunOverride.Assignments, runtimeapplication.Assignment{Field: field, Value: value})
+		}
+	} else {
+		if request.RunOverride, err = selectionLayer(selections, ref, config); err != nil {
+			return workflow.Invocation{}, workflow.AttemptAuthority{}, err
+		}
+		request.LocalDefault, err = localInvocationDefaults(config)
 		if err != nil {
 			return workflow.Invocation{}, workflow.AttemptAuthority{}, err
 		}
-		request.WorkflowAgent.Profile = &profile
+		request.WorkflowAgent = runtimeapplication.InvocationLayer{}
+		for field, value := range map[string]string{runtimeapplication.FieldRuntime: agent.Runtime, runtimeapplication.FieldModel: agent.Model, runtimeapplication.FieldEffort: agent.Effort, runtimeapplication.FieldInstructions: agent.Instructions} {
+			if value != "" {
+				request.WorkflowAgent.Assignments = append(request.WorkflowAgent.Assignments, runtimeapplication.Assignment{Field: field, Value: value})
+			}
+		}
+		if agent.Profile != "" {
+			profile, err := profileInput(config, agent.Profile)
+			if err != nil {
+				return workflow.Invocation{}, workflow.AttemptAuthority{}, err
+			}
+			request.WorkflowAgent.Profile = &profile
+		}
+
 	}
 	if config != nil {
 		for _, r := range config.Runtimes {
@@ -350,6 +377,12 @@ func (c executionComposition) resolve(ctx context.Context, x workflow.Execution,
 	invocation, err := runtimeapplication.ResolveInvocation(request)
 	if err != nil {
 		return workflow.Invocation{}, workflow.AttemptAuthority{}, err
+	}
+	if frozen != nil {
+		if invocation.Runtime != frozen.Runtime || invocation.Executable != frozen.Executable {
+			return workflow.Invocation{}, workflow.AttemptAuthority{}, runtimeapplication.ErrRuntimeNotConfigured
+		}
+		invocation = *frozen
 	}
 	if invocation.Profile != "" && config != nil {
 		allowed := false
@@ -377,6 +410,31 @@ func (c executionComposition) runtimeConfiguration(ctx context.Context) (*runtim
 		return nil, runtimeapplication.ErrRuntimeNotConfigured
 	}
 	return snapshot.V4, nil
+}
+
+// localInvocationDefaults is explicitly configured machine-local input, never a
+// capability preference or inferred selection. The bounded JSON array retains
+// duplicate assignments so the resolver can reject conflicting sources.
+// Example: LINGO_INVOCATION_DEFAULTS='["runtime=codex","model=my-model",
+// "effort=runtime-default"]'. Profiles remain optional.
+func localInvocationDefaults(config *runtimeprofile.ConfigurationV4) (runtimeapplication.InvocationLayer, error) {
+	raw, present := os.LookupEnv("LINGO_INVOCATION_DEFAULTS")
+	if !present {
+		return runtimeapplication.InvocationLayer{}, nil
+	}
+	var values []string
+	if strictjson.Decode([]byte(raw), &values, 64*1024) != nil || len(values) > 16 || values == nil {
+		return runtimeapplication.InvocationLayer{}, runtimeapplication.ErrInvocationConflict
+	}
+	var selections []workflow.Selection
+	for _, value := range values {
+		field, value, ok := strings.Cut(value, "=")
+		if !ok || !slices.Contains(workflow.SelectionFields, field) {
+			return runtimeapplication.InvocationLayer{}, runtimeapplication.ErrInvocationConflict
+		}
+		selections = append(selections, workflow.Selection{AgentID: "default", Field: field, Value: value})
+	}
+	return selectionLayer(selections, workflow.TaskRef{AgentID: "default"}, config)
 }
 
 func profileInput(config *runtimeprofile.ConfigurationV4, id string) (runtimeapplication.ProfileInput, error) {
@@ -447,7 +505,7 @@ func parseSelections(raw []string) ([]workflow.Selection, error) {
 }
 
 // selectedWorkflow maps the selected definition only when its controls have an
-// exact implementation. Unsupported validators or before-gates refuse before
+// exact implementation. Unsupported validators refuse before
 // creation; substituting a later human gate would weaken the configured check.
 func (c executionComposition) selectedWorkflow(ctx context.Context) (string, string, []workflow.StageSpec, error) {
 	observation, category := (workflowDefinitions{installation: c.s.installation, portable: c.s.portable}).ResolveDefinition(ctx, c.project.ID)
@@ -461,6 +519,9 @@ func (c executionComposition) selectedWorkflow(ctx context.Context) (string, str
 }
 
 func mapWorkflowDefinition(d workflowdefinition.Definition) (string, string, []workflow.StageSpec, error) {
+	if _, issues := workflowdefinition.Encode(d); len(issues) != 0 {
+		return "", "", nil, errWorkflowUnmappable
+	}
 	revision := "r" + strconv.Itoa(d.Revision)
 	if !workflow.ValidToken(d.WorkflowID) {
 		return "", "", nil, errWorkflowUnmappable
@@ -471,12 +532,21 @@ func mapWorkflowDefinition(d workflowdefinition.Definition) (string, string, []w
 		if len(s.Validators) != 0 {
 			return "", "", nil, errWorkflowUnmappable
 		}
+		spec := workflow.StageSpec{ID: s.ID, TimeoutSeconds: workflow.DefaultStageTimeout}
 		for _, gate := range s.HumanGates {
-			if gate.Timing != "after" {
+			switch gate.Timing {
+			case "before":
+				spec.BeforeGate = true
+			case "after":
+				spec.HumanGate = true
+			default:
 				return "", "", nil, errWorkflowUnmappable
 			}
 		}
-		spec := workflow.StageSpec{ID: s.ID, HumanGate: len(s.HumanGates) != 0, TimeoutSeconds: workflow.DefaultStageTimeout}
+		if spec.BeforeGate && spec.HumanGate {
+			return "", "", nil, errWorkflowUnmappable
+		}
+
 		if previous != "" {
 			spec.DependsOn = []string{previous}
 		}
@@ -486,7 +556,7 @@ func mapWorkflowDefinition(d workflowdefinition.Definition) (string, string, []w
 			}
 		}
 		for _, a := range s.Agents {
-			agent := workflow.AgentSpec{ID: a.ID, Instructions: strings.TrimSpace(s.Instructions + "\n\n" + a.Responsibilities), Runtimes: append([]string(nil), a.RuntimeConstraints...)}
+			agent := workflow.AgentSpec{ID: a.ID, OutputScope: true, DependsOn: append([]string(nil), a.DependsOn...), Outputs: append([]string(nil), a.Outputs...), TimeoutSeconds: int64(a.TimeoutSeconds), MaximumAttempts: a.MaximumAttempts, Instructions: strings.TrimSpace(s.Instructions + "\n\n" + a.Responsibilities), Runtimes: append([]string(nil), a.RuntimeConstraints...)}
 			// policy-default named the retired Project Runtime policy; the
 			// canonical path uses explicit selections instead of a guess.
 			if a.ProfileRef != "" && a.ProfileRef != "policy-default" {
@@ -503,6 +573,12 @@ func mapWorkflowDefinition(d workflowdefinition.Definition) (string, string, []w
 			}
 			if a.TimeoutSeconds > 0 && int64(a.TimeoutSeconds) > spec.TimeoutSeconds {
 				spec.TimeoutSeconds = int64(a.TimeoutSeconds)
+			}
+			agent.Outputs = nil
+			for _, output := range spec.Outputs {
+				if slices.Contains(a.Outputs, output) {
+					agent.Outputs = append(agent.Outputs, output)
+				}
 			}
 			spec.Agents = append(spec.Agents, agent)
 		}
@@ -675,7 +751,7 @@ func (c executionComposition) failure(err error, x *workflow.Execution) cli.Work
 		{runtimeapplication.ErrInvocationMissing, completion.ValidationFailure, "invocation_selection_missing", "Select runtime, model and effort (or runtime-default) explicitly, or an existing Profile; nothing is inferred"},
 		{runtimeapplication.ErrRuntimeNotPermitted, completion.DeniedAuthority, "runtime_not_permitted", "Select a Runtime allowed by the Workflow agent and local bindings"},
 		{runtimeapplication.ErrRuntimeNotConfigured, completion.ValidationFailure, "runtime_not_configured", "Create and enable the machine-local Runtime binding (axiom runtime binding create) with its executable on PATH"},
-		{errWorkflowUnmappable, completion.ValidationFailure, "workflow_unmappable", "Select a Workflow with supported identifiers and controls; configured validators and before-gates need implementation before dispatch"},
+		{errWorkflowUnmappable, completion.ValidationFailure, "workflow_unmappable", "Select a Workflow with supported identifiers and controls; configured validators need exact implementation before dispatch"},
 		{errRepositoryBinding, completion.DeniedAuthority, "repository_binding_changed", "The Project no longer binds this Execution's repository identity; start a new Execution"},
 		{errExecutionProjectMissing, completion.ValidationFailure, "execution_not_found", "Use the exact Execution identity returned by workflow run"},
 		{stageexecution.ErrWorkItemLinkMismatch, completion.ValidationFailure, "work_item_link_mismatch", "Link the Work Item to this Project Repository; nothing was written"},

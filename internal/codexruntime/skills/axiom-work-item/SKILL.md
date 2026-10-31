@@ -551,7 +551,13 @@ Runtime separately.
 
 For canonical `stage.retry`, a prior writable workspace requires explicit
 `--disposition preserve` after inspection. No automatic reset is supported.
-Configured validators and before-gates currently refuse before Execution creation;
-never replace them with an invented approval. Machine-local invocation defaults
-are not yet wired into the public composition; provide explicit fields or a
-selected Workflow/Profile.
+Configured validators currently refuse before Execution creation; never replace
+them with invented approval. Supported before-gates stop before any agent
+attempt and require real human authority for that stage. After-gates require
+successful outputs first. Machine-local invocation defaults are explicit bounded
+JSON in `LINGO_INVOCATION_DEFAULTS`, for example
+`["runtime=codex","model=my-model","effort=runtime-default"]`; optional
+`profile=<id>` supplies reusable defaults. Per-agent run fields override Workflow
+fields, then local defaults. Missing or conflicting fields refuse without
+selection inference. Ordinary retry keeps the frozen tuple and provenance;
+changed defaults require an explicitly authorized new selection.

@@ -35,7 +35,7 @@ func ValidateV4(c ConfigurationV4) error {
 	for i, r := range c.Runtimes {
 		runtimes[i] = Runtime{ID: r.ID, Adapter: r.Adapter, Enabled: r.Enabled, AllowlistedProfileIDs: r.AllowlistedProfileIDs}
 	}
-	return Validate(Configuration{FormatVersion: FormatVersionV2, Revision: c.Revision, Runtimes: runtimes, ModelProfiles: c.ModelProfiles, Preferences: c.Preferences})
+	return validateConfiguration(Configuration{FormatVersion: FormatVersionV2, Revision: c.Revision, Runtimes: runtimes, ModelProfiles: c.ModelProfiles, Preferences: c.Preferences}, true)
 }
 
 func DecodeV4(wire []byte) (ConfigurationV4, error) {

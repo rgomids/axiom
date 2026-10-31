@@ -91,6 +91,15 @@ func (l InvocationLayer) explicit(field string) (string, bool, error) {
 // result is the attempt's sole Runtime/model/effort/instructions authority.
 func ResolveInvocation(r InvocationRequest) (workflow.Invocation, error) {
 	levels := []layerSource{{"run_override", r.RunOverride}, {"workflow_agent", r.WorkflowAgent}, {"local_default", r.LocalDefault}}
+	// Validate every configured level even when a higher level supplies a field.
+	// Shadowing must never hide an ambiguous or malformed source.
+	for _, level := range levels {
+		for _, field := range invocationFieldOrder {
+			if _, _, err := level.layer.explicit(field); err != nil {
+				return workflow.Invocation{}, err
+			}
+		}
+	}
 	values := map[string]string{}
 	var provenance []workflow.FieldProvenance
 	var profile *ProfileInput

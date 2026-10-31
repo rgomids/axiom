@@ -426,5 +426,13 @@ selects one format-4 Execution under `executions/v2`, one fenced
 address the same aggregate. Graph/Single supervisors and dispatch are retired.
 Retained historical lifecycle, delivery and coordination readers are unresolved
 cutover work, not a second supported engine. See
-[recovery Evidence](../specifications/015-minimum-viable-operational-workflow/implementation-s1-04.md)
+[S1-05 Evidence](../specifications/015-minimum-viable-operational-workflow/implementation-s1-05.md)
 for the precise completion limits. No real cutover is certified.
+
+New invocations compose explicit per-agent overrides, Workflow inputs and bounded
+machine-local `LINGO_INVOCATION_DEFAULTS` in that order. Profiles supply optional
+inputs; the attempt snapshot retains the effective tuple and safe provenance.
+Supported configured stages preserve before/after human gates, agent dependencies,
+assigned required outputs, timeouts and attempt limits. The S1 loop remains
+serial. Configured validators remain fail-closed pending their exact port;
+this is a partial implementation boundary, not an alternative human gate.

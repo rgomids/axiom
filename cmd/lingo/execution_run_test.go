@@ -16,6 +16,7 @@ import (
 	"github.com/rgomids/axiom/internal/cli"
 	"github.com/rgomids/axiom/internal/local"
 	"github.com/rgomids/axiom/internal/projectapp"
+	"github.com/rgomids/axiom/internal/runtimeapplication"
 	"github.com/rgomids/axiom/internal/workflow"
 	"github.com/rgomids/axiom/internal/workflowdefinition"
 )
@@ -69,6 +70,7 @@ func newExecutionRunFixture(t *testing.T) *executionRunFixture {
 	}
 	// Host Runtime configuration and credentials are never consulted.
 	t.Setenv("HOME", home)
+	t.Setenv("LINGO_INVOCATION_DEFAULTS", "[]")
 	t.Setenv("CODEX_HOME", "")
 	os.Unsetenv("CODEX_HOME")
 	t.Setenv("PATH", bin)
@@ -379,6 +381,11 @@ func (f *executionRunFixture) selectTwoStageWorkflow(t *testing.T, gate bool) {
 			s.HumanGates = []workflowdefinition.Gate{{Kind: "human_acceptance", Timing: "after"}}
 		}
 	}
+	f.installWorkflowDefinition(t, d)
+}
+
+func (f *executionRunFixture) installWorkflowDefinition(t *testing.T, d workflowdefinition.Definition) {
+	t.Helper()
 	doc, issues := workflowdefinition.Encode(d)
 	if len(issues) != 0 {
 		t.Fatal(issues)
@@ -430,5 +437,150 @@ func TestPublicWorkflowRunRefusesUnsupportedWorkflowControls(t *testing.T) {
 	got := f.run(t, cli.ExitFailure, "workflow", "run", "--project", "external", "--repository", "main", "--work-item", "github:owner/repo#7", "--select", "owner.runtime=codex", "--select", "owner.model=stub-model", "--select", "owner.effort=runtime-default", "--authorize-external")
 	if got.Category != "workflow_unmappable" || len(f.executions(t)) != 0 {
 		t.Fatalf("configured validators silently skipped: %s", got.Raw)
+	}
+}
+
+func TestPublicWorkflowRunMachineLocalDefaults(t *testing.T) {
+	f := newExecutionRunFixture(t)
+	// Reconfigure through reviewed authoring mutations, with no Profile generated.
+	service := f.env.service.(lifecycleService)
+	for _, request := range []runtimeapplication.AuthoringRequest{
+		{Kind: "binding", Operation: "remove", RuntimeID: "codex", Cascade: true},
+		{Kind: "binding", Operation: "create", RuntimeID: "codex"},
+	} {
+		preview := service.RuntimeAuthoring(context.Background(), request)
+		if preview.RuntimeAuthoring == nil {
+			t.Fatal(preview)
+		}
+		request.ExpectedRevision, request.PreviewDigest, request.AuthorizeLocal = preview.RuntimeAuthoring.ExpectedRevision, preview.RuntimeAuthoring.PreviewDigest, true
+		applied := service.RuntimeAuthoring(context.Background(), request)
+		if applied.Category != "applied" {
+			t.Fatalf("bare binding: %+v", applied)
+		}
+	}
+
+	f.selectTwoStageWorkflow(t, false)
+	t.Setenv("LINGO_INVOCATION_DEFAULTS", `["runtime=codex","model=local-model","effort=runtime-default","instructions=local instructions"]`)
+	got := f.run(t, cli.ExitSuccess, "workflow", "run", "--project", "external", "--repository", "main", "--work-item", "github:owner/repo#7", "--select", "owner.model=override-model", "--authorize-external")
+	if got.Stage.Status != workflow.RunCompleted || len(got.Stage.Stages) != 2 {
+		t.Fatal(got.Raw)
+	}
+	for _, stage := range got.Stage.Stages {
+		a := stage.Tasks[0].Attempts[0]
+		if a.Runtime != "codex" || a.Model != "override-model" || a.Effort != "runtime-default" {
+			t.Fatalf("wrong tuple: %+v", a)
+		}
+		for _, p := range a.Provenance {
+			want := "local_default"
+			if p.Field == "instructions" {
+				want = "workflow_agent"
+			}
+			if p.Field == "model" {
+				want = "run_override"
+			}
+			if p.Source != want {
+				t.Fatalf("wrong provenance: %+v", a.Provenance)
+			}
+		}
+	}
+}
+
+func TestPublicWorkflowRunInvalidLocalDefaultsHaveNoExecution(t *testing.T) {
+	for _, tc := range []struct{ name, defaults, category string }{
+		{"missing", `["runtime=codex"]`, "invocation_selection_missing"},
+		{"ambiguous", `["runtime=codex","runtime=claude","model=stub-model","effort=runtime-default"]`, "invocation_selection_conflict"},
+		{"malformed", `{}`, "invocation_selection_conflict"},
+		{"unknown", `["complexity=best"]`, "invocation_selection_conflict"},
+		{"unconfigured", `["runtime=claude","model=stub-model","effort=runtime-default"]`, "runtime_not_configured"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newExecutionRunFixture(t)
+			t.Setenv("LINGO_INVOCATION_DEFAULTS", tc.defaults)
+			got := f.run(t, cli.ExitFailure, "workflow", "run", "--project", "external", "--repository", "main", "--work-item", "github:owner/repo#7", "--workflow", "minimal", "--authorize-external")
+			if got.Category != tc.category || len(f.executions(t)) != 0 {
+				t.Fatal(got.Raw)
+			}
+		})
+	}
+}
+
+func TestPublicWorkflowRunOrdinaryRetryIgnoresChangedDefaults(t *testing.T) {
+	f := newExecutionRunFixture(t)
+	t.Setenv("LINGO_INVOCATION_DEFAULTS", `["runtime=codex","model=frozen-model","effort=runtime-default"]`)
+	first := f.run(t, cli.ExitFailure, "workflow", "run", "--project", "external", "--repository", "main", "--work-item", "github:owner/repo#7", "--workflow", "minimal", "--select", "agent.instructions=mode:fail", "--authorize-external")
+	t.Setenv("LINGO_INVOCATION_DEFAULTS", `malformed changed defaults`)
+	next := f.run(t, cli.ExitFailure, "workflow", "stage", "retry", "--project", "external", "--execution", first.Stage.ExecutionID, "--stage", "work", "--agent", "agent", "--disposition", "preserve", "--authorize-external")
+	attempts := next.Stage.Stages[0].Tasks[0].Attempts
+	if len(attempts) != 2 || attempts[1].Model != "frozen-model" || attempts[1].Number != 2 {
+		t.Fatal(next.Raw)
+	}
+}
+
+func TestPublicWorkflowRunBeforeGateRequiresApprovalBeforeSpawn(t *testing.T) {
+	f := newExecutionRunFixture(t)
+	builtin, _ := workflowdefinition.BuiltinRevision(2)
+	d := builtin.Definition
+	d.WorkflowID, d.Name, d.Revision = "before-gate", "Before gate", 1
+	d.Stages = d.Stages[:1]
+	stage := &d.Stages[0]
+	stage.Phase, stage.Checkpoint = "planning", true
+	stage.Validators, stage.CompletionCriteria = []workflowdefinition.Validator{}, []workflowdefinition.Criterion{}
+	stage.HumanGates = []workflowdefinition.Gate{{Kind: "planning_authority", Timing: "before"}}
+	f.installWorkflowDefinition(t, d)
+	t.Setenv("LINGO_INVOCATION_DEFAULTS", `["runtime=codex","model=stub-model","effort=runtime-default"]`)
+	first := f.run(t, cli.ExitSuccess, "workflow", "run", "--project", "external", "--repository", "main", "--work-item", "github:owner/repo#7", "--authorize-external")
+	if first.Stage.Status != workflow.RunAwaitingGate || len(first.Stage.Stages[0].Tasks[0].Attempts) != 0 {
+		t.Fatal(first.Raw)
+	}
+	next := f.run(t, cli.ExitSuccess, "workflow", "run", "--project", "external", "--execution", first.Stage.ExecutionID, "--approve-gate", stage.ID, "--authorize-human", "--authorize-external")
+	if next.Stage.Status != workflow.RunCompleted || len(next.Stage.Stages[0].Tasks[0].Attempts) != 1 {
+		t.Fatal(next.Raw)
+	}
+}
+
+func TestPublicWorkflowRunOptionalDefaultProfileAndDirectOverride(t *testing.T) {
+	f := newExecutionRunFixture(t)
+	t.Setenv("LINGO_INVOCATION_DEFAULTS", `["profile=profile-codex","effort=runtime-default"]`)
+	got := f.run(t, cli.ExitSuccess, "workflow", "run", "--project", "external", "--repository", "main", "--work-item", "github:owner/repo#7", "--workflow", "minimal", "--select", "agent.model=chosen-model", "--authorize-external")
+	a := latestAttempt(t, got.Stage, "work")
+	if a.Model != "chosen-model" || a.Profile != "profile-codex" || a.ProfileDigest == "" {
+		t.Fatal(got.Raw)
+	}
+}
+
+func TestPublicWorkflowRunDeniedLocalDefaultRuntime(t *testing.T) {
+	f := newExecutionRunFixture(t)
+	builtin, _ := workflowdefinition.BuiltinRevision(2)
+	d := builtin.Definition
+	d.WorkflowID, d.Name, d.Revision = "restricted", "Restricted Runtime", 1
+	d.Stages = d.Stages[:1]
+	s := &d.Stages[0]
+	s.Checkpoint = true
+	s.Validators, s.CompletionCriteria = []workflowdefinition.Validator{}, []workflowdefinition.Criterion{}
+	s.Agents[0].RuntimeConstraints = []string{"claude"}
+	f.installWorkflowDefinition(t, d)
+	t.Setenv("LINGO_INVOCATION_DEFAULTS", `["runtime=codex","model=stub-model","effort=runtime-default"]`)
+	got := f.run(t, cli.ExitFailure, "workflow", "run", "--project", "external", "--repository", "main", "--work-item", "github:owner/repo#7", "--authorize-external")
+	if got.Category != "runtime_not_permitted" || len(f.executions(t)) != 0 {
+		t.Fatal(got.Raw)
+	}
+}
+
+func TestMapWorkflowDefinitionValidatesBeforeMapping(t *testing.T) {
+	for _, mutation := range []func(*workflowdefinition.Definition){
+		func(d *workflowdefinition.Definition) { d.Stages[0].Agents[0].DependsOn = []string{"missing"} },
+		func(d *workflowdefinition.Definition) { a := &d.Stages[0].Agents[0]; a.DependsOn = []string{a.ID} },
+		func(d *workflowdefinition.Definition) { d.Stages[0].Agents[0].MaximumAttempts = 11 },
+		func(d *workflowdefinition.Definition) { d.Stages[0].Agents[0].TimeoutSeconds = 86401 },
+		func(d *workflowdefinition.Definition) {
+			d.Stages[0].CompletionCriteria = []workflowdefinition.Criterion{{ID: "bad", Description: "bad", OutputRef: "result", ValidatorRef: "missing"}}
+		},
+	} {
+		builtin, _ := workflowdefinition.BuiltinRevision(2)
+		d := builtin.Definition
+		mutation(&d)
+		if _, _, _, err := mapWorkflowDefinition(d); err == nil {
+			t.Fatal("invalid definition mapped")
+		}
 	}
 }

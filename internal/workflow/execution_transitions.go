@@ -25,9 +25,7 @@ func (e *Execution) touch(now time.Time) {
 	if e.UpdatedAt.Before(e.CreatedAt) {
 		e.UpdatedAt = e.CreatedAt
 	}
-	for i := range e.Stages {
-		e.Stages[i].Status = e.derivedStageStatus(i)
-	}
+	e.refreshStageStatuses()
 	e.Status = e.derivedStatus()
 }
 
@@ -103,8 +101,35 @@ func effectiveStatus(a Attempt) AttemptStatus {
 	return a.Status
 }
 
+// Refresh in dependency order; definitions need not list predecessors first.
+func (e *Execution) refreshStageStatuses() {
+	visited := map[int]bool{}
+	var visit func(int)
+	visit = func(i int) {
+		if visited[i] {
+			return
+		}
+		visited[i] = true
+		for _, dep := range e.Workflow.Stages[i].DependsOn {
+			visit(e.stageIndex(dep))
+		}
+		e.Stages[i].Status = e.derivedStageStatus(i)
+	}
+	for i := range e.Stages {
+		visit(i)
+	}
+}
+
 func (e *Execution) derivedStageStatus(i int) StageStatus {
 	run := e.Stages[i]
+	if e.Workflow.Stages[i].BeforeGate && run.Gate == nil {
+		for _, dep := range e.Workflow.Stages[i].DependsOn {
+			if e.Stages[e.stageIndex(dep)].Status != StageCompleted {
+				return StagePending
+			}
+		}
+		return StageAwaitingGate
+	}
 	succeeded, started := 0, false
 	failed, cancelled, active := false, false, false
 	for _, t := range run.Tasks {
@@ -210,11 +235,29 @@ func (e Execution) Ready() []TaskRef {
 				ready = false
 			}
 		}
+		if spec.BeforeGate && e.Stages[i].Gate == nil {
+			ready = false
+		}
 		if !ready {
 			continue
 		}
 		for _, t := range e.Stages[i].Tasks {
-			if len(t.Attempts) == 0 {
+			agentReady := true
+			for _, agent := range spec.Agents {
+				if agent.ID == t.AgentID {
+					for _, dep := range agent.DependsOn {
+						for _, dependency := range e.Stages[i].Tasks {
+							if dependency.AgentID == dep {
+								last := lastAttempt(dependency)
+								if last == nil || last.Status != AttemptSucceeded {
+									agentReady = false
+								}
+							}
+						}
+					}
+				}
+			}
+			if len(t.Attempts) == 0 && agentReady {
 				refs = append(refs, TaskRef{spec.ID, t.AgentID})
 			}
 		}
@@ -282,7 +325,7 @@ func (e *Execution) PrepareAttempt(in PrepareInput) error {
 		if !in.NewSelection && !reflect.DeepEqual(in.Invocation, last.Invocation) {
 			return fmt.Errorf("%w: retry requires the frozen invocation", ErrTransition)
 		}
-		if len(task.Attempts) >= MaxTaskAttempts {
+		if len(task.Attempts) >= agent.AttemptLimit() {
 			return fmt.Errorf("%w: attempt limit", ErrTransition)
 		}
 	}
@@ -380,7 +423,7 @@ func (e *Execution) CompleteAttempt(id string, generation uint64, r AttemptResul
 		}
 	}
 	_, ref, _ := e.FindAttempt(id)
-	spec := e.Workflow.Stages[e.stageIndex(ref.StageID)]
+	_, agent, spec, _ := e.task(ref)
 	at := r.Now.UTC()
 	code := r.ExitCode
 	a.EndedAt, a.ExitCode, a.Effects, a.Artifacts = &at, &code, r.Effects, r.Artifacts
@@ -392,7 +435,11 @@ func (e *Execution) CompleteAttempt(id string, generation uint64, r AttemptResul
 		for _, ref := range r.Artifacts {
 			have[ref.Name] = true
 		}
-		for _, out := range spec.Outputs {
+		required := spec.Outputs
+		if agent.OutputScope {
+			required = agent.Outputs
+		}
+		for _, out := range required {
 			if !have[out] {
 				a.Status, a.Diagnostic = AttemptFailed, "missing_output: "+out
 				break
@@ -461,7 +508,7 @@ func (e *Execution) RequestCancel(actor string, now time.Time) error {
 // The actor must be a human identity; agent output never reaches this path.
 func (e *Execution) ApproveGate(stageID, actor string, now time.Time) error {
 	i := e.stageIndex(stageID)
-	if i < 0 || e.Stages[i].Status != StageAwaitingGate || !ValidToken(actor) || len(actor) < 7 || actor[:6] != "human:" {
+	if e.Cancel != nil || e.Status == RunRecoveryRequired || i < 0 || e.Stages[i].Status != StageAwaitingGate || !ValidToken(actor) || len(actor) < 7 || actor[:6] != "human:" {
 		return ErrTransition
 	}
 	e.Stages[i].Gate = &Disposition{Actor: actor, Decision: DispositionApproved, RecordedAt: now.UTC()}

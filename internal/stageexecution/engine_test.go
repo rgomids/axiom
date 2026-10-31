@@ -466,3 +466,21 @@ func TestEngineRetryRefusesRuntimeRetargeting(t *testing.T) {
 		t.Fatalf("runtime retargeted: %v spawns=%d", err, f.runner.spawns.Load())
 	}
 }
+
+func TestEnginePerAgentTimeoutOverridesStageDefault(t *testing.T) {
+	stages := []workflow.StageSpec{{ID: "work", TimeoutSeconds: 60, Agents: []workflow.AgentSpec{{ID: "builder", TimeoutSeconds: 1}}}}
+	f := newEngineFixture(t, stages, nil)
+	f.engine.Runner = executiongraph.OSProcessRunner{}
+	f.engine.Launcher = stubLauncher{argv: []string{"/bin/sh", "-c", "sleep 30"}}
+	x, err := f.run(t)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a, _, _ := x.FindAttempt("att-1")
+	if a.Status != workflow.AttemptFailed || a.Diagnostic != "attempt_timeout" || x.Status != workflow.RunFailed {
+		t.Fatalf("per-agent timeout: %+v", a)
+	}
+	if observeRecorded(a.Process) != "process_gone_effects_unknown" {
+		t.Fatal("timed out process remains observable")
+	}
+}

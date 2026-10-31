@@ -341,3 +341,11 @@ func TestAuthoringValidateCandidateValidatesSuppliedIntent(t *testing.T) {
 		t.Fatal("candidate validation ignored edit or wrote state")
 	}
 }
+
+func TestAuthoringBindingWithoutProfileCatalogue(t *testing.T) {
+	a, s := authoringSetup()
+	applyReviewed(t, a, AuthoringRequest{Kind: "binding", Operation: "create", RuntimeID: "codex"})
+	if len(s.snapshot.V4.ModelProfiles) != 0 || len(s.snapshot.V4.Runtimes) != 1 || len(s.snapshot.V4.Runtimes[0].AllowlistedProfileIDs) != 0 {
+		t.Fatalf("generated catalogue: %+v", s.snapshot.V4)
+	}
+}

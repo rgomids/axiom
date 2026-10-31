@@ -19,12 +19,29 @@ axiom workflow stage cancel --project my-project --execution <execution-id> --au
 Per-agent overrides use `[<stage-id>/]<agent-id>.<field>=<value>`; fields are
 `runtime`, `model`, `effort`, `instructions`, and optional `profile`. Explicit
 values override the corresponding optional Profile defaults. Missing/conflicting
-inputs refuse. The current public composition requires explicit or Workflow/Profile
-values; the resolver's machine-local default layer is not yet wired publicly.
-Configured validators and before-gates currently refuse before Execution creation;
-they are never silently replaced by a later human approval. A Workflow with
-supported stages and after-gates progresses automatically until a real gate,
-failed required output, cancellation, or unknown effect blocks it.
+inputs refuse. Explicitly configure reusable machine-local defaults with a bounded
+JSON array in `LINGO_INVOCATION_DEFAULTS`, for example:
+
+```bash
+export LINGO_INVOCATION_DEFAULTS='["runtime=codex","model=my-model","effort=runtime-default"]'
+axiom workflow run --project my-project --repository main \
+  --work-item github:owner/repository#123 --authorize-external
+```
+
+Each entry is `runtime|model|effort|instructions|profile=value`. The optional
+`profile` supplies defaults at that level. Per field, run overrides win over
+Workflow agent values, which win over local defaults. No candidate is ranked;
+conflicting entries, malformed JSON and missing selectors refuse. The array is
+limited to 16 entries and 64 KiB. Keep secrets out of these inputs.
+
+Configured validators still refuse before Execution creation; they are never
+replaced by human approval. Supported output-only Workflows preserve per-agent
+outputs, dependencies, explicit timeouts and maximum attempts. Eligible work
+progresses serially; parallel dispatch remains S2. Before-gates stop before any
+agent attempt; after-gates stop after successful outputs. Approve only after real
+human review with `workflow run --execution <id> --approve-gate <stage-id>
+--authorize-human --authorize-external`. Failed required outputs, cancellation
+and unknown effects block progression.
 
 Retry preserves the frozen invocation unless `--new-selection` explicitly permits
 fresh values. Previous attempt snapshots remain immutable. If the prior attempt
@@ -51,7 +68,7 @@ a process stop nor abandonment proves human acceptance or reversal of effects.
 guidance. The old lifecycle/delivery/coordination surfaces below still have
 pre-cutover consumers pending structural retirement; they cannot resume or
 convert a canonical Execution. This branch must not be used for a real cutover
-until the [S1 recovery obligations](specifications/015-minimum-viable-operational-workflow/implementation-s1-04.md)
+until the [S1 recovery obligations](specifications/015-minimum-viable-operational-workflow/implementation-s1-05.md)
 are closed. No real installed-state operation is implied by these examples.
 
 ## Author and select Project workflows
@@ -208,9 +225,10 @@ axiom runtime profile list
 axiom skill inspect axiom-runtime
 ```
 
-`axiom-runtime` manages local bindings and operator-defined Profiles. Creation
-requires an installed supported Runtime, an exact model intent and an explicit
-Profile effort choice. For example, after choosing these values:
+`axiom-runtime` manages local bindings and operator-defined Profiles. A binding needs an installed supported Runtime. `runtime binding create --runtime
+codex` previews a binding without creating a Profile catalogue. Configure explicit
+invocation defaults or per-agent run fields separately. To create an optional
+reusable Profile with the binding, choose its model and effort explicitly:
 
 ```bash
 axiom runtime binding create --runtime codex --profile operator-review \

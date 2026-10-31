@@ -21,11 +21,11 @@ const (
 
 	MaxExecutionBytes   = 256 * 1024
 	MaxExecutionStages  = 32
-	MaxStageAgents      = 8
+	MaxStageAgents      = 32
 	MaxTaskAttempts     = 10
 	MaxAttemptEffects   = 32
-	MaxAttemptArtifacts = 32
-	MaxStageOutputs     = 16
+	MaxAttemptArtifacts = 64
+	MaxStageOutputs     = 64
 	MaxInstructionBytes = 16 * 1024
 	MaxDiagnosticBytes  = 1024
 	MaxAttemptTimeout   = 24 * time.Hour
@@ -116,13 +116,18 @@ type RepositoryBinding struct {
 // AgentSpec is a Workflow agent: explicit Runtime/model/effort/instructions
 // and optional Profile input. Empty fields fall back by precedence.
 type AgentSpec struct {
-	ID           string   `json:"id"`
-	Profile      string   `json:"profile,omitempty"`
-	Runtime      string   `json:"runtime,omitempty"`
-	Model        string   `json:"model,omitempty"`
-	Effort       string   `json:"effort,omitempty"`
-	Instructions string   `json:"instructions,omitempty"`
-	Effects      []string `json:"effects,omitempty"`
+	OutputScope     bool     `json:"outputScope,omitempty"`
+	DependsOn       []string `json:"dependsOn,omitempty"`
+	Outputs         []string `json:"outputs,omitempty"`
+	TimeoutSeconds  int64    `json:"timeoutSeconds,omitempty"`
+	MaximumAttempts int      `json:"maximumAttempts,omitempty"`
+	ID              string   `json:"id"`
+	Profile         string   `json:"profile,omitempty"`
+	Runtime         string   `json:"runtime,omitempty"`
+	Model           string   `json:"model,omitempty"`
+	Effort          string   `json:"effort,omitempty"`
+	Instructions    string   `json:"instructions,omitempty"`
+	Effects         []string `json:"effects,omitempty"`
 	// Runtimes is the explicit user restriction of permitted Runtimes; empty
 	// means unrestricted. It is intent, never a vendor capability claim.
 	Runtimes []string `json:"runtimes,omitempty"`
@@ -133,6 +138,7 @@ type StageSpec struct {
 	DependsOn      []string    `json:"dependsOn,omitempty"`
 	Agents         []AgentSpec `json:"agents"`
 	Outputs        []string    `json:"outputs,omitempty"`
+	BeforeGate     bool        `json:"beforeGate,omitempty"`
 	HumanGate      bool        `json:"humanGate,omitempty"`
 	TimeoutSeconds int64       `json:"timeoutSeconds"`
 }
@@ -339,6 +345,9 @@ func NewExecution(in NewExecutionInput) (Execution, error) {
 		return Execution{}, err
 	}
 	snapshot.Digest = digest
+	if err := validateWorkflow(snapshot, nil); err != nil {
+		return Execution{}, err
+	}
 	now := in.Now.UTC()
 	e := Execution{
 		Kind: ExecutionKind, FormatVersion: ExecutionFormatVersion,
@@ -354,6 +363,8 @@ func NewExecution(in NewExecutionInput) (Execution, error) {
 		}
 		e.Stages = append(e.Stages, run)
 	}
+	e.refreshStageStatuses()
+	e.Status = e.derivedStatus()
 	if err := e.Validate(); err != nil {
 		return Execution{}, err
 	}
@@ -504,11 +515,11 @@ func (e Execution) Validate() error {
 		if run.StageID != spec.ID || len(run.Tasks) != len(spec.Agents) || !validStageStatus(run.Status) || run.Status != e.derivedStageStatus(i) {
 			return invalid("stage %q", run.StageID)
 		}
-		if run.Gate != nil && (!spec.HumanGate || !validDisposition(*run.Gate)) {
+		if run.Gate != nil && ((!spec.HumanGate && !spec.BeforeGate) || !validDisposition(*run.Gate) || run.Gate.Decision != DispositionApproved || len(run.Gate.Actor) < 7 || run.Gate.Actor[:6] != "human:") {
 			return invalid("stage %q gate", run.StageID)
 		}
 		for j, task := range run.Tasks {
-			if task.AgentID != spec.Agents[j].ID || len(task.Attempts) > MaxTaskAttempts {
+			if task.AgentID != spec.Agents[j].ID || len(task.Attempts) > spec.Agents[j].AttemptLimit() {
 				return invalid("task %q", task.AgentID)
 			}
 			for k, attempt := range task.Attempts {
@@ -553,7 +564,10 @@ func validateWorkflow(w WorkflowSnapshot, repos map[string]bool) error {
 		if len(s.Agents) == 0 || len(s.Agents) > MaxStageAgents || len(s.Outputs) > MaxStageOutputs {
 			return invalid("stage %q agents/outputs", s.ID)
 		}
-		if s.TimeoutSeconds <= 0 || time.Duration(s.TimeoutSeconds)*time.Second > MaxAttemptTimeout {
+		if s.BeforeGate && s.HumanGate {
+			return invalid("separate gate positions required")
+		}
+		if s.TimeoutSeconds <= 0 || s.TimeoutSeconds > int64(MaxAttemptTimeout/time.Second) {
 			return invalid("stage %q timeout", s.ID)
 		}
 		agents := map[string]bool{}
@@ -562,6 +576,24 @@ func validateWorkflow(w WorkflowSnapshot, repos map[string]bool) error {
 				return invalid("stage %q agent %q", s.ID, a.ID)
 			}
 			agents[a.ID] = true
+			if a.MaximumAttempts < 0 || a.MaximumAttempts > MaxTaskAttempts || a.TimeoutSeconds < 0 || a.TimeoutSeconds > int64(MaxAttemptTimeout/time.Second) {
+				return invalid("agent limits")
+			}
+			seen := map[string]bool{}
+			for _, out := range a.Outputs {
+				if !ValidToken(out) || seen[out] {
+					return invalid("agent output")
+				}
+				seen[out] = true
+				found := false
+				for _, output := range s.Outputs {
+					found = found || out == output
+				}
+				if !found {
+					return invalid("dangling agent output")
+				}
+			}
+
 			if err := validEffectKinds(a.Effects); err != nil {
 				return err
 			}
@@ -573,12 +605,54 @@ func validateWorkflow(w WorkflowSnapshot, repos map[string]bool) error {
 				permitted[r] = true
 			}
 		}
+		// Validate the complete agent DAG before any attempt or filesystem effect.
+		color := map[string]int{}
+		var visitAgent func(string) bool
+		visitAgent = func(id string) bool {
+			if !agents[id] || color[id] == 1 {
+				return false
+			}
+			if color[id] == 2 {
+				return true
+			}
+			color[id] = 1
+			for _, a := range s.Agents {
+				if a.ID == id {
+					seen := map[string]bool{}
+					for _, dep := range a.DependsOn {
+						if seen[dep] || !visitAgent(dep) {
+							return false
+						}
+						seen[dep] = true
+					}
+				}
+			}
+			color[id] = 2
+			return true
+		}
+		for _, a := range s.Agents {
+			if !visitAgent(a.ID) {
+				return invalid("cyclic or dangling agent dependency")
+			}
+		}
 		outputs := map[string]bool{}
 		for _, o := range s.Outputs {
 			if !ValidToken(o) || outputs[o] {
 				return invalid("stage %q output", s.ID)
 			}
 			outputs[o] = true
+			owned := false
+			for _, agent := range s.Agents {
+				if !agent.OutputScope {
+					owned = true
+				}
+				for _, assigned := range agent.Outputs {
+					owned = owned || assigned == o
+				}
+			}
+			if !owned {
+				return invalid("unowned required output")
+			}
 		}
 	}
 	// Dependencies must name known stages and form a DAG; this runs before any
@@ -738,4 +812,13 @@ func validRunStatus(s RunStatus) bool {
 		return true
 	}
 	return false
+}
+
+// AttemptLimit preserves the default for minimal Workflow agents; configured
+// definitions always carry their explicit maximum.
+func (a AgentSpec) AttemptLimit() int {
+	if a.MaximumAttempts != 0 {
+		return a.MaximumAttempts
+	}
+	return MaxTaskAttempts
 }

@@ -184,3 +184,19 @@ func TestV4HistoricalConfigurationBytesRemainUnchanged(t *testing.T) {
 		t.Fatal("historical v3 digest changed")
 	}
 }
+
+func TestV4RuntimeBindingDoesNotRequireProfileCatalogue(t *testing.T) {
+	cfg := ConfigurationV4{FormatVersion: FormatVersionV4, Revision: 1, Runtimes: []RuntimeV4{{ID: "codex", Adapter: "codex", Enabled: true}}}
+	wire, err := EncodeV4(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = DecodeV4(wire); err != nil {
+		t.Fatal(err)
+	}
+	// Optional does not make dangling references valid.
+	cfg.Runtimes[0].AllowlistedProfileIDs = []string{"missing"}
+	if ValidateV4(cfg) == nil {
+		t.Fatal("dangling Profile allowed")
+	}
+}

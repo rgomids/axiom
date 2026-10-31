@@ -244,3 +244,44 @@ func TestCutoverUnknownNestedNamespacesAndUnsafeRootRefuse(t *testing.T) {
 		})
 	}
 }
+
+func TestCutoverActiveUnknownBytesRequireDispositionWithoutDecoding(t *testing.T) {
+	for _, status := range []string{"active", "unknown", "incomplete"} {
+		t.Run(status, func(t *testing.T) {
+			root := legacyFixture(t)
+			// Inert arbitrary bytes; inspection must never parse or resume this record.
+			record := filepath.Join(root, "graphs", "v1", "proj", "legacy.json")
+			if err := os.WriteFile(record, []byte(`{"status":"`+status+`"}`), 0600); err != nil {
+				t.Fatal(err)
+			}
+			inv, err := InspectCutover(context.Background(), root)
+			if err != nil {
+				t.Fatal(err)
+			}
+			d := disposition(inv)
+			d.AttemptsDisposed = false
+			if err := CutoverDecision(inv, d); !errors.Is(err, ErrRecoveryRequired) {
+				t.Fatal("undisposed bytes allowed cutover", err)
+			}
+		})
+	}
+}
+
+func TestCutoverUnexpectedKnownRootFileAndEmptyHumanBlock(t *testing.T) {
+	root := legacyFixture(t)
+	if err := os.WriteFile(filepath.Join(root, "projects"), []byte("unexpected"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	inv, err := InspectCutover(context.Background(), root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !inv.Blocked() {
+		t.Fatal("known root file omitted from blockers")
+	}
+	d := disposition(inv)
+	d.Actor = "human:"
+	if err := CutoverDecision(CutoverInventory{}, d); !errors.Is(err, ErrRecoveryRequired) {
+		t.Fatal(err)
+	}
+}
