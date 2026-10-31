@@ -175,10 +175,10 @@ func validate(d Definition) []Diagnostic {
 			prior[s.ID+"/"+out.ID] = true
 		}
 	}
-	if len(covered) != 6 {
+	if d.SchemaVersion == 1 && len(covered) != 6 {
 		add("stages", "phase_coverage_required")
 	}
-	if len(gates) != 4 {
+	if d.SchemaVersion == 1 && len(gates) != 4 {
 		add("stages", "protected_gates_required")
 	}
 	if !portableconfig.SafeProse(d.Name) {

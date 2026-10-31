@@ -1,10 +1,7 @@
 package main
 
 import (
-	"bytes"
 	"context"
-	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/rgomids/axiom/internal/cli"
@@ -44,19 +41,6 @@ func TestCurrentWorkflowStartFreezesReviewedV2ProfileWithoutModelRun(t *testing.
 	saved, err := store.Load(context.Background(), workItemSourceProjectID, "main", workflow.WorkItem{Provider: item.Provider, Resource: item.Resource, ExternalID: item.ExternalID, URL: item.URL, State: item.State})
 	if err != nil || saved.FormatVersion != workflow.OperationalConfiguredFormatVersion || saved.Binding == nil || saved.Binding.FrozenProfile == nil || *saved.Binding.FrozenProfile != *profile {
 		t.Fatal("protected publication lost snapshot", err)
-	}
-	// Preserve the closed Plan parser assertion at current admission, where it is reachable.
-	before := snapshotTrees(t, env.root, env.state, env.elsewhere)
-	invalid := filepath.Join(t.TempDir(), "invalid-plan.json")
-	if err := os.WriteFile(invalid, []byte(`{"formatVersion":1,"plan":{},"authorityCeiling":[],"grant":true}`), 0600); err != nil {
-		t.Fatal(err)
-	}
-	planned := service.WorkflowStagePlan(context.Background(), cli.WorkflowStagePlanInput{Project: "external", Repository: "main", WorkItem: "github:owner/repo#7", Execution: started.Workflow.ExecutionID, ExpectedRevision: 1, Stage: "intake", PlanFile: invalid})
-	if planned.Result.Category != "invalid_stage_plan" || planned.Plan != nil {
-		t.Fatalf("unknown Plan field accepted %+v", planned)
-	}
-	if !bytes.Equal(before, snapshotTrees(t, env.root, env.state, env.elsewhere)) {
-		t.Fatal("refused stage planning mutated state")
 	}
 	input.Execution = started.Workflow.ExecutionID
 	input.RuntimePreview = ""

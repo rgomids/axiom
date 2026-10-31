@@ -123,6 +123,9 @@ type AgentSpec struct {
 	Effort       string   `json:"effort,omitempty"`
 	Instructions string   `json:"instructions,omitempty"`
 	Effects      []string `json:"effects,omitempty"`
+	// Runtimes is the explicit user restriction of permitted Runtimes; empty
+	// means unrestricted. It is intent, never a vendor capability claim.
+	Runtimes []string `json:"runtimes,omitempty"`
 }
 
 type StageSpec struct {
@@ -196,22 +199,25 @@ type Disposition struct {
 	RecordedAt time.Time `json:"recordedAt"`
 }
 
+var ErrWorkspaceDispositionRequired = errors.New("workspace_disposition_required")
+
 type Attempt struct {
-	AttemptID        string           `json:"attemptId"`
-	Number           int              `json:"number"`
-	RunnerGeneration uint64           `json:"runnerGeneration"`
-	Invocation       Invocation       `json:"invocation"`
-	Authority        AttemptAuthority `json:"authority"`
-	Status           AttemptStatus    `json:"status"`
-	PreparedAt       time.Time        `json:"preparedAt"`
-	StartedAt        *time.Time       `json:"startedAt,omitempty"`
-	EndedAt          *time.Time       `json:"endedAt,omitempty"`
-	Process          *ProcessIdentity `json:"process,omitempty"`
-	ExitCode         *int             `json:"exitCode,omitempty"`
-	Diagnostic       string           `json:"diagnostic,omitempty"`
-	Effects          []EffectFact     `json:"effects,omitempty"`
-	Artifacts        []ArtifactRef    `json:"artifacts,omitempty"`
-	Resolution       *Disposition     `json:"resolution,omitempty"`
+	WorkspaceDisposition string           `json:"workspaceDisposition,omitempty"`
+	AttemptID            string           `json:"attemptId"`
+	Number               int              `json:"number"`
+	RunnerGeneration     uint64           `json:"runnerGeneration"`
+	Invocation           Invocation       `json:"invocation"`
+	Authority            AttemptAuthority `json:"authority"`
+	Status               AttemptStatus    `json:"status"`
+	PreparedAt           time.Time        `json:"preparedAt"`
+	StartedAt            *time.Time       `json:"startedAt,omitempty"`
+	EndedAt              *time.Time       `json:"endedAt,omitempty"`
+	Process              *ProcessIdentity `json:"process,omitempty"`
+	ExitCode             *int             `json:"exitCode,omitempty"`
+	Diagnostic           string           `json:"diagnostic,omitempty"`
+	Effects              []EffectFact     `json:"effects,omitempty"`
+	Artifacts            []ArtifactRef    `json:"artifacts,omitempty"`
+	Resolution           *Disposition     `json:"resolution,omitempty"`
 }
 
 type TaskRun struct {
@@ -245,8 +251,12 @@ type Execution struct {
 	Cancel           *CancelIntent       `json:"cancel,omitempty"`
 	Stages           []StageRun          `json:"stages"`
 	Messages         []Message           `json:"messages,omitempty"`
-	CreatedAt        time.Time           `json:"createdAt"`
-	UpdatedAt        time.Time           `json:"updatedAt"`
+	// Selections are the explicit run overrides given by the start action.
+	// They are immutable inputs of every later attempt's resolution; changing
+	// them needs an explicitly authorized new selection on a retry.
+	Selections []Selection `json:"selections,omitempty"`
+	CreatedAt  time.Time   `json:"createdAt"`
+	UpdatedAt  time.Time   `json:"updatedAt"`
 }
 
 // TaskRef addresses one agent task of one stage.
@@ -263,7 +273,61 @@ type NewExecutionInput struct {
 	WorkflowID   string
 	Revision     string
 	Stages       []StageSpec
+	Selections   []Selection
 	Now          time.Time
+}
+
+// Selection is one explicit run override of an invocation field for an
+// agent. An empty StageID applies to that agent ID in every stage.
+type Selection struct {
+	StageID string `json:"stageId,omitempty"`
+	AgentID string `json:"agentId"`
+	Field   string `json:"field"`
+	Value   string `json:"value"`
+}
+
+// SelectionFields are the run-overridable invocation inputs; profile selects
+// an optional reusable tuple at the run level.
+var SelectionFields = []string{"runtime", "model", "effort", "instructions", "profile"}
+
+func validateSelections(e Execution) error {
+	if len(e.Selections) > MaxExecutionStages*MaxStageAgents*len(SelectionFields) {
+		return invalid("selections")
+	}
+	seen := map[Selection]bool{}
+	for _, s := range e.Selections {
+		key := Selection{StageID: s.StageID, AgentID: s.AgentID, Field: s.Field}
+		if seen[key] || !optionalToken(s.StageID) || !ValidToken(s.AgentID) || s.Value == "" {
+			return invalid("selection %s.%s", s.AgentID, s.Field)
+		}
+		seen[key] = true
+		switch s.Field {
+		case "runtime", "effort", "profile":
+			if !ValidToken(s.Value) {
+				return invalid("selection %s.%s", s.AgentID, s.Field)
+			}
+		case "model":
+			if !boundedText(s.Value, 256) {
+				return invalid("selection %s.%s", s.AgentID, s.Field)
+			}
+		case "instructions":
+			if !boundedText(s.Value, MaxInstructionBytes) {
+				return invalid("selection %s.%s", s.AgentID, s.Field)
+			}
+		default:
+			return invalid("selection field %q", s.Field)
+		}
+		matched := false
+		for _, stage := range e.Workflow.Stages {
+			for _, agent := range stage.Agents {
+				matched = matched || agent.ID == s.AgentID && (s.StageID == "" || s.StageID == stage.ID)
+			}
+		}
+		if !matched {
+			return invalid("selection %s.%s names no Workflow agent", s.AgentID, s.Field)
+		}
+	}
+	return nil
 }
 
 // NewExecution validates the Workflow (unique IDs, known dependencies, no
@@ -281,6 +345,7 @@ func NewExecution(in NewExecutionInput) (Execution, error) {
 		ExecutionID: in.ExecutionID, ProjectID: in.ProjectID, WorkItem: in.WorkItem,
 		Repositories: append([]RepositoryBinding(nil), in.Repositories...),
 		Workflow:     snapshot, Revision: 1, Status: RunReady, CreatedAt: now, UpdatedAt: now,
+		Selections: append([]Selection(nil), in.Selections...),
 	}
 	for _, stage := range snapshot.Stages {
 		run := StageRun{StageID: stage.ID, Status: StagePending}
@@ -459,6 +524,9 @@ func (e Execution) Validate() error {
 	if err := validateMessages(e); err != nil {
 		return err
 	}
+	if err := validateSelections(e); err != nil {
+		return err
+	}
 	if !validRunStatus(e.Status) || e.Status != e.derivedStatus() {
 		return invalid("status %q does not match its facts", e.Status)
 	}
@@ -496,6 +564,13 @@ func validateWorkflow(w WorkflowSnapshot, repos map[string]bool) error {
 			agents[a.ID] = true
 			if err := validEffectKinds(a.Effects); err != nil {
 				return err
+			}
+			permitted := map[string]bool{}
+			for _, r := range a.Runtimes {
+				if !ValidToken(r) || permitted[r] {
+					return invalid("stage %q agent %q runtimes", s.ID, a.ID)
+				}
+				permitted[r] = true
 			}
 		}
 		outputs := map[string]bool{}
@@ -550,6 +625,9 @@ func validEffectKinds(kinds []string) error {
 }
 
 func validateAttempt(a Attempt, number int, generation uint64, repos map[string]bool) error {
+	if a.WorkspaceDisposition != "" && (number == 1 || a.WorkspaceDisposition != "preserve") {
+		return invalid("workspace disposition")
+	}
 	if !ValidToken(a.AttemptID) || a.Number != number || a.RunnerGeneration == 0 || a.RunnerGeneration > generation {
 		return invalid("attempt %q identity", a.AttemptID)
 	}

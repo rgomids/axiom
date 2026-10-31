@@ -3,6 +3,7 @@ package workflow
 import (
 	"fmt"
 	"reflect"
+	"slices"
 	"time"
 )
 
@@ -231,6 +232,11 @@ type PrepareInput struct {
 	// Retry permits a new attempt after a failed, cancelled or abandoned
 	// unknown attempt; it never applies to an unresolved unknown.
 	Retry bool
+	// NewSelection marks an explicitly authorized new invocation selection
+	// for a retry. Only with it may the frozen tuple differ from the previous
+	// attempt; the previous attempt and its provenance stay unchanged.
+	NewSelection         bool
+	WorkspaceDisposition string
 }
 
 // PrepareAttempt records the frozen invocation and authority before any
@@ -252,6 +258,8 @@ func (e *Execution) PrepareAttempt(in PrepareInput) error {
 	}
 	last := lastAttempt(*task)
 	switch {
+	case in.NewSelection && !in.Retry:
+		return fmt.Errorf("%w: a new selection applies only to an explicit retry", ErrTransition)
 	case last == nil && in.Retry:
 		return fmt.Errorf("%w: nothing to retry", ErrTransition)
 	case last == nil:
@@ -271,12 +279,18 @@ func (e *Execution) PrepareAttempt(in PrepareInput) error {
 		// Ordinary retry cannot pick up changed machine-local defaults. A new
 		// selection requires a separate explicit authorization contract; Retry
 		// alone grants no permission to replace the frozen invocation.
-		if !reflect.DeepEqual(in.Invocation, last.Invocation) {
+		if !in.NewSelection && !reflect.DeepEqual(in.Invocation, last.Invocation) {
 			return fmt.Errorf("%w: retry requires the frozen invocation", ErrTransition)
 		}
 		if len(task.Attempts) >= MaxTaskAttempts {
 			return fmt.Errorf("%w: attempt limit", ErrTransition)
 		}
+	}
+	if in.WorkspaceDisposition != "" && (!in.Retry || in.WorkspaceDisposition != "preserve") {
+		return ErrTransition
+	}
+	if in.Retry && last != nil && slices.Contains(last.Authority.Effects, "workspace_write") && in.WorkspaceDisposition != "preserve" {
+		return ErrWorkspaceDispositionRequired
 	}
 	allowed := map[string]bool{}
 	for _, k := range agent.Effects {
@@ -287,12 +301,15 @@ func (e *Execution) PrepareAttempt(in PrepareInput) error {
 			return fmt.Errorf("%w: %s exceeds the Workflow agent effect bound", ErrUnauthorizedEffect, k)
 		}
 	}
+	if len(agent.Runtimes) != 0 && !slices.Contains(agent.Runtimes, in.Invocation.Runtime) {
+		return fmt.Errorf("%w: Runtime %s is outside the Workflow agent restriction", ErrUnauthorizedEffect, in.Invocation.Runtime)
+	}
 	if _, _, dup := e.FindAttempt(in.AttemptID); dup {
 		return ErrTransition
 	}
 	task.Attempts = append(task.Attempts, Attempt{
 		AttemptID: in.AttemptID, Number: len(task.Attempts) + 1, RunnerGeneration: in.Generation,
-		Invocation: in.Invocation, Authority: in.Authority, Status: AttemptPrepared, PreparedAt: in.Now.UTC(),
+		Invocation: in.Invocation, Authority: in.Authority, WorkspaceDisposition: in.WorkspaceDisposition, Status: AttemptPrepared, PreparedAt: in.Now.UTC(),
 	})
 	e.touch(in.Now)
 	return e.Validate()

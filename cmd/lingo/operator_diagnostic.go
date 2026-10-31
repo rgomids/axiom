@@ -1,13 +1,11 @@
 package main
 
 import (
-	"encoding/hex"
 	"strconv"
 
 	"github.com/rgomids/axiom/internal/cli"
 	"github.com/rgomids/axiom/internal/completion"
 	"github.com/rgomids/axiom/internal/projectapp"
-	"github.com/rgomids/axiom/internal/stageexecution"
 )
 
 // diagnosticBase uses only bounded, trusted mapper constants. Empty fields
@@ -77,34 +75,10 @@ func bindStageDiagnostic(d *cli.Diagnostic, t stageTarget) {
 	}
 }
 
-// Partial completion requires an existing confirmed reference. Consume only
-// typed application results, never synthesize a reference from error prose.
-func stageConfirmedReferences(status completion.Status, payload any) []string {
-	if status != completion.Partial {
-		return nil
-	}
-	var ref, kind string
-	switch p := payload.(type) {
-	case stageexecution.RunResult:
-		kind = "dispatch-authority:"
-		if p.Publication.Graph != nil {
-			ref = p.Publication.Graph.DispatchAuthorityRef
-		}
-		if p.Publication.Single != nil && len(p.Publication.Single.Run.Authorities) > 0 {
-			ref = p.Publication.Single.Run.Authorities[len(p.Publication.Single.Run.Authorities)-1]
-		}
-	case stageexecution.RetryResult:
-		kind, ref = "retry-authority:", p.AuthorityRef
-	case stageexecution.SingleRetryResult:
-		kind, ref = "retry-authority:", p.AuthorityRef
-	case stageexecution.IntegrateResult:
-		kind, ref = "integration-receipt:", p.ReceiptRef
-	}
-	if wire, err := hex.DecodeString(ref); err == nil && len(wire) == 32 {
-		return []string{kind + ref}
-	}
-	return nil
-}
+// Partial completion requires an existing confirmed reference. Only the
+// retired stage dispatch produced typed partial results; no reference is
+// ever synthesized from error prose, so stage failures carry none.
+func stageConfirmedReferences(completion.Status, any) []string { return nil }
 
 func editFailureDiagnostic(f projectapp.EditFailure) *cli.Diagnostic {
 	category := "edit_invalid_intent"

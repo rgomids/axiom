@@ -413,9 +413,6 @@ func RunInteractive(ctx context.Context, args []string, service Service, source 
 	if handled, code := runWorkflowStage(ctx, mode, args, service, source, stdout); handled {
 		return code
 	}
-	if handled, code := runWorkflowStagePlan(ctx, args, service, source, mode, stdout); handled {
-		return code
-	}
 	if operation, rest, ok := maintenanceAction(args); ok {
 		return runMaintenance(ctx, mode, operation, rest, service, source, stdout)
 	}
@@ -1122,7 +1119,7 @@ func validProviderResource(value string) bool {
 }
 
 func knownWorkflow(operation action) bool {
-	return operation != workflowListAction && operationInGroup(operation, "workflow")
+	return operation != workflowListAction && operation != workflowRunAction && operationInGroup(operation, "workflow")
 }
 
 func known(operation action) bool {

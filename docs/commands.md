@@ -1,33 +1,65 @@
 # Project Commands
 
-## Stage retry workspace disposition
+## Run and inspect a canonical Execution
 
-`workflow stage retry` requires an explicit `--disposition` once the prior
-attempt may have changed its workspace: `preserve` keeps the managed worktree
-as it is, `reset` restores it to the stage base revision. The retry command
-itself only commits the single-use retry receipt and checks the exact managed
-worktree without effects. A `reset` is applied by the detached supervisor,
-while it holds the run lease and before it starts the authorized attempt.
-Immediately before each destructive Git effect, and once after the last one,
-it revalidates the lease epoch, the unchanged pending receipt and ledger
-generation, the exact worktree ownership record, confinement below the
-workspace root and the absence of executable Git filter configuration. The
-worktree must then be clean at its base revision, or no attempt starts.
+`workflow run` resolves an already-linked Work Item and its Project Repository,
+then starts or continues one format-4 Execution. With `--workflow minimal`, it
+uses one work stage and a required `result` output. Without that override it
+uses the selected Project Workflow, or the minimal default if none is selected.
 
-If any check fails, no further effect runs and no attempt is created; the
-receipt stays pending and authorizes nothing else. Inspect `stage status`.
-A single-agent stage resumes its pending receipt with the same `stage run`
-re-invocation; a graph child needs a fresh `stage retry` preview and both
-authorities. Either way the fenced reset repeats from the beginning. Never
-reset a managed worktree manually. JSON and human output carry the same
-canonical result.
+```bash
+axiom --json workflow run --project my-project --repository main \
+  --work-item github:owner/repository#123 --workflow minimal \
+  --select agent.runtime=codex --select agent.model=<chosen-model> \
+  --select agent.effort=runtime-default --authorize-external
+axiom workflow stage status --project my-project --execution <execution-id>
+axiom workflow stage cancel --project my-project --execution <execution-id> --authorize-local
+```
+
+Per-agent overrides use `[<stage-id>/]<agent-id>.<field>=<value>`; fields are
+`runtime`, `model`, `effort`, `instructions`, and optional `profile`. Explicit
+values override the corresponding optional Profile defaults. Missing/conflicting
+inputs refuse. The current public composition requires explicit or Workflow/Profile
+values; the resolver's machine-local default layer is not yet wired publicly.
+Configured validators and before-gates currently refuse before Execution creation;
+they are never silently replaced by a later human approval. A Workflow with
+supported stages and after-gates progresses automatically until a real gate,
+failed required output, cancellation, or unknown effect blocks it.
+
+Retry preserves the frozen invocation unless `--new-selection` explicitly permits
+fresh values. Previous attempt snapshots remain immutable. If the prior attempt
+was allowed workspace writes, inspect that workspace and supply
+`--disposition preserve`. No automatic reset is supported.
+
+```bash
+axiom workflow stage retry --project my-project --execution <execution-id> \
+  --stage work --agent agent --disposition preserve --authorize-external
+axiom workflow stage retry --project my-project --execution <execution-id> \
+  --stage work --agent agent --new-selection --select agent.model=<chosen-model> \
+  --disposition preserve --authorize-external
+axiom workflow stage reconcile --project my-project --execution <execution-id> --authorize-local
+```
+
+Reconcile observes lost-runner attempts; it never signals or replays them. An
+unknown attempt requires an explicit human disposition (`--abandon <attempt-id>
+--authorize-human`) before any eligible retry. Cancellation records intent;
+status distinguishes that request from the runner's observed process stop.
+Exit zero without every declared output is failure. Neither technical completion,
+a process stop nor abandonment proves human acceptance or reversal of effects.
+
+`workflow stage plan`, `run` and `integrate` are retired and return replacement
+guidance. The old lifecycle/delivery/coordination surfaces below still have
+pre-cutover consumers pending structural retirement; they cannot resume or
+convert a canonical Execution. This branch must not be used for a real cutover
+until the [S1 recovery obligations](specifications/015-minimum-viable-operational-workflow/implementation-s1-04.md)
+are closed. No real installed-state operation is implied by these examples.
 
 ## Author and select Project workflows
 
 Project selects, Workflow configures, Work Item runs, Execution performs.
 `axiom-workflow` owns definition list/show/validate/create/edit/remove/migrate/recover
 and read-only configuration readiness. `axiom-project` keeps `workflow.select`;
-`axiom-work-item` keeps `run`, `status` and `plan`. Explicit removed Project
+`axiom-work-item` keeps `run`, `status`. Explicit removed Project
 `workflow.*` authoring skill operations are unsupported; canonical CLI commands
 remain unchanged.
 
@@ -1344,7 +1376,7 @@ typed payloads until their authorized MVP Tasks migrate them. Exit codes remain
 | `$axiom-project` | `workflow.select` → `project workflow select`; `configure` → `project configure`, `list` → `project list`, `show` → `project show`; `validate` / `archive` / `reactivate` / `integration` → [resource lifecycle](#maintain-resource-lifecycle-issue-230) |
 | `$axiom-workflow` | `definition.list/show/validate/create/edit/remove/migrate/recover` → `project workflow` definition commands; `configuration.readiness` → read-only Runtime/Profile validate/preview/status/auth |
 | `$axiom-runtime` | `binding.*` / `profile.*` → canonical `runtime binding` / `runtime profile` authoring; exact preview/apply and scoped recovery |
-| `$axiom-work-item` | `create` → `work-item create|select`, `run` → `workflow start|advance|fact|resume|reconcile`, `status` → `workflow status|evidence|list` (`status` mode `list` → `workflow list`), `plan` → `workflow stage plan`; `list` / `show` / `update` / `comment` / `close` / `reopen` → [resource lifecycle](#maintain-resource-lifecycle-issue-230) |
+| `$axiom-work-item` | `create` → `work-item create|select`, `run` → `workflow start|advance|fact|resume|reconcile`, `status` → `workflow status|evidence|list` (`status` mode `list` → `workflow list`); `list` / `show` / `update` / `comment` / `close` / `reopen` → [resource lifecycle](#maintain-resource-lifecycle-issue-230) |
 
 Skills collect missing selectors conversationally, but Lingo retains validation,
 repository resolution, workflow ordering, and external-mutation authority. Skills
@@ -1855,114 +1887,14 @@ behavior described below; they remain readable and resumable without migration.
 See the [#274 implementation contract](specifications/007-configurable-workflows/issue-274-implementation.md)
 for retention, compatibility and verification details.
 
-### Inspect a stage plan (read-only)
+### Retired stage dispatch contracts
 
-`workflow stage plan` previews how one stage of a configured Execution would run,
-before any agent is authorized. It reads the Execution's retained workflow
-revision (never the current Project selection), binds the stage inputs from the
-retained context and validated stage ledger, resolves each agent's Runtime, Model
-Profile and reasoning effort through the current Project policy and Runtime
-observations, and compiles the stage with the existing graph planner.
-
-```bash
-axiom workflow stage plan --project my-project --repository main \
-  --work-item github:owner/repository#123 --execution <execution-id> \
-  --expected-revision <revision> --stage implementation --plan plan.json
-```
-
-`--plan` is the bounded approved stage Plan document: `formatVersion` `1`, the
-existing graph `plan` (`approved`, `planRevision`, `planDigest`, `maximumNodes`
-and one `work` unit per declared agent, keyed by agent ID, with `scope`,
-`effects` and `controls`; `controls.timeout` is in nanoseconds) and the explicit
-`authorityCeiling` effects. Unknown fields, duplicate keys and other format
-versions are refused, as is a path that is not a regular, non-symlink file.
-Effect targets and Repository paths come only from this document.
-
-The result keeps the canonical completion fields and adds `category`,
-`confirmedEffects` (always empty), `executionRef`, `workflowRef`, `stageId` and
-`plan`. `plan` reports `executionKind` (`single` without a graph, or `graph`
-with `graphProposalRef`), `resolutions`, `validatorRefs`, `gateRefs`, `blockers`,
-the complete `compilation` (agents, dependencies, ordering, concurrency, child
-inputs, required effects and authority ceiling) and its `digest`. The same
-Execution revision, Plan, policy and observations produce the same digest; any
-change requires a fresh plan. A pending `before` human gate is reported as a
-`human_gate_pending:<gate>` blocker: planning never records or satisfies it.
-
-The operation is read-only: it creates no Execution, attempt or artifact, starts
-no Runtime and performs no Provider effect. The proposal is not dispatch
-authority; dispatch belongs to #276. Refusals use fixed categories:
-`stale_execution_revision` (denied), `stage_prerequisite_missing` with
-`missing_input:<id>` conditions, `stage_not_found`, `stage_not_plannable`,
-`configured_binding_required` for historical Executions, `invalid_stage_plan`,
-`invalid_stage_topology`, `runtime_unresolvable`, `unsupported_effort` and
-`authority_denied` (denied). There is no fallback to another Runtime or Profile.
-The Runtime observer checks executable identity and effective effort sources.
-Policy and Profile capability intent remain constraints; vendor behavior is
-observed at execution time rather than certified before planning. Explicit
-effort belongs to the selected Profile. Historical planning Evidence remains in
-the [#275 implementation record](specifications/007-configurable-workflows/issue-275-implementation.md).
-
-### Dispatch and inspect a stage
-
-`workflow stage run` recompiles the pinned stage and previews the exact Runtime,
-Profile, executable and effort-source identity, workspace/inbox roots, validator policy and effects.
-Use the same Project/Repository/Work Item/Execution selectors as `stage plan`:
-
-```bash
-axiom --json workflow stage run --project my-project --repository main \
-  --work-item github:owner/repository#123 --execution <execution-id> \
-  --expected-revision <revision> --stage implementation --plan plan.json \
-  --validator-policy <policy-digest> --workspace-root /absolute/private/workspace \
-  --authorize-local
-# Review stage-preview:<digest>, then repeat with:
-# --preview-digest <digest> --authorize-local --authorize-external
-```
-
-`--authorize-local` also consents to current effort-source inspection. It does
-not permit dispatch without the exact preview digest and external authority.
-The public binary admits permitted configured Codex/Claude without certification,
-version registry, Evidence store or declaration. It rechecks executable identity,
-effort sources and observable auth at each attempt; no fallback is implied.
-Synthetic tests exercise composition without claiming vendor compatibility.
-
-Dispatch persists its inputs and single-use authority before launching a detached
-supervisor. A graph keeps successor Graph4; a single-agent stage keeps its own
-`single_stage_run` v2 ledger and authority v2, bound to the Execution5 generation.
-It never creates a graph for a single agent. Re-invoking `stage run` resumes only
-a pending committed receipt; completed or uncertain attempts are never rerun by
-that command. Each attempt rechecks frozen bindings before spawning. The initiating
-CLI may exit while the supervisor persists outcomes and ingests coordination.
-
-| Operation | Inputs beyond the common selectors | Behavior |
-| --- | --- | --- |
-| `stage status` | none | Reads persisted attempts, classifications, blockers and next actions; does not infer success or a confirmed stop. |
-| `stage cancel` | preview/apply flags | Writes a cancellation request; the supervisor confirms its own group stop or retains `unknown`. |
-| `stage reconcile` | `--child <id> --attempt <id>`, preview/apply flags | Appends observed facts after the supervisor lease is free; refuses a live orphan. Never changes an attempt to success. |
-| `stage retry` | stage/plan/revision/policy, `--child <id>`, preview/apply flags and `--authorize-external` | Starts one budgeted eligible attempt with explicit workspace disposition; see [reset fencing](#stage-retry-workspace-disposition). |
-| `stage integrate` | stage/revision/policy, preview/apply flags; optional repeated `--waive <child>=<reference>` | Applies graph results into the owned integration worktree, runs reviewed validators and persists the rollup/outcome. Single-agent stages refuse `single_stage_operation_unsupported`. |
-
-Preview/apply means omit `--preview-digest` for a preview, then supply its exact
-digest and `--authorize-local` to apply. For single-agent retry/reconciliation,
-`--child` is the Execution ID. Retry never resets the attempt counter. Unknown
-attempts require reconciliation first; identity drift, missing authority,
-corruption and partial publication fail closed.
-
-`workflow coordination list` and `show` inspect canonical ingested records using
-the same selectors (`list` optionally takes `--child`, `--attempt`, `--kind`,
-`--after` and bounded `--wait`; `show` requires `--child` and `--record`).
-`publish --kind <kind> --field <name>=<value>` is child-only: the pinned launcher
-context selects lineage and the private inbox, never caller-supplied selectors.
-The nine kinds are question_request, answer, contract_proposal,
-contract_acceptance, blocker, dependency_resolution, artifact_publication,
-progress and result. These records grant no authority. CLI and installed skill
-routes share the same parsers, guards and canonical completion payloads.
-
-Linux/macOS supervision covers the recorded process group and escapes observable
-through its live leader's ancestry (ADR-0028). Deliberately detached descendants
-that lose that ancestry are outside the MVP guarantee. Only an observable empty
-group confirms stop; otherwise effects remain uncertain. A stage still needs a
-qualifying result record to succeed. Real Runtime smoke and operational acceptance
-remain separately authorized (T40/AC-6).
+Stage Plan and Graph/Single dispatch are retired. Use
+[canonical Execution operations](#run-and-inspect-a-canonical-execution).
+Historical protocol Evidence remains in the
+[#275 record](specifications/007-configurable-workflows/issue-275-implementation.md).
+The following lifecycle reference describes retained pre-cutover consumers, not
+an alternative dispatch engine or authority to resume historical attempts.
 
 Start one workflow from an explicitly selected, already linked Work Item. Project
 is optional only when the effective context resolves, with precedence

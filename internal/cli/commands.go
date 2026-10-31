@@ -67,12 +67,13 @@ func commandTree() commandDefinition {
 			leaf("close", "Preview or close Provider Work Item", workItemCloseAction), leaf("reopen", "Preview or reopen Provider Work Item", workItemReopenAction),
 			leaf("complete", "Compatibility spelling of close", workItemCompleteAction)),
 		group("workflow", "Inspect and drive Executions with explicit authority",
+			leaf("run", "Start or continue the linked Work Item's Execution and progress eligible stages", workflowRunAction),
 			leaf("start", "Preview Runtime resolution or start Execution", workflowStartAction), leaf("advance", "Record technical result or evaluate Intake", workflowAdvanceAction),
 			leaf("fact", "Record explicit lifecycle fact", workflowFactAction), leaf("resume", "Resume committed Execution", workflowResumeAction),
 			leaf("status", "Inspect Execution and next gate action", workflowStatusAction), leaf("evidence", "Inspect Execution Evidence", workflowEvidenceAction),
 			leaf("list", "List local Executions", workflowListAction), leaf("reconcile", "Preview or project lifecycle metadata", workflowReconcileAction),
 			group("delivery", "Inspect reviewed delivery and readiness", leaf("packet", "Compose or inspect the canonical delivery packet", workflowDeliveryPacketAction), leaf("decision", "Inspect or record exact human accept/reject", workflowDeliveryDecisionAction), leaf("rework", "Preview or admit a new linked Execution", workflowDeliveryReworkAction), leaf("prepare", "Preview or prepare a local reviewed commit", workflowDeliveryPrepareAction), leaf("preview", "Review exact delivery effects", workflowDeliveryPreviewAction), leaf("apply", "Apply exact authorized delivery effects", workflowDeliveryApplyAction), leaf("inspect", "Read publication fence and confirmed artifact", workflowDeliveryInspectAction), leaf("reconcile", "Reconcile uncertain delivery without retry", workflowDeliveryReconcileAction)),
-			group("stage", "Plan, dispatch and inspect configured stage agents", workflowStageCommands()...),
+			group("stage", "Inspect and control a canonical Execution's stage attempts", workflowStageCommands()...),
 			group("coordination", "Inspect stage coordination records; children publish", workflowCoordinationCommands()...)),
 		group("compatibility", "Inspect and preserve local compatibility",
 			leaf("inspect", "Inspect compatibility", compatibilityInspectAction), leaf("backup", "Preview or back up state", compatibilityBackupAction), leaf("export", "Preview or export state", compatibilityExportAction)),
@@ -136,8 +137,6 @@ func commandFlagSet(operation action) *flag.FlagSet {
 		return projectContextFlagSet(&ProjectContextInput{Action: strings.TrimPrefix(string(operation), "context_")})
 	case operation == runtimeProfilePreviewAction:
 		return runtimePreviewFlagSet(&RuntimeProfilePreviewInput{}, new(string))
-	case operation == workflowStagePlanAction:
-		return workflowStagePlanFlagSet(&WorkflowStagePlanInput{})
 	case workflowStageOperation(operation):
 		return workflowStageFlagSet(operation, &WorkflowStageInput{})
 	case maintenanceOperation(operation):

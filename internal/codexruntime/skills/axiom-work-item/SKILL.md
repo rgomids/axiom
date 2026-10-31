@@ -18,12 +18,14 @@ names, `requiredWhen` conditions and accepted forms. Never invent a flag. On a
 refusal, read `details` (`<code>` or `<code>:--<flag>`) and change only the
 named input; never repeat an unchanged command.
 
-Supported domain operations are `create`, `run`, `status`, `plan`, `list`, `show`, `update`, `comment`, `close`, `reopen`, `delivery.packet`, `delivery.decision`, `delivery.rework`, `delivery.prepare`, `delivery.preview`, `delivery.apply`, `delivery.inspect`, `delivery.reconcile`, `stage.run`, `stage.status`, `stage.cancel`, `stage.retry`, `stage.reconcile`, `stage.integrate`, `coordination.list`, and `coordination.show`.
+Supported domain operations are `create`, `run`, `status`, `list`, `show`, `update`, `comment`, `close`, `reopen`, `execution.run`, `delivery.packet`, `delivery.decision`, `delivery.rework`, `delivery.prepare`, `delivery.preview`, `delivery.apply`, `delivery.inspect`, `delivery.reconcile`, `stage.status`, `stage.cancel`, `stage.retry`, `stage.reconcile`, `coordination.list`, and `coordination.show`.
 Any other operation, such as `delete` or Execution `cancel`, is unsupported:
 report that it is not available and do not run a Lingo command for it. Work
-Items are closed or reopened, never deleted; sequential Executions have no
-cancellation contract (only a dispatched stage has `stage.cancel`), and
-Execution history and Evidence are never edited. Runtime certification commands
+Items are closed or reopened, never deleted; legacy sequential Executions have
+no cancellation contract (a canonical `execution.run` Execution has
+`stage.cancel`), and Execution history and Evidence are never edited. The
+retired `workflow stage plan`, `stage run` and `stage integrate` commands
+return replacement guidance only. Runtime certification commands
 are retired. Follow inspect → authorize → execute → observe → diagnose/recover;
 use `axiom-runtime` for local Runtime/Profile inspection and configuration.
 Login and successful process exit do not prove successful Stage output.
@@ -39,13 +41,13 @@ Login and successful process exit do not prove successful Stage output.
 | `run` | reconcile | `axiom --json workflow reconcile` | external mutation | preview first; publish only with the exact `--preview-digest` plus `--authorize-external` | only for unambiguous run intent |
 | `status` | - | `axiom --json workflow status`, `axiom --json workflow evidence` | read-only | none | allowed |
 | `status` | list | `axiom --json workflow list --project <uuid-or-slug>` | read-only | none | allowed |
-| `plan` | - | `axiom --json workflow stage plan` | read-only | none; the proposal never dispatches, grants effects or satisfies human gates | allowed |
 | `list` | - | `axiom --json work-item list --project <uuid-or-slug>` | read-only | none | allowed |
 | `show` | - | `axiom --json work-item show --project <uuid-or-slug>` | read-only | none | allowed |
 | `update` | - | `axiom --json work-item update --project <uuid-or-slug>` | external mutation | preview first; update only with the exact `--preview-digest` plus `--authorize-external` | only for unambiguous update intent |
 | `comment` | - | `axiom --json work-item comment --project <uuid-or-slug>` | external mutation | preview first; comment only with the exact `--preview-digest` plus `--authorize-external` | only for unambiguous comment intent |
 | `close` | - | `axiom --json work-item close --project <uuid-or-slug>` | external mutation | preview first; close only with the exact `--preview-digest` plus `--authorize-external` | only for unambiguous close intent |
 | `reopen` | - | `axiom --json work-item reopen --project <uuid-or-slug>` | external mutation | preview first; reopen only with the exact `--preview-digest` plus `--authorize-external` | only for unambiguous reopen intent |
+| `execution.run` | - | `axiom --json workflow run` | external mutation | one run action; spawning the selected Runtimes needs `--authorize-external`; a human gate records only with `--approve-gate` and `--authorize-human` | only for unambiguous run intent |
 | `delivery.packet` | - | `axiom --json workflow delivery packet` | local mutation | preview first; apply only with the exact `--preview-digest` and `--authorize-local` | only for unambiguous delivery packet intent |
 | `delivery.decision` | - | `axiom --json workflow delivery decision` | local mutation | exact `--preview-digest`, `--authorize-local` and `--authorize-human` | only for unambiguous human delivery decision intent |
 | `delivery.rework` | - | `axiom --json workflow delivery rework` | local mutation | exact `--preview-digest`, `--authorize-local` and `--authorize-execution` | only for unambiguous new linked Execution intent |
@@ -54,12 +56,10 @@ Login and successful process exit do not prove successful Stage output.
 | `delivery.apply` | - | `axiom --json workflow delivery apply` | external mutation | exact `--preview-digest`, `--authorize-local`, `--authorize-push` and `--authorize-pr` for requested effects | only for unambiguous delivery intent |
 | `delivery.inspect` | - | `axiom --json workflow delivery inspect` | read-only | none | allowed |
 | `delivery.reconcile` | - | `axiom --json workflow delivery reconcile` | local mutation | exact `--preview-digest` and `--authorize-local` | only for unambiguous delivery intent |
-| `stage.run` | - | `axiom --json workflow stage run` | external mutation | preview first; dispatch only with the exact `--preview-digest`, `--authorize-local` and `--authorize-external` (vendor inference) | only for unambiguous stage run intent |
 | `stage.status` | - | `axiom --json workflow stage status` | read-only | none; persisted state only, never a stop or success claim | allowed |
-| `stage.cancel` | - | `axiom --json workflow stage cancel` | local mutation | preview first; apply only with the exact `--preview-digest` and `--authorize-local` | only for unambiguous stage cancel intent |
-| `stage.retry` | - | `axiom --json workflow stage retry` | external mutation | preview first; dispatch only with the exact `--preview-digest`, `--authorize-local` and `--authorize-external` (vendor inference) | only for unambiguous stage retry intent |
-| `stage.reconcile` | - | `axiom --json workflow stage reconcile` | local mutation | preview first; apply only with the exact `--preview-digest` and `--authorize-local` | only for unambiguous stage reconcile intent |
-| `stage.integrate` | - | `axiom --json workflow stage integrate` | local mutation | preview first; apply only with the exact `--preview-digest` and `--authorize-local` | only for unambiguous stage integrate intent |
+| `stage.cancel` | - | `axiom --json workflow stage cancel` | local mutation | `--authorize-local` records cancel intent only; the runner reports requested versus observed stop | only for unambiguous stage cancel intent |
+| `stage.retry` | - | `axiom --json workflow stage retry` | external mutation | one new attempt with `--authorize-external`; prior writable workspace requires `--disposition` set to `preserve`; `--new-selection` authorizes fresh invocation values | only for unambiguous stage retry intent |
+| `stage.reconcile` | - | `axiom --json workflow stage reconcile` | local mutation | `--authorize-local` records lost-runner attempts unknown; abandoning one needs `--abandon` and `--authorize-human`; nothing is signalled or replayed | only for unambiguous stage reconcile intent |
 | `coordination.list` | - | `axiom --json workflow coordination list` | read-only | none; persisted state only, never a stop or success claim | allowed |
 | `coordination.show` | - | `axiom --json workflow coordination show` | read-only | none; persisted state only, never a stop or success claim | allowed |
 
@@ -285,56 +285,27 @@ To discover Executions without an opaque identity, run
 `axiom --json workflow list --project <uuid-or-slug>` (optionally
 `--repository <key>`) and report the returned `executions`.
 
-## plan
+## execution run
 
-Collect only missing Project, Project-scoped Repository, exact Work Item,
-Execution, expected revision, stage ID and approved Plan file inputs, then run
-`axiom --json workflow stage plan` with the persisted selectors returned by Lingo.
-Never invent the stage, Plan file, scope, effects or authority ceiling: they
-come from the user or the approved Plan. Lingo reads the Execution's retained
-workflow revision, never the current Project selection.
+`axiom --json workflow run` is the one run action for a linked Work Item. Collect
+only a missing Project, Project-scoped Repository and exact existing Work Item;
+there is no Stage Plan, Validator Policy, preview digest or expected revision.
+The Project's selected Workflow is used, or the built-in minimal Workflow when
+none is selected or `--workflow minimal` is given. Per-agent Runtime, model,
+effort and instructions come only from explicit `--select
+[<stage-id>/]<agent-id>.<field>=<value>` inputs, the Workflow agent or an
+explicitly selected existing Profile (`<agent-id>.profile=<id>`); never invent
+or rank them. Effort is an explicit token or `runtime-default`. Spawning needs
+`--authorize-external` from the user; never supply it on your own.
 
-This operation is read-only. Report `plan.executionKind`, `resolutions`,
-`compilation`, `blockers`, `gateRefs` and the `plan.digest` exactly as
-returned. A proposal is not authority: it never dispatches agents, records a
-human fact or grants effects, and a changed Execution, Plan, Project policy or
-Runtime observation requires a fresh plan. A refusal such as
-`runtime_unresolvable`, `unsupported_effort`, `authority_denied` or
-`stage_prerequisite_missing` stops the operation; never retry with a weaker
-constraint, another Runtime or Profile, or a widened authority ceiling.
-
-## acceptance (stage-plan, R-1)
-
-For #275 stage-plan acceptance, first read the exact Execution status and its
-retained `workflowRef`. Prepare the Plan document from the user's intent in
-Runtime scratch as a regular file, outside Project, Repository and Axiom state
-roots. Ask only for material unknowns. A provisional `approved: true` is needed
-for canonical planning, but a Runtime-written value is never human approval.
-Include `planRevision` and `planDigest` as opaque references without authority.
-`planDigest` is the SHA-256 of exact bytes of the reviewed Plan/Tasks artifact
-the user names, or a bounded scope artifact prepared in scratch and shown to
-the user. Drafts are working files, not Evidence.
-
-Run the read-only `plan` operation with the exact Execution revision, stage and
-Plan file. Present the canonical proposal, blockers, scope, effects and bindings.
-Obtain an explicit human confirmation bound to `planDocumentDigest`, Execution
-ID and expected revision, `stageId`, `workflowRef` and `plan.digest`. The document
-digest comes from Lingo canonical encoding; never define a Runtime digest or
-claim byte identity that Lingo does not enforce. Record who confirmed which
-digest only in conversation and the Evidence report (G-5), with no Axiom fact;
-never infer it from the provisional value or a passing technical result. Any
-change to these inputs or policy/Runtime observations requires a fresh proposal
-and confirmation. Never create a new CLI approval operation or record a human
-fact merely because planning succeeded.
-
-Synthetic R-1 acceptance uses the deterministic maintainer runner
-`scripts/acceptance/stage-plan-r1.py` against the exact clean source revision;
-its sanitized Evidence is technical evidence, not human acceptance. R-2/R-3
-remain deferred to #278. Publication/decision/rework (#277) remain unavailable. A proposal
-never performs Execution work; dispatch is the separately authorized
-`stage.run`. Definition configuration
-belongs to `axiom-workflow`, selection belongs to `axiom-project`, and Work Item
-`run`/`status`/`plan` retain the canonical execution boundary.
+Report the returned `stage` Execution exactly: `status`, per-attempt `status`,
+frozen Runtime/model/effort and provenance, `diagnostic`, artifacts and
+`nextAction`. Exit zero alone never proves completion; a stage completes only
+with its declared outputs. Stages whose Workflow declares validators or human
+gates stop at `awaiting_gate`; continue only after real human review with
+`--execution <id> --approve-gate <stage-id> --authorize-human
+--authorize-external`. Start selections are immutable. Definition configuration
+belongs to `axiom-workflow`, selection belongs to `axiom-project`.
 
 ## delivery packet
 
@@ -347,31 +318,22 @@ Packet readiness grants no publication, acceptance or rework authority.
 
 ## stage dispatch and coordination
 
-Stage operations act on one exact Execution, using the persisted selectors
-Lingo returned. Collect only missing selectors, expected revision, stage ID,
-approved Plan file and reviewed validator policy digest; never invent them.
+Stage operations act on one canonical Execution, addressed by `--project` and
+the exact `--execution` returned by `workflow run`; never invent an identity.
+`stage.retry` also names the exact `--stage` and `--agent`.
 
-Every mutation is a two-step protocol. Run the command without authority
-first and present the returned preview unchanged: per-child rights,
-frozen Runtime/Profile identity, confinement (`os-enforced`, `advisory` or `unknown`),
-`not_tested` roots, effects and the digest. Only after an explicit human
-decision for that exact preview, repeat the identical inputs with
-`--preview-digest <digest>` and exactly the authority flags in the routing
-table. `stage.run` and `stage.retry` start vendor inference and need both
-`--authorize-local` and `--authorize-external`; `stage.cancel`,
-`stage.reconcile` and `stage.integrate` need only `--authorize-local`.
-Routing, a preview or a passing status never grants authority, and a skill
-never supplies an authority flag on its own.
-
-Resume after a restart is a `stage.run` re-invocation over the already
-committed authority; there is no separate resume command. Stale or orphan
-attempts need `stage.reconcile` first; `stage.retry` needs an explicit
-`--disposition` after possible workspace effects. `cancellation_requested`
-reports an observed request, never an observed stop. `unknown`,
-`recovery_required` and `partial` / `confirmed_effect_reconciliation_required`
-are reported exactly; never retry an ambiguous effect blindly. Stage
-integration is a local repository effect: it never pushes, opens a PR,
-merges, or accepts the Work Item.
+Use exactly the authority flags in the routing table; routing or a passing
+status never grants authority, and a skill never supplies an authority flag on
+its own. `stage.retry` starts vendor inference and needs `--authorize-external`;
+it reuses the attempt's frozen invocation unless the user explicitly authorizes
+`--new-selection` (optionally with `--select`). `stage.cancel` records intent
+with `--authorize-local` and reports requested versus observed stop.
+`stage.reconcile --authorize-local` observes attempts left by a lost runner
+without signalling anything; they stay `unknown`. Only an explicit human
+decision abandons one with `--abandon <attempt-id> --authorize-human`; its
+effects remain uncertain and are never replayed. `unknown` and
+`recovery_required` are reported exactly; never retry an ambiguous effect
+blindly. Continuing after a restart is `workflow run --execution <id>`.
 
 `coordination.list` and `coordination.show` read canonical records only.
 `axiom --json workflow coordination publish` is used by a running stage child from its
@@ -586,3 +548,10 @@ a refusal: report its `reason` and fall back to `axiom --help`. This skill is
 not a source of truth and never reports itself, or any skill, as loaded; the
 inspector reports `loaded` as `unknown` and reports on-disk skill facts per
 Runtime separately.
+
+For canonical `stage.retry`, a prior writable workspace requires explicit
+`--disposition preserve` after inspection. No automatic reset is supported.
+Configured validators and before-gates currently refuse before Execution creation;
+never replace them with an invented approval. Machine-local invocation defaults
+are not yet wired into the public composition; provide explicit fields or a
+selected Workflow/Profile.

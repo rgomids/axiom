@@ -416,3 +416,15 @@ intent / Work Item
 -> Reconciliation
 -> Release
 ```
+
+## Canonical Execution cutover boundary
+
+[ADR-0037](../decisions/0037-one-canonical-execution-for-new-runs.md)
+selects one format-4 Execution under `executions/v2`, one fenced
+`stageexecution.Engine` and frozen per-attempt invocation/authority. The public
+`workflow run` uses that engine; its status, cancel, retry and reconcile operations
+address the same aggregate. Graph/Single supervisors and dispatch are retired.
+Retained historical lifecycle, delivery and coordination readers are unresolved
+cutover work, not a second supported engine. See
+[recovery Evidence](../specifications/015-minimum-viable-operational-workflow/implementation-s1-04.md)
+for the precise completion limits. No real cutover is certified.

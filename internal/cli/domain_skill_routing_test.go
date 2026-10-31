@@ -406,17 +406,16 @@ var mutatingRequests = map[string][]string{
 	"work-item comment":           {"work-item", "comment", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--message", "Note"},
 	"work-item close":             {"work-item", "close", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7"},
 	"work-item reopen":            {"work-item", "reopen", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7"},
-	"workflow stage run":          {"workflow", "stage", "run", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--execution", "e-1", "--expected-revision", "1", "--stage", "implementation", "--plan", "plan.json", "--validator-policy", "policy", "--workspace-root", "/w"},
-	"workflow stage cancel":       {"workflow", "stage", "cancel", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--execution", "e-1"},
-	"workflow stage retry":        {"workflow", "stage", "retry", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--execution", "e-1", "--expected-revision", "1", "--stage", "implementation", "--plan", "plan.json", "--validator-policy", "policy", "--child", "c-1"},
-	"workflow stage reconcile":    {"workflow", "stage", "reconcile", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--execution", "e-1", "--child", "c-1", "--attempt", "a-1"},
+	"workflow run":                {"workflow", "run", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--select", "agent.runtime=codex"},
+	"workflow stage cancel":       {"workflow", "stage", "cancel", "--project", "alpha", "--execution", "e-1"},
+	"workflow stage retry":        {"workflow", "stage", "retry", "--project", "alpha", "--execution", "e-1", "--stage", "implementation", "--agent", "owner"},
+	"workflow stage reconcile":    {"workflow", "stage", "reconcile", "--project", "alpha", "--execution", "e-1"},
 	"workflow delivery packet":    {"workflow", "delivery", "packet", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--execution", "e-1"},
-	"workflow stage integrate":    {"workflow", "stage", "integrate", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--execution", "e-1", "--expected-revision", "1", "--stage", "implementation", "--validator-policy", "policy"},
 }
 
 // authorityValues are explicit, well-formed values for authority inputs that
 // take a value.
-var authorityValues = map[string]string{"--expected-revision": strings.Repeat("b", 64), "--preview-digest": strings.Repeat("a", 64), "--project-id": "123e4567-e89b-42d3-a456-426614174000"}
+var authorityValues = map[string]string{"--disposition": "preserve", "--expected-revision": strings.Repeat("b", 64), "--preview-digest": strings.Repeat("a", 64), "--project-id": "123e4567-e89b-42d3-a456-426614174000"}
 
 func routedRequest(t *testing.T, operation string, mode skillOperationMode, command string) []string {
 	t.Helper()
@@ -612,11 +611,11 @@ func (p *authorityProbe) WorkflowEvidence(context.Context, WorkflowInput) Result
 func (p *authorityProbe) WorkflowList(context.Context, ExecutionListInput) ExecutionListResponse {
 	return ExecutionListResponse{Result: p.record("workflow list", false, false)}
 }
-func (p *authorityProbe) WorkflowStagePlan(context.Context, WorkflowStagePlanInput) WorkflowStagePlanResponse {
-	return WorkflowStagePlanResponse{Result: p.record("workflow stage plan", false, false)}
-}
 func (p *authorityProbe) WorkflowStage(_ context.Context, input WorkflowStageInput) WorkflowStageResponse {
 	call := "workflow stage " + input.Operation
+	if input.Operation == "execution-run" {
+		call = "workflow run"
+	}
 	if rest, ok := strings.CutPrefix(input.Operation, "delivery-"); ok {
 		call = "workflow delivery " + rest
 	}
@@ -654,9 +653,8 @@ func TestCanonicalReadOnlyCatalogDispatch(t *testing.T) {
 		"axiom workflow list":              {"workflow", "list", "--project", "alpha"},
 		"axiom workflow status":            {"workflow", "status", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--execution", "e-1"},
 		"axiom workflow evidence":          {"workflow", "evidence", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--execution", "e-1"},
-		"axiom workflow stage plan":        {"workflow", "stage", "plan", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--execution", "e-1", "--expected-revision", "1", "--stage", "intake", "--plan", "plan.json"},
 		"axiom workflow delivery packet":   {"workflow", "delivery", "packet", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--execution", "e-1"},
-		"axiom workflow stage status":      {"workflow", "stage", "status", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--execution", "e-1"},
+		"axiom workflow stage status":      {"workflow", "stage", "status", "--project", "alpha", "--execution", "e-1"},
 		"axiom workflow coordination list": {"workflow", "coordination", "list", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--execution", "e-1"},
 		"axiom workflow coordination show": {"workflow", "coordination", "show", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--execution", "e-1", "--child", "c-1", "--record", "r-1"},
 	}

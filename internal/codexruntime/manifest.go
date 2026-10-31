@@ -373,6 +373,14 @@ var sharedSkillHistory = []skillSetRevision{
 		"axiom-work-item": "dfa0a34033dbbf4109f724085e1fed7f813d194362262e68cec683d8ffa6532a",
 		"axiom-workflow":  "899abc6a29c6ece448535f844ddaefb7a2419a9f7cfb0533b534b47af89236b7",
 	}},
+	// Shared revision before the AXM-42 canonical `workflow run` replaced the
+	// retired Stage Plan and Graph/Single stage dispatch routes.
+	{skillSetVersion: "3", binaryCompatibility: "3", skills: map[string]string{
+		"axiom-project":   "d55dbaa480404e437696e5bd534a32ebf40458a2b9d905ec43fd26d6276b6fac",
+		"axiom-runtime":   "ddf3f869d6f3fd0820775d6f488a3bbf50f50a0420d89d625addf6d0b757636e",
+		"axiom-work-item": "6984d22a126856cdd2f3ac755f29ab2c3a040e155a4423a799b1f86a70ff314a",
+		"axiom-workflow":  "8a3162a0c6afc040e121b4fd984354f5f6cb7409965b734f9f2a1e7f3481a77c",
+	}},
 }
 
 // currentRevision is the skill set embedded in this binary.

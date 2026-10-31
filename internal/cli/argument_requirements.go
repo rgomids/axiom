@@ -58,9 +58,6 @@ func skillRequirements(operation action, v requestInput) []inputRequirement {
 	case integrationOperation(operation):
 		return []inputRequirement{{name: "project", required: true, missing: v.project == ""}, {name: "integration", required: true, missing: true}}
 	}
-	if operation == workflowStagePlanAction {
-		return stagePlanRequirements(WorkflowStagePlanInput{})
-	}
 	if workflowStageOperation(operation) {
 		return workflowStageRequirements(operation, WorkflowStageInput{})
 	}
@@ -124,7 +121,7 @@ func missingRequiredInputs(operation action, values requestInput, names ...strin
 func repeatableFlags(set *flag.FlagSet) map[string]bool {
 	result := make(map[string]bool)
 	set.VisitAll(func(f *flag.Flag) {
-		if f.Name == "profile-effort" || f.Name == "agent-profile" {
+		if f.Name == "profile-effort" || f.Name == "agent-profile" || f.Name == "select" {
 			result[f.Name] = true
 		}
 		switch f.Value.(type) {

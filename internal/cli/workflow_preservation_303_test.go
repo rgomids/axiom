@@ -18,7 +18,7 @@ func TestProjectWorkflowSelectionAndWorkItemMetadataPreserved303(t *testing.T) {
 		spec    skillOperationSpec
 		name    string
 		actions []action
-	}{{workItemRun, "run", []action{workflowStartAction, workflowAdvanceAction, workflowFactAction, workflowResumeAction, workflowReconcileAction}}, {workItemStatus, "status", []action{workflowStatusAction, workflowEvidenceAction, workflowListAction}}, {workItemPlan, "plan", []action{workflowStagePlanAction}}} {
+	}{{workItemRun, "run", []action{workflowStartAction, workflowAdvanceAction, workflowFactAction, workflowResumeAction, workflowReconcileAction}}, {workItemStatus, "status", []action{workflowStatusAction, workflowEvidenceAction, workflowListAction}}} {
 		if tc.spec.name != tc.name || !reflect.DeepEqual(tc.spec.actions, tc.actions) {
 			t.Fatalf("metadata changed: %+v", tc.spec)
 		}

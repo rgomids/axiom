@@ -440,7 +440,7 @@ func TestEngineRetryPreservesFrozenSelectionAfterLocalDefaultsChange(t *testing.
 	}
 	f.runner.run = succeed("OUTPUT result\n")
 	ref := workflow.TaskRef{StageID: "work", AgentID: "builder"}
-	x, err = f.engine.Run(context.Background(), "proj", engineExecutionID, RunOptions{Retry: &ref})
+	x, err = f.engine.Run(context.Background(), "proj", engineExecutionID, RunOptions{Retry: &ref, WorkspaceDisposition: "preserve"})
 	if err != nil || x.Status != workflow.RunCompleted || len(x.Stages[0].Tasks[0].Attempts) != 2 {
 		t.Fatalf("retry: %v %s", err, x.Status)
 	}
@@ -462,7 +462,7 @@ func TestEngineRetryRefusesRuntimeRetargeting(t *testing.T) {
 		return inv, authority, err
 	}
 	ref := workflow.TaskRef{StageID: "work", AgentID: "builder"}
-	if _, err := f.engine.Run(context.Background(), "proj", engineExecutionID, RunOptions{Retry: &ref}); !errors.Is(err, workflow.ErrTransition) || f.runner.spawns.Load() != 1 {
+	if _, err := f.engine.Run(context.Background(), "proj", engineExecutionID, RunOptions{Retry: &ref, WorkspaceDisposition: "preserve"}); !errors.Is(err, workflow.ErrTransition) || f.runner.spawns.Load() != 1 {
 		t.Fatalf("runtime retargeted: %v spawns=%d", err, f.runner.spawns.Load())
 	}
 }

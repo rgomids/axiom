@@ -19,11 +19,13 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/rgomids/axiom/internal/executiongraph"
 	"github.com/rgomids/axiom/internal/manifest"
 	"github.com/rgomids/axiom/internal/project"
 	"github.com/rgomids/axiom/internal/projectapp"
+	"github.com/rgomids/axiom/internal/validatorpolicy"
 	"github.com/rgomids/axiom/internal/workflow"
 	"github.com/rgomids/axiom/internal/workflowdefinition"
 	"github.com/rgomids/axiom/internal/workitem"
@@ -397,14 +399,38 @@ func writeEveryV1Kind(t *testing.T) (string, string) {
 		t.Fatal(e)
 	}
 
-	policyStore, err := NewValidatorPolicyStore(state)
+	writeHistoricalValidatorPolicy(t, state, storePolicy())
+	return portable, state
+}
+
+// storePolicy is a reviewed Validator Policy as the retired store published it.
+func storePolicy() validatorpolicy.Policy {
+	d := validatorpolicy.Definition{FormatVersion: 1, ProjectID: "project-1", Commands: []validatorpolicy.Command{{Reference: "tests", Argv: []string{"/synthetic/validator", "test"}, Env: []string{"LC_ALL=C"}, OutputMax: 4096}}}
+	preview, _ := validatorpolicy.PreviewDigest(d)
+	return validatorpolicy.Policy{Definition: d, Review: validatorpolicy.Review{PreviewDigest: preview, ActorKind: "human-operator", Actor: "operator", ReviewedAt: time.Unix(10, 0).UTC(), AuthorityRef: strings.Repeat("a", 64)}}
+}
+
+// writeHistoricalValidatorPolicy places Validator Policy bytes exactly where
+// the retired writer left them; no current writer produces them (Spec 015).
+func writeHistoricalValidatorPolicy(t *testing.T, state string, p validatorpolicy.Policy) {
+	t.Helper()
+	wire, err := validatorpolicy.Encode(p)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := policyStore.Create(context.Background(), storePolicy()); err != nil {
+	id, _ := validatorpolicy.Digest(p)
+	dir := filepath.Join(state, "validator-policies", "v1")
+	if err := os.MkdirAll(dir, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	return portable, state
+	for _, d := range []string{filepath.Dir(dir), dir} {
+		if err := os.Chmod(d, 0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(dir, id+".json"), wire, 0o600); err != nil {
+		t.Fatal(err)
+	}
 }
 
 // corpusMachineRoot replaces the temporary machine path writers record (for

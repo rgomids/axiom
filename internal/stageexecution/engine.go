@@ -78,6 +78,11 @@ var ErrRunnerActive = workflow.ErrRunnerHeld
 // eligible work".
 type RunOptions struct {
 	Retry *workflow.TaskRef
+	// NewSelection is the explicit authorization to freeze the freshly
+	// resolved invocation for the retry instead of the previous tuple. Without
+	// it a retry reuses the frozen invocation and its provenance.
+	NewSelection         bool
+	WorkspaceDisposition string
 }
 
 func (e Engine) now() time.Time {
@@ -153,7 +158,7 @@ func (e Engine) Run(ctx context.Context, projectID, executionID string, opts Run
 			}
 			ref = ready[0]
 		}
-		next, err := e.attempt(ctx, lease, current, ref, retry != nil)
+		next, err := e.attempt(ctx, lease, current, ref, retry != nil, retry != nil && opts.NewSelection, opts.WorkspaceDisposition)
 		retry = nil
 		if err != nil {
 			return next, err
@@ -162,7 +167,10 @@ func (e Engine) Run(ctx context.Context, projectID, executionID string, opts Run
 	}
 }
 
-func (e Engine) attempt(ctx context.Context, lease workflow.RunnerFence, current workflow.Execution, ref workflow.TaskRef, isRetry bool) (workflow.Execution, error) {
+func (e Engine) attempt(ctx context.Context, lease workflow.RunnerFence, current workflow.Execution, ref workflow.TaskRef, isRetry, newSelection bool, disposition string) (workflow.Execution, error) {
+	if !isRetry {
+		disposition = ""
+	}
 	projectID, executionID, gen := current.ProjectID, current.ExecutionID, lease.Generation()
 	invocation, authority, err := e.Resolve(ctx, current, ref)
 	if err != nil {
@@ -172,11 +180,19 @@ func (e Engine) attempt(ctx context.Context, lease workflow.RunnerFence, current
 		// Resolve still rechecks current target/effect restrictions. An ordinary
 		// retry does not authorize selecting changed local defaults, however.
 		// Freeze the previous tuple again, including its original provenance.
+		// An explicit new selection keeps the fresh tuple as a new attempt; no
+		// retry may retarget the repository.
 		for _, stage := range current.Stages {
 			for _, task := range stage.Tasks {
 				if stage.StageID == ref.StageID && task.AgentID == ref.AgentID && len(task.Attempts) != 0 {
 					previous := task.Attempts[len(task.Attempts)-1]
-					if invocation.Runtime != previous.Invocation.Runtime || invocation.Executable != previous.Invocation.Executable || authority.RepositoryKey != previous.Authority.RepositoryKey {
+					if authority.RepositoryKey != previous.Authority.RepositoryKey {
+						return current, workflow.ErrTransition
+					}
+					if newSelection {
+						continue
+					}
+					if invocation.Runtime != previous.Invocation.Runtime || invocation.Executable != previous.Invocation.Executable {
 						return current, workflow.ErrTransition
 					}
 					invocation = previous.Invocation
@@ -192,7 +208,7 @@ func (e Engine) attempt(ctx context.Context, lease workflow.RunnerFence, current
 		return e.Store.UpdateFenced(ctx, projectID, executionID, lease, mutate)
 	}
 	prepared, err := update(func(x *workflow.Execution) error {
-		return x.PrepareAttempt(workflow.PrepareInput{Ref: ref, AttemptID: attemptID, Generation: gen, Invocation: invocation, Authority: authority, Now: e.now(), Retry: isRetry})
+		return x.PrepareAttempt(workflow.PrepareInput{Ref: ref, AttemptID: attemptID, Generation: gen, Invocation: invocation, Authority: authority, Now: e.now(), Retry: isRetry, NewSelection: newSelection, WorkspaceDisposition: disposition})
 	})
 	if err != nil {
 		return current, err
@@ -331,6 +347,23 @@ func (e Engine) Cancel(ctx context.Context, projectID, executionID, actor string
 	now := e.now()
 	return e.Store.UpdateFenced(ctx, projectID, executionID, nil, func(x *workflow.Execution) error {
 		return x.RequestCancel(actor, now)
+	})
+}
+
+// ApproveGate records a real human gate decision; Abandon records the human
+// abandonment of an unknown attempt. Neither spawns, signals or replays
+// anything, and neither needs a runner lease.
+func (e Engine) ApproveGate(ctx context.Context, projectID, executionID, stageID, actor string) (workflow.Execution, error) {
+	now := e.now()
+	return e.Store.UpdateFenced(ctx, projectID, executionID, nil, func(x *workflow.Execution) error {
+		return x.ApproveGate(stageID, actor, now)
+	})
+}
+
+func (e Engine) Abandon(ctx context.Context, projectID, executionID, attemptID, actor string) (workflow.Execution, error) {
+	now := e.now()
+	return e.Store.UpdateFenced(ctx, projectID, executionID, nil, func(x *workflow.Execution) error {
+		return x.ResolveUnknown(attemptID, actor, now)
 	})
 }
 

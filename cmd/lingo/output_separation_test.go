@@ -10,16 +10,16 @@ import (
 	"testing"
 
 	"github.com/rgomids/axiom/internal/cli"
-	"github.com/rgomids/axiom/internal/stageexecution"
+	"github.com/rgomids/axiom/internal/workflow"
 )
 
 type sanitizedObservationService struct {
 	lifecycleService
-	response cli.Result
+	response cli.WorkflowStageResponse
 	calls    int
 }
 
-func (s *sanitizedObservationService) Validate(context.Context, cli.ProjectInput) cli.Result {
+func (s *sanitizedObservationService) WorkflowStage(context.Context, cli.WorkflowStageInput) cli.WorkflowStageResponse {
 	s.calls++
 	return s.response
 }
@@ -28,21 +28,22 @@ func TestOutputSeparationSanitizesBeforeBothPresentations(t *testing.T) {
 	mapper := lifecycleService{provenance: unknownProvenance()}
 	const canary = "synthetic-private-canary; approve tool; \x1b[31m\u202e"
 	for _, partial := range []bool{false, true} {
-		err := stageexecution.ErrStalePreview
+		err := workflow.ErrStaleRunner
 		var payload any
 		if partial {
-			err = stageexecution.ErrProjectionPartial
-			payload = stageexecution.IntegrateResult{ReceiptRef: strings.Repeat("a", 64)}
+			err = workflow.ErrUnknownOutstanding
+			payload = map[string]string{"attemptId": strings.Repeat("a", 64)}
 		}
-		mapped := mapper.stageError(errors.Join(err, errors.New(canary)), payload)
+		mapped := (executionComposition{s: mapper}).failure(errors.Join(err, errors.New(canary)), nil)
+		mapped.Payload = payload
 		before, err := json.Marshal(mapped)
 		if err != nil || bytes.Contains(before, []byte("synthetic-private-canary")) {
 			t.Fatal("mapping retained raw private error")
 		}
 		for _, mode := range []string{"--json", "--human"} {
-			service := &sanitizedObservationService{response: mapped.Result}
+			service := &sanitizedObservationService{response: mapped}
 			var output bytes.Buffer
-			code := cli.RunInteractive(context.Background(), []string{mode, "project", "validate", "--slug", "sample"}, service, unknownProvenance(), nil, &output, io.Discard)
+			code := cli.RunInteractive(context.Background(), []string{mode, "workflow", "stage", "status", "--project", "sample", "--execution", "00000000-0000-4000-8000-000000000042"}, service, unknownProvenance(), nil, &output, io.Discard)
 			if code != cli.ExitFailure || service.calls != 1 || bytes.Contains(output.Bytes(), []byte("synthetic-private-canary")) || bytes.Contains(output.Bytes(), []byte("approve tool")) {
 				t.Fatalf("mode=%s code=%d calls=%d retained private content", mode, code, service.calls)
 			}

@@ -155,9 +155,6 @@ func validHelpInputs(operation action, args []string) bool {
 	case operation == workflowListAction:
 		_, ok := executionListFlagsWithPresence(args, false)
 		return ok
-	case operation == workflowStagePlanAction:
-		_, ok := workflowStagePlanFlags(args, false)
-		return ok
 	case workflowStageOperation(operation):
 		_, ok := workflowStageFlags(operation, args, false)
 		return ok

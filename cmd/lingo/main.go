@@ -37,9 +37,6 @@ var (
 )
 
 func main() {
-	if handled, code := stageSupervisorCommand(context.Background(), os.Args[1:], productionSupervisorLoader{}); handled {
-		os.Exit(code)
-	}
 	if handled, code := cli.HandleHelp(os.Args[1:], currentProvenance(), os.Stdout); handled {
 		os.Exit(code)
 	}

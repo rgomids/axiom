@@ -218,16 +218,11 @@ func TestEverySupportedRecordLoadsThroughItsCanonicalStore(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			// No operational reader remains; the inventory identity must still
+			// match the historical bytes' own digest.
 			id, err := validatorpolicy.Digest(p)
-			if err != nil {
-				t.Fatal(err)
-			}
-			store, err := NewValidatorPolicyStore(state)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if _, err := store.Load(ctx, id); err != nil {
-				t.Errorf("supported policy %s does not load: %v", entry.Relative, err)
+			if err != nil || filepath.Base(entry.Relative) != id+".json" {
+				t.Errorf("historical policy %s identity drift: %v", entry.Relative, err)
 			}
 		case InventoryGraph:
 			decoded, err := executiongraph.DecodeGraphDocument(wire())

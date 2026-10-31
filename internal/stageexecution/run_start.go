@@ -29,6 +29,8 @@ type StartRequest struct {
 	// Workflow is empty for the minimal default.
 	WorkflowID, WorkflowRevision string
 	Stages                       []workflow.StageSpec
+	// Selections are the explicit run overrides frozen as Execution input.
+	Selections []workflow.Selection
 }
 
 // creator is the create half of the Execution store.
@@ -60,10 +62,20 @@ func (e Engine) Start(ctx context.Context, store creator, r StartRequest) (workf
 	x, err := workflow.NewExecution(workflow.NewExecutionInput{
 		ExecutionID: r.ExecutionID, ProjectID: r.ProjectID,
 		WorkItem:     workflow.WorkItemLink{Provider: r.WorkItem.Provider, ID: r.WorkItem.ID, RepositoryKey: r.WorkItem.RepositoryKey},
-		Repositories: r.Repositories, WorkflowID: id, Revision: rev, Stages: stages, Now: e.now(),
+		Repositories: r.Repositories, WorkflowID: id, Revision: rev, Stages: stages, Selections: r.Selections, Now: e.now(),
 	})
 	if err != nil {
 		return workflow.Execution{}, err
+	}
+	// A missing, ambiguous or conflicting selection for any agent refuses
+	// before anything is written; the frozen tuple is still resolved again
+	// when each attempt is prepared.
+	for _, stage := range x.Workflow.Stages {
+		for _, agent := range stage.Agents {
+			if _, _, err := e.Resolve(ctx, x, workflow.TaskRef{StageID: stage.ID, AgentID: agent.ID}); err != nil {
+				return workflow.Execution{}, err
+			}
+		}
 	}
 	if err := store.Create(ctx, x); err != nil {
 		return workflow.Execution{}, err
