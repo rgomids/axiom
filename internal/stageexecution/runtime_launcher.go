@@ -26,6 +26,9 @@ const maxRuntimeArtifactBytes = 1 << 20
 // output area outside the repository. Each attempt gets a new directory.
 // No vendor command, authentication probe or support prediction runs in Build.
 type RuntimeLauncher struct {
+	// ValidateOutput resolves a bounded retained-artifact reference using the
+	// frozen contract. Nil refuses configured validation, never skips it.
+	ValidateOutput                  func(context.Context, workflow.OutputSubject, []byte) (workflow.ArtifactRef, error)
 	Workspace, InboxRoot, AxiomPath string
 	Environment                     []string
 	// Tests replace only the machine-local root lookup, keeping the real
@@ -105,11 +108,71 @@ func (l RuntimeLauncher) Build(ctx context.Context, r LaunchRequest) (executiong
 	}
 	// JSON is data on stdin, never shell syntax or a source of authority. Child
 	// output is accepted only as bounded files with declared names in this inbox.
+	type inputValue struct {
+		WorkItem *workflow.WorkItemLink `json:"workItem,omitempty"`
+		Artifact *workflow.ArtifactRef  `json:"artifact,omitempty"`
+	}
+	inputs := map[string]inputValue{}
+	for _, name := range r.Agent.Inputs {
+		found := false
+		for _, target := range r.Stage.WorkItemInputs {
+			if target == name {
+				inputs[name] = inputValue{WorkItem: &r.Execution.WorkItem}
+				found = true
+			}
+		}
+		for _, input := range r.Stage.StageOutputInputs {
+			if input.Name != name {
+				continue
+			}
+			found = true
+			var selected *workflow.ArtifactRef
+			for _, stage := range r.Execution.Stages {
+				if stage.StageID != input.StageID {
+					continue
+				}
+				if stage.Status != workflow.StageCompleted {
+					return fail()
+				}
+				for _, task := range stage.Tasks {
+					if len(task.Attempts) == 0 {
+						continue
+					}
+					attempt := task.Attempts[len(task.Attempts)-1]
+					if attempt.Status != workflow.AttemptSucceeded {
+						return fail()
+					}
+					for _, artifact := range attempt.Artifacts {
+						if artifact.Name != input.Output {
+							continue
+						}
+						if selected != nil || artifact.RepositoryKey != r.Attempt.Authority.RepositoryKey {
+							return fail()
+						}
+						copy := artifact
+						selected = &copy
+					}
+				}
+			}
+			if selected == nil && input.Required {
+				return fail()
+			}
+			if selected != nil {
+				inputs[name] = inputValue{Artifact: selected}
+			}
+		}
+		if !found {
+			return fail()
+		}
+	}
 	packet := struct {
 		ExecutionID, AttemptID, StageID, AgentID, Instructions, OutputDirectory string
 		RunnerGeneration                                                        uint64
 		Outputs                                                                 []string
-	}{r.Execution.ExecutionID, r.Attempt.AttemptID, r.Ref.StageID, r.Ref.AgentID, frozen.Instructions, inbox, r.Attempt.RunnerGeneration, attemptOutputs(r)}
+		DefinitionDigest                                                        string
+		OutputChecks                                                            []workflow.OutputCheck
+		Inputs                                                                  map[string]inputValue
+	}{r.Execution.ExecutionID, r.Attempt.AttemptID, r.Ref.StageID, r.Ref.AgentID, frozen.Instructions, inbox, r.Attempt.RunnerGeneration, attemptOutputs(r), r.Stage.DefinitionDigest, r.Stage.OutputChecks, inputs}
 	inv.Stdin, err = json.Marshal(packet)
 	if err != nil || len(inv.Stdin) > executiongraph.MaxStdinBytes {
 		return fail()
@@ -161,7 +224,20 @@ func (l RuntimeLauncher) Collect(ctx context.Context, r LaunchRequest, p executi
 		if readErr != nil || closeErr != nil || len(data) > maxRuntimeArtifactBytes {
 			return Outcome{}, ErrRuntimeOutput
 		}
-		out.Artifacts = append(out.Artifacts, workflow.ArtifactRef{Name: name, RepositoryKey: r.Attempt.Authority.RepositoryKey, Digest: workflow.DigestText(data), Size: int64(len(data))})
+		artifact := workflow.ArtifactRef{Name: name, RepositoryKey: r.Attempt.Authority.RepositoryKey, Digest: workflow.DigestText(data), Size: int64(len(data))}
+		for _, check := range r.Stage.OutputChecks {
+			if check.Name != name {
+				continue
+			}
+			if l.ValidateOutput == nil {
+				return Outcome{}, ErrRuntimeOutput
+			}
+			artifact, err = l.ValidateOutput(ctx, workflow.OutputSubject{ExecutionID: r.Execution.ExecutionID, AttemptID: r.Attempt.AttemptID, StageID: r.Ref.StageID, DefinitionDigest: r.Stage.DefinitionDigest, RepositoryKey: r.Attempt.Authority.RepositoryKey, Check: check}, data)
+			if err != nil || artifact.Name != name || artifact.RepositoryKey != r.Attempt.Authority.RepositoryKey || !workflow.ValidToken(artifact.RetainedID) || artifact.Size < 0 {
+				return Outcome{}, ErrRuntimeOutput
+			}
+		}
+		out.Artifacts = append(out.Artifacts, artifact)
 	}
 	return out, nil
 }

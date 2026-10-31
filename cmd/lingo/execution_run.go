@@ -244,7 +244,11 @@ func (c executionComposition) launcher(executionID, repositoryKey string) (stage
 	if err := os.MkdirAll(inbox, 0o700); err != nil {
 		return stageexecution.RuntimeLauncher{}, err
 	}
-	return stageexecution.RuntimeLauncher{Workspace: workspace, InboxRoot: inbox, AxiomPath: axiom, Environment: os.Environ()}, nil
+	artifacts, err := local.NewArtifactStore(c.s.stateRoot)
+	if err != nil {
+		return stageexecution.RuntimeLauncher{}, err
+	}
+	return stageexecution.RuntimeLauncher{Workspace: workspace, InboxRoot: inbox, AxiomPath: axiom, Environment: os.Environ(), ValidateOutput: local.NewWorkflowReferenceValidator(artifacts).ValidateExecutionOutput}, nil
 }
 
 // existingLauncher binds the launcher to a persisted Execution's repository.
@@ -519,7 +523,8 @@ func (c executionComposition) selectedWorkflow(ctx context.Context) (string, str
 }
 
 func mapWorkflowDefinition(d workflowdefinition.Definition) (string, string, []workflow.StageSpec, error) {
-	if _, issues := workflowdefinition.Encode(d); len(issues) != 0 {
+	document, issues := workflowdefinition.Encode(d)
+	if len(issues) != 0 {
 		return "", "", nil, errWorkflowUnmappable
 	}
 	revision := "r" + strconv.Itoa(d.Revision)
@@ -529,10 +534,32 @@ func mapWorkflowDefinition(d workflowdefinition.Definition) (string, string, []w
 	var stages []workflow.StageSpec
 	previous := ""
 	for _, s := range d.Stages {
-		if len(s.Validators) != 0 {
-			return "", "", nil, errWorkflowUnmappable
+		for _, validator := range s.Validators {
+			if validator.PolicyRef != "builtin-sdd-v1" || (validator.Kind != "artifact-schema" && validator.Kind != "evidence-check") {
+				return "", "", nil, errWorkflowUnmappable
+			}
 		}
 		spec := workflow.StageSpec{ID: s.ID, TimeoutSeconds: workflow.DefaultStageTimeout}
+		for _, input := range s.Inputs {
+			switch input.Kind {
+			case "work-item":
+				if input.Source != "target" {
+					return "", "", nil, errWorkflowUnmappable
+				}
+				spec.WorkItemInputs = append(spec.WorkItemInputs, input.ID)
+			case "stage-output":
+				parts := strings.Split(input.Source, "/")
+				if len(parts) != 2 {
+					return "", "", nil, errWorkflowUnmappable
+				}
+				spec.StageOutputInputs = append(spec.StageOutputInputs, workflow.StageOutputInput{Name: input.ID, StageID: parts[0], Output: parts[1], Required: input.Required})
+			default:
+				// Unimplemented context/artifact resolution must not disappear just
+				// because a stage has no validators.
+				return "", "", nil, errWorkflowUnmappable
+			}
+		}
+
 		for _, gate := range s.HumanGates {
 			switch gate.Timing {
 			case "before":
@@ -553,10 +580,27 @@ func mapWorkflowDefinition(d workflowdefinition.Definition) (string, string, []w
 		for _, o := range s.Outputs {
 			if o.Required {
 				spec.Outputs = append(spec.Outputs, o.ID)
+				if len(s.Validators) != 0 {
+					check := workflow.OutputCheck{Name: o.ID, Kind: o.Kind}
+					for _, criterion := range s.CompletionCriteria {
+						for _, validator := range s.Validators {
+							if criterion.OutputRef == o.ID && criterion.ValidatorRef == validator.ID && validator.Kind == "evidence-check" {
+								check.Evidence = true
+							}
+						}
+					}
+					spec.OutputChecks = append(spec.OutputChecks, check)
+					spec.DefinitionDigest = "sha256:" + document.Digest
+				}
+			} else if len(s.Validators) != 0 {
+				// Optional result/input lowering is not implemented yet. Never silently
+				// omit a configured validation obligation.
+				return "", "", nil, errWorkflowUnmappable
 			}
 		}
 		for _, a := range s.Agents {
 			agent := workflow.AgentSpec{ID: a.ID, OutputScope: true, DependsOn: append([]string(nil), a.DependsOn...), Outputs: append([]string(nil), a.Outputs...), TimeoutSeconds: int64(a.TimeoutSeconds), MaximumAttempts: a.MaximumAttempts, Instructions: strings.TrimSpace(s.Instructions + "\n\n" + a.Responsibilities), Runtimes: append([]string(nil), a.RuntimeConstraints...)}
+			agent.Inputs = append([]string(nil), a.Inputs...)
 			// policy-default named the retired Project Runtime policy; the
 			// canonical path uses explicit selections instead of a guess.
 			if a.ProfileRef != "" && a.ProfileRef != "policy-default" {

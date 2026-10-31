@@ -116,6 +116,7 @@ type RepositoryBinding struct {
 // AgentSpec is a Workflow agent: explicit Runtime/model/effort/instructions
 // and optional Profile input. Empty fields fall back by precedence.
 type AgentSpec struct {
+	Inputs          []string `json:"inputs,omitempty"`
 	OutputScope     bool     `json:"outputScope,omitempty"`
 	DependsOn       []string `json:"dependsOn,omitempty"`
 	Outputs         []string `json:"outputs,omitempty"`
@@ -133,14 +134,33 @@ type AgentSpec struct {
 	Runtimes []string `json:"runtimes,omitempty"`
 }
 
+// OutputCheck freezes the installed typed-artifact validator contract. Evidence
+// is an additional retention check, never a substitute for schema validation.
+type OutputCheck struct {
+	Name     string `json:"name"`
+	Kind     string `json:"kind"`
+	Evidence bool   `json:"evidence,omitempty"`
+}
+
+type StageOutputInput struct {
+	Name     string `json:"name"`
+	StageID  string `json:"stageId"`
+	Output   string `json:"output"`
+	Required bool   `json:"required"`
+}
+
 type StageSpec struct {
-	ID             string      `json:"id"`
-	DependsOn      []string    `json:"dependsOn,omitempty"`
-	Agents         []AgentSpec `json:"agents"`
-	Outputs        []string    `json:"outputs,omitempty"`
-	BeforeGate     bool        `json:"beforeGate,omitempty"`
-	HumanGate      bool        `json:"humanGate,omitempty"`
-	TimeoutSeconds int64       `json:"timeoutSeconds"`
+	StageOutputInputs []StageOutputInput `json:"stageOutputInputs,omitempty"`
+	WorkItemInputs    []string           `json:"workItemInputs,omitempty"`
+	DefinitionDigest  string             `json:"definitionDigest,omitempty"`
+	OutputChecks      []OutputCheck      `json:"outputChecks,omitempty"`
+	ID                string             `json:"id"`
+	DependsOn         []string           `json:"dependsOn,omitempty"`
+	Agents            []AgentSpec        `json:"agents"`
+	Outputs           []string           `json:"outputs,omitempty"`
+	BeforeGate        bool               `json:"beforeGate,omitempty"`
+	HumanGate         bool               `json:"humanGate,omitempty"`
+	TimeoutSeconds    int64              `json:"timeoutSeconds"`
 }
 
 // WorkflowSnapshot is the immutable selected Workflow bound at start; its
@@ -193,6 +213,7 @@ type EffectFact struct {
 }
 
 type ArtifactRef struct {
+	RetainedID    string `json:"retainedId,omitempty"`
 	Name          string `json:"name"`
 	RepositoryKey string `json:"repositoryKey"`
 	Digest        string `json:"digest"`
@@ -526,6 +547,18 @@ func (e Execution) Validate() error {
 				if err := validateAttempt(attempt, k+1, e.RunnerGeneration, repos); err != nil {
 					return err
 				}
+				seen := map[string]bool{}
+				for _, artifact := range attempt.Artifacts {
+					if seen[artifact.Name] {
+						return invalid("duplicate attempt artifact")
+					}
+					seen[artifact.Name] = true
+					for _, check := range spec.OutputChecks {
+						if check.Name == artifact.Name && artifact.RetainedID == "" {
+							return invalid("validated artifact requires retained identity")
+						}
+					}
+				}
 			}
 		}
 	}
@@ -570,6 +603,51 @@ func validateWorkflow(w WorkflowSnapshot, repos map[string]bool) error {
 		if s.TimeoutSeconds <= 0 || s.TimeoutSeconds > int64(MaxAttemptTimeout/time.Second) {
 			return invalid("stage %q timeout", s.ID)
 		}
+		if len(s.OutputChecks) > MaxStageOutputs || (len(s.OutputChecks) != 0 && len(s.OutputChecks) != len(s.Outputs)) || (len(s.OutputChecks) != 0 && !validPrefixedDigest(s.DefinitionDigest)) || (len(s.OutputChecks) == 0 && s.DefinitionDigest != "") {
+			return invalid("output validator bounds/digest")
+		}
+		inputs := map[string]bool{}
+		if len(s.WorkItemInputs) > 64 {
+			return invalid("stage input bounds")
+		}
+		for _, name := range s.WorkItemInputs {
+			if !ValidToken(name) || inputs[name] {
+				return invalid("stage input")
+			}
+			inputs[name] = true
+		}
+		if len(s.WorkItemInputs)+len(s.StageOutputInputs) > 64 {
+			return invalid("stage input bounds")
+		}
+		for _, input := range s.StageOutputInputs {
+			if !ValidToken(input.Name) || inputs[input.Name] {
+				return invalid("stage output input")
+			}
+			found := false
+			for j := 0; j < i; j++ {
+				if w.Stages[j].ID != input.StageID {
+					continue
+				}
+				for _, out := range w.Stages[j].Outputs {
+					found = found || out == input.Output
+				}
+			}
+			if !found {
+				return invalid("unavailable stage output input")
+			}
+			inputs[input.Name] = true
+		}
+		checks := map[string]bool{}
+		for _, check := range s.OutputChecks {
+			found := false
+			for _, name := range s.Outputs {
+				found = found || name == check.Name
+			}
+			if !found || checks[check.Name] || (check.Kind != "artifact" && check.Kind != "evidence" && check.Kind != "decision" && check.Kind != "result") {
+				return invalid("output validator")
+			}
+			checks[check.Name] = true
+		}
 		agents := map[string]bool{}
 		for _, a := range s.Agents {
 			if !ValidToken(a.ID) || agents[a.ID] || !optionalToken(a.Profile) || !optionalToken(a.Runtime) || !boundedText(a.Model, 256) || !optionalToken(a.Effort) || !boundedText(a.Instructions, MaxInstructionBytes) {
@@ -578,6 +656,16 @@ func validateWorkflow(w WorkflowSnapshot, repos map[string]bool) error {
 			agents[a.ID] = true
 			if a.MaximumAttempts < 0 || a.MaximumAttempts > MaxTaskAttempts || a.TimeoutSeconds < 0 || a.TimeoutSeconds > int64(MaxAttemptTimeout/time.Second) {
 				return invalid("agent limits")
+			}
+			seenInputs := map[string]bool{}
+			if len(a.Inputs) > 64 {
+				return invalid("agent input bounds")
+			}
+			for _, name := range a.Inputs {
+				if !inputs[name] || seenInputs[name] {
+					return invalid("agent input")
+				}
+				seenInputs[name] = true
 			}
 			seen := map[string]bool{}
 			for _, out := range a.Outputs {
@@ -750,7 +838,7 @@ func validateAttempt(a Attempt, number int, generation uint64, repos map[string]
 		}
 	}
 	for _, r := range a.Artifacts {
-		if !ValidToken(r.Name) || r.RepositoryKey != a.Authority.RepositoryKey || !validPrefixedDigest(r.Digest) || r.Size < 0 {
+		if !optionalToken(r.RetainedID) || !ValidToken(r.Name) || r.RepositoryKey != a.Authority.RepositoryKey || !validPrefixedDigest(r.Digest) || r.Size < 0 {
 			return invalid("attempt %q artifact", a.AttemptID)
 		}
 	}

@@ -478,3 +478,47 @@ func TestExecutionInvalidAgentControlsRefuseBeforeAttempts(t *testing.T) {
 		})
 	}
 }
+
+func TestExecutionOutputContractCodecAndBounds(t *testing.T) {
+	for _, mode := range []string{"valid", "duplicate", "dangling", "empty-kind", "missing-digest", "bad-digest", "dangling-input", "duplicate-input"} {
+		t.Run(mode, func(t *testing.T) {
+			e := twoStageExecution(t, false)
+			s := &e.Workflow.Stages[0]
+			s.DefinitionDigest = DigestText([]byte("definition"))
+			s.OutputChecks = []OutputCheck{{Name: "result", Kind: "evidence", Evidence: true}}
+			s.WorkItemInputs = []string{"source"}
+			s.Agents[0].Inputs = []string{"source"}
+			switch mode {
+			case "duplicate":
+				s.OutputChecks = append(s.OutputChecks, s.OutputChecks[0])
+			case "dangling":
+				s.OutputChecks[0].Name = "other"
+			case "empty-kind":
+				s.OutputChecks[0].Kind = ""
+			case "missing-digest":
+				s.DefinitionDigest = ""
+			case "bad-digest":
+				s.DefinitionDigest = "sha256:bad"
+			case "dangling-input":
+				s.Agents[0].Inputs = []string{"other"}
+			case "duplicate-input":
+				s.WorkItemInputs = append(s.WorkItemInputs, "source")
+			}
+			e.Workflow.Digest, _ = workflowDigest(e.Workflow)
+			wire, err := EncodeExecution(e)
+			if mode != "valid" {
+				if err == nil {
+					t.Fatal("invalid contract accepted")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			back, err := DecodeExecution(wire)
+			if err != nil || !back.Workflow.Stages[0].OutputChecks[0].Evidence || back.Workflow.Stages[0].Agents[0].Inputs[0] != "source" {
+				t.Fatalf("contract lost: %v", err)
+			}
+		})
+	}
+}

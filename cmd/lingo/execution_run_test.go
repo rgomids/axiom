@@ -434,6 +434,11 @@ func TestPublicWorkflowRunTwoStagesProgressWithoutManualIntervention(t *testing.
 
 func TestPublicWorkflowRunRefusesUnsupportedWorkflowControls(t *testing.T) {
 	f := newExecutionRunFixture(t)
+	// Artifact schema checks are now supported. Result-bound human review
+	// remains unsupported and must refuse before writing an Execution.
+	d := workflowdefinition.Builtin().Definition
+	d.Stages[0].Validators[0].Kind = "human-review"
+	f.installWorkflowDefinition(t, d)
 	got := f.run(t, cli.ExitFailure, "workflow", "run", "--project", "external", "--repository", "main", "--work-item", "github:owner/repo#7", "--select", "owner.runtime=codex", "--select", "owner.model=stub-model", "--select", "owner.effort=runtime-default", "--authorize-external")
 	if got.Category != "workflow_unmappable" || len(f.executions(t)) != 0 {
 		t.Fatalf("configured validators silently skipped: %s", got.Raw)
@@ -581,6 +586,78 @@ func TestMapWorkflowDefinitionValidatesBeforeMapping(t *testing.T) {
 		mutation(&d)
 		if _, _, _, err := mapWorkflowDefinition(d); err == nil {
 			t.Fatal("invalid definition mapped")
+		}
+	}
+}
+
+func TestMapWorkflowDefinitionFreezesExactOutputChecks(t *testing.T) {
+	doc := workflowdefinition.Builtin()
+	d := doc.Definition
+	for i := range d.Stages {
+		s := &d.Stages[i]
+		s.Inputs = []workflowdefinition.Input{{ID: "source", Kind: "work-item", Source: "target", Required: true}}
+		for j := range s.Agents {
+			s.Agents[j].Inputs = []string{"source"}
+		}
+		for j := range s.Validators {
+			if s.Validators[j].Kind == "human-review" {
+				s.Validators[j].Kind = "artifact-schema"
+			}
+		}
+		for j := range s.Outputs {
+			s.Outputs[j].Required = true
+		}
+	}
+	document, issues := workflowdefinition.Encode(d)
+	if len(issues) != 0 {
+		t.Fatal(issues)
+	}
+	_, _, stages, err := mapWorkflowDefinition(d)
+	if err != nil {
+		t.Fatal(err)
+	}
+	checks := 0
+	for i, s := range stages {
+		if len(d.Stages[i].Validators) == 0 {
+			continue
+		}
+		if s.DefinitionDigest != "sha256:"+document.Digest || len(s.OutputChecks) != len(s.Outputs) {
+			t.Fatal("lost definition/output contract")
+		}
+		for _, check := range s.OutputChecks {
+			checks++
+			if check.Kind == "" {
+				t.Fatal("lost category")
+			}
+		}
+	}
+	if checks == 0 {
+		t.Fatal("no configured validation exercised")
+	}
+	for _, kind := range []string{"human-review", "uninstalled-validator"} {
+		d.Stages[0].Validators[0].Kind = kind
+		if _, _, _, err := mapWorkflowDefinition(d); err == nil {
+			t.Fatal("unsupported validator accepted")
+		}
+	}
+}
+
+func TestMapWorkflowDefinitionNeverDropsUnsupportedInputs(t *testing.T) {
+	for _, validators := range []bool{false, true} {
+		doc, _ := workflowdefinition.BuiltinRevision(2)
+		d := doc.Definition
+		d.Stages = d.Stages[:1]
+		if !validators {
+			d.Stages[0].Validators = []workflowdefinition.Validator{}
+			d.Stages[0].CompletionCriteria = []workflowdefinition.Criterion{}
+		}
+		d.Stages[0].Inputs[0].Kind = "project-context"
+		d.Stages[0].Inputs[0].Source = "unresolved-context"
+		if _, issues := workflowdefinition.Encode(d); len(issues) != 0 {
+			t.Fatal(issues)
+		}
+		if _, _, _, err := mapWorkflowDefinition(d); err == nil {
+			t.Fatal("unresolved input silently omitted")
 		}
 	}
 }

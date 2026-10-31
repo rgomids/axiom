@@ -34,8 +34,24 @@ Workflow agent values, which win over local defaults. No candidate is ranked;
 conflicting entries, malformed JSON and missing selectors refuse. The array is
 limited to 16 entries and 64 KiB. Keep secrets out of these inputs.
 
-Configured validators still refuse before Execution creation; they are never
-replaced by human approval. Supported output-only Workflows preserve per-agent
+Configured `artifact-schema` and `evidence-check` validators using
+`builtin-sdd-v1` accept bounded JSON output references (`kind`, `id`, `digest`)
+to retained typed artifacts. Validation checks schema, category, successful
+outcome, content digest and exact definition/stage/output/attempt/repository
+correlation; Evidence checks additionally require evidence retention. The
+launcher packet supplies the definition digest and output checks. References
+use an unprefixed SHA-256 digest; the Execution records the retained artifact ID
+and prefixed content digest. Required metadata references are `workflow-stage`,
+`workflow-definition` (unprefixed digest), `workflow-output`, `workflow-attempt`
+and `workflow-repository`, each exactly once.
+
+This bounded path supports required outputs, `work-item` inputs from `target`
+and unambiguous outputs of completed earlier stages in the same repository.
+Inputs are lowered even when a stage has no validators. Unresolved project
+context/artifact inputs, optional outputs with validators, unknown policies and
+`human-review` validators refuse before creation. A gate cannot replace
+result-bound human review. Input/context lowering and authorized validation
+commands remain incomplete. Supported output-only Workflows preserve per-agent
 outputs, dependencies, explicit timeouts and maximum attempts. Eligible work
 progresses serially; parallel dispatch remains S2. Before-gates stop before any
 agent attempt; after-gates stop after successful outputs. Approve only after real

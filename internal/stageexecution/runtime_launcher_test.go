@@ -198,3 +198,89 @@ func TestRuntimeLauncherRefusesUnsafeMachineLocalInputs(t *testing.T) {
 		})
 	}
 }
+
+func TestRuntimeLauncherConfiguredValidationCannotBeSkipped(t *testing.T) {
+	for _, mode := range []string{"missing-adapter", "refused", "validated"} {
+		t.Run(mode, func(t *testing.T) {
+			l, r := runtimeLauncherFixture(t, "codex", "runtime-default")
+			r.Stage.DefinitionDigest = "sha256:" + strings.Repeat("a", 64)
+			r.Stage.OutputChecks = []workflow.OutputCheck{{Name: "result", Kind: "evidence", Evidence: true}}
+			if _, err := l.Build(context.Background(), r); err != nil {
+				t.Fatal(err)
+			}
+			inbox, _ := l.inbox(r)
+			if err := os.WriteFile(filepath.Join(inbox, "result"), []byte(`{"kind":"artifact"}`), 0600); err != nil {
+				t.Fatal(err)
+			}
+			calls := 0
+			if mode != "missing-adapter" {
+				l.ValidateOutput = func(_ context.Context, s workflow.OutputSubject, data []byte) (workflow.ArtifactRef, error) {
+					calls++
+					if s.AttemptID != r.Attempt.AttemptID || s.ExecutionID != r.Execution.ExecutionID || s.RepositoryKey != "app" || s.StageID != "work" || s.DefinitionDigest != r.Stage.DefinitionDigest || !s.Check.Evidence || string(data) != `{"kind":"artifact"}` {
+						t.Fatal("uncorrelated subject")
+					}
+					if mode == "refused" {
+						return workflow.ArtifactRef{}, ErrRuntimeOutput
+					}
+					return workflow.ArtifactRef{Name: "result", RetainedID: "retained", RepositoryKey: "app", Digest: workflow.DigestText([]byte("actual artifact")), Size: 15}, nil
+				}
+			}
+			out, err := l.Collect(context.Background(), r, executiongraph.ProcessResult{ExitCode: 0})
+			if mode == "validated" {
+				if err != nil || calls != 1 || len(out.Artifacts) != 1 || out.Artifacts[0].RetainedID != "retained" {
+					t.Fatalf("%+v %v", out, err)
+				}
+			} else if err == nil || len(out.Artifacts) != 0 {
+				t.Fatal("validator bypassed")
+			}
+		})
+	}
+}
+
+func TestRuntimeLauncherResolvesOnlyCompletedUnambiguousStageInputs(t *testing.T) {
+	for _, mode := range []string{"valid", "pending", "unknown", "missing", "wrong-repository", "duplicate", "unconfigured"} {
+		t.Run(mode, func(t *testing.T) {
+			l, r := runtimeLauncherFixture(t, "codex", "runtime-default")
+			r.Agent.Inputs = []string{"source"}
+			r.Stage.StageOutputInputs = []workflow.StageOutputInput{{Name: "source", StageID: "prior", Output: "result", Required: true}}
+			artifact := workflow.ArtifactRef{Name: "result", RepositoryKey: "app", Digest: workflow.DigestText([]byte("retained result")), Size: 15}
+			attempt := workflow.Attempt{Status: workflow.AttemptSucceeded, Artifacts: []workflow.ArtifactRef{artifact}}
+			r.Execution.Stages = []workflow.StageRun{{StageID: "prior", Status: workflow.StageCompleted, Tasks: []workflow.TaskRun{{AgentID: "producer", Attempts: []workflow.Attempt{attempt}}}}}
+			switch mode {
+			case "pending":
+				r.Execution.Stages[0].Status = workflow.StagePending
+			case "unknown":
+				r.Execution.Stages[0].Tasks[0].Attempts[0].Status = workflow.AttemptUnknown
+			case "missing":
+				r.Execution.Stages[0].Tasks[0].Attempts[0].Artifacts = nil
+			case "wrong-repository":
+				r.Execution.Stages[0].Tasks[0].Attempts[0].Artifacts[0].RepositoryKey = "other"
+			case "duplicate":
+				r.Execution.Stages[0].Tasks = append(r.Execution.Stages[0].Tasks, r.Execution.Stages[0].Tasks[0])
+			case "unconfigured":
+				r.Stage.StageOutputInputs = nil
+			}
+			inv, err := l.Build(context.Background(), r)
+			if mode != "valid" {
+				if err == nil {
+					t.Fatal("invalid input supplied to child")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			var packet struct {
+				Inputs map[string]struct {
+					Artifact workflow.ArtifactRef `json:"artifact"`
+				}
+			}
+			if err := json.Unmarshal(inv.Stdin, &packet); err != nil {
+				t.Fatal(err)
+			}
+			if packet.Inputs["source"].Artifact.Digest != artifact.Digest {
+				t.Fatal("lost input correlation")
+			}
+		})
+	}
+}

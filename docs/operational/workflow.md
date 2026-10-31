@@ -39,8 +39,15 @@ and `--disposition preserve`; no automatic reset is supported.
 
 Supported before-gates require actual human approval before any attempt starts;
 after-gates require successful outputs first. Use the returned next action for
-that stage. Configured validators currently refuse before Execution creation
-until their exact controls are implemented. Parallel scheduling, collaboration
+that stage. Configured `artifact-schema` and `evidence-check` under
+`builtin-sdd-v1` validate retained typed artifacts with exact attempt/repository
+and definition/stage/output correlation. They accept bounded JSON artifact
+references, not plain output files. The supported subset has required outputs
+and Work Item inputs from `target`, plus completed earlier-stage output references
+from the same repository. Unresolved project context/artifact inputs, optional validated outputs,
+unknown policies and result-bound `human-review` refuse before creation. See
+[command reference](../commands.md) for the metadata contract. Full input/context
+lowering and authorized validation commands remain incomplete. Parallel scheduling, collaboration
 and integration are not delivered by this serial path.
 
 Inspect `workflow stage status --execution <id>` after an attempt. Cancel records
