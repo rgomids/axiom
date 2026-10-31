@@ -4,7 +4,7 @@
 
 [Specification (Proposed)](015-minimum-viable-operational-workflow/spec.md)
 from [AXM-42](https://linear.app/rgomids/issue/AXM-42) / [PR #366](https://github.com/rgomids/axiom/pull/366):
-structural reduction proposal (correction-02): prefer delete/consolidate over
+structural reduction proposal (correction-04): prefer delete/consolidate over
 hidden policy/plan, duplicate execution and delivery machinery; one Execution
 state, one run path, bounded legacy retirement and safety outcomes.
 [Investigation](../research/axm-42-minimum-viable-workflow-investigation.md)
