@@ -1,0 +1,3675 @@
+{
+  "source_sha": "0a65d9a90e907fe1904241a82878e0196418e351",
+  "scope": "Go candidate envelope, not entire repository; overlapping A-L files deduplicated; physical lines include comments/blanks; symbol counts are declarations, not semantic API reachability; format markers are occurrences, not unique codecs.",
+  "selection": "[p for p in paths if p.endswith('.go') and (p.startswith(('internal/stageexecution/','internal/executiongraph/','internal/validatorpolicy/','internal/coordination/')) or re.search(r'^internal/local/(graph|single_stage|stage_|run_lease|coordination|delivery|workflow_store)',p) or re.search(r'^internal/workflow/(delivery|stage_|configured|gates|service|execution_target)',p) or re.search(r'^internal/runtimeapplication/policy_v4',p) or re.search(r'^internal/runtimeadapter/(authpreflight|effort_sources|stage_effort)',p) or re.search(r'^internal/cli/workflow_stage',p) or re.search(r'^cmd/lingo/(stage_|delivery|workflow)',p))]",
+  "totals": {
+    "physical_lines": 40192,
+    "files": 172,
+    "production_files": 88,
+    "test_files": 84,
+    "production_lines": 21872,
+    "test_lines": 18320,
+    "exported_types": 287,
+    "exported_functions": 832
+  },
+  "files": [
+    {
+      "path": "cmd/lingo/delivery.go",
+      "test": false,
+      "physical_lines": 240,
+      "exported_types": [],
+      "exported_functions": [
+        "Reference",
+        "Artifact",
+        "Stage"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/cli",
+        "github.com/rgomids/axiom/internal/completion",
+        "github.com/rgomids/axiom/internal/coordination",
+        "github.com/rgomids/axiom/internal/detailartifact",
+        "github.com/rgomids/axiom/internal/executiongraph",
+        "github.com/rgomids/axiom/internal/local",
+        "github.com/rgomids/axiom/internal/workflow",
+        "github.com/rgomids/axiom/internal/workflowdefinition"
+      ],
+      "format_markers": []
+    },
+    {
+      "path": "cmd/lingo/delivery_decision.go",
+      "test": false,
+      "physical_lines": 103,
+      "exported_types": [],
+      "exported_functions": [],
+      "imports": [
+        "github.com/rgomids/axiom/internal/cli",
+        "github.com/rgomids/axiom/internal/completion",
+        "github.com/rgomids/axiom/internal/local",
+        "github.com/rgomids/axiom/internal/workflow"
+      ],
+      "format_markers": []
+    },
+    {
+      "path": "cmd/lingo/delivery_publication.go",
+      "test": false,
+      "physical_lines": 219,
+      "exported_types": [],
+      "exported_functions": [
+        "ObserveDelivery",
+        "PushDelivery",
+        "CreateDeliveryPR"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/cli",
+        "github.com/rgomids/axiom/internal/completion",
+        "github.com/rgomids/axiom/internal/githubissues",
+        "github.com/rgomids/axiom/internal/gitworkspace",
+        "github.com/rgomids/axiom/internal/local",
+        "github.com/rgomids/axiom/internal/strictjson",
+        "github.com/rgomids/axiom/internal/workflow",
+        "github.com/rgomids/axiom/internal/workitem"
+      ],
+      "format_markers": [
+        "if record.FormatVersion == 0 {"
+      ]
+    },
+    {
+      "path": "cmd/lingo/stage_adversarial_blackbox_test.go",
+      "test": true,
+      "physical_lines": 725,
+      "exported_types": [],
+      "exported_functions": [
+        "TestInstalledSyntheticSingleLifecycleAdversarial",
+        "TestInstalledSyntheticSingleSupervisorCrashAndReconcile",
+        "TestInstalledSyntheticSingleLedgerCorruptionFailsClosed",
+        "TestInstalledSyntheticSingleLineageCapacityAndAdmission",
+        "TestInstalledOperationalDiagnosticsBothAdapters",
+        "TestInstalledGraphOperationalDiagnosticsBothAdapters",
+        "TestInstalledIdentityDriftAndRetiredCommandsBothAdapters"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/executiongraph",
+        "github.com/rgomids/axiom/internal/stageexecution"
+      ],
+      "format_markers": []
+    },
+    {
+      "path": "cmd/lingo/stage_dispatch.go",
+      "test": false,
+      "physical_lines": 421,
+      "exported_types": [],
+      "exported_functions": [
+        "Observe",
+        "Preview",
+        "Check",
+        "Build",
+        "Commit",
+        "Prepare",
+        "CommitRetry",
+        "Dispose",
+        "ResetChild",
+        "ValidateCapability"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/cli",
+        "github.com/rgomids/axiom/internal/completion",
+        "github.com/rgomids/axiom/internal/executiongraph",
+        "github.com/rgomids/axiom/internal/gitworkspace",
+        "github.com/rgomids/axiom/internal/local",
+        "github.com/rgomids/axiom/internal/runtimeadapter",
+        "github.com/rgomids/axiom/internal/runtimeapplication",
+        "github.com/rgomids/axiom/internal/stageexecution",
+        "github.com/rgomids/axiom/internal/stagepublication",
+        "github.com/rgomids/axiom/internal/workflow",
+        "github.com/rgomids/axiom/internal/workflowcompiler",
+        "github.com/rgomids/axiom/internal/workflowdefinition"
+      ],
+      "format_markers": [
+        "if _, err = p.Singles.CommitDispatchInputs(ctx, executiongraph.DispatchInputs{FormatVersion: executiongraph.OperationalDispatchInputsVersion, ProjectID: run.Scope.ProjectID, ParentID: run.Scope.ExecutionID, PreviewDigest: run.Binding.PreviewDigest, Preview: wire}); err != nil {",
+        "if _, err = p.Graphs.CommitDispatchInputs(ctx, executiongraph.DispatchInputs{FormatVersion: executiongraph.OperationalDispatchInputsVersion, ProjectID: v.Authority.ProjectID, ParentID: v.Authority.ParentID, PreviewDigest: v.Authority.PreviewDigest, Preview: wire}); err != nil {"
+      ]
+    },
+    {
+      "path": "cmd/lingo/stage_dispatch_test.go",
+      "test": true,
+      "physical_lines": 166,
+      "exported_types": [],
+      "exported_functions": [
+        "TestStageDisposerChecksDispositionWithoutEffects",
+        "TestRetainedDispatchPublicationAndSupervisorInput",
+        "TestRetainedDispatchRefusesForgedInnerDigest",
+        "TestPublishRefusesAbsentRunningContext"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/cli",
+        "github.com/rgomids/axiom/internal/executiongraph",
+        "github.com/rgomids/axiom/internal/local",
+        "github.com/rgomids/axiom/internal/stageexecution",
+        "github.com/rgomids/axiom/internal/stagepublication",
+        "github.com/rgomids/axiom/internal/workflowcompiler"
+      ],
+      "format_markers": [
+        "if _, err = graphs.CommitDispatchInputs(ctx, executiongraph.DispatchInputs{FormatVersion: 2, ProjectID: r.ProjectID, ParentID: r.ParentID, PreviewDigest: r.PreviewDigest, Preview: wire}); err != nil {"
+      ]
+    },
+    {
+      "path": "cmd/lingo/stage_effort.go",
+      "test": false,
+      "physical_lines": 45,
+      "exported_types": [],
+      "exported_functions": [],
+      "imports": [
+        "github.com/rgomids/axiom/internal/local",
+        "github.com/rgomids/axiom/internal/runtimeadapter",
+        "github.com/rgomids/axiom/internal/runtimeprofile",
+        "github.com/rgomids/axiom/internal/stageexecution"
+      ],
+      "format_markers": []
+    },
+    {
+      "path": "cmd/lingo/stage_effort_test.go",
+      "test": true,
+      "physical_lines": 26,
+      "exported_types": [],
+      "exported_functions": [
+        "TestProductionEffortInspectorComposition"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/executiongraph",
+        "github.com/rgomids/axiom/internal/stageexecution"
+      ],
+      "format_markers": []
+    },
+    {
+      "path": "cmd/lingo/stage_fake_runtime_test.go",
+      "test": true,
+      "physical_lines": 252,
+      "exported_types": [],
+      "exported_functions": [],
+      "imports": [
+        "github.com/rgomids/axiom/internal/coordination",
+        "github.com/rgomids/axiom/internal/runtimeadapter"
+      ],
+      "format_markers": []
+    },
+    {
+      "path": "cmd/lingo/stage_journey_blackbox_test.go",
+      "test": true,
+      "physical_lines": 1193,
+      "exported_types": [],
+      "exported_functions": [
+        "TestInstalledSyntheticSingleStageJourney",
+        "TestInstalledSyntheticSingleStageRetryReset",
+        "TestInstalledSyntheticGraphStageJourney",
+        "TestInstalledSyntheticGraphConflictRetryReset",
+        "TestDeliveryCLIValidatedCheckpointsWithoutRuns"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/cli",
+        "github.com/rgomids/axiom/internal/detailartifact",
+        "github.com/rgomids/axiom/internal/executiongraph",
+        "github.com/rgomids/axiom/internal/local",
+        "github.com/rgomids/axiom/internal/projectapp",
+        "github.com/rgomids/axiom/internal/runtimeadapter",
+        "github.com/rgomids/axiom/internal/stageexecution",
+        "github.com/rgomids/axiom/internal/validatorpolicy",
+        "github.com/rgomids/axiom/internal/workflow",
+        "github.com/rgomids/axiom/internal/workflowdefinition"
+      ],
+      "format_markers": [
+        "d := validatorpolicy.Definition{FormatVersion: 1, ProjectID: workItemSourceProjectID, Commands: []validatorpolicy.Command{{Reference: \"synthetic-check\", Argv: []string{\"/usr/bin/true\"}, Env: []string{\"LC_ALL=C\"}, OutputMax: 4096}}}",
+        "content, err = json.Marshal(workflow.DeliveryReview{FormatVersion: 1, ExecutionID: view.ExecutionID, DefinitionDigest: view.Binding.Definition.Digest, StageID: view.CurrentGate, InputsDigest: hex.EncodeToString(sum[:]), Outcome: \"pass\", Findings: []workflow.DeliveryFinding{}, Waivers: []workflow.DeliveryWaiver{}})"
+      ]
+    },
+    {
+      "path": "cmd/lingo/stage_publish.go",
+      "test": false,
+      "physical_lines": 146,
+      "exported_types": [],
+      "exported_functions": [
+        "ResolveChild",
+        "ResolveChild"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/cli",
+        "github.com/rgomids/axiom/internal/coordination",
+        "github.com/rgomids/axiom/internal/executiongraph",
+        "github.com/rgomids/axiom/internal/local"
+      ],
+      "format_markers": []
+    },
+    {
+      "path": "cmd/lingo/stage_service.go",
+      "test": false,
+      "physical_lines": 793,
+      "exported_types": [],
+      "exported_functions": [
+        "WorkflowStage",
+        "StageSnapshot",
+        "RequestCancel",
+        "AppendReconciliation",
+        "LeaseHeld",
+        "Process",
+        "ObserveReconciliation",
+        "Records",
+        "Acquire",
+        "Save",
+        "CommitIntegrationReceipt",
+        "LoadIntegrationReceipt",
+        "Observe",
+        "Apply",
+        "Validate"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/cli",
+        "github.com/rgomids/axiom/internal/completion",
+        "github.com/rgomids/axiom/internal/coordination",
+        "github.com/rgomids/axiom/internal/executiongraph",
+        "github.com/rgomids/axiom/internal/gitworkspace",
+        "github.com/rgomids/axiom/internal/local",
+        "github.com/rgomids/axiom/internal/projectapp",
+        "github.com/rgomids/axiom/internal/runtimeprofile",
+        "github.com/rgomids/axiom/internal/stageexecution",
+        "github.com/rgomids/axiom/internal/workflow",
+        "github.com/rgomids/axiom/internal/workflowcompiler",
+        "github.com/rgomids/axiom/internal/workflowdefinition"
+      ],
+      "format_markers": []
+    },
+    {
+      "path": "cmd/lingo/stage_single.go",
+      "test": false,
+      "physical_lines": 412,
+      "exported_types": [],
+      "exported_functions": [
+        "LoadSingle",
+        "SingleContract",
+        "AcquireSingle",
+        "SaveSingle",
+        "SingleSnapshot",
+        "RequestSingleCancel",
+        "AppendSingleReconciliation",
+        "CommitSingleRetry",
+        "ObserveSingle",
+        "DisposeSingle",
+        "ResetSingle",
+        "LoadSingleSupervisor",
+        "PrepareSingle",
+        "DrainSingle",
+        "LoadSingleAttempt"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/cli",
+        "github.com/rgomids/axiom/internal/coordination",
+        "github.com/rgomids/axiom/internal/executiongraph",
+        "github.com/rgomids/axiom/internal/gitworkspace",
+        "github.com/rgomids/axiom/internal/local",
+        "github.com/rgomids/axiom/internal/projectapp",
+        "github.com/rgomids/axiom/internal/runtimeadapter",
+        "github.com/rgomids/axiom/internal/stageexecution",
+        "github.com/rgomids/axiom/internal/stagepublication",
+        "github.com/rgomids/axiom/internal/workflow"
+      ],
+      "format_markers": []
+    },
+    {
+      "path": "cmd/lingo/stage_supervisor.go",
+      "test": false,
+      "physical_lines": 236,
+      "exported_types": [],
+      "exported_functions": [
+        "LoadRetry",
+        "Acquire",
+        "LoadSupervisor",
+        "Prepare",
+        "Drain",
+        "LoadAttempt"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/cli",
+        "github.com/rgomids/axiom/internal/coordination",
+        "github.com/rgomids/axiom/internal/executiongraph",
+        "github.com/rgomids/axiom/internal/local",
+        "github.com/rgomids/axiom/internal/projectapp",
+        "github.com/rgomids/axiom/internal/runtimeadapter",
+        "github.com/rgomids/axiom/internal/stageexecution"
+      ],
+      "format_markers": []
+    },
+    {
+      "path": "cmd/lingo/stage_supervisor_test.go",
+      "test": true,
+      "physical_lines": 17,
+      "exported_types": [],
+      "exported_functions": [
+        "TestHiddenSupervisorShellInvocationFailsClosed"
+      ],
+      "imports": [],
+      "format_markers": []
+    },
+    {
+      "path": "cmd/lingo/workflow_authoring.go",
+      "test": false,
+      "physical_lines": 203,
+      "exported_types": [],
+      "exported_functions": [
+        "ProjectWorkflow",
+        "ObserveWorkflows",
+        "PublishWorkflowRevision",
+        "PublishWorkflowSelection",
+        "ObserveWorkflowProfiles"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/cli",
+        "github.com/rgomids/axiom/internal/completion",
+        "github.com/rgomids/axiom/internal/local",
+        "github.com/rgomids/axiom/internal/manifest",
+        "github.com/rgomids/axiom/internal/project",
+        "github.com/rgomids/axiom/internal/projectapp",
+        "github.com/rgomids/axiom/internal/provenance",
+        "github.com/rgomids/axiom/internal/runtimeapplication",
+        "github.com/rgomids/axiom/internal/runtimeprofile",
+        "github.com/rgomids/axiom/internal/workflowdefinition"
+      ],
+      "format_markers": []
+    },
+    {
+      "path": "cmd/lingo/workflow_authoring_test.go",
+      "test": true,
+      "physical_lines": 181,
+      "exported_types": [],
+      "exported_functions": [
+        "TestExecutableWorkflowDefaultCustomEditSelectAndRetire",
+        "TestWorkflowPartialCompletionRetainsConfirmedReference",
+        "TestWorkflowCancellationUsesInterruptedCompletion"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/completion",
+        "github.com/rgomids/axiom/internal/projectapp",
+        "github.com/rgomids/axiom/internal/provenance",
+        "github.com/rgomids/axiom/internal/workflowdefinition"
+      ],
+      "format_markers": []
+    },
+    {
+      "path": "cmd/lingo/workflow_binding.go",
+      "test": false,
+      "physical_lines": 180,
+      "exported_types": [],
+      "exported_functions": [
+        "ResolveDefinition"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/local",
+        "github.com/rgomids/axiom/internal/project",
+        "github.com/rgomids/axiom/internal/projectapp",
+        "github.com/rgomids/axiom/internal/workflow",
+        "github.com/rgomids/axiom/internal/workflowdefinition"
+      ],
+      "format_markers": []
+    },
+    {
+      "path": "cmd/lingo/workflow_binding_test.go",
+      "test": true,
+      "physical_lines": 260,
+      "exported_types": [],
+      "exported_functions": [
+        "TestConfiguredExecutableRevisionIsolationAndAuthority"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/cli",
+        "github.com/rgomids/axiom/internal/detailartifact",
+        "github.com/rgomids/axiom/internal/local",
+        "github.com/rgomids/axiom/internal/projectapp",
+        "github.com/rgomids/axiom/internal/workflow",
+        "github.com/rgomids/axiom/internal/workflowdefinition"
+      ],
+      "format_markers": []
+    },
+    {
+      "path": "cmd/lingo/workflow_gates_test.go",
+      "test": true,
+      "physical_lines": 179,
+      "exported_types": [],
+      "exported_functions": [
+        "TestWorkflowGateCommandConvergesAcrossCLIAndRuntime",
+        "TestWorkflowFactCommandNamesExplicitAuthorityAndCondition",
+        "Validate",
+        "TestReturnedGateCommandsCarryWholeJourneyAndRequireAuthority",
+        "Resolve",
+        "Load",
+        "Create",
+        "Load",
+        "Save"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/cli",
+        "github.com/rgomids/axiom/internal/provenance",
+        "github.com/rgomids/axiom/internal/workflow"
+      ],
+      "format_markers": []
+    },
+    {
+      "path": "cmd/lingo/workflow_stage_plan.go",
+      "test": false,
+      "physical_lines": 173,
+      "exported_types": [],
+      "exported_functions": [
+        "ValidateCapability",
+        "WorkflowStagePlan"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/cli",
+        "github.com/rgomids/axiom/internal/completion",
+        "github.com/rgomids/axiom/internal/executiongraph",
+        "github.com/rgomids/axiom/internal/projectapp",
+        "github.com/rgomids/axiom/internal/runtimeapplication",
+        "github.com/rgomids/axiom/internal/workflow",
+        "github.com/rgomids/axiom/internal/workflowcompiler"
+      ],
+      "format_markers": []
+    },
+    {
+      "path": "cmd/lingo/workflow_stage_plan_file_test.go",
+      "test": true,
+      "physical_lines": 42,
+      "exported_types": [],
+      "exported_functions": [
+        "TestReadPlanDocumentRefusesNonRegularFiles"
+      ],
+      "imports": [],
+      "format_markers": []
+    },
+    {
+      "path": "cmd/lingo/workflow_stage_plan_test.go",
+      "test": true,
+      "physical_lines": 489,
+      "exported_types": [],
+      "exported_functions": [
+        "TestWorkflowStagePlanExecutableFailsClosedAndNeverMutates",
+        "Load",
+        "ObserveExecutable",
+        "ObserveOperational",
+        "TestWorkflowStagePlanPublicJourneySingleAndMixedRuntimeGraph"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/cli",
+        "github.com/rgomids/axiom/internal/executiongraph",
+        "github.com/rgomids/axiom/internal/local",
+        "github.com/rgomids/axiom/internal/manifest",
+        "github.com/rgomids/axiom/internal/project",
+        "github.com/rgomids/axiom/internal/projectapp",
+        "github.com/rgomids/axiom/internal/runtimeapplication",
+        "github.com/rgomids/axiom/internal/runtimeprofile",
+        "github.com/rgomids/axiom/internal/workflowcompiler",
+        "github.com/rgomids/axiom/internal/workflowdefinition"
+      ],
+      "format_markers": [
+        "wire, err := json.MarshalIndent(workflowcompiler.PlanDocument{FormatVersion: 1, Plan: plan, AuthorityCeiling: ceiling}, \"\", \"  \")",
+        "if err := os.WriteFile(invalid, []byte(`{\"formatVersion\":1,\"plan\":{},\"authorityCeiling\":[],\"grant\":true}`), 0o600); err != nil {",
+        "cfg := runtimeprofile.ConfigurationV3{FormatVersion: runtimeprofile.FormatVersionV3, Revision: 1}"
+      ]
+    },
+    {
+      "path": "internal/cli/workflow_stage.go",
+      "test": false,
+      "physical_lines": 342,
+      "exported_types": [
+        "WorkflowStageInput",
+        "WorkflowStageService",
+        "WorkflowStageResponse"
+      ],
+      "exported_functions": [],
+      "imports": [
+        "github.com/rgomids/axiom/internal/provenance"
+      ],
+      "format_markers": []
+    },
+    {
+      "path": "internal/cli/workflow_stage_plan.go",
+      "test": false,
+      "physical_lines": 164,
+      "exported_types": [
+        "WorkflowStagePlanInput",
+        "WorkflowStagePlanService",
+        "WorkflowStagePlanResponse"
+      ],
+      "exported_functions": [],
+      "imports": [
+        "github.com/rgomids/axiom/internal/completion",
+        "github.com/rgomids/axiom/internal/provenance",
+        "github.com/rgomids/axiom/internal/workflowcompiler",
+        "github.com/rgomids/axiom/internal/workflowdefinition"
+      ],
+      "format_markers": []
+    },
+    {
+      "path": "internal/cli/workflow_stage_test.go",
+      "test": true,
+      "physical_lines": 219,
+      "exported_types": [],
+      "exported_functions": [
+        "WorkflowStage",
+        "TestWorkflowStageCommandsRouteExactInputs",
+        "TestWorkflowStageParserRefusals",
+        "TestWorkflowCancelRemainsInvalidCommand",
+        "TestWorkflowStageJSONAndHumanParity",
+        "TestWorkflowStageExitCodesFollowCanonicalStatus",
+        "TestWorkflowStageHelpAndUnavailableApplication",
+        "WorkflowStage",
+        "TestDeliveryPacketJSONAndHumanExposeSameReadiness",
+        "TestOperatorStageDiagnosticUsesCanonicalEmitter"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/completion",
+        "github.com/rgomids/axiom/internal/provenance"
+      ],
+      "format_markers": []
+    },
+    {
+      "path": "internal/coordination/classify_test.go",
+      "test": true,
+      "physical_lines": 63,
+      "exported_types": [],
+      "exported_functions": [
+        "TestResultOutcomeEnum",
+        "TestAttemptCapacityReserve"
+      ],
+      "imports": [],
+      "format_markers": []
+    },
+    {
+      "path": "internal/coordination/coordination.go",
+      "test": false,
+      "physical_lines": 514,
+      "exported_types": [
+        "Kind",
+        "UsageStatus",
+        "UsageObservation",
+        "Provenance",
+        "Field",
+        "Record",
+        "Stream",
+        "Input",
+        "Store",
+        "Service",
+        "AcceptanceVerifier",
+        "ResultOutcome"
+      ],
+      "exported_functions": [
+        "New",
+        "Publish",
+        "ValidRecord",
+        "VerifyCoordination",
+        "Encode",
+        "Decode",
+        "ValidStream",
+        "EncodeStream",
+        "DecodeStream",
+        "ClassifierRecord",
+        "AttemptCapacity",
+        "CheckAttemptCapacity"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/executiongraph"
+      ],
+      "format_markers": [
+        "FormatVersion    = 1",
+        "FormatVersion  int               `json:\"formatVersion\"`",
+        "FormatVersion int      `json:\"formatVersion\"`",
+        "FormatVersion: FormatVersion, RecordID: recordID, Kind: input.Kind, ParentID: input.ParentID, ChildID: input.ChildID,",
+        "if record.FormatVersion != FormatVersion || !validID(record.RecordID) || !validKind(record.Kind) || !validID(record.ParentID) || !validID(record.ChildID) || record.GraphRevision == 0 || record.Revision == 0 || record.Revision > maxStreamRecords || record.CreatedAt.IsZero() || !validDigest(record.Digest) || !validProvenance(record.Provenance) || len(record.Fields) == 0 || len(record.Fields) > maxFields {",
+        "if stream.FormatVersion != FormatVersion || !validID(stream.ParentID) || !validID(stream.ChildID) || len(stream.Records) == 0 || len(stream.Records) > maxStreamRecords {"
+      ]
+    },
+    {
+      "path": "internal/coordination/coordination_test.go",
+      "test": true,
+      "physical_lines": 215,
+      "exported_types": [],
+      "exported_functions": [
+        "Latest",
+        "Publish",
+        "TestPublishEveryStructuredKindWithLineage",
+        "TestRejectsStaleControlRawChatCredentialAndOversize",
+        "TestRejectsSensitiveCoordinationValuesWithoutKeywordFalsePositives",
+        "TestUsageObservationIsTruthful",
+        "TestAcceptanceEvidenceProjectsVerifiedCorrelation"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/executiongraph"
+      ],
+      "format_markers": [
+        "for _, wire := range [][]byte{nil, wire[:len(wire)-1], append(append([]byte(nil), wire...), wire...), []byte(strings.Replace(string(wire), `\"formatVersion\"`, `\"extra\":1,\"formatVersion\"`, 1))} {",
+        "graph := executiongraph.Graph{FormatVersion: executiongraph.GraphFormatVersion, Parent: executiongraph.ParentExecution{ExecutionID: parentID, GraphRevision: 1, ProposalDigest: \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\", AuthorityDigest: hex.EncodeToString(digest[:]), AuthorityEffects: effects, IntegrationChild: integrationID, CreatedAt: time.Unix(1, 0).UTC()}, Children: []executiongraph.ChildExecution{"
+      ]
+    },
+    {
+      "path": "internal/coordination/inbox.go",
+      "test": false,
+      "physical_lines": 102,
+      "exported_types": [
+        "ChildContext",
+        "Candidate",
+        "AttemptInbox",
+        "ChildResolver",
+        "InboxPublisher"
+      ],
+      "exported_functions": [
+        "ValidChildContext",
+        "Create",
+        "Publish"
+      ],
+      "imports": [],
+      "format_markers": [
+        "r := Record{FormatVersion: FormatVersion, RecordID: id, Kind: kind, ParentID: c.ParentID, ChildID: c.ChildID, AttemptID: c.AttemptID, GraphRevision: c.GraphRevision, Revision: 1, Provenance: provenance, Fields: sortedFields(fields), Usage: usage, CreatedAt: now().UTC()}"
+      ]
+    },
+    {
+      "path": "internal/coordination/ingest.go",
+      "test": false,
+      "physical_lines": 188,
+      "exported_types": [
+        "InboxDrain",
+        "AttemptFence",
+        "Ingestor"
+      ],
+      "exported_functions": [
+        "Drain",
+        "Classify"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/executiongraph"
+      ],
+      "format_markers": []
+    },
+    {
+      "path": "internal/coordination/read.go",
+      "test": false,
+      "physical_lines": 104,
+      "exported_types": [
+        "StreamReader",
+        "Filter",
+        "Reader"
+      ],
+      "exported_functions": [
+        "List",
+        "Show",
+        "Wait"
+      ],
+      "imports": [],
+      "format_markers": []
+    },
+    {
+      "path": "internal/coordination/read_test.go",
+      "test": true,
+      "physical_lines": 224,
+      "exported_types": [],
+      "exported_functions": [
+        "ReadStream",
+        "TestReaderListShowEachKindAndFilters",
+        "TestReaderWaitNewRecordTimeoutAndCancellation",
+        "TestReaderWaitRequiresCallerDeadlineAndShorterBound",
+        "TestReaderRejectsTamperedStream",
+        "TestReaderRejectsUnencodableRecord"
+      ],
+      "imports": [],
+      "format_markers": [
+        "record := Record{FormatVersion: FormatVersion, RecordID: fmt.Sprintf(\"00000000-0000-4000-8000-%012d\", n+100), Kind: kind, ParentID: s.stream.ParentID, ChildID: s.stream.ChildID, AttemptID: attempt, GraphRevision: 1, Revision: uint64(n + 1), Provenance: testProvenance(), Fields: []Field{kindField(kind)}, CreatedAt: time.Unix(20, 0).UTC()}",
+        "return &readableStream{stream: Stream{FormatVersion: 1, ParentID: \"00000000-0000-4000-8000-000000000001\", ChildID: \"00000000-0000-4000-8000-000000000002\"}}"
+      ]
+    },
+    {
+      "path": "internal/executiongraph/acceptance.go",
+      "test": false,
+      "physical_lines": 478,
+      "exported_types": [
+        "ChildRunPlan",
+        "RunEnvelope",
+        "Evidence",
+        "RuntimeExecutionEvidence",
+        "CoordinationEvidence",
+        "CoordinationVerifier"
+      ],
+      "exported_functions": [
+        "PrepareRunEnvelope",
+        "BuildEvidence"
+      ],
+      "imports": [],
+      "format_markers": [
+        "FormatVersion       int",
+        "if !ValidGraph(graph) || envelope.FormatVersion != 1 || !validTarget(envelope.Activity) || !validSourceRevision(envelope.BaseRevision) || envelope.ParentID != graph.Parent.ExecutionID || envelope.GraphRevision != graph.Parent.GraphRevision || !validTarget(envelope.ConfigurationRef) || !validDigest(envelope.ConfigurationDigest) || len(envelope.Children) != len(graph.Children) || len(envelope.Validators) == 0 || len(envelope.ExpectedEvidence) == 0 || envelope.CleanupDisposition != \"preserve_pending_human_review\" {",
+        "FormatVersion        int",
+        "if !ValidGraph(graph) || evidence.FormatVersion != 1 || !validSourceRevision(evidence.BaseRevision) || !validDigest(evidence.ConfigurationDigest) || evidence.ParentID != graph.Parent.ExecutionID || evidence.GraphRevision != graph.Parent.GraphRevision || !validCoordinationEvidence(graph, evidence.Coordination) || !boundedReferences(evidence.ValidationReferences) || len(evidence.Limitations) == 0 || !boundedReferences(evidence.Limitations) || !validEvidenceRollup(graph, evidence.Rollup) || !validDispatchEvidence(graph, evidence.Dispatch) || !validRuntimeExecutionEvidence(graph, evidence.RuntimeExecutions) {"
+      ]
+    },
+    {
+      "path": "internal/executiongraph/acceptance_journey_test.go",
+      "test": true,
+      "physical_lines": 421,
+      "exported_types": [],
+      "exported_functions": [
+        "TestBuildEvidenceDerivesRealRuntimeStatusFromCompleteJourney",
+        "TestBuildEvidenceRejectsForeignRuntimeProfileOrAttempt",
+        "TestBuildEvidenceRequiresObservedConcurrentExecution",
+        "TestBuildEvidenceRequiresStructuredCoordinationExchange",
+        "TestBuildEvidenceRejectsForgedOrTamperedCoordination",
+        "TestBuildEvidenceRejectsForeignCoordinationLineage",
+        "Latest",
+        "Publish"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/coordination",
+        "github.com/rgomids/axiom/internal/executiongraph"
+      ],
+      "format_markers": [
+        "evidence := Evidence{FormatVersion: 1, BaseRevision: \"8a9ca19fd260bc19f5bb288b449e8dc6df618194\", ConfigurationDigest: DigestOf(\"config\"), ParentID: graph.Parent.ExecutionID, GraphRevision: graph.Parent.GraphRevision, Dispatch: dispatch, RuntimeExecutions: runtimeExecutions, Rollup: rollup, ValidationReferences: []string{\"go-test\"}, Limitations: []string{\"usage unavailable\"}}"
+      ]
+    },
+    {
+      "path": "internal/executiongraph/acceptance_test.go",
+      "test": true,
+      "physical_lines": 46,
+      "exported_types": [],
+      "exported_functions": [
+        "TestPrepareRunEnvelopeBindsExactGraphProfilesCommandsAndCleanup",
+        "TestBuildEvidenceCannotClaimRealRunFromPreparation",
+        "TestBuildEvidenceRejectsCallerAssertedCoordination"
+      ],
+      "imports": [],
+      "format_markers": [
+        "envelope := RunEnvelope{FormatVersion: 1, Activity: \"Add runtime profile validation command and documentation\", BaseRevision: \"8a9ca19fd260bc19f5bb288b449e8dc6df618194\", ParentID: graph.Parent.ExecutionID, GraphRevision: graph.Parent.GraphRevision, ConfigurationRef: \"runtime-profile-config:t36\", ConfigurationDigest: digestOf(\"config\"), Validators: []string{\"go-test\", \"repository-validator\"}, ExpectedEvidence: []string{\"concurrency-trace\", \"integration-result\", \"coordination-records\"}, CleanupDisposition: \"preserve_pending_human_review\"}",
+        "evidence, err := BuildEvidence(graph, Evidence{FormatVersion: 1, Status: \"real_run_recorded\", BaseRevision: \"8a9ca19fd260bc19f5bb288b449e8dc6df618194\", ConfigurationDigest: digestOf(\"config\"), ParentID: graph.Parent.ExecutionID, GraphRevision: graph.Parent.GraphRevision, Rollup: rollup, ValidationReferences: []string{\"go-test\"}, Limitations: []string{\"real Codex plus Claude run not executed\"}}, nil)",
+        "base := Evidence{FormatVersion: 1, BaseRevision: \"8a9ca19fd260bc19f5bb288b449e8dc6df618194\", ConfigurationDigest: digestOf(\"config\"), ParentID: graph.Parent.ExecutionID, GraphRevision: graph.Parent.GraphRevision, Rollup: rollupGraph(graph), ValidationReferences: []string{\"go-test\"}, Limitations: []string{\"usage unavailable\"}}"
+      ]
+    },
+    {
+      "path": "internal/executiongraph/attempt_diagnostic.go",
+      "test": false,
+      "physical_lines": 170,
+      "exported_types": [
+        "AttemptDiagnostic"
+      ],
+      "exported_functions": [
+        "ValidateAttemptDiagnostic",
+        "DiagnoseAttempt"
+      ],
+      "imports": [],
+      "format_markers": []
+    },
+    {
+      "path": "internal/executiongraph/attempt_diagnostic_test.go",
+      "test": true,
+      "physical_lines": 220,
+      "exported_types": [],
+      "exported_functions": [
+        "TestAttemptDiagnosticClosedCategories",
+        "TestAttemptDiagnosticRejectsRawPayloads",
+        "TestOperationalDiagnosticCannotRewriteAttempt",
+        "TestOperationalDiagnosticUncertaintyRequiresCanonicalUnknown",
+        "TestDiagnoseAttemptSeparatesCauseAndEffects",
+        "TestDiagnoseAttemptNoSpawnAndResultFailures"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/strictjson"
+      ],
+      "format_markers": []
+    },
+    {
+      "path": "internal/executiongraph/classify.go",
+      "test": false,
+      "physical_lines": 92,
+      "exported_types": [
+        "ClassificationReason",
+        "AttemptRecord",
+        "AttemptCorrelation"
+      ],
+      "exported_functions": [
+        "LatestAttemptRecord",
+        "ClassifyAttempt",
+        "ClassifyIntegrationAttempt"
+      ],
+      "imports": [],
+      "format_markers": []
+    },
+    {
+      "path": "internal/executiongraph/classify_test.go",
+      "test": true,
+      "physical_lines": 89,
+      "exported_types": [],
+      "exported_functions": [
+        "TestClassifyAttemptRules",
+        "TestLatestAttemptRecordTotalOrdering",
+        "TestClassifyIntegrationReasons"
+      ],
+      "imports": [],
+      "format_markers": []
+    },
+    {
+      "path": "internal/executiongraph/consumers.go",
+      "test": false,
+      "physical_lines": 76,
+      "exported_types": [
+        "SuccessorConsumer"
+      ],
+      "exported_functions": [
+        "LoadSuccessorConsumer",
+        "Ready",
+        "Status",
+        "WorkspaceProjection"
+      ],
+      "imports": [],
+      "format_markers": [
+        "var ErrUnsupportedGraphFormat = errors.New(\"unsupported_graph_format\")",
+        "historical := Graph{FormatVersion: g.projectionVersion(), Parent: g.Parent}"
+      ]
+    },
+    {
+      "path": "internal/executiongraph/consumers_test.go",
+      "test": true,
+      "physical_lines": 342,
+      "exported_types": [],
+      "exported_functions": [
+        "TestConsumerPersistedStateMatrix",
+        "TestConsumerLoadInvariants",
+        "TestConsumerLateRecordsAndIndependentSnapshot",
+        "TestConsumerBatchConcurrency",
+        "TestConsumerIntegrationCanonicalBinding",
+        "TestConsumerReconciliationRetryWithoutPromotion",
+        "TestConsumerHistoricalDocumentsRefused",
+        "TestConsumerPersistedCancellationRefusesDispatchAndIntegration",
+        "TestConsumerIntegrationPreviewReconciledAttemptCount"
+      ],
+      "imports": [],
+      "format_markers": []
+    },
+    {
+      "path": "internal/executiongraph/dispatch_authority.go",
+      "test": false,
+      "physical_lines": 138,
+      "exported_types": [
+        "DispatchAuthority",
+        "DispatchChildAuthority"
+      ],
+      "exported_functions": [
+        "ValidateDispatchAuthority",
+        "EncodeDispatchAuthority",
+        "DecodeDispatchAuthority",
+        "DispatchAuthorityDigest",
+        "ValidateGraphDispatchAuthority",
+        "CheckFirstDispatch"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/strictjson"
+      ],
+      "format_markers": [
+        "FormatVersion      int                      `json:\"formatVersion\"`",
+        "if a.FormatVersion != 1 || !validToken(a.ProjectID) || !successorDigest(a.PreviewDigest) || !validOpaqueID(a.ParentID) || a.Revision == 0 || !successorDigest(a.ProposalDigest) || a.ActorKind != \"human-operator\" || !boundedIdentity(a.Actor) || !utc(a.RecordedAt) || len(a.Children) == 0 || len(a.Children) > maxListItems {"
+      ]
+    },
+    {
+      "path": "internal/executiongraph/dispatch_authority_test.go",
+      "test": true,
+      "physical_lines": 66,
+      "exported_types": [],
+      "exported_functions": [
+        "TestDispatchAuthorityScopeAndBinding",
+        "TestDispatchAuthorityClosedCodec"
+      ],
+      "imports": [],
+      "format_markers": [
+        "a := DispatchAuthority{FormatVersion: 1, ProjectID: g.Children[0].Envelope.Scope.ProjectID, PreviewDigest: strings.Repeat(\"a\", 64), Scope: \"graph-first-attempts\", ParentID: g.Parent.ExecutionID, Revision: g.Parent.GraphRevision, ProposalDigest: g.Parent.ProposalDigest, ActorKind: \"human-operator\", Actor: \"operator\", RecordedAt: g.Parent.CreatedAt}",
+        "for _, wire := range [][]byte{append([]byte(`{\"unknown\":true,`), b[1:]...), append([]byte(`{\"formatVersion\":1,`), b[1:]...)} {"
+      ]
+    },
+    {
+      "path": "internal/executiongraph/dispatch_inputs.go",
+      "test": false,
+      "physical_lines": 67,
+      "exported_types": [
+        "DispatchInputs"
+      ],
+      "exported_functions": [
+        "ValidateDispatchInputs",
+        "EncodeDispatchInputs",
+        "DecodeDispatchInputs",
+        "DispatchInputsDigest"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/strictjson"
+      ],
+      "format_markers": [
+        "FormatVersion int             `json:\"formatVersion\"`",
+        "if d.FormatVersion != 1 && d.FormatVersion != OperationalDispatchInputsVersion || !validToken(d.ProjectID) || !validOpaqueID(d.ParentID) || !successorDigest(d.PreviewDigest) || len(trimmed) < 2 || trimmed[0] != '{' || !json.Valid(trimmed) {"
+      ]
+    },
+    {
+      "path": "internal/executiongraph/dispatch_inputs_test.go",
+      "test": true,
+      "physical_lines": 37,
+      "exported_types": [],
+      "exported_functions": [
+        "TestDispatchInputsGenerations"
+      ],
+      "imports": [],
+      "format_markers": [
+        "d.FormatVersion = version",
+        "if err != nil || decoded.FormatVersion != version || !bytes.Equal(decoded.Preview, []byte(`{\"stagePlan\":{}}`)) {",
+        "d.FormatVersion = version",
+        "d.FormatVersion = OperationalDispatchInputsVersion"
+      ]
+    },
+    {
+      "path": "internal/executiongraph/export_test.go",
+      "test": true,
+      "physical_lines": 12,
+      "exported_types": [],
+      "exported_functions": [
+        "MustGraph",
+        "DigestOf"
+      ],
+      "imports": [],
+      "format_markers": []
+    },
+    {
+      "path": "internal/executiongraph/graph.go",
+      "test": false,
+      "physical_lines": 494,
+      "exported_types": [
+        "ParentExecution",
+        "Resolution",
+        "ChildEnvelope",
+        "ChildExecution",
+        "AttemptStatus",
+        "Attempt",
+        "Graph",
+        "PublicationRequest",
+        "GraphStore",
+        "GraphService"
+      ],
+      "exported_functions": [
+        "NewGraphService",
+        "Build",
+        "Publish",
+        "ValidGraph",
+        "EncodeGraph",
+        "DecodeGraph"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/runtimeprofile",
+        "github.com/rgomids/axiom/internal/workflowdefinition"
+      ],
+      "format_markers": [
+        "FormatVersion   int               `json:\"formatVersion\"`",
+        "graph := Graph{FormatVersion: request.Proposal.FormatVersion, Parent: ParentExecution{",
+        "if !ok || !validResolution(resolution) || request.Proposal.FormatVersion == 2 && (node.ResolvedProfile == nil || resolution.ResolvedProfile == nil || *node.ResolvedProfile != *resolution.ResolvedProfile) || request.Proposal.FormatVersion == OperationalProposalVersion && (node.FrozenProfile == nil || resolution.FrozenProfile == nil || *node.FrozenProfile != *resolution.FrozenProfile) || !validTarget(request.Workspaces[node.Key]) || !validTarget(request.AuthorityReferences[node.Key]) {",
+        "if !validNodeProfile(graph.FormatVersion, resolution.ResolvedProfile, resolution.FrozenProfile, child.Envelope.Controls, child.Envelope.Capability) {",
+        "if graph.FormatVersion == OperationalProposalVersion || !ValidGraph(graph) {",
+        "if graph.FormatVersion == 2 && workflowdefinition.StrictJSONBounded(wire, &graph, MaxGraphBytes) != nil {",
+        "if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) || graph.FormatVersion == OperationalProposalVersion || !ValidGraph(graph) {"
+      ]
+    },
+    {
+      "path": "internal/executiongraph/graph_test.go",
+      "test": true,
+      "physical_lines": 137,
+      "exported_types": [],
+      "exported_functions": [
+        "Create",
+        "Load",
+        "Create",
+        "Load",
+        "TestGraphPublicationAllocatesStableLineageAndBoundedEnvelopes",
+        "TestGraphPublicationRejectsStaleDigestAndAuthorityExpansion",
+        "TestGraphPublicationRejectsStructurallyValidReadbackTampering"
+      ],
+      "imports": [],
+      "format_markers": []
+    },
+    {
+      "path": "internal/executiongraph/integration.go",
+      "test": false,
+      "physical_lines": 493,
+      "exported_types": [
+        "ArtifactReference",
+        "ChildResult",
+        "IntegrationObservation",
+        "OptionalWaiver",
+        "IntegrationPreview",
+        "IntegrationAuthority",
+        "AppliedIntegration",
+        "Integrator",
+        "ValidationResult",
+        "CombinedValidator",
+        "ChildOutcome",
+        "ParentRollup",
+        "IntegrationResult",
+        "IntegrationService",
+        "CanonicalChildResult"
+      ],
+      "exported_functions": [
+        "NewIntegrationService",
+        "Preview",
+        "Execute",
+        "IntegrationResultReference",
+        "EnvelopeDigest",
+        "IntegrationPreview"
+      ],
+      "imports": [],
+      "format_markers": [
+        "historical := Graph{FormatVersion: c.graph.projectionVersion(), Parent: c.graph.Parent}"
+      ]
+    },
+    {
+      "path": "internal/executiongraph/integration_cancellation_test.go",
+      "test": true,
+      "physical_lines": 301,
+      "exported_types": [],
+      "exported_functions": [
+        "Apply",
+        "ValidateCombined",
+        "ValidateCombined",
+        "Apply",
+        "Save",
+        "TestIntegrationTimeoutDuringApplyIsNeverSuccess",
+        "TestIntegrationExternalCancellationDuringApplyIsRecorded",
+        "TestIntegrationCancellationDuringCombinedValidationPreservesConfirmedEffect",
+        "TestIntegrationCancellationAfterConfirmedApplySkipsValidation",
+        "TestIntegrationWithinChildTimeoutSucceeds"
+      ],
+      "imports": [],
+      "format_markers": [
+        "return Evidence{FormatVersion: 1, BaseRevision: revision, ConfigurationDigest: digestOf(\"config\"), ParentID: graph.Parent.ExecutionID, GraphRevision: graph.Parent.GraphRevision, Rollup: rollup, ValidationReferences: []string{\"go-test\"}, Limitations: []string{\"integration attempt cancelled\"}}"
+      ]
+    },
+    {
+      "path": "internal/executiongraph/integration_receipt_compatibility_test.go",
+      "test": true,
+      "physical_lines": 49,
+      "exported_types": [],
+      "exported_functions": [
+        "TestIntegrationReceiptHistoricalBytesAndVersionDispatch"
+      ],
+      "imports": [],
+      "format_markers": [
+        "if err != nil || a.FormatVersion != 1 || a.ExecutionID != \"\" {",
+        "a.FormatVersion = 2",
+        "a.FormatVersion = version"
+      ]
+    },
+    {
+      "path": "internal/executiongraph/integration_test.go",
+      "test": true,
+      "physical_lines": 356,
+      "exported_types": [],
+      "exported_functions": [
+        "Apply",
+        "ValidateCombined",
+        "TestIntegrationPreviewApplyValidationAndRollup",
+        "TestIntegrationBlocksMissingForgedStaleConflictAndForeignDrift",
+        "TestIntegrationPreviewBindsOptionalWaiversDeterministically",
+        "TestIntegrationStaleAuthorityAndValidationFailureStayNonSuccess",
+        "Save",
+        "TestIntegrationPersistsOwnSucceededAttemptAndBlocksReplay",
+        "TestIntegrationValidatorFailurePersistsFailedAttempt",
+        "TestIntegrationApplyFailurePersistsUnknownAttemptAndBlocksRetry",
+        "TestIntegrationPersistenceFailureNeverFabricatesSuccess",
+        "TestBuildEvidenceRejectsRollupDivergingFromPersistedIntegrationAttempt"
+      ],
+      "imports": [],
+      "format_markers": [
+        "evidence, err := BuildEvidence(result.Graph, Evidence{FormatVersion: 1, BaseRevision: revision, ConfigurationDigest: digestOf(\"config\"), ParentID: graph.Parent.ExecutionID, GraphRevision: graph.Parent.GraphRevision, Rollup: result.Rollup, ValidationReferences: []string{\"go-test\"}, Limitations: []string{\"real Codex plus Claude run not executed\"}}, nil)",
+        "if _, err := BuildEvidence(result.Graph, Evidence{FormatVersion: 1, BaseRevision: revision, ConfigurationDigest: digestOf(\"config\"), ParentID: graph.Parent.ExecutionID, GraphRevision: graph.Parent.GraphRevision, Rollup: result.Rollup, ValidationReferences: []string{\"go-test\"}, Limitations: []string{\"integration attempt persistence failed\"}}, nil); err != nil {",
+        "return Evidence{FormatVersion: 1, BaseRevision: revision, ConfigurationDigest: digestOf(\"config\"), ParentID: graph.Parent.ExecutionID, GraphRevision: graph.Parent.GraphRevision, Rollup: rollup, ValidationReferences: []string{\"go-test\"}, Limitations: []string{\"usage unavailable\"}}"
+      ]
+    },
+    {
+      "path": "internal/executiongraph/operational_proposal_test.go",
+      "test": true,
+      "physical_lines": 152,
+      "exported_types": [],
+      "exported_functions": [
+        "TestOperationalProposalGolden",
+        "TestOperationalProposalDigestAndTopology",
+        "TestOperationalProposalClosedSchema"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/strictjson"
+      ],
+      "format_markers": [
+        "if strictjson.Decode(wire, &p, MaxGraphBytes) != nil || p.FormatVersion != OperationalProposalVersion || validateProposalV3(p) != nil {",
+        "if p.FormatVersion != OperationalProposalVersion || NewPlanner(&capabilitySpy{}).Validate(context.Background(), p, maxNodes) != nil {",
+        "old.FormatVersion = 2",
+        "\"future\": func(p *Proposal) { p.FormatVersion++ },",
+        "\"duplicate\": append([]byte(`{\"formatVersion\":3,`), wire[1:]...),",
+        "\"case\":      bytes.Replace(wire, []byte(`\"formatVersion\"`), []byte(`\"FORMATVERSION\"`), 1),"
+      ]
+    },
+    {
+      "path": "internal/executiongraph/operational_test.go",
+      "test": true,
+      "physical_lines": 311,
+      "exported_types": [],
+      "exported_functions": [
+        "TestOperationalLedgerGoldenAndHistoricalIsolation",
+        "TestOperationalLedgerStrictShape",
+        "TestResolutionAndControls",
+        "TestOperationalGraphRetainsSafetyChecks",
+        "TestOperationalSingleRetainsSafetyChecks",
+        "TestOperationalGraphTerminalPublicationAndReconciliation",
+        "TestOperationalSingleBothAdaptersAndIntent"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/runtimeprofile"
+      ],
+      "format_markers": [
+        "if g.FormatVersion != OperationalGraphVersion {",
+        "if r.FormatVersion != OperationalSingleStageRunVersion {",
+        "if err != nil || historical.FormatVersion != SuccessorGraphVersion || historical.Children[0].Envelope.Resolution.FrozenProfile != nil {",
+        "if err != nil || run.FormatVersion != SingleStageRunVersion || run.Binding.Resolution.FrozenProfile != nil {",
+        "for _, older := range [][2]string{{`\"formatVersion\":4`, `\"formatVersion\":3`}, {`\"formatVersion\":2`, `\"formatVersion\":1`}} {",
+        "\"future\":      bytes.Replace(wire, []byte(`\"formatVersion\":`+fmt.Sprint(version)), []byte(`\"formatVersion\":99`), 1),",
+        "\"duplicate\":   append([]byte(`{\"formatVersion\":4,`), wire[1:]...),",
+        "\"alias\":       bytes.Replace(wire, []byte(`\"formatVersion\"`), []byte(`\"FormatVersion\"`), 1),",
+        "\"historical version\":  func(r *SingleStageRun) { r.FormatVersion = 1 },"
+      ]
+    },
+    {
+      "path": "internal/executiongraph/planner.go",
+      "test": false,
+      "physical_lines": 453,
+      "exported_types": [
+        "CapabilityRequest",
+        "Scope",
+        "Effect",
+        "ExecutionControls",
+        "WorkUnit",
+        "ApprovedPlan",
+        "ProposedNode",
+        "Proposal",
+        "CapabilityValidator",
+        "Planner"
+      ],
+      "exported_functions": [
+        "NewPlanner",
+        "Propose",
+        "Validate",
+        "ValidProfileControls",
+        "ValidFrozenProfileControls"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/runtimeprofile"
+      ],
+      "format_markers": [
+        "ProposalFormatVersion      = 1",
+        "GraphFormatVersion         = 1",
+        "FormatVersion int            `json:\"formatVersion\"`",
+        "proposal := Proposal{FormatVersion: ProposalFormatVersion, PlanRevision: plan.PlanRevision, PlanDigest: plan.PlanDigest, Nodes: make([]ProposedNode, 0, len(plan.Work))}",
+        "proposal.FormatVersion = 2",
+        "proposal.FormatVersion = OperationalProposalVersion",
+        "if proposal.FormatVersion != ProposalFormatVersion && proposal.FormatVersion != 2 && proposal.FormatVersion != OperationalProposalVersion {",
+        "if !validNodeProfile(proposal.FormatVersion, node.ResolvedProfile, node.FrozenProfile, node.Controls, node.Capability) {"
+      ]
+    },
+    {
+      "path": "internal/executiongraph/planner_path_test.go",
+      "test": true,
+      "physical_lines": 17,
+      "exported_types": [],
+      "exported_functions": [
+        "TestValidRelativePathRefusesParentAndRoot"
+      ],
+      "imports": [],
+      "format_markers": []
+    },
+    {
+      "path": "internal/executiongraph/planner_test.go",
+      "test": true,
+      "physical_lines": 101,
+      "exported_types": [],
+      "exported_functions": [
+        "ValidateCapability",
+        "TestPlannerDerivesVariableTopologyAndDeterministicDigest",
+        "TestPlannerRejectsCycleMissingDependencyOrOrphan",
+        "TestPlannerRejectsUnsafeParallelOverlapAndUnresolvableCapability",
+        "TestPlannerTreatsInjectionAsRejectedDataWithNoEffects"
+      ],
+      "imports": [],
+      "format_markers": []
+    },
+    {
+      "path": "internal/executiongraph/process.go",
+      "test": false,
+      "physical_lines": 38,
+      "exported_types": [],
+      "exported_functions": [],
+      "imports": [],
+      "format_markers": []
+    },
+    {
+      "path": "internal/executiongraph/process_identity_darwin.go",
+      "test": false,
+      "physical_lines": 44,
+      "exported_types": [],
+      "exported_functions": [
+        "ObserveProcessCorrelation",
+        "ObserveRecordedProcess"
+      ],
+      "imports": [],
+      "format_markers": []
+    },
+    {
+      "path": "internal/executiongraph/process_identity_linux.go",
+      "test": false,
+      "physical_lines": 91,
+      "exported_types": [],
+      "exported_functions": [
+        "ObserveProcessCorrelation",
+        "ObserveRecordedProcess"
+      ],
+      "imports": [],
+      "format_markers": []
+    },
+    {
+      "path": "internal/executiongraph/process_identity_linux_test.go",
+      "test": true,
+      "physical_lines": 57,
+      "exported_types": [],
+      "exported_functions": [
+        "TestProcEntryVanishedOnlyForReapedProcesses",
+        "TestProcessIdentityKernelTicks"
+      ],
+      "imports": [],
+      "format_markers": []
+    },
+    {
+      "path": "internal/executiongraph/process_identity_other.go",
+      "test": false,
+      "physical_lines": 13,
+      "exported_types": [],
+      "exported_functions": [
+        "ObserveProcessCorrelation",
+        "ObserveRecordedProcess"
+      ],
+      "imports": [],
+      "format_markers": []
+    },
+    {
+      "path": "internal/executiongraph/process_observe_darwin.go",
+      "test": false,
+      "physical_lines": 20,
+      "exported_types": [],
+      "exported_functions": [],
+      "imports": [],
+      "format_markers": []
+    },
+    {
+      "path": "internal/executiongraph/process_observe_linux.go",
+      "test": false,
+      "physical_lines": 59,
+      "exported_types": [],
+      "exported_functions": [],
+      "imports": [],
+      "format_markers": []
+    },
+    {
+      "path": "internal/executiongraph/process_observe_other.go",
+      "test": false,
+      "physical_lines": 9,
+      "exported_types": [],
+      "exported_functions": [],
+      "imports": [],
+      "format_markers": []
+    },
+    {
+      "path": "internal/executiongraph/process_posix.go",
+      "test": false,
+      "physical_lines": 125,
+      "exported_types": [],
+      "exported_functions": [],
+      "imports": [],
+      "format_markers": []
+    },
+    {
+      "path": "internal/executiongraph/process_posix_test.go",
+      "test": true,
+      "physical_lines": 374,
+      "exported_types": [],
+      "exported_functions": [
+        "TestPOSIXProcessContainment",
+        "TestPOSIXIndependentHostActivityDoesNotVetoStop",
+        "TestPOSIXAlreadyExitedGroup",
+        "TestPOSIXLeaderExitedBeforeObservation",
+        "TestPOSIXChangedLeaderIdentityNeverSignals",
+        "TestOSProcessRunnerStopsDescendants",
+        "TestPOSIXUnstartedGroupRefusesStop",
+        "TestOSProcessRunnerNaturalExitPreservesOutcome"
+      ],
+      "imports": [],
+      "format_markers": []
+    },
+    {
+      "path": "internal/executiongraph/process_runner_posix_test.go",
+      "test": true,
+      "physical_lines": 87,
+      "exported_types": [],
+      "exported_functions": [
+        "TestOSProcessRunnerDecoupledOrphanOutsideGuarantee",
+        "TestOSProcessRunnerCancelWithKnownEscapeIsUnknown"
+      ],
+      "imports": [],
+      "format_markers": []
+    },
+    {
+      "path": "internal/executiongraph/process_test.go",
+      "test": true,
+      "physical_lines": 134,
+      "exported_types": [],
+      "exported_functions": [
+        "TestConfirmedProcessGroupStop",
+        "TestOSProcessRunnerConfirmsFailureBeforeSpawn",
+        "TestOSProcessRunnerHoldsPacketUntilAttemptPublication",
+        "TestOSProcessRunnerRetainsFastRejectionBeforeCorrelation"
+      ],
+      "imports": [],
+      "format_markers": []
+    },
+    {
+      "path": "internal/executiongraph/reconciliation.go",
+      "test": false,
+      "physical_lines": 305,
+      "exported_types": [
+        "AttemptHealth",
+        "ReconciliationObservations",
+        "ReconciliationSources"
+      ],
+      "exported_functions": [
+        "ObserveAttemptHealth",
+        "Digest",
+        "AppendReconciliationFact",
+        "ReconciliationDisposition",
+        "SuccessorRetryEligible",
+        "ValidateLeaseEpoch",
+        "SuccessorIntegrationAttemptAvailable",
+        "GatherReconciliationObservations",
+        "ReadySuccessorChildren"
+      ],
+      "imports": [],
+      "format_markers": []
+    },
+    {
+      "path": "internal/executiongraph/reconciliation_test.go",
+      "test": true,
+      "physical_lines": 257,
+      "exported_types": [],
+      "exported_functions": [
+        "TestAttemptHealth",
+        "TestReconciliationAppendRetryAndConflict",
+        "TestReconciliationStaleAndBindingFailures",
+        "TestGatherReconciliationObservations",
+        "TestReconciliationSchedulerAndIntegrationReadPaths"
+      ],
+      "imports": [],
+      "format_markers": []
+    },
+    {
+      "path": "internal/executiongraph/retry_authority.go",
+      "test": false,
+      "physical_lines": 125,
+      "exported_types": [
+        "RetryAuthority"
+      ],
+      "exported_functions": [
+        "ValidateRetryAuthority",
+        "EncodeRetryAuthority",
+        "DecodeRetryAuthority",
+        "RetryAuthorityDigest",
+        "RetryDispositionRequired",
+        "CheckRetryDispatch"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/strictjson"
+      ],
+      "format_markers": [
+        "FormatVersion  int       `json:\"formatVersion\"`",
+        "if a.FormatVersion != 1 || !validToken(a.ProjectID) || !validOpaqueID(a.ParentID) || a.Revision == 0 || !successorDigest(a.GraphDigest) || !successorDigest(a.PreviewDigest) || !successorDigest(a.DispatchDigest) || !validOpaqueID(a.ChildID) || !validOpaqueID(a.PriorAttemptID) || a.AttemptNumber < 2 || !validDispatchEffects(a.Effects) || a.ActorKind != \"human-operator\" || !boundedIdentity(a.Actor) || !utc(a.RecordedAt) {"
+      ]
+    },
+    {
+      "path": "internal/executiongraph/retry_authority_test.go",
+      "test": true,
+      "physical_lines": 86,
+      "exported_types": [],
+      "exported_functions": [
+        "TestRetryAuthorityCodecAndDispatchCheck"
+      ],
+      "imports": [],
+      "format_markers": [
+        "a := RetryAuthority{FormatVersion: 1, ProjectID: c.Envelope.Scope.ProjectID, ParentID: g.Parent.ExecutionID, Revision: g.Parent.GraphRevision, GraphDigest: fmt.Sprintf(\"%x\", g.StorageRevision), PreviewDigest: strings.Repeat(\"a\", 64), DispatchDigest: strings.Repeat(\"b\", 64), ChildID: c.ExecutionID, PriorAttemptID: c.Attempts[len(c.Attempts)-1].AttemptID, AttemptNumber: uint32(len(c.Attempts)) + 1, Effects: c.Envelope.AllowedEffects, Disposition: DispositionNotRequired, ActorKind: \"human-operator\", Actor: \"operator\", RecordedAt: time.Unix(90, 0).UTC()}"
+      ]
+    },
+    {
+      "path": "internal/executiongraph/scheduler.go",
+      "test": false,
+      "physical_lines": 626,
+      "exported_types": [
+        "Invocation",
+        "InvocationResolver",
+        "ProcessResult",
+        "ProcessRunner",
+        "WorkspaceValidator",
+        "GraphAttemptStore",
+        "DispatchRequest",
+        "DispatchRecord",
+        "DispatchResult",
+        "AttemptCompletionHook",
+        "Scheduler",
+        "OSProcessRunner"
+      ],
+      "exported_functions": [
+        "NewScheduler",
+        "WithCompletionHook",
+        "DispatchReady",
+        "EffectiveEnvironment",
+        "WithInheritedEnvironment",
+        "EffectiveInvocationEnvironment",
+        "WithExactEnvironment",
+        "Run",
+        "RunObserved",
+        "Read",
+        "Write",
+        "Bytes",
+        "DispatchBatch"
+      ],
+      "imports": [],
+      "format_markers": []
+    },
+    {
+      "path": "internal/executiongraph/scheduler_test.go",
+      "test": true,
+      "physical_lines": 712,
+      "exported_types": [],
+      "exported_functions": [
+        "ResolveInvocation",
+        "ValidateWorkspace",
+        "Run",
+        "Save",
+        "TestSchedulerDispatchesIndependentChildrenConcurrentlyAndBlocksDependency",
+        "TestSchedulerSerializesConflictingEffects",
+        "TestSchedulerRejectsShellInvocationBeforeProcess",
+        "TestSchedulerTimeoutAndAmbiguousRetryBlock",
+        "TestSchedulerUnknownTimeoutRequiresReconciliationEvenWhenFlagIsInconsistent",
+        "TestSchedulerRetryPreservesPriorAttempt",
+        "TestSchedulerCancellationStopsNewDispatch",
+        "ResolveInvocation",
+        "TestSchedulerBlocksAuthenticationBeforeAttempt",
+        "TestEffectiveEnvironmentMatchesProcessInheritance",
+        "TestInheritedSnapshotKeepsExplicitEnvironmentValidation",
+        "TestOSProcessRunnerUsesCapturedEnvironment",
+        "TestReadyChildrenStatuses",
+        "TestSchedulerConcurrentRunningRetryNeverDispatches",
+        "Save",
+        "TestSchedulerSavesCompletionBeforeBatchEnds",
+        "TestSchedulerCompletionFailuresKeepRunningState",
+        "TestOSProcessRunnerStdinBytes",
+        "TestInvocationStdinBound",
+        "Save",
+        "TestSchedulerConcurrentDispatchUsesStoreCAS",
+        "TestSchedulerRejectsOversizeStdinBeforeDispatch"
+      ],
+      "imports": [],
+      "format_markers": []
+    },
+    {
+      "path": "internal/executiongraph/single_stage.go",
+      "test": false,
+      "physical_lines": 489,
+      "exported_types": [
+        "SingleStageScope",
+        "SingleStageBinding",
+        "SingleStageRun",
+        "SingleStageAuthority"
+      ],
+      "exported_functions": [
+        "SingleStageScopeDigest",
+        "ValidateSingleStageRun",
+        "EncodeSingleStageRun",
+        "DecodeSingleStageRun",
+        "ValidateSingleStageUpdate",
+        "ValidateSingleStageAuthority",
+        "EncodeSingleStageAuthority",
+        "DecodeSingleStageAuthority",
+        "SingleStageAuthorityDigest",
+        "ValidateSingleStageBindingAuthority",
+        "CheckSingleStageDispatch",
+        "SingleStageRetryDispositionRequired",
+        "SingleStageRetryEligible",
+        "CheckSingleStageRetryAuthority",
+        "SingleStageReadiness",
+        "AppendSingleStageReconciliation",
+        "GatherSingleStageObservations",
+        "CloneSingleStageRun"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/runtimeprofile",
+        "github.com/rgomids/axiom/internal/strictjson"
+      ],
+      "format_markers": [
+        "var ErrUnsupportedSingleStageFormat = errors.New(\"unsupported_single_stage_format\")",
+        "FormatVersion   int                `json:\"formatVersion\"`",
+        "FormatVersion       int       `json:\"formatVersion\"`",
+        "if r.Kind != SingleStageRunKind || r.FormatVersion != SingleStageRunVersion && r.FormatVersion != OperationalSingleStageRunVersion || err != nil || digest != r.ScopeDigest || !validSingleBinding(r.FormatVersion, r.Binding) || !utc(r.CreatedAt) {",
+        "scope := attemptScope{diagnostics: r.FormatVersion == OperationalSingleStageRunVersion, created: r.CreatedAt, cancel: r.CancelRequest, parentID: r.Scope.ExecutionID, childID: r.Scope.ExecutionID, revision: r.Binding.WorkflowRevision, maximum: r.Binding.Controls.MaximumAttempts, authority: refs}",
+        "FormatVersion int    `json:\"formatVersion\"`",
+        "if header.FormatVersion != SingleStageRunVersion && header.FormatVersion != OperationalSingleStageRunVersion {",
+        "if a.FormatVersion != SingleStageAuthorityVersion || a.Scope != SingleStageAuthorityScope || !validToken(a.ProjectID) || !validOpaqueID(a.ExecutionID) || !validToken(a.StageID) || a.StageOrdinal < 0 || !successorDigest(a.ScopeDigest) || !successorDigest(a.ExecutionGeneration) || a.WorkflowRevision == 0 || !successorDigest(a.PreviewDigest) || !successorDigest(a.DispatchDigest) || !successorDigest(a.ProposalDigest) || !validDispatchEffects(a.Effects) || a.ActorKind != \"human-operator\" || !boundedIdentity(a.Actor) || !utc(a.RecordedAt) {",
+        "FormatVersion int    `json:\"formatVersion\"`",
+        "if header.FormatVersion != SingleStageAuthorityVersion {"
+      ]
+    },
+    {
+      "path": "internal/executiongraph/single_stage_test.go",
+      "test": true,
+      "physical_lines": 286,
+      "exported_types": [],
+      "exported_functions": [
+        "TestSingleStageCanonicalVectors",
+        "TestSingleStageVersionAdmissionFailsClosed",
+        "TestSingleStageBoundsAndScope",
+        "TestSingleStageUpdateIsAppendOnly",
+        "TestSingleStageDispatchAndRetryAuthority",
+        "TestSingleStageReconciliationNeverChangesStatus"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/runtimeprofile"
+      ],
+      "format_markers": [
+        "a := SingleStageAuthority{FormatVersion: 2, Scope: SingleStageAuthorityScope, ProjectID: scope.ProjectID, ExecutionID: scope.ExecutionID, StageID: scope.StageID, StageOrdinal: scope.StageOrdinal, ScopeDigest: digest, ExecutionGeneration: binding.ExecutionGeneration, WorkflowRevision: binding.WorkflowRevision, PreviewDigest: binding.PreviewDigest, DispatchDigest: binding.PreviewDigest, ProposalDigest: binding.ProposalDigest, AttemptNumber: 1, Effects: binding.Effects, Disposition: DispositionNotRequired, ActorKind: \"human-operator\", Actor: \"synthetic-operator\", RecordedAt: created}",
+        "return SingleStageRun{Kind: SingleStageRunKind, FormatVersion: 1, ScopeDigest: digest, Scope: scope, Binding: binding, CreatedAt: created, Authorities: []string{ref}, Attempts: []SuccessorAttempt{}}, a",
+        "if _, err := DecodeSingleStageRun(mutate(runWire, \"formatVersion\", 3)); !errors.Is(err, ErrUnsupportedSingleStageFormat) {",
+        "if _, err := DecodeSingleStageAuthority(mutate(receipt, \"formatVersion\", version)); !errors.Is(err, ErrUnsupportedSingleStageFormat) {",
+        "legacy := DispatchAuthority{FormatVersion: 1, ProjectID: \"project-1\", PreviewDigest: strings.Repeat(\"a\", 64), Scope: \"single-first-attempt\", ParentID: r.Scope.ExecutionID, Revision: 3, ProposalDigest: strings.Repeat(\"b\", 64), Children: []DispatchChildAuthority{{ChildID: r.Scope.ExecutionID, Effects: []Effect{}}}, SingleStageID: \"implementation\", SingleStageOrdinal: 1, SingleAttemptID: \"00000000-0000-4000-8000-000000000009\", LedgerDigest: strings.Repeat(\"c\", 64), ActorKind: \"human-operator\", Actor: \"op\", RecordedAt: r.CreatedAt}"
+      ]
+    },
+    {
+      "path": "internal/executiongraph/stage_outcome.go",
+      "test": false,
+      "physical_lines": 307,
+      "exported_types": [
+        "StageChildOutcome",
+        "StageRollup",
+        "IntegrationReceipt",
+        "StageOutcome"
+      ],
+      "exported_functions": [
+        "RollupSuccessor",
+        "ValidateIntegrationReceipt",
+        "EncodeIntegrationReceipt",
+        "DecodeIntegrationReceipt",
+        "IntegrationReceiptDigest",
+        "CheckIntegrationDispatch",
+        "ValidateStageOutcome",
+        "BuildStageOutcome",
+        "EncodeStageOutcome",
+        "DecodeStageOutcome",
+        "StageOutcomeDigest",
+        "IntegrationResultDigest"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/strictjson"
+      ],
+      "format_markers": [
+        "FormatVersion            int              `json:\"formatVersion\"`",
+        "if (a.FormatVersion != 1 && a.FormatVersion != 2) || a.FormatVersion == 1 && a.ExecutionID != \"\" || a.FormatVersion == 2 && !validOpaqueID(a.ExecutionID) || !validToken(a.ProjectID) || !validOpaqueID(a.ParentID) || a.Revision == 0 || a.ExecutionRevision != a.Revision || !successorDigest(a.GraphDigest) || !successorDigest(a.PreviewDigest) || !successorDigest(a.IntegrationPreviewDigest) || !successorDigest(a.ValidatorPolicyDigest) || !validOpaqueID(a.IntegrationChildID) || a.AttemptNumber == 0 || a.OptionalWaivers == nil || len(a.OptionalWaivers) > maxListItems || !validDispatchEffects(a.Effects) || !successorDigest(a.LedgerDigest) || !validToken(a.StageID) || a.StageOrdinal < 0 || a.ActorKind != \"human-operator\" || !boundedIdentity(a.Actor) || !utc(a.RecordedAt) {",
+        "FormatVersion              int         `json:\"formatVersion\"`",
+        "if o.FormatVersion != 1 || !validToken(o.ProjectID) || !validOpaqueID(o.ExecutionID) || o.ExecutionRevision == 0 || !successorDigest(o.LedgerDigest) || !validToken(o.StageID) || o.StageOrdinal < 0 || !successorDigest(o.GraphDigest) || !successorDigest(o.IntegrationReceiptRef) || !successorDigest(o.ValidatorPolicyDigest) || !utc(o.RecordedAt) {",
+        "if receipt.FormatVersion == 1 {",
+        "o := StageOutcome{FormatVersion: 1, ProjectID: receipt.ProjectID, ExecutionID: executionID, ExecutionRevision: receipt.ExecutionRevision, LedgerDigest: receipt.LedgerDigest, StageID: receipt.StageID, StageOrdinal: receipt.StageOrdinal, GraphDigest: hex.EncodeToString(g.StorageRevision[:]), IntegrationReceiptRef: receiptRef, ValidatorPolicyDigest: receipt.ValidatorPolicyDigest, Rollup: r, IntegrationResultReference: attempt.ResultReference, ValidationOutputDigest: attempt.OutputDigest, RecordedAt: recordedAt.UTC()}"
+      ]
+    },
+    {
+      "path": "internal/executiongraph/successor.go",
+      "test": false,
+      "physical_lines": 375,
+      "exported_types": [
+        "SuccessorGraph",
+        "SuccessorChild",
+        "SuccessorAttempt",
+        "ProcessCorrelation",
+        "CancelRequest",
+        "ReconciliationFact",
+        "GraphDocument"
+      ],
+      "exported_functions": [
+        "ValidateSuccessorGraph",
+        "ValidateSuccessorRecords",
+        "ValidateSuccessorUpdate",
+        "EncodeSuccessorGraph",
+        "DecodeSuccessorGraph",
+        "DecodeGraphDocument",
+        "EncodeGraphDocument"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/strictjson"
+      ],
+      "format_markers": [
+        "FormatVersion        int               `json:\"formatVersion\"`",
+        "if g.FormatVersion != SuccessorGraphVersion && g.FormatVersion != OperationalGraphVersion || g.ClassificationPolicy != ClassificationPolicyV1 || !successorDigest(g.DispatchAuthorityRef) || g.StageConcurrency == 0 || g.StageConcurrency > MaxStageConcurrency || !utc(g.Parent.CreatedAt) {",
+        "base := Graph{FormatVersion: g.projectionVersion(), Parent: g.Parent}",
+        "if err := validateAttemptSequence(c.Attempts, attemptScope{diagnostics: g.FormatVersion == OperationalGraphVersion, created: g.Parent.CreatedAt, cancel: g.CancelRequest, parentID: g.Parent.ExecutionID, childID: c.ExecutionID, revision: g.Parent.GraphRevision, maximum: c.Envelope.Controls.MaximumAttempts, integration: c.Envelope.IntegrationOwner, authority: map[string]bool{g.DispatchAuthorityRef: true}}, ids, facts); err != nil {",
+        "if json.Unmarshal(raw[\"formatVersion\"], &version) != nil {",
+        "if g.FormatVersion == OperationalGraphVersion {"
+      ]
+    },
+    {
+      "path": "internal/executiongraph/successor_test.go",
+      "test": true,
+      "physical_lines": 232,
+      "exported_types": [],
+      "exported_functions": [
+        "TestSuccessorCanonicalVectors",
+        "TestSuccessorInvalidVectors",
+        "TestSuccessorHistoricalBytesAndDigests",
+        "TestSuccessorAppendOnlyAndEpoch",
+        "TestSuccessorQualifyingRecords",
+        "TestSuccessorCancellationAndCorrelationBounds"
+      ],
+      "imports": [],
+      "format_markers": [
+        "for _, wire := range []string{`{\"formatVersion\":99}`, `{\"formatVersion\":3,\"formatVersion\":2}`, `{}`, `null`} {"
+      ]
+    },
+    {
+      "path": "internal/local/coordination_ingest.go",
+      "test": false,
+      "physical_lines": 212,
+      "exported_types": [
+        "InboxDiagnostic",
+        "CoordinationFence"
+      ],
+      "exported_functions": [
+        "Consume",
+        "WithAttempt"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/coordination",
+        "github.com/rgomids/axiom/internal/strictjson"
+      ],
+      "format_markers": []
+    },
+    {
+      "path": "internal/local/coordination_ingest_test.go",
+      "test": true,
+      "physical_lines": 330,
+      "exported_types": [],
+      "exported_functions": [
+        "WithAttempt",
+        "TestIngestCrossRuntimeQuestionAnswerAndBlocker",
+        "TestIngestRejectsCandidatesAndReportsSafeCategories",
+        "TestIngestCapacityReserveAndCrashReplay",
+        "TestCoordinationFenceLiveLeaseAndTerminalState",
+        "TestFinalDrainRacesPublishWithoutLateCanonicalRecord"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/coordination",
+        "github.com/rgomids/axiom/internal/executiongraph"
+      ],
+      "format_markers": []
+    },
+    {
+      "path": "internal/local/coordination_read_test.go",
+      "test": true,
+      "physical_lines": 121,
+      "exported_types": [],
+      "exported_functions": [
+        "TestCoordinationReadStreamCanonicalOnlyAndTamper",
+        "Latest",
+        "Publish",
+        "TestReadStreamSupportsCompleteCodecByteWindow"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/coordination"
+      ],
+      "format_markers": [
+        "stream := coordination.Stream{FormatVersion: 1, ParentID: graph.Parent.ExecutionID, ChildID: graph.Children[0].ExecutionID, Records: history.records}"
+      ]
+    },
+    {
+      "path": "internal/local/coordination_store.go",
+      "test": false,
+      "physical_lines": 166,
+      "exported_types": [
+        "CoordinationStore"
+      ],
+      "exported_functions": [
+        "NewCoordinationStore",
+        "Latest",
+        "ReadStream",
+        "Publish"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/coordination"
+      ],
+      "format_markers": [
+        "stream := coordination.Stream{FormatVersion: coordination.FormatVersion, ParentID: record.ParentID, ChildID: record.ChildID, Records: []coordination.Record{record}}"
+      ]
+    },
+    {
+      "path": "internal/local/delivery_decision.go",
+      "test": false,
+      "physical_lines": 259,
+      "exported_types": [],
+      "exported_functions": [
+        "LoadDeliveryDecision",
+        "RecordDeliveryDecision"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/strictjson",
+        "github.com/rgomids/axiom/internal/workflowdefinition",
+        "github.com/rgomids/axiom/internal/workflow"
+      ],
+      "format_markers": [
+        "FormatVersion  int                         `json:\"formatVersion\"`",
+        "if strictjson.Decode(wire, &p, MaxExecutionBytes) != nil || p.FormatVersion != 1 || p.Kind != \"delivery_projection\" || !validUUID(p.ProjectID) || !validUUID(p.ExecutionID) || !workflowdefinition.ValidDigest(p.DecisionDigest) || !workflowdefinition.ValidDigest(p.LedgerDigest) || len(p.Projections) > 512 {"
+      ]
+    },
+    {
+      "path": "internal/local/delivery_packet.go",
+      "test": false,
+      "physical_lines": 108,
+      "exported_types": [],
+      "exported_functions": [
+        "RecordDeliveryPacket",
+        "LoadDeliveryPacket"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/workflow",
+        "github.com/rgomids/axiom/internal/workflowdefinition"
+      ],
+      "format_markers": []
+    },
+    {
+      "path": "internal/local/delivery_packet_test.go",
+      "test": true,
+      "physical_lines": 97,
+      "exported_types": [],
+      "exported_functions": [
+        "TestDeliveryPacketStoreCASReadbackTamperAndInventory",
+        "TestDeliveryPacketPublicationFailureIsProtected",
+        "TestDeliveryPacketReferencesRemainRetained"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/workflow"
+      ],
+      "format_markers": [
+        "return workflow.DeliveryPacket{FormatVersion: 1, Kind: \"delivery_packet\", ProjectID: state.ProjectID, RepositoryKey: state.RepositoryKey, WorkItem: state.WorkItem, ExecutionID: state.ExecutionID, ExecutionRevision: state.Revision, LedgerDigest: hexDigestRevision(state.StorageRevision), BindingDigest: hexDigest(binding), Definition: state.Binding.Definition, Stages: []workflow.DeliveryStage{}, Blockers: []string{\"execution:not_completed\"}, Ready: false, Next: \"resolve packet blockers through the retained workflow gates\", Provenance: state.Provenance}"
+      ]
+    },
+    {
+      "path": "internal/local/delivery_publication.go",
+      "test": false,
+      "physical_lines": 107,
+      "exported_types": [],
+      "exported_functions": [
+        "LoadDeliveryPublication",
+        "SaveDeliveryPublication"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/workflow",
+        "github.com/rgomids/axiom/internal/workflowdefinition"
+      ],
+      "format_markers": []
+    },
+    {
+      "path": "internal/local/delivery_publication_test.go",
+      "test": true,
+      "physical_lines": 64,
+      "exported_types": [],
+      "exported_functions": [
+        "TestDeliveryPublicationStoreFenceCASReadbackAndTamper",
+        "TestDeliveryPublicationStoreFailurePrecedesEffect"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/workflow"
+      ],
+      "format_markers": [
+        "r := workflow.DeliveryPublication{FormatVersion: 1, Kind: \"delivery_publication\", Preview: workflow.DeliveryPreview{Packet: packet, PacketDigest: ref, Target: workflow.DeliveryTarget{Kind: \"local\"}}, Status: \"failure\", Push: \"not_requested\", PR: \"not_requested\", Next: \"inspect\"}",
+        "r := workflow.DeliveryPublication{FormatVersion: 1, Kind: \"delivery_publication\", Preview: workflow.DeliveryPreview{Packet: p, PacketDigest: ref, Target: workflow.DeliveryTarget{Kind: \"local\"}}, Status: \"failure\", Push: \"not_requested\", PR: \"not_requested\", Next: \"inspect\"}"
+      ]
+    },
+    {
+      "path": "internal/local/delivery_rework.go",
+      "test": false,
+      "physical_lines": 245,
+      "exported_types": [],
+      "exported_functions": [
+        "ApplyDeliveryRework",
+        "LoadExecutionID",
+        "LoadDeliveryRework"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/strictjson",
+        "github.com/rgomids/axiom/internal/workflow",
+        "github.com/rgomids/axiom/internal/workflowdefinition"
+      ],
+      "format_markers": [
+        "FormatVersion int                 `json:\"formatVersion\"`",
+        "FormatVersion int `json:\"formatVersion\"`",
+        "if header.FormatVersion != 4 {",
+        "envelope := activeExecution{FormatVersion: 4, Kind: \"execution_link\", ReworkOf: *state.ReworkOf, State: wire}"
+      ]
+    },
+    {
+      "path": "internal/local/delivery_rework_test.go",
+      "test": true,
+      "physical_lines": 296,
+      "exported_types": [],
+      "exported_functions": [
+        "TestDeliveryReworkRetentionReplayDowngradeAndCAS",
+        "TestDeliveryReworkPublicationFaultRecoveryNeverCreatesThirdExecution",
+        "TestDeliveryReworkConcurrentApplyHasOneActiveIdentity",
+        "TestDeliveryDecisionConflictingReplayAndStrictCodec",
+        "TestDeliveryReworkLineageTamperFailsClosed",
+        "TestDeliveryDecisionProjectionPreservesLedgerCASAndTamper",
+        "TestDeliveryDecisionProjectionPublicationFaultBlocksUntilRecovery"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/workflow"
+      ],
+      "format_markers": [
+        "d := workflow.DeliveryDecision{FormatVersion: 1, Kind: \"delivery_decision\", Packet: packet, PacketDigest: ref, Outcome: \"reject\", ActorKind: \"human-operator\", Actor: \"fixture-human\", Authority: workflow.Reference{Kind: \"decision\", ID: \"human\", Digest: strings.Repeat(\"e\", 64)}, Reason: \"repair required output\", Evidence: []workflow.Reference{}}",
+        "p := workflow.ReworkPreview{FormatVersion: 1, Kind: \"delivery_rework\", OriginalPacket: packet, DecisionDigest: d.Digest(), Input: workflow.ReworkInput{NewExecutionID: next.ExecutionID, RevisionChoice: \"retained\", ResolvedProfile: next.Binding.ResolvedProfile, FrozenProfile: next.Binding.FrozenProfile, RuntimeID: next.RuntimeID, RuntimePreview: next.Binding.RuntimePreview, Scope: d.Reason, Plan: workflow.Reference{Kind: \"plan\", ID: \"corrective-plan\", Digest: strings.Repeat(\"a\", 64)}, Authority: workflow.Reference{Kind: \"decision\", ID: \"new-authority\", Digest: strings.Repeat(\"b\", 64)}, Inputs: []workflow.Reference{}}, NewState: next}"
+      ]
+    },
+    {
+      "path": "internal/local/graph_store.go",
+      "test": false,
+      "physical_lines": 185,
+      "exported_types": [
+        "GraphStore"
+      ],
+      "exported_functions": [
+        "NewGraphStore",
+        "Create",
+        "Save",
+        "Load"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/executiongraph"
+      ],
+      "format_markers": []
+    },
+    {
+      "path": "internal/local/run_lease.go",
+      "test": false,
+      "physical_lines": 215,
+      "exported_types": [
+        "RunLeaseStore",
+        "RunLease"
+      ],
+      "exported_functions": [
+        "NewRunLeaseStore",
+        "Acquire",
+        "Probe",
+        "Validate",
+        "Close"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/strictjson"
+      ],
+      "format_markers": [
+        "FormatVersion int    `json:\"formatVersion\"`",
+        "if strictjson.Decode(wire, &r, MaxRecordBytes) != nil || r.FormatVersion != 1 || !validGraphAddress(r.ProjectID, r.ParentID) || r.Epoch == 0 {"
+      ]
+    },
+    {
+      "path": "internal/local/run_lease_inventory.go",
+      "test": false,
+      "physical_lines": 42,
+      "exported_types": [],
+      "exported_functions": [],
+      "imports": [],
+      "format_markers": []
+    },
+    {
+      "path": "internal/local/run_lease_test.go",
+      "test": true,
+      "physical_lines": 307,
+      "exported_types": [],
+      "exported_functions": [
+        "TestRunLeaseAcquireProbeRestart",
+        "TestRunLeaseReplacementAndEpochFencing",
+        "TestRunLeasePublicationFaults",
+        "TestRunLeaseOSLockContention",
+        "TestRunLeaseOSLockCrossProcess",
+        "TestRunLeaseLockProcessHelper",
+        "TestRunLeaseRecoveryRecognizesInterruptedEpoch"
+      ],
+      "imports": [],
+      "format_markers": [
+        "wire := []byte(`{\"formatVersion\":1,\"projectId\":\"project-1\",\"parentId\":\"` + leaseParent + `\",\"epoch\":7}`)"
+      ]
+    },
+    {
+      "path": "internal/local/single_stage_store.go",
+      "test": false,
+      "physical_lines": 494,
+      "exported_types": [
+        "SingleStageStore"
+      ],
+      "exported_functions": [
+        "NewSingleStageStore",
+        "Close",
+        "Load",
+        "LoadAuthority",
+        "CommitAuthority",
+        "Save",
+        "RequestCancel",
+        "AppendReconciliation",
+        "CommitDispatchInputs",
+        "LoadDispatchInputs"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/executiongraph",
+        "github.com/rgomids/axiom/internal/workflow"
+      ],
+      "format_markers": []
+    },
+    {
+      "path": "internal/local/single_stage_store_test.go",
+      "test": true,
+      "physical_lines": 336,
+      "exported_types": [],
+      "exported_functions": [
+        "TestSingleStageCommitReadBackAndInventory",
+        "TestSingleStageCommitRefusesDriftAndForeignLease",
+        "TestSingleStageCommitFaultWindows",
+        "TestSingleStageSaveEpochFencingAndCancel",
+        "TestSingleStageRetryConsumesReviewedGeneration",
+        "TestSingleStageReconciliationUnderLease"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/executiongraph",
+        "github.com/rgomids/axiom/internal/runtimeprofile",
+        "github.com/rgomids/axiom/internal/workflow"
+      ],
+      "format_markers": [
+        "a := executiongraph.SingleStageAuthority{FormatVersion: 2, Scope: executiongraph.SingleStageAuthorityScope, ProjectID: scope.ProjectID, ExecutionID: scope.ExecutionID, StageID: scope.StageID, StageOrdinal: scope.StageOrdinal, ScopeDigest: digest, ExecutionGeneration: binding.ExecutionGeneration, WorkflowRevision: binding.WorkflowRevision, PreviewDigest: binding.PreviewDigest, DispatchDigest: binding.PreviewDigest, ProposalDigest: binding.ProposalDigest, AttemptNumber: 1, Effects: binding.Effects, Disposition: executiongraph.DispositionNotRequired, ActorKind: \"human-operator\", Actor: \"synthetic-operator\", RecordedAt: created}",
+        "return executiongraph.SingleStageRun{Kind: executiongraph.SingleStageRunKind, FormatVersion: executiongraph.OperationalSingleStageRunVersion, ScopeDigest: digest, Scope: scope, Binding: binding, CreatedAt: created, Authorities: []string{ref}, Attempts: []executiongraph.SuccessorAttempt{}}, a"
+      ]
+    },
+    {
+      "path": "internal/local/stage_cancel.go",
+      "test": false,
+      "physical_lines": 73,
+      "exported_types": [],
+      "exported_functions": [
+        "RequestCancel"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/executiongraph"
+      ],
+      "format_markers": []
+    },
+    {
+      "path": "internal/local/stage_cancel_test.go",
+      "test": true,
+      "physical_lines": 70,
+      "exported_types": [],
+      "exported_functions": [
+        "TestRequestCancelPublishesOnlyControlMessage"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/executiongraph"
+      ],
+      "format_markers": []
+    },
+    {
+      "path": "internal/local/stage_outcome.go",
+      "test": false,
+      "physical_lines": 147,
+      "exported_types": [],
+      "exported_functions": [
+        "RecordStageOutcome",
+        "LoadStageOutcomes"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/executiongraph",
+        "github.com/rgomids/axiom/internal/workflow"
+      ],
+      "format_markers": [
+        "if o.ProjectID != state.ProjectID || o.ExecutionID != state.ExecutionID || o.ExecutionRevision != state.Revision || o.LedgerDigest != hexDigestRevision(state.StorageRevision) || state.FormatVersion != workflow.OperationalConfiguredFormatVersion {"
+      ]
+    },
+    {
+      "path": "internal/local/stage_outcome_test.go",
+      "test": true,
+      "physical_lines": 221,
+      "exported_types": [],
+      "exported_functions": [
+        "TestStageOutcomeProjectionBindsLedgerGeneration",
+        "TestStageOutcomeProjectionRefusals",
+        "TestIntegrationReceiptCommitLoadAndInventory"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/executiongraph",
+        "github.com/rgomids/axiom/internal/runtimeprofile",
+        "github.com/rgomids/axiom/internal/workflow"
+      ],
+      "format_markers": [
+        "state.FormatVersion = workflow.OperationalConfiguredFormatVersion",
+        "return executiongraph.StageOutcome{FormatVersion: 1, ProjectID: state.ProjectID, ExecutionID: state.ExecutionID, ExecutionRevision: state.Revision, LedgerDigest: hexDigestRevision(state.StorageRevision), StageID: string(state.Stage), StageOrdinal: state.StageOrdinal, GraphDigest: strings.Repeat(\"2\", 64), IntegrationReceiptRef: strings.Repeat(\"3\", 64), ValidatorPolicyDigest: strings.Repeat(\"4\", 64), Rollup: rollup, IntegrationResultReference: strings.Repeat(\"5\", 64), ValidationOutputDigest: strings.Repeat(\"6\", 64), RecordedAt: time.Unix(30, 0).UTC()}",
+        "return executiongraph.IntegrationReceipt{FormatVersion: 2, ProjectID: g.Children[0].Envelope.Scope.ProjectID, ParentID: g.Parent.ExecutionID, Revision: g.Parent.GraphRevision, GraphDigest: hexDigestRevision(g.StorageRevision), PreviewDigest: strings.Repeat(\"a\", 64), IntegrationPreviewDigest: strings.Repeat(\"b\", 64), ValidatorPolicyDigest: strings.Repeat(\"c\", 64), IntegrationChildID: g.Parent.IntegrationChild, ExecutionID: \"00000000-0000-4000-8000-0000000005e1\", AttemptNumber: 1, OptionalWaivers: []executiongraph.OptionalWaiver{}, Effects: []executiongraph.Effect{}, ExecutionRevision: g.Parent.GraphRevision, LedgerDigest: strings.Repeat(\"d\", 64), StageID: \"implementation\", ActorKind: \"human-operator\", Actor: \"operator\", RecordedAt: time.Unix(40, 0).UTC()}"
+      ]
+    },
+    {
+      "path": "internal/local/stage_receipts.go",
+      "test": false,
+      "physical_lines": 358,
+      "exported_types": [],
+      "exported_functions": [
+        "CommitRetry",
+        "CommitIntegrationReceipt",
+        "CommitDispatchInputs",
+        "LoadDispatchInputs",
+        "FindStageGraph",
+        "LoadRetry",
+        "LoadIntegrationReceipt"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/executiongraph"
+      ],
+      "format_markers": []
+    },
+    {
+      "path": "internal/local/stage_receipts_test.go",
+      "test": true,
+      "physical_lines": 71,
+      "exported_types": [],
+      "exported_functions": [
+        "TestDispatchInputsLocateCommittedStageGraph"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/executiongraph"
+      ],
+      "format_markers": [
+        "return executiongraph.DispatchInputs{FormatVersion: 1, ProjectID: g.Children[0].Envelope.Scope.ProjectID, ParentID: g.Parent.ExecutionID, PreviewDigest: g.DispatchAuthorityRef, Preview: preview}",
+        "if kind := classifyDispatchInputs(projectID, \"0000000000000000000000000000000000000000000000000000000000000000.json\", []byte(`{\"formatVersion\":1}`)); kind != \"\" {"
+      ]
+    },
+    {
+      "path": "internal/local/stage_retry_test.go",
+      "test": true,
+      "physical_lines": 172,
+      "exported_types": [],
+      "exported_functions": [
+        "TestRetryReceiptCommitLoadAndInventory",
+        "TestRetryReceiptRefusals"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/executiongraph"
+      ],
+      "format_markers": [
+        "return executiongraph.RetryAuthority{FormatVersion: 1, ProjectID: c.Envelope.Scope.ProjectID, ParentID: g.Parent.ExecutionID, Revision: g.Parent.GraphRevision, GraphDigest: fmt.Sprintf(\"%x\", g.StorageRevision), PreviewDigest: strings.Repeat(\"c\", 64), DispatchDigest: strings.Repeat(\"d\", 64), ChildID: c.ExecutionID, PriorAttemptID: c.Attempts[len(c.Attempts)-1].AttemptID, AttemptNumber: uint32(len(c.Attempts)) + 1, Effects: c.Envelope.AllowedEffects, Disposition: disposition, ActorKind: \"human-operator\", Actor: \"operator\", RecordedAt: time.Unix(20, 0).UTC()}"
+      ]
+    },
+    {
+      "path": "internal/local/workflow_store.go",
+      "test": false,
+      "physical_lines": 412,
+      "exported_types": [
+        "WorkflowStore"
+      ],
+      "exported_functions": [
+        "NewWorkflowStore",
+        "Create",
+        "Save",
+        "Load",
+        "List",
+        "ExecutionDigest"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/project",
+        "github.com/rgomids/axiom/internal/workflow",
+        "github.com/rgomids/axiom/internal/workflowdefinition"
+      ],
+      "format_markers": [
+        "FormatVersion   int                         `json:\"formatVersion\"`",
+        "FormatVersion: state.FormatVersion, ExecutionID: state.ExecutionID, WorkflowVersion: state.WorkflowVersion,",
+        "if state.FormatVersion == 1 {",
+        "if err != nil || len(wire)+1 > MaxExecutionBytes || state.FormatVersion == 1 && len(wire)+1 > MaxRecordBytes {",
+        "const timeFormat = \"2006-01-02T15:04:05.999999999Z07:00\"",
+        "if (dto.FormatVersion == 2 || dto.FormatVersion == 3 || dto.FormatVersion == workflow.OperationalConfiguredFormatVersion) && workflowdefinition.StrictJSONBounded(wire, &dto, MaxExecutionBytes) != nil {",
+        "if dto.FormatVersion == 1 && len(wire) > MaxRecordBytes {",
+        "ExecutionID: dto.ExecutionID, FormatVersion: dto.FormatVersion, WorkflowVersion: dto.WorkflowVersion,",
+        "if !bytes.Equal(a, b) || left.ExecutionID != right.ExecutionID || left.FormatVersion != right.FormatVersion || left.WorkflowVersion != right.WorkflowVersion || left.ProjectID != right.ProjectID || left.RepositoryKey != right.RepositoryKey || left.WorkItem != right.WorkItem || left.RuntimeID != right.RuntimeID {",
+        "ExecutionID: \"00000000-0000-4000-8000-000000000000\", FormatVersion: workflow.FormatVersion,"
+      ]
+    },
+    {
+      "path": "internal/local/workflow_store_list_test.go",
+      "test": true,
+      "physical_lines": 115,
+      "exported_types": [],
+      "exported_functions": [
+        "TestExecutionStoreListEnumeratesDeterministically",
+        "TestExecutionStoreListFailsClosed"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/workflow"
+      ],
+      "format_markers": []
+    },
+    {
+      "path": "internal/local/workflow_store_test.go",
+      "test": true,
+      "physical_lines": 140,
+      "exported_types": [],
+      "exported_functions": [
+        "TestExecutionStoreRoundTripsClosedPrivateState",
+        "TestExecutionStoreRejectsUnknownNewerAndMalformedState",
+        "TestExecutionStoreRequiresStorageRevisionAndRejectsStaleWriter",
+        "TestExecutionStoreFailsClosedAcrossF0F8"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/testfs",
+        "github.com/rgomids/axiom/internal/provenance",
+        "github.com/rgomids/axiom/internal/workflow"
+      ],
+      "format_markers": [
+        "return bytes.Replace(wire, []byte(`\"formatVersion\":1`), []byte(`\"formatVersion\":2`), 1)",
+        "return workflow.State{ExecutionID: \"018f4a44-7c31-7dd4-9d00-111111111111\", FormatVersion: workflow.FormatVersion, WorkflowVersion: workflow.WorkflowVersion, ProjectID: \"123e4567-e89b-42d3-a456-426614174000\", RepositoryKey: \"main\", WorkItem: workflow.WorkItem{Provider: \"github\", Resource: \"owner/repo\", ExternalID: \"7\", URL: \"https://github.com/owner/repo/issues/7\", State: \"OPEN\"}, RuntimeID: \"codex\", Stage: workflow.Intake, Revision: 1, Status: workflow.ExecutionActive, CreatedAt: now, UpdatedAt: now, Provenance: workflow.Identity{Product: source.Product(), Version: source.Version(), Revision: source.Revision(), SourceState: string(source.SourceState())}}"
+      ]
+    },
+    {
+      "path": "internal/local/workflow_store_v5_test.go",
+      "test": true,
+      "physical_lines": 57,
+      "exported_types": [],
+      "exported_functions": [
+        "TestWorkflowStoreExecution5RoundTripAndHistoricalIsolation"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/runtimeprofile",
+        "github.com/rgomids/axiom/internal/workflow"
+      ],
+      "format_markers": [
+        "if err != nil || state.FormatVersion != workflow.ProfileConfiguredFormatVersion {",
+        "state.FormatVersion = workflow.OperationalConfiguredFormatVersion",
+        "if err != nil || loaded.FormatVersion != workflow.OperationalConfiguredFormatVersion || loaded.Binding.FrozenProfile == nil || *loaded.Binding.FrozenProfile != frozen {",
+        "downgraded := bytes.Replace(wire, []byte(`\"formatVersion\":5`), []byte(`\"formatVersion\":3`), 1)"
+      ]
+    },
+    {
+      "path": "internal/runtimeadapter/authpreflight.go",
+      "test": false,
+      "physical_lines": 875,
+      "exported_types": [
+        "AuthStatus",
+        "AuthReport",
+        "AuthTarget",
+        "StatusCommand",
+        "StatusResult",
+        "StatusRunner",
+        "AuthPreflight",
+        "ManagedConfiguration",
+        "OSStatusRunner"
+      ],
+      "exported_functions": [
+        "DispatchAllowed",
+        "NewAuthPreflight",
+        "DefaultManagedConfiguration",
+        "Check",
+        "EvidenceKind",
+        "RunStatus",
+        "Write"
+      ],
+      "imports": [],
+      "format_markers": []
+    },
+    {
+      "path": "internal/runtimeadapter/authpreflight_test.go",
+      "test": true,
+      "physical_lines": 487,
+      "exported_types": [],
+      "exported_functions": [
+        "EvidenceKind",
+        "RunStatus",
+        "TestAuthPreflightVendorStatusOutcomes",
+        "TestAuthPreflightInspectsTheExactEffectiveInvocation",
+        "TestAuthPreflightDoesNotClassifyEnvironmentVariables",
+        "TestAuthPreflightEnvironmentDoesNotOverrideVendorFailure",
+        "TestAuthPreflightRejectsConfigurationOverrides",
+        "TestAuthPreflightBindsExecutableIdentity",
+        "TestAuthReportExcludesSecretsAndAccountIdentifiers",
+        "TestOSStatusRunnerUsesOnlyTheGivenEnvironment",
+        "TestCodexConfigDecodesEscapedKeys",
+        "TestAuthPreflightInspectsAncestorAndWorktreeProjectSettings"
+      ],
+      "imports": [],
+      "format_markers": []
+    },
+    {
+      "path": "internal/runtimeadapter/effort_sources.go",
+      "test": false,
+      "physical_lines": 625,
+      "exported_types": [
+        "EffortSource"
+      ],
+      "exported_functions": [],
+      "imports": [
+        "github.com/rgomids/axiom/internal/executiongraph",
+        "github.com/rgomids/axiom/internal/runtimeprofile"
+      ],
+      "format_markers": [
+        "if source.Format == \"toml\" {",
+        "return runtimeID == \"claude\" && s.Scope == \"managed-drop-in\" && s.Format == \"json\"",
+        "return s.Format == \"toml\" && (base == \"config.toml\" || base == \"managed_config.toml\")",
+        "return runtimeID == \"claude\" && s.Format == \"json\" && (base == \"settings.json\" || base == \"settings.local.json\" || base == \"managed-settings.json\" || s.Scope == \"managed-drop-in\" && strings.HasSuffix(base, \".json\"))"
+      ]
+    },
+    {
+      "path": "internal/runtimeadapter/effort_sources_path_test.go",
+      "test": true,
+      "physical_lines": 196,
+      "exported_types": [],
+      "exported_functions": [
+        "TestEffortSourcesPathSpellingIsNotOverride",
+        "TestEffortSourcesOverridesStillRefusedUnderEffortPaths",
+        "TestEffortSourcesPathOperandRefusesRelativeOrNonPath",
+        "TestEffortSourcesRefuseSymlinkEscapeOfValidConfiguredPath"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/executiongraph",
+        "github.com/rgomids/axiom/internal/runtimeprofile"
+      ],
+      "format_markers": []
+    },
+    {
+      "path": "internal/runtimeadapter/effort_sources_test.go",
+      "test": true,
+      "physical_lines": 181,
+      "exported_types": [],
+      "exported_functions": [
+        "TestEffortSourcesConsentAndNoOverride",
+        "TestEffortSourcesMalformedAndSymlinkRefusal",
+        "TestEffortSourcesBindExactBytesAndObjectAncestors",
+        "TestEffortSourcesManagedDropInInventory",
+        "TestEffortSourcesDropInUnknownAndSymlinkRefusal",
+        "TestEffortSourcesTOMLNarrowGrammar",
+        "TestEffortSourcesOversizedRefusal"
+      ],
+      "imports": [],
+      "format_markers": []
+    },
+    {
+      "path": "internal/runtimeadapter/stage_effort.go",
+      "test": false,
+      "physical_lines": 109,
+      "exported_types": [
+        "StageEffortRoots",
+        "StageEffortInspector"
+      ],
+      "exported_functions": [
+        "CheckEffortSources"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/executiongraph",
+        "github.com/rgomids/axiom/internal/runtimeprofile"
+      ],
+      "format_markers": []
+    },
+    {
+      "path": "internal/runtimeadapter/stage_effort_test.go",
+      "test": true,
+      "physical_lines": 417,
+      "exported_types": [],
+      "exported_functions": [
+        "TestStageEffortRootsResolve",
+        "TestTrustedEffortAnchorAbsentManaged",
+        "TestVerifyChildEquivalence",
+        "TestStageEffortInspector",
+        "TestStageEffortInspectorExecutableIdentity",
+        "TestStageEffortInspectorReadOnlyChildInspectsActualRoot",
+        "TestStageEffortPreviewDispatchAgreement"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/executiongraph",
+        "github.com/rgomids/axiom/internal/runtimeprofile"
+      ],
+      "format_markers": []
+    },
+    {
+      "path": "internal/runtimeapplication/policy_v4.go",
+      "test": false,
+      "physical_lines": 253,
+      "exported_types": [
+        "PolicyCandidate",
+        "RuntimeCandidate"
+      ],
+      "exported_functions": [
+        "ConsumerFromRecord",
+        "EvaluatePolicy",
+        "CheckPolicy",
+        "ReadinessCandidates",
+        "EvaluateAvailability"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/manifest",
+        "github.com/rgomids/axiom/internal/project",
+        "github.com/rgomids/axiom/internal/runtimeprofile"
+      ],
+      "format_markers": []
+    },
+    {
+      "path": "internal/stageexecution/admission.go",
+      "test": false,
+      "physical_lines": 133,
+      "exported_types": [
+        "Operation",
+        "Contract",
+        "Admission"
+      ],
+      "exported_functions": [
+        "Admit"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/executiongraph",
+        "github.com/rgomids/axiom/internal/runtimeprofile",
+        "github.com/rgomids/axiom/internal/workflow",
+        "github.com/rgomids/axiom/internal/workflowcompiler",
+        "github.com/rgomids/axiom/internal/workflowdefinition"
+      ],
+      "format_markers": [
+        "current := c.Execution.FormatVersion == workflow.OperationalConfiguredFormatVersion",
+        "historical := c.Execution.FormatVersion == workflow.ProfileConfiguredFormatVersion",
+        "if c.Graph != nil && c.Graph.Successor.FormatVersion != executiongraph.OperationalGraphVersion {"
+      ]
+    },
+    {
+      "path": "internal/stageexecution/admission_test.go",
+      "test": true,
+      "physical_lines": 184,
+      "exported_types": [],
+      "exported_functions": [
+        "TestAdmissionHistoricalMatrix",
+        "TestAllHistoricalGraphMutationsRefusedAndInspectionPreservesBytes",
+        "TestUnknownWireNeverFallsBack"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/executiongraph",
+        "github.com/rgomids/axiom/internal/runtimeprofile",
+        "github.com/rgomids/axiom/internal/workflow",
+        "github.com/rgomids/axiom/internal/workflowcompiler",
+        "github.com/rgomids/axiom/internal/workflowdefinition"
+      ],
+      "format_markers": [
+        "cfg := runtimeprofile.ConfigurationV4{FormatVersion: runtimeprofile.FormatVersionV4, Revision: 4,",
+        "return Contract{Definition: func() workflowdefinition.Document { d, _ := workflowdefinition.BuiltinRevision(2); return d }(), Execution: workflow.State{FormatVersion: workflow.OperationalConfiguredFormatVersion, Binding: &workflow.WorkflowBinding{SchemaVersion: 2, FrozenProfile: p}}, Record: \"active-v4\", Configuration: &cfg, Graph: &executiongraph.GraphDocument{Successor: &g}, WorkflowSelected: true, PolicyAllowed: true}",
+        "base := executiongraph.Graph{FormatVersion: version, Parent: g.Parent}",
+        "{\"row03-legacy-run\", StageRun, func(c *Contract) { c.Execution.FormatVersion = 2 }, ErrLegacyExecution, \"\"},",
+        "{\"row04-legacy-retry\", StageRetry, func(c *Contract) { c.Execution.FormatVersion = 1 }, ErrLegacyExecution, \"\"},",
+        "{\"row05-sequential-legacy-inspection\", StageStatus, func(c *Contract) { c.Execution.FormatVersion = 2 }, nil, \"legacy_execution_contract\"},",
+        "{\"row06-legacy-coordination\", CoordinationRead, func(c *Contract) { c.Execution.FormatVersion = 1 }, nil, \"legacy_execution_contract\"},",
+        "{\"unknown-successor\", StageRun, func(c *Contract) { c.Graph.Successor.FormatVersion = 99 }, executiongraph.ErrUnsupportedGraphFormat, \"\"},",
+        "{\"missing-successor-version\", StageRun, func(c *Contract) { c.Graph.Successor.FormatVersion = 0 }, executiongraph.ErrUnsupportedGraphFormat, \"\"},",
+        "for _, bad := range []string{strings.Replace(string(wire), `\"formatVersion\":4`, `\"formatVersion\":99`, 1), strings.Replace(string(wire), `\"formatVersion\":4,`, \"\", 1), strings.Replace(string(wire), `\"classificationPolicy\":\"stage-attempt-v1\",`, \"\", 1)} {"
+      ]
+    },
+    {
+      "path": "internal/stageexecution/admission_v4_test.go",
+      "test": true,
+      "physical_lines": 127,
+      "exported_types": [],
+      "exported_functions": [
+        "TestAdmitActiveBindsCurrentIdentity",
+        "TestAdmitRefusesNonCurrentConfiguration",
+        "TestAdmissionInspectionIndependentOfConfiguration"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/executiongraph",
+        "github.com/rgomids/axiom/internal/runtimeprofile"
+      ],
+      "format_markers": [
+        "c.Execution.FormatVersion = generation"
+      ]
+    },
+    {
+      "path": "internal/stageexecution/attempt_diagnostic.go",
+      "test": false,
+      "physical_lines": 81,
+      "exported_types": [],
+      "exported_functions": [
+        "PreSpawnDiagnostic"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/executiongraph",
+        "github.com/rgomids/axiom/internal/runtimeadapter",
+        "github.com/rgomids/axiom/internal/runtimeapplication",
+        "github.com/rgomids/axiom/internal/runtimeprofile"
+      ],
+      "format_markers": []
+    },
+    {
+      "path": "internal/stageexecution/attempt_diagnostic_test.go",
+      "test": true,
+      "physical_lines": 182,
+      "exported_types": [],
+      "exported_functions": [
+        "RunObserved",
+        "TestSupervisorPersistsOperationalFailureBeforeSpawn",
+        "TestSingleSupervisorPersistsOperationalFailureBeforeSpawn",
+        "TestSupervisorsPersistConfirmedSpawnFailure",
+        "RunObserved",
+        "TestSupervisorsPersistSanitizedTerminalCauseWithoutChangingUncertainty",
+        "RunObserved",
+        "TestUnobservedStartCannotLeaveReusablePendingAuthority"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/executiongraph"
+      ],
+      "format_markers": []
+    },
+    {
+      "path": "internal/stageexecution/cancel.go",
+      "test": false,
+      "physical_lines": 131,
+      "exported_types": [
+        "CancelStore",
+        "CancelPreview",
+        "CancelApply",
+        "CancelResult",
+        "CancelService"
+      ],
+      "exported_functions": [
+        "Preview",
+        "Apply"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/executiongraph"
+      ],
+      "format_markers": []
+    },
+    {
+      "path": "internal/stageexecution/detach.go",
+      "test": false,
+      "physical_lines": 107,
+      "exported_types": [
+        "DetachedStart",
+        "SameBinaryDetacher"
+      ],
+      "exported_functions": [
+        "Launch",
+        "Start",
+        "LaunchRetry"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/executiongraph"
+      ],
+      "format_markers": []
+    },
+    {
+      "path": "internal/stageexecution/detach_other.go",
+      "test": false,
+      "physical_lines": 14,
+      "exported_types": [],
+      "exported_functions": [],
+      "imports": [
+        "github.com/rgomids/axiom/internal/executiongraph"
+      ],
+      "format_markers": []
+    },
+    {
+      "path": "internal/stageexecution/detach_other_test.go",
+      "test": true,
+      "physical_lines": 15,
+      "exported_types": [],
+      "exported_functions": [
+        "TestDetachmentPlatformAttributes"
+      ],
+      "imports": [],
+      "format_markers": []
+    },
+    {
+      "path": "internal/stageexecution/detach_posix.go",
+      "test": false,
+      "physical_lines": 18,
+      "exported_types": [],
+      "exported_functions": [],
+      "imports": [
+        "github.com/rgomids/axiom/internal/executiongraph"
+      ],
+      "format_markers": []
+    },
+    {
+      "path": "internal/stageexecution/detach_posix_test.go",
+      "test": true,
+      "physical_lines": 16,
+      "exported_types": [],
+      "exported_functions": [
+        "TestDetachmentPlatformAttributes"
+      ],
+      "imports": [],
+      "format_markers": []
+    },
+    {
+      "path": "internal/stageexecution/integrate.go",
+      "test": false,
+      "physical_lines": 541,
+      "exported_types": [
+        "IntegrateStore",
+        "IntegrationWorkspace",
+        "ValidatorCommands",
+        "StageOutcomeLedger",
+        "IntegrateRequest",
+        "IntegratePreview",
+        "IntegrateApply",
+        "IntegrateResult",
+        "IntegrateService"
+      ],
+      "exported_functions": [
+        "Preview",
+        "Apply",
+        "CurrentProcess"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/executiongraph",
+        "github.com/rgomids/axiom/internal/gitworkspace",
+        "github.com/rgomids/axiom/internal/workflow",
+        "github.com/rgomids/axiom/internal/workflowcompiler"
+      ],
+      "format_markers": [
+        "receipt := executiongraph.IntegrationReceipt{FormatVersion: 2, ProjectID: r.Preview.Request.Target.ProjectID, ParentID: g.Parent.ExecutionID, ExecutionID: snap.contract.Execution.ExecutionID, Revision: g.Parent.GraphRevision, GraphDigest: hex.EncodeToString(g.StorageRevision[:]), PreviewDigest: fresh.Digest, IntegrationPreviewDigest: fresh.Integration.Digest, ValidatorPolicyDigest: fresh.Request.ValidatorPolicyDigest, IntegrationChildID: integration.ExecutionID, AttemptNumber: uint32(len(integration.Attempts)) + 1, OptionalWaivers: waivers, Effects: append([]executiongraph.Effect{}, fresh.Integration.Effects...), ExecutionRevision: snap.contract.Execution.Revision, LedgerDigest: fresh.LedgerDigest, StageID: fresh.Request.StageID, StageOrdinal: snap.contract.Execution.StageOrdinal, ActorKind: \"human-operator\", Actor: r.Actor, RecordedAt: s.now()}"
+      ]
+    },
+    {
+      "path": "internal/stageexecution/integrate_test.go",
+      "test": true,
+      "physical_lines": 485,
+      "exported_types": [],
+      "exported_functions": [
+        "Epoch",
+        "Validate",
+        "Close",
+        "StageSnapshot",
+        "Records",
+        "Acquire",
+        "Save",
+        "CommitIntegrationReceipt",
+        "LoadIntegrationReceipt",
+        "Observe",
+        "Apply",
+        "Validate",
+        "Commands",
+        "RecordStageOutcome",
+        "LoadStageOutcomes",
+        "TestIntegrateTwoChildrenWithValidators",
+        "TestIntegrateRefusals",
+        "TestIntegrateValidatorFailureRecordsFailureOutcome",
+        "TestIntegrateUnknownEffectBlocksRerun",
+        "TestIntegrateProjectionFailureIsPartialAndRepairable",
+        "TestIntegrateTerminalSaveFailureRequiresReconciliation",
+        "TestStageOutcomeRejectsIncompleteRollup"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/executiongraph",
+        "github.com/rgomids/axiom/internal/gitworkspace",
+        "github.com/rgomids/axiom/internal/workflow",
+        "github.com/rgomids/axiom/internal/workflowcompiler"
+      ],
+      "format_markers": [
+        "o := executiongraph.StageOutcome{FormatVersion: 1, ProjectID: \"p\", ExecutionID: store.graph.Parent.ExecutionID, ExecutionRevision: 1, LedgerDigest: strings.Repeat(\"1\", 64), StageID: \"implementation\", GraphDigest: strings.Repeat(\"2\", 64), IntegrationReceiptRef: strings.Repeat(\"3\", 64), ValidatorPolicyDigest: integratePolicy, Rollup: r, RecordedAt: time.Unix(1, 0).UTC()}"
+      ]
+    },
+    {
+      "path": "internal/stageexecution/lifecycle_test.go",
+      "test": true,
+      "physical_lines": 488,
+      "exported_types": [],
+      "exported_functions": [
+        "StageSnapshot",
+        "RequestCancel",
+        "LeaseHeld",
+        "Process",
+        "TestStatusRendersPersistedStateAcrossStatuses",
+        "TestStatusObservationIsDiagnosticOnly",
+        "TestStatusInspectsLegacyAndRefusesForeignTarget",
+        "TestResumeAfterSupervisorKillStartsOnlyRemainingFirstAttempts",
+        "TestResumeRefusals",
+        "TestCancelBeforeDispatchPreventsAttempts",
+        "TestCancelWhileRunningRequiresConfirmedStop",
+        "RunObserved",
+        "TestCancelRefusalsAndIdempotence"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/executiongraph"
+      ],
+      "format_markers": [
+        "store.contract.Execution.FormatVersion = 2",
+        "store.contract.Execution.FormatVersion = 5",
+        "store.contract.Execution.FormatVersion = 2",
+        "store.contract.Execution.FormatVersion = 2"
+      ]
+    },
+    {
+      "path": "internal/stageexecution/preview.go",
+      "test": false,
+      "physical_lines": 163,
+      "exported_types": [
+        "StagePlanCompiler",
+        "PreviewObservation",
+        "PreviewSource",
+        "PreviewService",
+        "ChildRights",
+        "DispatchPreview"
+      ],
+      "exported_functions": [
+        "Preview"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/executiongraph",
+        "github.com/rgomids/axiom/internal/runtimeprofile",
+        "github.com/rgomids/axiom/internal/workflowcompiler",
+        "github.com/rgomids/axiom/internal/workflowdefinition"
+      ],
+      "format_markers": [
+        "if plan.FormatVersion != workflowcompiler.OperationalStagePlanVersion || plan.Execution != ref || plan.StageID != stage || plan.Digest != o.Reviewed.Digest || plan.PlanDocumentDigest != o.Reviewed.PlanDocumentDigest || !reflect.DeepEqual(plan, o.Reviewed) {"
+      ]
+    },
+    {
+      "path": "internal/stageexecution/preview_test.go",
+      "test": true,
+      "physical_lines": 252,
+      "exported_types": [],
+      "exported_functions": [
+        "Observe",
+        "PlanStageV2",
+        "TestDispatchPreviewGraphAndSingle",
+        "TestDispatchPreviewRightsGolden",
+        "TestDispatchPreviewRefusals",
+        "TestPreviewBindsPolicyAndDisclosure",
+        "TestDispatchPreviewBindsProcessMode"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/executiongraph",
+        "github.com/rgomids/axiom/internal/workflowcompiler",
+        "github.com/rgomids/axiom/internal/workflowdefinition"
+      ],
+      "format_markers": [
+        "plan := workflowcompiler.StagePlan{FormatVersion: 3, Execution: ref, ProjectID: g.Children[0].Envelope.Scope.ProjectID, RepositoryKey: \"main\", Workflow: c.Definition.Ref(\"builtin\"), StageID: \"implementation\", ExecutionKind: \"graph\", PlanDocumentDigest: strings.Repeat(\"a\", 64), Digest: strings.Repeat(\"b\", 64), Compilation: workflowcompiler.Result{FormatVersion: 3, Concurrency: 1, ExecutionKind: \"graph\", AuthorityCeiling: g.Parent.AuthorityEffects}}",
+        "s.o.Contract.Execution.FormatVersion = 2"
+      ]
+    },
+    {
+      "path": "internal/stageexecution/recompiled_proposal_test.go",
+      "test": true,
+      "physical_lines": 119,
+      "exported_types": [],
+      "exported_functions": [
+        "TestRetryRejectsRecompiledProposalDifferentFromPersistedGraph",
+        "TestResumeRejectsRecompiledProposalDifferentFromPersistedGraph",
+        "TestStageRunRejectsGraphProposalMismatchWithMatchingPreviewAuthority"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/executiongraph"
+      ],
+      "format_markers": []
+    },
+    {
+      "path": "internal/stageexecution/reconcile.go",
+      "test": false,
+      "physical_lines": 217,
+      "exported_types": [
+        "ReconcileObserver",
+        "ReconcileStore",
+        "ReconcileRequest",
+        "ReconcilePreview",
+        "ReconcileApply",
+        "ReconcileResult",
+        "ReconcileService"
+      ],
+      "exported_functions": [
+        "Preview",
+        "Apply"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/executiongraph"
+      ],
+      "format_markers": []
+    },
+    {
+      "path": "internal/stageexecution/reconcile_test.go",
+      "test": true,
+      "physical_lines": 208,
+      "exported_types": [],
+      "exported_functions": [
+        "ObserveReconciliation",
+        "AppendReconciliation",
+        "TestReconcileStaleAndUnknownAppendsFactsOnly",
+        "TestReconcileRefusals"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/executiongraph"
+      ],
+      "format_markers": []
+    },
+    {
+      "path": "internal/stageexecution/resume.go",
+      "test": false,
+      "physical_lines": 85,
+      "exported_types": [],
+      "exported_functions": [],
+      "imports": [
+        "github.com/rgomids/axiom/internal/executiongraph"
+      ],
+      "format_markers": []
+    },
+    {
+      "path": "internal/stageexecution/retry.go",
+      "test": false,
+      "physical_lines": 356,
+      "exported_types": [
+        "RetrySupervisorStore",
+        "RetryStore",
+        "WorkspaceDisposer",
+        "WorkspaceReset",
+        "RetryStarter",
+        "RetryRequest",
+        "RetryPreview",
+        "RetryApply",
+        "RetryResult",
+        "RetryService"
+      ],
+      "exported_functions": [
+        "Preview",
+        "Apply",
+        "RunRetry"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/executiongraph",
+        "github.com/rgomids/axiom/internal/gitworkspace",
+        "github.com/rgomids/axiom/internal/workflowcompiler"
+      ],
+      "format_markers": [
+        "a := executiongraph.RetryAuthority{FormatVersion: 1, ProjectID: r.Preview.Request.Target.ProjectID, ParentID: g.Parent.ExecutionID, Revision: g.Parent.GraphRevision, GraphDigest: fmt.Sprintf(\"%x\", g.StorageRevision), PreviewDigest: fresh.Digest, DispatchDigest: fresh.DispatchDigest, ChildID: fresh.Request.ChildID, PriorAttemptID: fresh.PriorAttemptID, AttemptNumber: fresh.AttemptNumber, Effects: fresh.Effects, Disposition: disposition, ActorKind: \"human-operator\", Actor: r.Actor, RecordedAt: now().UTC()}"
+      ]
+    },
+    {
+      "path": "internal/stageexecution/retry_test.go",
+      "test": true,
+      "physical_lines": 421,
+      "exported_types": [],
+      "exported_functions": [
+        "RunObserved",
+        "LoadRetry",
+        "StageSnapshot",
+        "CommitRetry",
+        "Dispose",
+        "TestRetryDispositionFailureRequiresRecovery",
+        "TestRetryPreserveDisposition",
+        "ResetChild",
+        "TestRetryResetRunsOnlyInsideTheFencedSupervisor",
+        "StartRetry",
+        "TestRetryEligibleStatusesCreateNewAttempt",
+        "TestRetryRefusals",
+        "TestRetrySupervisorRefusesForeignReceipts"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/executiongraph",
+        "github.com/rgomids/axiom/internal/gitworkspace"
+      ],
+      "format_markers": [
+        "h.store.contract.Execution.FormatVersion = 2"
+      ]
+    },
+    {
+      "path": "internal/stageexecution/run.go",
+      "test": false,
+      "physical_lines": 174,
+      "exported_types": [
+        "Publication",
+        "DispatchPublisher",
+        "DispatchWorkspaces",
+        "DispatchStarter",
+        "DispatchProjection",
+        "RunService",
+        "RunRequest",
+        "RunResult"
+      ],
+      "exported_functions": [
+        "Apply"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/executiongraph",
+        "github.com/rgomids/axiom/internal/workflowcompiler"
+      ],
+      "format_markers": []
+    },
+    {
+      "path": "internal/stageexecution/run_test.go",
+      "test": true,
+      "physical_lines": 174,
+      "exported_types": [],
+      "exported_functions": [
+        "Build",
+        "Commit",
+        "ReadBack",
+        "Prepare",
+        "Project",
+        "Start",
+        "TestRunGraphAndSingleCommitBeforeStart",
+        "TestRunAuthorityAndDriftRefuseBeforeCommit",
+        "TestRunPublicationAndStartFailures",
+        "Error",
+        "EffectCommitted",
+        "TestRunConfirmedCommitFailureIsPartial"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/executiongraph",
+        "github.com/rgomids/axiom/internal/workflow"
+      ],
+      "format_markers": []
+    },
+    {
+      "path": "internal/stageexecution/single.go",
+      "test": false,
+      "physical_lines": 529,
+      "exported_types": [
+        "SingleRequest",
+        "SinglePublication",
+        "SingleStore",
+        "SingleWorkspaceReset",
+        "SinglePreparation",
+        "SingleSupervisor",
+        "SingleAttemptLoader",
+        "CompiledSinglePreparation"
+      ],
+      "exported_functions": [
+        "Request",
+        "Run",
+        "LaunchSingle",
+        "PrepareSingle",
+        "DrainSingle"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/coordination",
+        "github.com/rgomids/axiom/internal/executiongraph",
+        "github.com/rgomids/axiom/internal/gitworkspace",
+        "github.com/rgomids/axiom/internal/graphapplication",
+        "github.com/rgomids/axiom/internal/workflow"
+      ],
+      "format_markers": []
+    },
+    {
+      "path": "internal/stageexecution/single_lifecycle.go",
+      "test": false,
+      "physical_lines": 444,
+      "exported_types": [
+        "SingleLedger",
+        "SingleObserver",
+        "SingleDisposer",
+        "SingleLifecycle",
+        "SingleStatusResult",
+        "SingleOperationPreview",
+        "SingleRetryResult"
+      ],
+      "exported_functions": [
+        "Status",
+        "CancelPreview",
+        "Cancel",
+        "ReconcilePreview",
+        "Reconcile",
+        "RetryPreview",
+        "Retry"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/executiongraph",
+        "github.com/rgomids/axiom/internal/workflow",
+        "github.com/rgomids/axiom/internal/workflowcompiler"
+      ],
+      "format_markers": [
+        "a := executiongraph.SingleStageAuthority{FormatVersion: executiongraph.SingleStageAuthorityVersion, Scope: executiongraph.SingleStageAuthorityScope, ProjectID: run.Scope.ProjectID, ExecutionID: run.Scope.ExecutionID, StageID: run.Scope.StageID, StageOrdinal: run.Scope.StageOrdinal, ScopeDigest: run.ScopeDigest, ExecutionGeneration: b.ExecutionGeneration, WorkflowRevision: b.WorkflowRevision, LedgerGeneration: fmt.Sprintf(\"%x\", run.StorageRevision), PreviewDigest: b.PreviewDigest, DispatchDigest: fresh.DispatchDigest, ProposalDigest: b.ProposalDigest, AttemptNumber: fresh.AttemptNumber, PriorAttemptID: fresh.AttemptID, Effects: b.Effects, Disposition: disposition, ActorKind: \"human-operator\", Actor: actor, RecordedAt: s.now()}"
+      ]
+    },
+    {
+      "path": "internal/stageexecution/single_lifecycle_test.go",
+      "test": true,
+      "physical_lines": 293,
+      "exported_types": [],
+      "exported_functions": [
+        "SingleSnapshot",
+        "RequestSingleCancel",
+        "AppendSingleReconciliation",
+        "CommitSingleRetry",
+        "DisposeSingle",
+        "ObserveSingle",
+        "TestSingleCancelPublishesOnlyTheControlMessage",
+        "TestSingleReconcileAppendsFactsWithoutStatusChange",
+        "TestSingleRetryNeedsDispositionAuthorityAndBudget",
+        "TestSingleRetryRefusesUnreconciledUnknownAndStalePreview",
+        "ResetSingle",
+        "TestSingleResetRunsOnlyInsideTheFencedSupervisor"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/executiongraph",
+        "github.com/rgomids/axiom/internal/gitworkspace",
+        "github.com/rgomids/axiom/internal/workflow",
+        "github.com/rgomids/axiom/internal/workflowcompiler"
+      ],
+      "format_markers": []
+    },
+    {
+      "path": "internal/stageexecution/single_test.go",
+      "test": true,
+      "physical_lines": 279,
+      "exported_types": [],
+      "exported_functions": [
+        "Epoch",
+        "Validate",
+        "Close",
+        "LoadSingle",
+        "SingleContract",
+        "AcquireSingle",
+        "SaveSingle",
+        "PrepareSingle",
+        "DrainSingle",
+        "RunObserved",
+        "TestLaunchSingleVerifiesThePendingReceipt",
+        "TestSingleSupervisorPersistsOneClassifiedAttempt",
+        "TestSingleSupervisorCancellationAndDrift",
+        "TestResumeSingleStartsOnlyThePendingReceipt"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/executiongraph"
+      ],
+      "format_markers": [
+        "a := executiongraph.SingleStageAuthority{FormatVersion: 2, Scope: executiongraph.SingleStageAuthorityScope, ProjectID: \"project\", ExecutionID: scope.ExecutionID, StageID: \"intake\", ScopeDigest: digest, ExecutionGeneration: generation, WorkflowRevision: 2, PreviewDigest: binding.PreviewDigest, DispatchDigest: binding.PreviewDigest, ProposalDigest: binding.ProposalDigest, AttemptNumber: 1, Effects: []executiongraph.Effect{}, Disposition: executiongraph.DispositionNotRequired, ActorKind: \"human-operator\", Actor: \"op\", RecordedAt: created}",
+        "run := executiongraph.SingleStageRun{Kind: executiongraph.SingleStageRunKind, FormatVersion: 2, ScopeDigest: digest, Scope: scope, Binding: binding, CreatedAt: created, Authorities: []string{ref}, Attempts: []executiongraph.SuccessorAttempt{}, StorageRevision: sha256.Sum256([]byte(\"ledger\"))}"
+      ]
+    },
+    {
+      "path": "internal/stageexecution/start.go",
+      "test": false,
+      "physical_lines": 33,
+      "exported_types": [
+        "CommittedStarter"
+      ],
+      "exported_functions": [
+        "Start",
+        "StartRetry"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/executiongraph"
+      ],
+      "format_markers": []
+    },
+    {
+      "path": "internal/stageexecution/status.go",
+      "test": false,
+      "physical_lines": 108,
+      "exported_types": [
+        "StatusRequest",
+        "StatusSource",
+        "StatusObservation",
+        "StatusResult",
+        "StatusService"
+      ],
+      "exported_functions": [
+        "Read"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/executiongraph"
+      ],
+      "format_markers": []
+    },
+    {
+      "path": "internal/stageexecution/supervisor.go",
+      "test": false,
+      "physical_lines": 461,
+      "exported_types": [
+        "SupervisorRequest",
+        "SupervisorLease",
+        "SupervisorStore",
+        "SupervisorPreparation",
+        "SupervisorRunner",
+        "Supervisor"
+      ],
+      "exported_functions": [
+        "Run"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/executiongraph"
+      ],
+      "format_markers": []
+    },
+    {
+      "path": "internal/stageexecution/supervisor_preparation.go",
+      "test": false,
+      "physical_lines": 90,
+      "exported_types": [
+        "AttemptMaterial",
+        "AttemptMaterialLoader",
+        "CompiledSupervisorPreparation"
+      ],
+      "exported_functions": [
+        "Prepare",
+        "Drain"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/coordination",
+        "github.com/rgomids/axiom/internal/executiongraph",
+        "github.com/rgomids/axiom/internal/graphapplication",
+        "github.com/rgomids/axiom/internal/runtimeadapter",
+        "github.com/rgomids/axiom/internal/workflowcompiler"
+      ],
+      "format_markers": []
+    },
+    {
+      "path": "internal/stageexecution/supervisor_preparation_test.go",
+      "test": true,
+      "physical_lines": 122,
+      "exported_types": [],
+      "exported_functions": [
+        "LoadAttempt",
+        "Check",
+        "CheckEffortSources",
+        "Check",
+        "TestCompiledPreparationReusesFrozenChecksAndTaskPacket"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/coordination",
+        "github.com/rgomids/axiom/internal/executiongraph",
+        "github.com/rgomids/axiom/internal/runtimeadapter",
+        "github.com/rgomids/axiom/internal/runtimeapplication",
+        "github.com/rgomids/axiom/internal/runtimeprofile",
+        "github.com/rgomids/axiom/internal/workflowcompiler"
+      ],
+      "format_markers": []
+    },
+    {
+      "path": "internal/stageexecution/supervisor_test.go",
+      "test": true,
+      "physical_lines": 481,
+      "exported_types": [],
+      "exported_functions": [
+        "Epoch",
+        "Validate",
+        "Close",
+        "Load",
+        "Acquire",
+        "Save",
+        "Records",
+        "Prepare",
+        "Drain",
+        "RunObserved",
+        "TestSupervisorConcurrentFirstAttemptsIntegrationPending",
+        "TestSupervisorAuthorityRefusedBeforeSpawn",
+        "TestSupervisorFailureInjectionPhases",
+        "TestSupervisorCancellationInFlight",
+        "Start",
+        "TestDetachedLaunchUsesOnlyCommittedScope",
+        "TestSupervisorInterruptedAtSaveBoundariesLeavesPersistedTruth",
+        "TestSupervisorInitiatingContextDoesNotOwnRun",
+        "TestSupervisorCancellationBeforeDispatchDoesNotCreateAttempts",
+        "Contract",
+        "TestSupervisorVersionGuardRunsBeforeLaunchAndDispatch"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/executiongraph"
+      ],
+      "format_markers": [
+        "a := executiongraph.DispatchAuthority{FormatVersion: 1, ProjectID: g.Children[0].Envelope.Scope.ProjectID, PreviewDigest: strings.Repeat(\"a\", 64), Scope: \"graph-first-attempts\", ParentID: g.Parent.ExecutionID, Revision: g.Parent.GraphRevision, ProposalDigest: g.Parent.ProposalDigest, ActorKind: \"human-operator\", Actor: \"fake-operator\", RecordedAt: g.Parent.CreatedAt}",
+        "store.contract.Execution.FormatVersion = 2",
+        "store.contract.Configuration.FormatVersion = 1"
+      ]
+    },
+    {
+      "path": "internal/stageexecution/validator_policy.go",
+      "test": false,
+      "physical_lines": 71,
+      "exported_types": [
+        "ValidatorPolicyStore",
+        "ValidatorPolicyService",
+        "ValidatorPolicyApply"
+      ],
+      "exported_functions": [
+        "Preview",
+        "Apply",
+        "Commands"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/gitworkspace",
+        "github.com/rgomids/axiom/internal/validatorpolicy"
+      ],
+      "format_markers": []
+    },
+    {
+      "path": "internal/stageexecution/validator_policy_test.go",
+      "test": true,
+      "physical_lines": 86,
+      "exported_types": [],
+      "exported_functions": [
+        "Create",
+        "Load",
+        "TestPolicyPreviewApplyRefusesAgentAuthorityAndDrift"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/validatorpolicy"
+      ],
+      "format_markers": [
+        "d := validatorpolicy.Definition{FormatVersion: 1, ProjectID: \"project-1\", Commands: []validatorpolicy.Command{{Reference: \"test\", Argv: []string{path, \"test\"}, Env: []string{}, OutputMax: 4096}}}"
+      ]
+    },
+    {
+      "path": "internal/validatorpolicy/policy.go",
+      "test": false,
+      "physical_lines": 171,
+      "exported_types": [
+        "Command",
+        "Definition",
+        "Review",
+        "Policy"
+      ],
+      "exported_functions": [
+        "ValidDigest",
+        "ValidateDefinition",
+        "PreviewDigest",
+        "Validate",
+        "Encode",
+        "Decode",
+        "Digest",
+        "Commands"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/gitworkspace",
+        "github.com/rgomids/axiom/internal/strictjson"
+      ],
+      "format_markers": [
+        "FormatVersion int       `json:\"formatVersion\"`",
+        "if d.FormatVersion != 1 || !token(d.ProjectID) || len(d.Commands) == 0 || len(d.Commands) > 64 {"
+      ]
+    },
+    {
+      "path": "internal/validatorpolicy/policy_test.go",
+      "test": true,
+      "physical_lines": 92,
+      "exported_types": [],
+      "exported_functions": [
+        "TestPolicyStrictRoundTripAndDigest",
+        "TestPolicyRejectsShellArgvAndInvalidCommands"
+      ],
+      "imports": [],
+      "format_markers": [
+        "d := Definition{FormatVersion: 1, ProjectID: \"project-1\", Commands: []Command{{Reference: \"test\", Argv: []string{path, \"test\", \"./...\"}, Env: []string{\"LC_ALL=C\"}, OutputMax: 4096}}}",
+        "func(m map[string]any) { m[\"extra\"] = true }, func(m map[string]any) { m[\"formatVersion\"] = 2 }, func(m map[string]any) { delete(m, \"review\") }, func(m map[string]any) { m[\"ProjectId\"] = m[\"projectId\"]; delete(m, \"projectId\") }, func(m map[string]any) { m[\"review\"].(map[string]any)[\"actorKind\"] = \"agent-record\" }, func(m map[string]any) { m[\"commands\"].([]any)[0].(map[string]any)[\"argv\"] = []string{\"/unreviewed\"} }, func(m map[string]any) { m[\"commands\"].([]any)[0].(map[string]any)[\"outputMax\"] = nil },",
+        "duplicate := bytes.Replace(wire, []byte(`\"formatVersion\":1`), []byte(`\"formatVersion\":1,\"formatVersion\":1`), 1)"
+      ]
+    },
+    {
+      "path": "internal/validatorpolicy/portable_test.go",
+      "test": true,
+      "physical_lines": 21,
+      "exported_types": [],
+      "exported_functions": [
+        "TestPortableAbsoluteIsHostIndependent"
+      ],
+      "imports": [],
+      "format_markers": [
+        "if ValidateDefinition(Definition{FormatVersion: 1, ProjectID: \"p\", Commands: []Command{{Reference: \"r\", Argv: []string{argv0}, OutputMax: 1}}}) == nil {"
+      ]
+    },
+    {
+      "path": "internal/workflow/configured.go",
+      "test": false,
+      "physical_lines": 637,
+      "exported_types": [
+        "BindingView",
+        "WorkflowBinding",
+        "DefinitionObservation",
+        "ContextObservation",
+        "DefinitionResolver",
+        "StageValidator",
+        "StageResult",
+        "ValidatorResult",
+        "StageLedger"
+      ],
+      "exported_functions": [
+        "InspectBinding",
+        "WithDefinitions",
+        "WithProfileContract",
+        "CurrentStage",
+        "StageInputs"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/completion",
+        "github.com/rgomids/axiom/internal/runtimeprofile",
+        "github.com/rgomids/axiom/internal/workflowdefinition"
+      ],
+      "format_markers": [
+        "const ProfileConfiguredFormatVersion = 3",
+        "const OperationalConfiguredFormatVersion = 5",
+        "const ConfiguredFormatVersion = 2",
+        "historical := state.FormatVersion == ConfiguredFormatVersion && state.WorkflowVersion == ConfiguredWorkflowVersion && b != nil && b.SchemaVersion == 1 && b.ResolvedProfile == nil && b.FrozenProfile == nil",
+        "qualified := state.FormatVersion == ProfileConfiguredFormatVersion && state.WorkflowVersion == ProfileConfiguredWorkflowVersion && b != nil && b.SchemaVersion == 2 && b.FrozenProfile == nil && b.ResolvedProfile != nil && runtimeprofile.ValidateResolvedProfile(*b.ResolvedProfile) == nil && b.ResolvedProfile.RuntimeID == state.RuntimeID",
+        "current := state.FormatVersion == OperationalConfiguredFormatVersion && state.WorkflowVersion == ProfileConfiguredWorkflowVersion && b != nil && b.SchemaVersion == 2 && b.ResolvedProfile == nil && b.FrozenProfile != nil && runtimeprofile.ValidateResolvedProfileV4(*b.FrozenProfile) == nil && b.FrozenProfile.RuntimeID == state.RuntimeID"
+      ]
+    },
+    {
+      "path": "internal/workflow/configured_test.go",
+      "test": true,
+      "physical_lines": 386,
+      "exported_types": [],
+      "exported_functions": [
+        "ResolveDefinition",
+        "ValidateStageOutput",
+        "Validate",
+        "TestConfiguredRevisionIsolationAndOfflineResume",
+        "TestConfiguredPrerequisitesValidatorsAndReplay",
+        "TestConfiguredCustomStagesProjectLifecycleAndDenyUnboundAcceptance",
+        "TestConfiguredCorruptionAndPreviewDriftFailClosed",
+        "TestConfiguredHumanReviewBindsExactResultAndActor",
+        "TestConfiguredContextIsPinnedAndUnsupportedAdapterBlocks",
+        "TestConfiguredProviderProjectionCannotAdvanceCanonicalState"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/workflowdefinition"
+      ],
+      "format_markers": [
+        "\"future\":   func(s *State) { s.FormatVersion = 3 },"
+      ]
+    },
+    {
+      "path": "internal/workflow/delivery.go",
+      "test": false,
+      "physical_lines": 286,
+      "exported_types": [
+        "DeliveryFinding",
+        "DeliveryWaiver",
+        "DeliveryReview",
+        "DeliveryChild",
+        "DeliveryStage",
+        "DeliveryPacket",
+        "DeliveryEvidence"
+      ],
+      "exported_functions": [
+        "ComposeDeliveryPacket",
+        "EncodeDeliveryPacket",
+        "DecodeDeliveryPacket",
+        "DeliveryPacketDigest"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/detailartifact",
+        "github.com/rgomids/axiom/internal/executiongraph",
+        "github.com/rgomids/axiom/internal/strictjson",
+        "github.com/rgomids/axiom/internal/workflowdefinition"
+      ],
+      "format_markers": [
+        "FormatVersion    int               `json:\"formatVersion\"`",
+        "FormatVersion     int                    `json:\"formatVersion\"`",
+        "p := DeliveryPacket{FormatVersion: 1, Kind: \"delivery_packet\", ProjectID: state.ProjectID, RepositoryKey: state.RepositoryKey, WorkItem: state.WorkItem, ExecutionID: state.ExecutionID, ExecutionRevision: state.Revision, LedgerDigest: fmtDigest(state.StorageRevision), BindingDigest: digest(state.Binding), Definition: state.Binding.Definition, Stages: []DeliveryStage{}, Blockers: []string{}, Provenance: state.Provenance}",
+        "if r.FormatVersion != 1 || r.ExecutionID != s.ExecutionID || r.DefinitionDigest != s.Binding.Definition.Digest || r.StageID != stage.ID || r.InputsDigest != digest(result.Inputs) || (r.Outcome != \"pass\" && r.Outcome != \"fail\") || r.Findings == nil || r.Waivers == nil || len(r.Findings) > 128 || len(r.Waivers) > 128 {",
+        "if p.FormatVersion != 1 || p.Kind != \"delivery_packet\" || !validText(p.ProjectID) || !validText(p.RepositoryKey) || !validWorkItem(p.WorkItem) || !validOpaqueID(p.ExecutionID) || p.ExecutionRevision == 0 || !validDigest(p.LedgerDigest) || !validDigest(p.BindingDigest) || !p.Definition.Valid() || !validIdentity(p.Provenance) || len(p.Stages) > 64 || p.Stages == nil || p.Blockers == nil || len(p.Blockers) > 512 || p.Ready != (len(p.Blockers) == 0) || !validText(p.Next) {"
+      ]
+    },
+    {
+      "path": "internal/workflow/delivery_decision.go",
+      "test": false,
+      "physical_lines": 102,
+      "exported_types": [
+        "DeliveryDecision",
+        "DeliveryDecisions"
+      ],
+      "exported_functions": [
+        "Digest",
+        "PrepareDeliveryDecision",
+        "ApplyDeliveryDecision",
+        "EncodeDeliveryDecision",
+        "DecodeDeliveryDecision",
+        "DeliveryDisposition",
+        "SameDeliveryDecision"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/strictjson"
+      ],
+      "format_markers": [
+        "FormatVersion int                  `json:\"formatVersion\"`",
+        "d := DeliveryDecision{FormatVersion: 1, Kind: \"delivery_decision\", Packet: p, PacketDigest: ref, Publication: publication, Outcome: outcome, ActorKind: \"human-operator\", Actor: actor, Authority: authority, Reason: reason, Evidence: evidence}",
+        "if err != nil || d.FormatVersion != 1 || d.Kind != \"delivery_decision\" || ref != d.PacketDigest || d.ActorKind != \"human-operator\" || !validText(d.Actor) || !validText(d.Reason) || !validReference(d.Authority) || len(d.Evidence) > 16 || (d.Outcome != \"accept\" && d.Outcome != \"reject\") {"
+      ]
+    },
+    {
+      "path": "internal/workflow/delivery_decision_test.go",
+      "test": true,
+      "physical_lines": 187,
+      "exported_types": [],
+      "exported_functions": [
+        "LoadDeliveryDecision",
+        "RecordDeliveryDecision",
+        "TestDeliveryDecisionHumanAuthorityExactAcceptanceAndConflict",
+        "TestDeliveryReworkExplicitRevisionIndependentGatesAndInputs",
+        "TestDeliveryDecisionProjectionAuthorityAndReplay",
+        "Save"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/workflowdefinition"
+      ],
+      "format_markers": []
+    },
+    {
+      "path": "internal/workflow/delivery_publication.go",
+      "test": false,
+      "physical_lines": 357,
+      "exported_types": [
+        "DeliveryTarget",
+        "DeliveryPR",
+        "DeliveryObservation",
+        "DeliveryPreview",
+        "DeliveryPublication",
+        "DeliveryPublicationStore",
+        "DeliveryEffects",
+        "DeliveryAuthority",
+        "DeliveryPublisher"
+      ],
+      "exported_functions": [
+        "Digest",
+        "Correlation",
+        "PRBody",
+        "Preview",
+        "Apply",
+        "Reconcile",
+        "EncodeDeliveryPublication",
+        "DecodeDeliveryPublication"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/strictjson"
+      ],
+      "format_markers": [
+        "FormatVersion int             `json:\"formatVersion\"`",
+        "r := DeliveryPublication{FormatVersion: 1, Kind: \"delivery_publication\", Preview: p, Status: \"failure\", Push: \"not_requested\", PR: \"not_requested\", Next: \"inspect/reconcile publication; never retry an uncertain effect\"}",
+        "if err != nil || r.FormatVersion != 1 || r.Kind != \"delivery_publication\" || ref != r.Preview.PacketDigest || !validDeliveryTarget(r.Preview.Target) || !validText(r.Next) {"
+      ]
+    },
+    {
+      "path": "internal/workflow/delivery_publication_test.go",
+      "test": true,
+      "physical_lines": 252,
+      "exported_types": [],
+      "exported_functions": [
+        "LoadDeliveryPublication",
+        "SaveDeliveryPublication",
+        "ObserveDelivery",
+        "PushDelivery",
+        "CreateDeliveryPR",
+        "TestDeliveryPublicationExactEffectsReplayAndLocal",
+        "TestDeliveryPublicationDenialDriftAndStaleHaveZeroEffects",
+        "TestDeliveryPublicationUnknownRequiresReconciliation",
+        "TestDeliveryPublicationFenceAndPostEffectPersistenceFailure",
+        "TestDeliveryPublicationRetryNeedsConclusiveAbsenceAndNewExactAuthority",
+        "TestDeliveryWithoutAttemptsRefusesAllPublicationEffects"
+      ],
+      "imports": [],
+      "format_markers": []
+    },
+    {
+      "path": "internal/workflow/delivery_rework.go",
+      "test": false,
+      "physical_lines": 164,
+      "exported_types": [
+        "ReworkLink",
+        "ReworkInput",
+        "ReworkPreview",
+        "ReworkStore"
+      ],
+      "exported_functions": [
+        "Digest",
+        "Create",
+        "Load",
+        "Save",
+        "ResolveDefinition",
+        "PreviewDeliveryRework",
+        "ApplyDeliveryRework",
+        "EncodeReworkPreview",
+        "DecodeReworkPreview"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/runtimeprofile",
+        "github.com/rgomids/axiom/internal/strictjson",
+        "github.com/rgomids/axiom/internal/workflowdefinition"
+      ],
+      "format_markers": [
+        "FormatVersion  int            `json:\"formatVersion\"`",
+        "p := ReworkPreview{FormatVersion: 1, Kind: \"delivery_rework\", OriginalPacket: d.Packet, DecisionDigest: d.Digest(), Input: input}",
+        "if _, err := EncodeDeliveryPacket(o); err != nil || p.FormatVersion != 1 || p.Kind != \"delivery_rework\" || !validDigest(p.DecisionDigest) || !ValidState(n) || n.Binding == nil || n.RuntimeID != p.Input.RuntimeID || n.Binding.RuntimePreview != p.Input.RuntimePreview || !reflect.DeepEqual(n.Binding.ResolvedProfile, p.Input.ResolvedProfile) || !reflect.DeepEqual(n.Binding.FrozenProfile, p.Input.FrozenProfile) || n.ExecutionID != p.Input.NewExecutionID || n.ExecutionID == o.ExecutionID || n.ProjectID != o.ProjectID || n.RepositoryKey != o.RepositoryKey || n.WorkItem != o.WorkItem || n.Status != ExecutionActive || n.Revision != 1 || n.StageOrdinal != 0 || len(n.Transitions) != 0 || len(n.Projections) != 0 || n.DeliveryDecision != nil || n.ReworkOf != nil || !validText(p.Input.Scope) || !validReference(p.Input.Plan) || !validReference(p.Input.Authority) || len(p.Input.Inputs) > 16 || (p.Input.RevisionChoice != \"retained\" && p.Input.RevisionChoice != \"selected\") {"
+      ]
+    },
+    {
+      "path": "internal/workflow/delivery_test.go",
+      "test": true,
+      "physical_lines": 217,
+      "exported_types": [],
+      "exported_functions": [
+        "Reference",
+        "Artifact",
+        "Stage",
+        "TestDeliveryPacketReadinessAndImmutableDigest",
+        "TestDeliveryReviewFindingsRequireExactHumanWaiver",
+        "TestDeliveryIncompleteRemainsInspectable",
+        "TestDeliveryReviewMissingAndWaiverAuthorityFailClosed",
+        "TestDeliveryValidatedOutputsWithoutAttemptsRemainInspectable",
+        "TestDeliverySingleStageRequiresQualifiedAttempt"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/detailartifact",
+        "github.com/rgomids/axiom/internal/executiongraph",
+        "github.com/rgomids/axiom/internal/provenance",
+        "github.com/rgomids/axiom/internal/workflowdefinition"
+      ],
+      "format_markers": [
+        "report := DeliveryReview{FormatVersion: 1, ExecutionID: state.ExecutionID, DefinitionDigest: state.Binding.Definition.Digest, StageID: stage.ID, InputsDigest: digest(result.Inputs), Outcome: \"pass\", Findings: []DeliveryFinding{}, Waivers: []DeliveryWaiver{}}"
+      ]
+    },
+    {
+      "path": "internal/workflow/execution_target.go",
+      "test": false,
+      "physical_lines": 47,
+      "exported_types": [
+        "ResolvedTarget"
+      ],
+      "exported_functions": [
+        "ValidateTarget"
+      ],
+      "imports": [],
+      "format_markers": []
+    },
+    {
+      "path": "internal/workflow/execution_target_test.go",
+      "test": true,
+      "physical_lines": 150,
+      "exported_types": [],
+      "exported_functions": [
+        "TestExecutionTargetRejectsMalformedAndMismatchedSelectors",
+        "Load",
+        "Resolve",
+        "TestReviewedExecutionTargetRevalidatedBeforeAllocation",
+        "TestExecutionIdentityConflictsPreservePersistedState",
+        "Load",
+        "TestExecutionStartCancellationAndRecoveryPreserveState"
+      ],
+      "imports": [],
+      "format_markers": []
+    },
+    {
+      "path": "internal/workflow/gates.go",
+      "test": false,
+      "physical_lines": 89,
+      "exported_types": [
+        "GateAction"
+      ],
+      "exported_functions": [
+        "NextGateAction",
+        "AdvanceAutomatic"
+      ],
+      "imports": [],
+      "format_markers": []
+    },
+    {
+      "path": "internal/workflow/gates_test.go",
+      "test": true,
+      "physical_lines": 154,
+      "exported_types": [],
+      "exported_functions": [
+        "TestAutomaticGateUsesCanonicalTransition",
+        "TestNextActionGateAndAuthorityMatrix",
+        "TestAutomaticGateStopsAtConditionsAndInterruption",
+        "TestExplicitMissingAuthorityAndInvalidReferenceDoNotAdvance",
+        "Validate",
+        "TestAutomaticGateCancellationAndSaveFailure"
+      ],
+      "imports": [],
+      "format_markers": []
+    },
+    {
+      "path": "internal/workflow/service.go",
+      "test": false,
+      "physical_lines": 1568,
+      "exported_types": [
+        "Stage",
+        "Outcome",
+        "ExecutionStatus",
+        "Repository",
+        "Project",
+        "Resolver",
+        "WorkItem",
+        "WorkItems",
+        "Identity",
+        "Reference",
+        "Transition",
+        "Terminal",
+        "ProjectionRecord",
+        "State",
+        "Store",
+        "ReferenceValidator",
+        "ProjectionEffectKind",
+        "ProjectionEffect",
+        "ProjectionObservation",
+        "ProjectionCapability",
+        "ProjectionErrorKind",
+        "ProjectionError",
+        "ProjectionPreview",
+        "Status",
+        "Result",
+        "Target",
+        "TransitionInput",
+        "LifecycleFactInput",
+        "IDAllocator",
+        "Clock",
+        "Service",
+        "Lister",
+        "Summary"
+      ],
+      "exported_functions": [
+        "Stages",
+        "Valid",
+        "Error",
+        "New",
+        "Start",
+        "List",
+        "Status",
+        "Resume",
+        "Transition",
+        "RecordLifecycleFact",
+        "PrepareProjection",
+        "Project",
+        "SupportedRuntime",
+        "ValidState"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/completion",
+        "github.com/rgomids/axiom/internal/provenance",
+        "github.com/rgomids/axiom/internal/runtimeprofile"
+      ],
+      "format_markers": [
+        "FormatVersion   = 1",
+        "FormatVersion              int",
+        "state := State{ExecutionID: id, FormatVersion: FormatVersion, WorkflowVersion: WorkflowVersion, ProjectID: project.ID, RepositoryKey: repository.Key, WorkItem: item, RuntimeID: target.RuntimeID, Stage: Intake, Revision: 1, Status: ExecutionActive, CreatedAt: now, UpdatedAt: now, Provenance: identity(s.source)}",
+        "state.FormatVersion, state.WorkflowVersion = ConfiguredFormatVersion, ConfiguredWorkflowVersion",
+        "state.FormatVersion, state.WorkflowVersion = OperationalConfiguredFormatVersion, ProfileConfiguredWorkflowVersion",
+        "if s.profileContract && state.FormatVersion != OperationalConfiguredFormatVersion {",
+        "if state.FormatVersion == ConfiguredFormatVersion || state.FormatVersion == ProfileConfiguredFormatVersion || state.FormatVersion == OperationalConfiguredFormatVersion {",
+        "if !validOpaqueID(state.ExecutionID) || state.FormatVersion != FormatVersion || state.WorkflowVersion != WorkflowVersion || !validText(state.ProjectID) || !validText(state.RepositoryKey) || !validWorkItem(state.WorkItem) || !validText(state.RuntimeID) || !state.Stage.Valid() || state.Revision == 0 || !validExecutionStatus(state.Status) || state.CreatedAt.IsZero() || state.UpdatedAt.Before(state.CreatedAt) || !validIdentity(state.Provenance) || len(state.Transitions) > maxEvents || len(state.Projections) > maxEvents {"
+      ]
+    },
+    {
+      "path": "internal/workflow/stage_planning.go",
+      "test": false,
+      "physical_lines": 138,
+      "exported_types": [
+        "StageInputBinding",
+        "StageGate",
+        "StagePlanningContext"
+      ],
+      "exported_functions": [
+        "StagePlanningContext"
+      ],
+      "imports": [
+        "github.com/rgomids/axiom/internal/workflowdefinition"
+      ],
+      "format_markers": []
+    },
+    {
+      "path": "internal/workflow/stage_planning_test.go",
+      "test": true,
+      "physical_lines": 118,
+      "exported_types": [],
+      "exported_functions": [
+        "TestStagePlanningContextReadsRetainedBindingWithoutMutation",
+        "TestStagePlanningContextRefusesLegacyExecution",
+        "TestStagePlanningReportsRecordedCurrentGate"
+      ],
+      "imports": [],
+      "format_markers": []
+    }
+  ],
+  "cli_stage_delivery_coordination_leaves": [
+    "plan",
+    "run",
+    "status",
+    "cancel",
+    "retry",
+    "reconcile",
+    "integrate",
+    "list",
+    "show",
+    "publish"
+  ],
+  "cli_flag_names": [
+    "after",
+    "attempt",
+    "authorize-execution",
+    "authorize-external",
+    "authorize-human",
+    "authorize-local",
+    "authorize-pr",
+    "authorize-push",
+    "child",
+    "disposition",
+    "execution",
+    "expected-revision",
+    "field",
+    "kind",
+    "packet",
+    "plan",
+    "preview-digest",
+    "project",
+    "publication",
+    "record",
+    "repository",
+    "request",
+    "stage",
+    "validator-policy",
+    "wait",
+    "waive",
+    "work-item",
+    "workspace-root"
+  ]
+}

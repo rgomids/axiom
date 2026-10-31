@@ -1,5 +1,16 @@
 # Issue #306 — Profile-owned effort and default Workflow onboarding
 
+> **AXM-42 prospective reconciliation — 2026-10-30.**
+> [ADR-0037](../../decisions/0037-one-canonical-execution-for-new-runs.md#supersedes)
+> records the [human material decision](https://github.com/rgomids/axiom/pull/366#pullrequestreview-5720318529)
+> approving [Spec 015 invocation ownership](../015-minimum-viable-operational-workflow/spec.md#invocation-ownership-and-precedence-proposed-f5).
+> For new attempts only, PE-01–PE-05/PE-05a and AC-PE1/AC-PE3 change where they
+> require sole Profile effort, forbid direct overrides, require distinct
+> Profiles for different efforts or project only Profile provenance; PE-04 and
+> the version matrix no longer oblige operational old-format readers after the
+> breaking cutover. Truthful identity, safe source inspection, immutable
+> provenance and no fallback remain. Historical text below is preserved.
+
 > **AXM-36 prospective reconciliation — 2026-10-19.**
 > [ADR-0032](../../decisions/0032-runtime-admission-without-certification.md#supersedes)
 > was [accepted at `b4baf106`](https://github.com/rgomids/axiom/pull/334#issuecomment-6278024276).

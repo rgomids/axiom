@@ -1,5 +1,14 @@
 # Issue #272 / AXM-4 — CLI subscription authentication preflight
 
+> **AXM-42 prospective reconciliation — 2026-10-30.**
+> [ADR-0037](../../decisions/0037-one-canonical-execution-for-new-runs.md#supersedes)
+> records the [human material decision](https://github.com/rgomids/axiom/pull/366#pullrequestreview-5720318529)
+> approving [Spec 015](../015-minimum-viable-operational-workflow/spec.md). Mandatory
+> authentication preflight before each new normal dispatch/retry is superseded:
+> the authorized invocation is attempted and actual auth/vendor failure is
+> reported. Executable/target identity, sanitized errors and no credential
+> exposure remain. Historical observations below are unchanged.
+
 Tracking: GitHub [#272](https://github.com/rgomids/axiom/issues/272) (canonical
 contract), Linear
 [AXM-4](https://linear.app/rgomids/issue/AXM-4/mvp-verify-local-cli-subscription-authentication-before-runtime)

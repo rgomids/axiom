@@ -1,5 +1,18 @@
 # Specifications
 
+## 015 — Minimum viable operational workflow
+
+[Specification correction-04](015-minimum-viable-operational-workflow/spec.md)
+for [AXM-42](https://linear.app/rgomids/issue/AXM-42) / [PR #366](https://github.com/rgomids/axiom/pull/366).
+[Subsequent human approval](https://github.com/rgomids/axiom/pull/366#pullrequestreview-5720318529)
+authorizes Plan then Tasks; the Specify artifacts retain their historical Proposed wording.
+[Plan](015-minimum-viable-operational-workflow/plan.md) and
+[deletion baseline](015-minimum-viable-operational-workflow/deletion-baseline.json), plus
+[Tasks](015-minimum-viable-operational-workflow/tasks.md), map the approved one-Execution direction and Research A–L to exactly S1/S2/S3.
+No implementation, merge, live validation or Product Accepted authority is implied.
+S1 contract reconciliation: [ADR-0037](../decisions/0037-one-canonical-execution-for-new-runs.md)
+records the approved architecture with prospective notes on Spec 007, amendments #276/#306 and Spec 004 #272.
+
 ## 014 — CLI operability for smaller models
 
 [Specification revision 1](014-small-model-cli-operability/spec.md) replays the

@@ -49,6 +49,9 @@ Option A: add an explicit single-stage operational ledger and a
 versioned single-stage authority contract, while leaving Execution3 and all
 Graph formats unchanged.
 
+> Superseded by [ADR-0037 — One canonical Execution for new workflow runs](0037-one-canonical-execution-for-new-runs.md#decision), accepted 2026-10-30.
+> Option A is superseded for new executions: the previously rejected alternative B direction is selected as a new versioned Execution with nested attempts. Existing bytes, no fake workflow transition or Graph node, no automatic migration/redispatch, cancel/attempt identity and authority before spawn remain in force.
+
 The proposed contract is:
 
 - A new private `single-stage-runs/v1/<project>/<scope-digest>.json` record,

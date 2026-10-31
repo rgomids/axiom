@@ -43,6 +43,9 @@ Policy, Workflow/Agent binding and specific Execution authority; observe and
 classify actual operational failures without a version registry, executable
 allowlist, CapabilityProven or prior behavioral probe.
 
+> Superseded by [ADR-0037 — One canonical Execution for new workflow runs](0037-one-canonical-execution-for-new-runs.md#decision), accepted 2026-10-30.
+> Only the Project Runtime Policy selection references are superseded: new runs use explicit invocation selection without capability/complexity eligibility. No certification or probe is reintroduced; the rest remains in force.
+
 RA-1–RA-5 of the linked amendment define the behavior and verification
 obligations. Exact executable and configuration identity remain preview/apply
 integrity controls, never compatibility certification. Upgrades do not require
