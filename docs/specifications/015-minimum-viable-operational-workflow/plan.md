@@ -6,7 +6,7 @@ Consumes [Spec 015](spec.md) and [Research A–L](../../research/axm-42-minimum-
 
 ## Scope and dependencies
 
-Exactly S1/S2/S3, with their Spec scopes unchanged. S1 establishes the shared engine and removes mandatory first-dispatch objects; S2 adds parallel scheduling/collaboration to it; S3 completes repository outcomes and authorized delivery/rework. The subsequent Tasks stage will record internal checklists in `tasks.md`, not additional slices/cards. No new infrastructure, provider-free Work Item, Git management subsystem, model advisor or capability catalogue.
+Exactly S1/S2/S3, with their Spec scopes unchanged. S1 establishes the shared engine and removes mandatory first-dispatch objects; S2 adds parallel scheduling/collaboration to it; S3 completes repository outcomes and authorized delivery/rework. The subsequent [Tasks](tasks.md) stage records internal checklists, not additional slices/cards. No new infrastructure, provider-free Work Item, Git management subsystem, model advisor or capability catalogue.
 
 Dependency direction: CLI/skills → application orchestration → Workflow/Execution domain → explicit storage/process/Runtime/Provider boundaries. Reuse existing Go publication, rooted filesystem, strict decoding and process primitives where they prove a surviving invariant. Keep portable Project/Workflow separate from machine-local paths, executables and credential references. No provider write is a run prerequisite. An already-linked Work Item is sufficient after validating its stored Project/Repository identity; unavailable optional Provider projection is reported separately. Contradictory link data refuses dispatch. Do not invent an offline local Work Item identity.
 

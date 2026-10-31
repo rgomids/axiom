@@ -1,0 +1,45 @@
+# Tasks 015 — S1/S2/S3 execution checklist
+
+Prepared automatically after the conformant [Plan](plan.md), under the [human Plan→Tasks authority](https://github.com/rgomids/axiom/pull/366#pullrequestreview-5720318529). All implementation tasks below are **NOT_STARTED**; no implementation authorization is inferred. These are internal checklists on AXM-42, not new slices/cards. The approved Spec fixes their scope. Each task's Evidence must identify source SHA, deterministic fixture/check, result and remaining uncertainty.
+
+## S1 — Canonical single-agent path and structural cutover
+
+| Task | Objective / scope and repository impact | Depends on | Acceptance / Evidence |
+| --- | --- | --- | --- |
+| S1.1 | Record prospective ADR and exact partial supersessions from Plan/Research; reconcile Spec 007/#276/#306, Spec 004 preflight and contract index using ADR-0018; preserve historical text | Recorded implementation authority first | Approval receipt linked; fragment/backlink/index checks pass; no new unapproved material direction |
+| S1.2 | Define Execution4 codec/aggregate, nested attempts/invocations/authority/results and store namespace in `workflow`, `local`; remove Graph/Single operational owner contract | S1.1 | Strict codec bounds; old format/resume refusal; rooted path/symlink negatives; one writer; revision conflict and crash publication tests |
+| S1.3 | Resolve per-agent Runtime/model/effort/instructions and optional Profile inputs; consolidate selector reader in `runtimeadapter`, simplify `runtimeapplication` policy fields | S1.1 | Precedence/provenance table fixtures; no Profile mandatory; runtime-default explicit; same-level/inherited conflict and unsafe source redacted; denied target refuses; vendor option/auth error observed without preflight/fallback |
+| S1.4 | Implement one fenced engine, process observation/cancel/retry/reconcile and immutable attempt correlation in `stageexecution`; port surviving process checks before deleting old supervisors | S1.2, S1.3 | Crash windows and unknown effects do not respawn; concurrent writers/stale generation cannot win; cancel-before/during-run, timeout, PID reuse/escape and lost result tests; ADR-0028 limits explicit |
+| S1.5 | Wire one run operation and minimal default Workflow; existing linked Work Item resolution, local output/Evidence and eligible progression; optional SDD gates preserved | S1.4 | Isolated public-entry stub starts without Plan/Policy/Profile catalogue/maintainer scripts/Provider writes; wrong linked repo refuses; missing output/human gate/cancel/unknown stop; two sequential fixture stages progress automatically |
+| S1.6 | Establish private attempt ingress contract with bounded two-agent stub exchange only; no parallel feature delivery yet | S1.4 | Sender/recipient/attempt/fence checked; question/answer correlated; forged, duplicate, oversized and late result cases; content cannot grant authority |
+| S1.7 | Delete A–H/K obsolete Plan/Policy/admission/Graph/Single producers AND consumers, stores/codecs/CLI and retired-only tests; keep required safety cases on replacement | S1.2–S1.6 | Import/call inventory has no operational legacy readers/writers; no generated equivalents; report intermediate file/LOC/API delta against baseline and explain surviving controls |
+| S1.8 | Prepare breaking-cutover operator inventory/backup/stop-or-block instructions and reconcile commands/installed docs/skills/architecture for implemented S1 | S1.7 | Isolated fixtures prove active/unknown/incomplete inventory BLOCK, byte backup verification, no conversion or old resume; actual private inventory/backup/stop remains separately authorized and NOT_RUN until performed |
+
+S1 technical completion requires all rows and targeted unit/static checks. It does not require a vendor demo or authorize actual cutover. A parser/atomicity/identity experiment failure blocks its dependent change, with a bounded local correction or material escalation only if necessary. No fallback to a permanent dual engine.
+
+## S2 — Parallel collaboration on the same engine
+
+| Task | Objective / scope and repository impact | Depends on | Acceptance / Evidence |
+| --- | --- | --- | --- |
+| S2.1 | Extend shared scheduler to parallel ready tasks and retained dependency validation; no child Execution or separate Graph state | S1 complete | One/many agents use same loop/codec; independent completions serialized without loss; cycles/missing deps refused before spawn; human gate/cancel/unknown prevent successors |
+| S2.2 | Route cross-Runtime question/answer/blocker/result through S1 ingress and common Codex/Claude adapter contracts; remove independent coordination stream/lifecycle and split publish resolvers | S2.1, S1.6 | Deterministic Codex/Claude adapter stubs exchange bidirectional correlated messages and unblock eligible dependency only on validated result; wrong attempt/forged sender/stale fence cannot unblock; duplicate replies idempotent |
+| S2.3 | Recommend isolated per-agent Git Worktree/branch and record principal-controlled integration state; serialize existing Git integration boundary without new Git subsystem | S2.1 | Temporary local repositories simulate parallel edits; expected base/integration HEAD, dirty state, explicit merge conflicts, failed post-merge checks and shared resource race; integrated only after final SHA/check evidence |
+| S2.4 | Reconcile L/E duplicate coordination/gate representations, CLI/message docs and invariants | S2.2, S2.3 | One message ingress/schema; four retained kinds with consumers/tests; no message-as-authority; reduction/import report and scoped checks pass |
+
+S2 does not call live Codex/Claude, mutate real remotes or guarantee conflict-free worktrees. Worktree setup/cleanup must preserve user branches and requires actual workspace authority when implemented.
+
+## S3 — Repository outcomes and authorized delivery/rework
+
+| Task | Objective / scope and repository impact | Depends on | Acceptance / Evidence |
+| --- | --- | --- | --- |
+| S3.1 | Attach repository-specific results/artifact references and validation readiness to Execution; adapt workflow/local/CLI views | S2 complete | Two independent temporary repo bindings retain distinct target/attempt/artifact provenance; wrong-repo artifact/ref/path and fabricated success refused; local completion needs no PR |
+| S3.2 | Replace packet/publication/decision owners with Execution delivery and one current-phase operation; retain exact-effect push/PR authority and observed result correlation | S3.1 | Fake Provider/remote only: denied push/PR causes zero calls; changed target invalidates grant; lost response retains unknown; inspect exact target before disposition and no automatic second effect |
+| S3.3 | Preserve rejection/history, human disposition and linked rework using shared engine; delete independent rework adapters/store truth | S3.2 | Rejected result immutable; new linked Execution receives no inherited permissions; agent spoof/exit zero cannot accept/close/merge; bounded retry/recovery and new invocation selection remain explicit |
+| S3.4 | Delete I's redundant DTOs/stores/codecs/verbs/tests and all remaining legacy producers/consumers; reconcile contracts/architecture/commands/installed skills and deletion report | S3.3 | Final union inventory includes replacement files anywhere; at least net 15 production files/4,000 physical production lines/40 exported types removed, or explicit survival-proof review; report tests/function delta and every retained format/writer; all P-AC technical obligations mapped |
+| S3.5 | Perform engineering/security review and technical reconciliation; prepare later manual acceptance handoff | S3.4 | Unit/isolated negatives plus required static checks pass; honest NOT_RUNs; no secret/private-state import; Implementation Complete only after all tasks, never Product Accepted; manual P-AC journey remains user's later action |
+
+## Validation and handoff controls
+
+Every implementation task must use unit/isolated deterministic stub and fault tests only, with exact command/source evidence. No real automated E2E, live vendor product-validation calls, remote test pushes/PRs, merge, release, deploy or autonomous acceptance. Review covers scope, authorization, credentials/path safety, attempt correlation, process limits, truthful uncertainty and deletion evidence. Re-run only affected tests/checks after corrections.
+
+Before implementation, fetch remote HEAD and current AXM-42 authority/receipts. Check the actual recorded authority rather than assuming this checklist grants it. No implementation is started by this handoff. Before any real deployment/cutover use Plan's stop-or-block checklist; mock evidence cannot substitute for actual active/unknown attempt disposition. Optional discoveries stay deferred on the same stage receipt and are reconsidered before merge, without new requirements/cards. Callback availability and publication/read-back are reported by the stage receipt; absent a usable continuation, final checkpoint is `AWAITING_EXECUTION_REPORT`.
