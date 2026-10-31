@@ -46,7 +46,7 @@ references, not plain output files. The supported subset has required outputs
 and Work Item inputs from `target`, plus completed earlier-stage output references
 from the same repository. Unresolved project context/artifact inputs, optional validated outputs,
 unknown policies and result-bound `human-review` refuse before creation. See
-[command reference](../commands.md) for the metadata contract. Full input/context
+[command reference](cli.md) for installed flags. Full input/context
 lowering and authorized validation commands remain incomplete. Parallel scheduling, collaboration
 and integration are not delivered by this serial path.
 
