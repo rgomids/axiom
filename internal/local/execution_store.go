@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"reflect"
 
 	"github.com/rgomids/axiom/internal/workflow"
 )
@@ -223,6 +224,9 @@ func (s ExecutionStore) Save(ctx context.Context, next workflow.Execution, expec
 	if current.Revision != expected || next.RunnerGeneration < current.RunnerGeneration {
 		return ErrConflict
 	}
+	if !preservesExecutionHistory(current, next) {
+		return ErrConflict
+	}
 	var fence func() error
 	if lease == nil {
 		if next.RunnerGeneration != current.RunnerGeneration {
@@ -244,6 +248,49 @@ func (s ExecutionStore) Save(ctx context.Context, next workflow.Execution, expec
 		}
 	}
 	return publishFile(ctx, roots.project(), runRecordName(next.ExecutionID), prior, wire, false, s.withLimit(fence))
+}
+
+// CAS alone cannot protect immutable provenance: a current writer must also
+// retain the selected definition, attempt identity, frozen invocation and
+// terminal observations. Human resolution may append a disposition to an
+// unresolved unknown, but never rewrite the uncertain effects themselves.
+func preservesExecutionHistory(prior, next workflow.Execution) bool {
+	if prior.ExecutionID != next.ExecutionID || prior.ProjectID != next.ProjectID || prior.WorkItem != next.WorkItem || !prior.CreatedAt.Equal(next.CreatedAt) || !reflect.DeepEqual(prior.Repositories, next.Repositories) || !reflect.DeepEqual(prior.Workflow, next.Workflow) || !reflect.DeepEqual(prior.Selections, next.Selections) || len(prior.Stages) != len(next.Stages) {
+		return false
+	}
+	if prior.Cancel != nil && !reflect.DeepEqual(prior.Cancel, next.Cancel) {
+		return false
+	}
+	for i, stage := range prior.Stages {
+		if stage.StageID != next.Stages[i].StageID || len(stage.Tasks) != len(next.Stages[i].Tasks) || stage.Gate != nil && !reflect.DeepEqual(stage.Gate, next.Stages[i].Gate) {
+			return false
+		}
+		for j, task := range stage.Tasks {
+			updated := next.Stages[i].Tasks[j]
+			if task.AgentID != updated.AgentID || len(updated.Attempts) < len(task.Attempts) {
+				return false
+			}
+			for k, attempt := range task.Attempts {
+				changed := updated.Attempts[k]
+				if attempt.AttemptID != changed.AttemptID || attempt.Number != changed.Number || attempt.RunnerGeneration != changed.RunnerGeneration || !attempt.PreparedAt.Equal(changed.PreparedAt) || attempt.WorkspaceDisposition != changed.WorkspaceDisposition || !reflect.DeepEqual(attempt.Invocation, changed.Invocation) || !reflect.DeepEqual(attempt.Authority, changed.Authority) {
+					return false
+				}
+				if attempt.Status == workflow.AttemptPrepared || attempt.Status == workflow.AttemptRunning {
+					if attempt.Process != nil && !reflect.DeepEqual(attempt.Process, changed.Process) || attempt.StartedAt != nil && !reflect.DeepEqual(attempt.StartedAt, changed.StartedAt) {
+						return false
+					}
+					continue
+				}
+				if attempt.Status == workflow.AttemptUnknown && attempt.Resolution == nil {
+					changed.Resolution = nil
+				}
+				if !reflect.DeepEqual(attempt, changed) {
+					return false
+				}
+			}
+		}
+	}
+	return true
 }
 
 // Update reloads, applies mutate and saves under CAS, retrying a bounded

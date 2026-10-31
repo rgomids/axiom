@@ -296,3 +296,98 @@ func storeInvocation() workflow.Invocation {
 	return workflow.Invocation{Runtime: "stub", Executable: "stub-bin", Model: "m", Effort: "runtime-default", Instructions: "i", InstructionsDigest: workflow.DigestText([]byte("i")),
 		Provenance: []workflow.FieldProvenance{{Field: "runtime", Source: "local_default"}, {Field: "model", Source: "local_default"}, {Field: "effort", Source: "local_default"}, {Field: "instructions", Source: "workflow_agent"}}}
 }
+
+// A valid record and current revision do not authorize rewriting provenance.
+func TestExecutionStoreRejectsHistoryRewrite(t *testing.T) {
+	for _, mode := range []string{"definition", "invocation", "authority", "identity", "terminal-result", "remove-attempt"} {
+		t.Run(mode, func(t *testing.T) {
+			ctx := context.Background()
+			s, _ := newTestExecutionStore(t)
+			original := storeTestExecution(t)
+			if err := s.Create(ctx, original); err != nil {
+				t.Fatal(err)
+			}
+			lease := claim(t, s)
+			defer lease.Close()
+			completed, err := s.Update(ctx, "proj", storeTestExecutionID, lease, func(e *workflow.Execution) error {
+				if err := e.PrepareAttempt(workflow.PrepareInput{Ref: workflow.TaskRef{StageID: "work", AgentID: "builder"}, AttemptID: "a1", Generation: lease.Epoch, Invocation: storeInvocation(), Authority: workflow.AttemptAuthority{RepositoryKey: "app", Actor: "user:local"}, Now: storeT0}); err != nil {
+					return err
+				}
+				if err := e.MarkStarted("a1", lease.Epoch, workflow.ProcessIdentity{PID: 100, StartIdentity: "s", GroupIdentity: "100"}, storeT0); err != nil {
+					return err
+				}
+				return e.CompleteAttempt("a1", lease.Epoch, workflow.AttemptResult{ExitCode: 0, Now: storeT0})
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			before, _ := workflow.EncodeExecution(completed)
+			next, _ := workflow.DecodeExecution(before)
+			a := &next.Stages[0].Tasks[0].Attempts[0]
+			switch mode {
+			case "definition":
+				replacement := original.Workflow.Stages
+				replacement[0].Agents[0].Instructions = "replacement"
+				fresh, err := workflow.NewExecution(workflow.NewExecutionInput{ExecutionID: storeTestExecutionID, ProjectID: "proj", WorkItem: original.WorkItem, Repositories: original.Repositories, WorkflowID: "minimal", Revision: "r1", Now: storeT0, Stages: replacement})
+				if err != nil {
+					t.Fatal(err)
+				}
+				next.Workflow = fresh.Workflow
+			case "invocation":
+				a.Invocation.Model = "changed-model"
+			case "authority":
+				a.Authority.Actor = "user:other"
+			case "identity":
+				a.AttemptID = "rewritten"
+			case "terminal-result":
+				a.Diagnostic = "rewritten observation"
+			case "remove-attempt":
+				next.Stages[0].Tasks[0].Attempts = nil
+				next.Stages[0].Status = workflow.StagePending
+				next.Status = workflow.RunReady
+			}
+			next.Revision++
+			if err := next.Validate(); err != nil {
+				t.Fatalf("fixture must be internally valid: %v", err)
+			}
+			if err := s.Save(ctx, next, completed.Revision, lease); !errors.Is(err, ErrConflict) {
+				t.Fatalf("history rewrite %s accepted: %v", mode, err)
+			}
+			got, err := s.Load(ctx, "proj", storeTestExecutionID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			after, _ := workflow.EncodeExecution(got)
+			if string(before) != string(after) {
+				t.Fatal("refused update changed bytes")
+			}
+		})
+	}
+}
+
+func TestExecutionStoreUnknownResolutionPreservesObservations(t *testing.T) {
+	ctx := context.Background()
+	s, _ := newTestExecutionStore(t)
+	if err := s.Create(ctx, storeTestExecution(t)); err != nil {
+		t.Fatal(err)
+	}
+	lease := claim(t, s)
+	defer lease.Close()
+	_, err := s.Update(ctx, "proj", storeTestExecutionID, lease, func(e *workflow.Execution) error {
+		if err := e.PrepareAttempt(workflow.PrepareInput{Ref: workflow.TaskRef{StageID: "work", AgentID: "builder"}, AttemptID: "a1", Generation: lease.Epoch, Invocation: storeInvocation(), Authority: workflow.AttemptAuthority{RepositoryKey: "app", Actor: "user:local"}, Now: storeT0}); err != nil {
+			return err
+		}
+		return e.MarkUnknown("a1", lease.Epoch, "lost terminal observation", storeT0)
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	resolved, err := s.Update(ctx, "proj", storeTestExecutionID, nil, func(e *workflow.Execution) error { return e.ResolveUnknown("a1", "human:maintainer", storeT0) })
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := resolved.Stages[0].Tasks[0].Attempts[0]
+	if a.Status != workflow.AttemptUnknown || a.Diagnostic != "lost terminal observation" || a.Resolution == nil {
+		t.Fatal("resolution rewrote unknown history")
+	}
+}
