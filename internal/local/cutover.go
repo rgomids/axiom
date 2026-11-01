@@ -21,14 +21,24 @@ import (
 
 // legacyFamilies are the pre-cutover operational roots. Their bytes are
 // preserved as inert history; they are never decoded by the new engine.
+// Capability evidence and probe envelopes have had no writer since admission
+// certification was retired (#334), so they are history too.
 var legacyFamilies = []string{
 	"executions/v1", "graphs/v1", "single-stage-runs/v1", "validator-policies/v1",
 	"run-leases/v1", "coordination", "attempt-inboxes", "delivery",
+	"capability-evidence/v1", "capability-probes",
 }
 
 // cutoverKnownRoots are the top-level names whose meaning is established.
-// Anything else makes the inventory incomplete.
-var cutoverKnownRoots = map[string]bool{"executions": true, "graphs": true, "single-stage-runs": true, "validator-policies": true, "run-leases": true, "coordination": true, "attempt-inboxes": true, "delivery": true, "projects": true, "work-items": true, "workflows": true, "runtime-profiles": true, "artifacts": true}
+// Anything else makes the inventory incomplete. Roots outside legacyFamilies
+// (Projects, Work Items, workflows, Profiles, artifacts, Project context) are
+// live state that stays in place and is not part of the legacy backup.
+var cutoverKnownRoots = map[string]bool{"executions": true, "graphs": true, "single-stage-runs": true, "validator-policies": true, "run-leases": true, "coordination": true, "attempt-inboxes": true, "delivery": true, "capability-evidence": true, "capability-probes": true, "projects": true, "work-items": true, "workflows": true, "runtime-profiles": true, "artifacts": true, "project-context": true}
+
+// probeQuarantineMarker is the historical marker that preserved a probe
+// envelope's leftovers. Only directly inside an envelope is it settled history
+// rather than an interrupted publication.
+const probeQuarantineMarker = ".axiom-recovery-probe-quarantined"
 
 type CutoverFile struct {
 	Path   string `json:"path"`
@@ -90,7 +100,7 @@ func InspectCutover(ctx context.Context, stateRoot string) (CutoverInventory, er
 	}
 	// These operational roots have exactly the historical v1 namespace.
 	// A new or unknown namespace cannot be omitted from a pre-switch inventory.
-	for _, family := range []string{"executions", "graphs", "single-stage-runs", "validator-policies", "run-leases"} {
+	for _, family := range []string{"executions", "graphs", "single-stage-runs", "validator-policies", "run-leases", "capability-evidence"} {
 		dir, err := OpenOwnedDirectory(filepath.Join(root, family))
 		if errors.Is(err, ErrNotFound) {
 			continue
@@ -132,8 +142,13 @@ func InspectCutover(ctx context.Context, stateRoot string) (CutoverInventory, er
 				return nil
 			}
 			name := d.Name()
-			if strings.HasPrefix(name, ".axiom-recovery-") || strings.HasPrefix(name, ".axiom-stage-") {
+			quarantined := family == "capability-probes" && name == probeQuarantineMarker && !d.IsDir() && filepath.Dir(filepath.Dir(path)) == base
+			if !quarantined && (strings.HasPrefix(name, ".axiom-recovery-") || strings.HasPrefix(name, ".axiom-stage-")) {
 				inv.Blockers = append(inv.Blockers, "interrupted_publication: "+rel)
+			}
+			// A cleanup intent means envelope removal stopped part-way.
+			if family == "capability-probes" && filepath.Dir(path) == base && strings.HasPrefix(name, ".probe-cleanup-") {
+				inv.Blockers = append(inv.Blockers, "interrupted_probe_cleanup: "+rel)
 			}
 			if d.IsDir() {
 				if family == "run-leases/v1" && path != base && filepath.Dir(filepath.Dir(path)) == base {

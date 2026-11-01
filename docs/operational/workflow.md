@@ -94,7 +94,10 @@ deployment boundary:
    Missing, unreadable, linked or unexpected state makes the inventory incomplete
    and BLOCKS switching. An absent lease does not prove an attempt stopped.
 2. Preserve raw legacy bytes privately outside the state root, with permissions,
-   sizes and hashes. Re-read every backup byte and compare it to the manifest;
+   sizes and hashes. Legacy bytes include retired capability evidence and probe
+   envelopes. Probe cleanup that stopped part-way BLOCKS. Projects, Work Items,
+   workflows, Profiles, artifacts and Project context are live state: they
+   stay in place and are not part of this backup. Re-read every backup byte and compare it to the manifest;
    a manifest alone is insufficient. Helpers compare the complete source inventory
    before and after copying and verify the complete backup inventory. Omitted or
    added files, changed source bytes, linked/unreadable backups or interrupted

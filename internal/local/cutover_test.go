@@ -343,3 +343,150 @@ func TestCutoverCancelledEmptyInventoryCannotCertifyBackup(t *testing.T) {
 		t.Fatalf("cancelled empty backup: %v", err)
 	}
 }
+
+// historicalRecognizedRootsFixture adds the three state roots the inventory
+// recognizes but the original cutover catalog omitted (CR-S1-06). Evidence and
+// Project context bytes come from the stable-v1 corpus; the probe envelope is
+// opaque bytes, because the cutover never decodes legacy state.
+func historicalRecognizedRootsFixture(t *testing.T) string {
+	t.Helper()
+	root := legacyFixture(t)
+	corpus := "../compatibility/testdata/stable-v1/snapshots/v0.17.0-issue277.projection/state/"
+	files := map[string]string{
+		"capability-probes/probe-1/envelope.json":            `{"version":1,"probeId":"probe-1"}`,
+		"capability-probes/probe-1/" + probeQuarantineMarker: "digest",
+		"capability-probes/probe-1/workspace/out.txt":        "runtime output",
+		"capability-probes/probe-1/inbox/request.json":       `{}`,
+	}
+	for _, path := range []string{historicalEvidencePath, "project-context/v1/default.json"} {
+		wire, err := os.ReadFile(filepath.FromSlash(corpus + path))
+		if err != nil {
+			t.Fatal(err)
+		}
+		files[path] = string(wire)
+	}
+	for path, content := range files {
+		full := filepath.Join(root, filepath.FromSlash(path))
+		if err := os.MkdirAll(filepath.Dir(full), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(full, []byte(content), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.Mkdir(filepath.Join(root, "capability-probes", "probe-1", "sentinel"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	return root
+}
+
+const historicalEvidencePath = "capability-evidence/v1/bf9eb5b0cce3422e44daacb4a34c1e0972cc2ed25c0fa5c34fd1294839d6f5b1.json"
+
+func TestCutoverCatalogCoversEveryInventoriedStateRoot(t *testing.T) {
+	for _, name := range StateRootDirectories {
+		if !cutoverKnownRoots[name] {
+			t.Errorf("state root %q is inventoried but unknown to cutover", name)
+		}
+	}
+}
+
+func TestCutoverHistoricalRecognizedRootsAreInventoriedAndBackedUp(t *testing.T) {
+	ctx := context.Background()
+	root := historicalRecognizedRootsFixture(t)
+	inv, err := InspectCutover(ctx, root)
+	if err != nil || inv.Blocked() {
+		t.Fatalf("legitimate historical state root blocked: %v %v", err, inv.Blockers)
+	}
+	paths := map[string]bool{}
+	for _, f := range inv.Files {
+		paths[f.Path] = true
+	}
+	for _, want := range []string{
+		historicalEvidencePath,
+		"capability-probes/probe-1/envelope.json",
+		"capability-probes/probe-1/" + probeQuarantineMarker,
+		"capability-probes/probe-1/workspace/out.txt",
+		"capability-probes/probe-1/inbox/request.json",
+	} {
+		if !paths[want] {
+			t.Errorf("historical bytes omitted from inventory: %s", want)
+		}
+	}
+	if paths["project-context/v1/default.json"] || len(inv.Files) != 3+5 {
+		t.Fatalf("live Project context must stay in place, outside the legacy inventory: %+v", inv.Files)
+	}
+	backup := privateTestRoot(t)
+	if err := BackupLegacyState(ctx, root, backup, inv); err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range inv.Files {
+		src, _ := os.ReadFile(filepath.Join(root, filepath.FromSlash(f.Path)))
+		dst, err := os.ReadFile(filepath.Join(backup, filepath.FromSlash(f.Path)))
+		if err != nil || string(src) != string(dst) {
+			t.Fatalf("backup of %s differs: %v", f.Path, err)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(backup, "project-context")); !os.IsNotExist(err) {
+		t.Fatalf("live Project context copied into legacy backup: %v", err)
+	}
+	if again, _ := InspectCutover(ctx, root); again.Digest() != inv.Digest() {
+		t.Fatal("inspection or backup modified historical state")
+	}
+	if err := CutoverDecision(inv, disposition(inv)); err != nil {
+		t.Fatalf("fully disposed historical cutover blocked: %v", err)
+	}
+}
+
+func TestCutoverRecognizedRootsStillFailClosed(t *testing.T) {
+	probe := filepath.Join("capability-probes", "probe-1")
+	cases := map[string]func(t *testing.T, root string) error{
+		"truly unknown root": func(_ *testing.T, root string) error {
+			return os.Mkdir(filepath.Join(root, "capability-evidence-v2"), 0o700)
+		},
+		"unknown evidence namespace": func(_ *testing.T, root string) error {
+			return os.Mkdir(filepath.Join(root, "capability-evidence", "v2"), 0o700)
+		},
+		"interrupted probe cleanup": func(_ *testing.T, root string) error {
+			return os.WriteFile(filepath.Join(root, "capability-probes", ".probe-cleanup-probe-1.json"), []byte("{}"), 0o600)
+		},
+		"probe staging leftover": func(_ *testing.T, root string) error {
+			return os.WriteFile(filepath.Join(root, probe, "workspace", ".axiom-stage-x"), []byte("x"), 0o600)
+		},
+		"quarantine marker at wrong depth": func(_ *testing.T, root string) error {
+			return os.WriteFile(filepath.Join(root, probe, "workspace", probeQuarantineMarker), []byte("x"), 0o600)
+		},
+		"quarantine marker as directory": func(_ *testing.T, root string) error {
+			if err := os.Remove(filepath.Join(root, probe, probeQuarantineMarker)); err != nil {
+				return err
+			}
+			return os.Mkdir(filepath.Join(root, probe, probeQuarantineMarker), 0o700)
+		},
+		"probe workspace symlink": func(t *testing.T, root string) error {
+			return os.Symlink(t.TempDir(), filepath.Join(root, probe, "workspace", "link"))
+		},
+		"evidence interrupted publication": func(_ *testing.T, root string) error {
+			return os.WriteFile(filepath.Join(root, "capability-evidence", "v1", ".axiom-recovery-x"), []byte("{}"), 0o600)
+		},
+		"Project context replaced by a file": func(_ *testing.T, root string) error {
+			if err := os.RemoveAll(filepath.Join(root, "project-context")); err != nil {
+				return err
+			}
+			return os.WriteFile(filepath.Join(root, "project-context"), []byte("x"), 0o600)
+		},
+	}
+	for name, setup := range cases {
+		t.Run(name, func(t *testing.T) {
+			root := historicalRecognizedRootsFixture(t)
+			if err := setup(t, root); err != nil {
+				t.Fatal(err)
+			}
+			inv, err := InspectCutover(context.Background(), root)
+			if err == nil && !inv.Blocked() {
+				t.Fatalf("%s did not block: %+v", name, inv)
+			}
+			if err == nil && CutoverDecision(inv, disposition(inv)) == nil {
+				t.Fatal("unsafe cutover allowed")
+			}
+		})
+	}
+}
