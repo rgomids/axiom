@@ -150,15 +150,28 @@ type StageOutputInput struct {
 	Required bool   `json:"required"`
 }
 
+// InputProvenance identifies the producer of an artifact supplied to another attempt.
+// Repository key and bytes remain bound by the accompanying ArtifactRef.
+type InputProvenance struct {
+	ExecutionID string `json:"executionId"`
+	StageID     string `json:"stageId"`
+	AttemptID   string `json:"attemptId"`
+}
+
+func (p InputProvenance) Valid() bool {
+	return ValidExecutionID(p.ExecutionID) && ValidToken(p.StageID) && ValidToken(p.AttemptID)
+}
+
 type FrozenInput struct {
-	Content  string        `json:"content,omitempty"`
-	Digest   string        `json:"digest,omitempty"`
-	Name     string        `json:"name"`
-	Kind     string        `json:"kind"`
-	Source   string        `json:"source"`
-	Required bool          `json:"required"`
-	Project  *ProjectInput `json:"project,omitempty"`
-	Artifact *ArtifactRef  `json:"artifact,omitempty"`
+	Provenance *InputProvenance `json:"provenance,omitempty"`
+	Content    string           `json:"content,omitempty"`
+	Digest     string           `json:"digest,omitempty"`
+	Name       string           `json:"name"`
+	Kind       string           `json:"kind"`
+	Source     string           `json:"source"`
+	Required   bool             `json:"required"`
+	Project    *ProjectInput    `json:"project,omitempty"`
+	Artifact   *ArtifactRef     `json:"artifact,omitempty"`
 }
 type ProjectInput struct {
 	ID               string              `json:"id"`
@@ -717,7 +730,7 @@ func validateWorkflow(w WorkflowSnapshot, repos map[string]bool) error {
 				return invalid("frozen input")
 			}
 			if input.Kind == "project-context" {
-				if input.Artifact != nil {
+				if input.Artifact != nil || input.Provenance != nil {
 					return invalid("project input")
 				}
 				if !boundedText(input.Content, MaxInstructionBytes) || input.Content != "" && input.Digest != DigestText([]byte(input.Content)) {
@@ -729,6 +742,9 @@ func validateWorkflow(w WorkflowSnapshot, repos map[string]bool) error {
 			} else if input.Kind == "artifact" {
 				if input.Project != nil {
 					return invalid("artifact input")
+				}
+				if (input.Artifact == nil) != (input.Provenance == nil) || input.Provenance != nil && !input.Provenance.Valid() {
+					return invalid("artifact provenance")
 				}
 				if input.Artifact != nil && (!ValidToken(input.Artifact.RetainedID) || !validPrefixedDigest(input.Artifact.Digest) || input.Artifact.RepositoryKey == "") {
 					return invalid("artifact reference")

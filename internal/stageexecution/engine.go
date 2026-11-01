@@ -346,8 +346,9 @@ func (e Engine) watchCancel(ctx context.Context, stop context.CancelFunc, projec
 	if poll == 0 {
 		poll = 50 * time.Millisecond
 	}
-	seen := make(chan struct{})
+	seen, finished := make(chan struct{}), make(chan struct{})
 	go func() {
+		defer close(finished)
 		ticker := time.NewTicker(poll)
 		defer ticker.Stop()
 		for {
@@ -363,7 +364,11 @@ func (e Engine) watchCancel(ctx context.Context, stop context.CancelFunc, projec
 			}
 		}
 	}()
+	// The check stops and joins the poller so no store read outlives the
+	// attempt (stop is idempotent; callers have already cancelled).
 	return func() bool {
+		stop()
+		<-finished
 		select {
 		case <-seen:
 			return true

@@ -22,6 +22,12 @@ var ErrRuntimeOutput = errors.New("runtime_output_unsafe: declared output could 
 
 const maxRuntimeArtifactBytes = 1 << 20
 
+// Fixed identity gate for configured validation commands; see Collect.
+const (
+	commandGateShell  = "/bin/sh"
+	commandGateScript = `IFS= read -r gate && [ "$gate" = axiom-command-start ] || exit 125; exec "$@"`
+)
+
 // RuntimeLauncher uses the existing OS-process contract for both supported
 // runtimes. All paths and environment are machine-local inputs; selectors come
 // exclusively from the persisted attempt. InboxRoot must be a private, empty
@@ -111,12 +117,13 @@ func (l RuntimeLauncher) Build(ctx context.Context, r LaunchRequest) (executiong
 	// JSON is data on stdin, never shell syntax or a source of authority. Child
 	// output is accepted only as bounded files with declared names in this inbox.
 	type inputValue struct {
-		Content  string                 `json:"content,omitempty"`
-		Digest   string                 `json:"digest,omitempty"`
-		WorkItem *workflow.WorkItemLink `json:"workItem,omitempty"`
-		Artifact *workflow.ArtifactRef  `json:"artifact,omitempty"`
-		Project  *workflow.ProjectInput `json:"project,omitempty"`
-		Source   string                 `json:"source,omitempty"`
+		Provenance *workflow.InputProvenance `json:"provenance,omitempty"`
+		Content    string                    `json:"content,omitempty"`
+		Digest     string                    `json:"digest,omitempty"`
+		WorkItem   *workflow.WorkItemLink    `json:"workItem,omitempty"`
+		Artifact   *workflow.ArtifactRef     `json:"artifact,omitempty"`
+		Project    *workflow.ProjectInput    `json:"project,omitempty"`
+		Source     string                    `json:"source,omitempty"`
 	}
 	inputs := map[string]inputValue{}
 	for _, name := range r.Agent.Inputs {
@@ -133,6 +140,7 @@ func (l RuntimeLauncher) Build(ctx context.Context, r LaunchRequest) (executiong
 			}
 			found = true
 			var selected *workflow.ArtifactRef
+			var provenance *workflow.InputProvenance
 			for _, stage := range r.Execution.Stages {
 				if stage.StageID != input.StageID {
 					continue
@@ -157,6 +165,10 @@ func (l RuntimeLauncher) Build(ctx context.Context, r LaunchRequest) (executiong
 						}
 						copy := artifact
 						selected = &copy
+						provenance = &workflow.InputProvenance{ExecutionID: r.Execution.ExecutionID, StageID: stage.StageID, AttemptID: attempt.AttemptID}
+						if !provenance.Valid() {
+							return fail()
+						}
 					}
 				}
 			}
@@ -164,7 +176,7 @@ func (l RuntimeLauncher) Build(ctx context.Context, r LaunchRequest) (executiong
 				return fail()
 			}
 			if selected != nil {
-				inputs[name] = inputValue{Artifact: selected}
+				inputs[name] = inputValue{Artifact: selected, Provenance: provenance}
 			}
 		}
 		for _, input := range r.Stage.FrozenInputs {
@@ -173,8 +185,11 @@ func (l RuntimeLauncher) Build(ctx context.Context, r LaunchRequest) (executiong
 				if input.Required && input.Project == nil && input.Artifact == nil && input.Content == "" {
 					return fail()
 				}
+				if input.Artifact != nil && (input.Provenance == nil || !input.Provenance.Valid()) {
+					return fail()
+				}
 				if input.Project != nil || input.Artifact != nil || input.Content != "" {
-					inputs[name] = inputValue{Project: input.Project, Artifact: input.Artifact, Source: input.Source, Content: input.Content, Digest: input.Digest}
+					inputs[name] = inputValue{Provenance: input.Provenance, Project: input.Project, Artifact: input.Artifact, Source: input.Source, Content: input.Content, Digest: input.Digest}
 				}
 			}
 		}
@@ -276,7 +291,13 @@ func (l RuntimeLauncher) Collect(ctx context.Context, r LaunchRequest, p executi
 			return Outcome{}, err
 		}
 		commandCtx, cancel := context.WithTimeout(ctx, time.Duration(check.TimeoutSeconds)*time.Second)
-		inv := executiongraph.Invocation{Argv: append([]string{executable}, check.Argv[1:]...), CWD: l.Workspace, OutputMax: 4096}
+		// A fast command could exit before its identity is observed and
+		// would then be an unknown effect. The fixed gate blocks on stdin,
+		// which the runner releases only after StartCommand is durable, then
+		// execs in place (same PID, start time and group). Argv stays
+		// positional: no shell expansion of configured arguments.
+		gate := []string{commandGateShell, "-c", commandGateScript, "axiom-command-gate", executable}
+		inv := executiongraph.Invocation{Argv: append(gate, check.Argv[1:]...), CWD: l.Workspace, Stdin: []byte("axiom-command-start\n"), OutputMax: 4096}
 		environment, err := runtimeadapter.StageEnvironment(r.Attempt.Invocation.Runtime, l.Environment)
 		if err != nil {
 			cancel()

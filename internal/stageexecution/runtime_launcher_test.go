@@ -240,13 +240,13 @@ func TestRuntimeLauncherConfiguredValidationCannotBeSkipped(t *testing.T) {
 }
 
 func TestRuntimeLauncherResolvesOnlyCompletedUnambiguousStageInputs(t *testing.T) {
-	for _, mode := range []string{"valid", "pending", "unknown", "missing", "wrong-repository", "duplicate", "unconfigured"} {
+	for _, mode := range []string{"valid", "pending", "unknown", "missing", "wrong-repository", "duplicate", "unconfigured", "missing-producer-attempt"} {
 		t.Run(mode, func(t *testing.T) {
 			l, r := runtimeLauncherFixture(t, "codex", "runtime-default")
 			r.Agent.Inputs = []string{"source"}
 			r.Stage.StageOutputInputs = []workflow.StageOutputInput{{Name: "source", StageID: "prior", Output: "result", Required: true}}
 			artifact := workflow.ArtifactRef{Name: "result", RepositoryKey: "app", Digest: workflow.DigestText([]byte("retained result")), Size: 15}
-			attempt := workflow.Attempt{Status: workflow.AttemptSucceeded, Artifacts: []workflow.ArtifactRef{artifact}}
+			attempt := workflow.Attempt{AttemptID: "producer-attempt", Status: workflow.AttemptSucceeded, Artifacts: []workflow.ArtifactRef{artifact}}
 			r.Execution.Stages = []workflow.StageRun{{StageID: "prior", Status: workflow.StageCompleted, Tasks: []workflow.TaskRun{{AgentID: "producer", Attempts: []workflow.Attempt{attempt}}}}}
 			switch mode {
 			case "pending":
@@ -261,6 +261,8 @@ func TestRuntimeLauncherResolvesOnlyCompletedUnambiguousStageInputs(t *testing.T
 				r.Execution.Stages[0].Tasks = append(r.Execution.Stages[0].Tasks, r.Execution.Stages[0].Tasks[0])
 			case "unconfigured":
 				r.Stage.StageOutputInputs = nil
+			case "missing-producer-attempt":
+				r.Execution.Stages[0].Tasks[0].Attempts[0].AttemptID = ""
 			}
 			inv, err := l.Build(context.Background(), r)
 			if mode != "valid" {
@@ -274,13 +276,14 @@ func TestRuntimeLauncherResolvesOnlyCompletedUnambiguousStageInputs(t *testing.T
 			}
 			var packet struct {
 				Inputs map[string]struct {
-					Artifact workflow.ArtifactRef `json:"artifact"`
+					Artifact   workflow.ArtifactRef     `json:"artifact"`
+					Provenance workflow.InputProvenance `json:"provenance"`
 				}
 			}
 			if err := json.Unmarshal(inv.Stdin, &packet); err != nil {
 				t.Fatal(err)
 			}
-			if packet.Inputs["source"].Artifact.Digest != artifact.Digest {
+			if packet.Inputs["source"].Artifact.Digest != artifact.Digest || packet.Inputs["source"].Provenance != (workflow.InputProvenance{ExecutionID: r.Execution.ExecutionID, StageID: "prior", AttemptID: "producer-attempt"}) {
 				t.Fatal("lost input correlation")
 			}
 		})
@@ -293,7 +296,7 @@ func TestRuntimeLauncherAuthorizedCommandArgvAndDenial(t *testing.T) {
 			l, r := runtimeLauncherFixture(t, "codex", "runtime-default")
 			marker := filepath.Join(l.Workspace, "checked")
 			command := filepath.Join(filepath.Dir(r.Attempt.Invocation.Executable), "local-check")
-			if err := os.WriteFile(command, []byte("#!/bin/sh\nprintf checked > checked\n"), 0700); err != nil {
+			if err := os.WriteFile(command, []byte("#!/bin/sh\nprintf '%s' \"$1\" > checked\n"), 0700); err != nil {
 				t.Fatal(err)
 			}
 			r.Stage.Commands = []workflow.CommandCheck{{ID: "check", Argv: []string{command, "literal;$argument"}, TimeoutSeconds: 5, Effects: []string{"validation_command", "workspace_write"}}}
@@ -331,8 +334,8 @@ func TestRuntimeLauncherAuthorizedCommandArgvAndDenial(t *testing.T) {
 			if err != nil || len(outcome.Commands) != 1 || outcome.Commands[0].ExitCode != 0 {
 				t.Fatalf("authorized command: %+v %v", outcome, err)
 			}
-			if _, err := os.Stat(marker); err != nil {
-				t.Fatal("command did not run")
+			if wire, err := os.ReadFile(marker); err != nil || string(wire) != "literal;$argument" {
+				t.Fatalf("configured argv changed: %q %v", wire, err)
 			}
 		})
 	}
@@ -415,7 +418,8 @@ func TestEngineCommandProcessFactsCancellationAndFailure(t *testing.T) {
 					t.Fatalf("failure advanced: %s", x.Status)
 				}
 			} else if x.Status != workflow.RunCompleted {
-				t.Fatalf("success: %s", x.Status)
+				a := x.Stages[0].Tasks[0].Attempts[0]
+				t.Fatalf("success: %s diag=%q effects=%+v commands=%+v", x.Status, a.Diagnostic, a.Effects, a.Commands)
 			}
 			a := x.Stages[0].Tasks[0].Attempts[0]
 			if len(a.Commands) != 1 || a.Commands[0].Process == nil || a.Commands[0].Process.PID == a.Process.PID || a.Commands[0].StartedAt == nil {
@@ -425,5 +429,51 @@ func TestEngineCommandProcessFactsCancellationAndFailure(t *testing.T) {
 				t.Fatal("terminal command evidence missing")
 			}
 		})
+	}
+}
+
+// A publication refusal must never release the validation command, including
+// the EOF produced when the runner cancels the blocked stdin copy.
+func TestCommandGateRefusesPublicationFailureWithoutEffects(t *testing.T) {
+	for i := 0; i < 10; i++ {
+		l, r := runtimeLauncherFixture(t, "codex", "runtime-default")
+		command := filepath.Join(filepath.Dir(l.AxiomPath), "check")
+		marker := filepath.Join(l.Workspace, "unauthorized-effect")
+		if err := os.WriteFile(command, []byte("#!/bin/sh\nprintf effect > unauthorized-effect\n"), 0700); err != nil {
+			t.Fatal(err)
+		}
+		r.Stage.Commands = []workflow.CommandCheck{{ID: "check", Argv: []string{command}, TimeoutSeconds: 5, Effects: []string{"validation_command", "workspace_write"}}}
+		r.Attempt.Authority.Effects = append(r.Attempt.Authority.Effects, "validation_command")
+		r.PrepareCommand = func(string) error { return nil }
+		r.StartCommand = func(string, workflow.ProcessIdentity) error { return errors.New("synthetic publication refusal") }
+		r.FinishCommand = func(string, int) (workflow.CommandResult, error) {
+			t.Fatal("refused command finished")
+			return workflow.CommandResult{}, nil
+		}
+		if _, err := l.Build(context.Background(), r); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(l.InboxRoot, r.Attempt.AttemptID, "result"), []byte("result"), 0600); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := l.Collect(context.Background(), r, executiongraph.ProcessResult{}); err == nil {
+			t.Fatal("publication refusal lost")
+		}
+		if _, err := os.Stat(marker); !os.IsNotExist(err) {
+			t.Fatalf("refused command ran: %v", err)
+		}
+	}
+}
+
+func TestCommandGateEOFDoesNotExecuteConfiguredArgv(t *testing.T) {
+	root := t.TempDir()
+	marker := filepath.Join(root, "effect")
+	inv := executiongraph.Invocation{Argv: []string{commandGateShell, "-c", commandGateScript, "axiom-command-gate", "/bin/sh", "-c", "printf effect > effect"}, CWD: root, OutputMax: 1024}
+	result := (executiongraph.OSProcessRunner{}).RunObserved(context.Background(), inv, func(*executiongraph.ProcessCorrelation) error { return nil })
+	if result.ExitCode == 0 {
+		t.Fatal("EOF released command")
+	}
+	if _, err := os.Stat(marker); !os.IsNotExist(err) {
+		t.Fatalf("EOF executed command: %v", err)
 	}
 }

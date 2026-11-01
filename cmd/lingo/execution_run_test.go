@@ -707,6 +707,9 @@ func TestPublicWorkflowRunResultReviewRequiresExactHumanEvidence(t *testing.T) {
 	}
 	lease.Close()
 	digest, err := x.StageResultDigest(ref.StageID)
+	if next := executionNext(x); !strings.Contains(next, "--review-stage "+ref.StageID) || !strings.Contains(next, "--result-digest "+digest) {
+		t.Fatalf("incorrect review guidance: %s", next)
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -735,6 +738,12 @@ func TestPublicWorkflowRunResultReviewRequiresExactHumanEvidence(t *testing.T) {
 	if bad.Category != "transition_refused" {
 		t.Fatal(bad.Raw)
 	}
+	t.Setenv("AXIOM_ATTEMPT_ID", "runtime-child")
+	child := f.run(t, cli.ExitFailure, append(args, "--authorize-human")...)
+	if child.Category != "human_authority_required" {
+		t.Fatal(child.Raw)
+	}
+	t.Setenv("AXIOM_ATTEMPT_ID", "")
 	completed := f.run(t, cli.ExitSuccess, append(args, "--authorize-human")...)
 	if completed.Stage.Status != workflow.RunCompleted || completed.Stage.Stages[0].Review == nil {
 		t.Fatal(completed.Raw)
@@ -757,7 +766,8 @@ func TestPublicWorkflowRunFreezesProjectContextAndArtifactInputs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	a, err := artifacts.Create(context.Background(), detailartifact.Draft{CorrelationID: "018f4a44-7c31-4dd4-9d00-222222222222", Category: "artifact", Outcome: "success", Retention: detailartifact.Evidence, Markdown: []byte("Prior scoped result"), Provenance: currentProvenance(), References: []detailartifact.Reference{{Kind: "workflow-repository", Value: "main"}}})
+	draft := detailartifact.Draft{ExecutionID: "018f4a44-7c31-4dd4-9d00-222222222222", Category: "artifact", Outcome: "success", Retention: detailartifact.Evidence, Markdown: []byte("Prior scoped result"), Provenance: currentProvenance(), References: []detailartifact.Reference{{Kind: "workflow-repository", Value: "main"}, {Kind: "workflow-stage", Value: "producer"}, {Kind: "workflow-attempt", Value: "producer-attempt"}}}
+	a, err := artifacts.Create(context.Background(), draft)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -765,6 +775,33 @@ func TestPublicWorkflowRunFreezesProjectContextAndArtifactInputs(t *testing.T) {
 	missing := f.run(t, cli.ExitFailure, args...)
 	if missing.Category != "workflow_unmappable" || len(f.executions(t)) != 0 {
 		t.Fatal(missing.Raw)
+	}
+	for _, mode := range []string{"missing-execution", "missing-stage", "missing-attempt", "duplicate-stage", "conflicting-attempt", "wrong-repository"} {
+		bad := draft
+		bad.References = append([]detailartifact.Reference(nil), draft.References...)
+		switch mode {
+		case "missing-execution":
+			bad.ExecutionID = ""
+			bad.CorrelationID = draft.ExecutionID
+		case "missing-stage":
+			bad.References = append(bad.References[:1], bad.References[2:]...)
+		case "missing-attempt":
+			bad.References = bad.References[:2]
+		case "duplicate-stage":
+			bad.References = append(bad.References, detailartifact.Reference{Kind: "workflow-stage", Value: "producer"})
+		case "conflicting-attempt":
+			bad.References = append(bad.References, detailartifact.Reference{Kind: "workflow-attempt", Value: "other-attempt"})
+		case "wrong-repository":
+			bad.References[0].Value = "other"
+		}
+		retained, err := artifacts.Create(context.Background(), bad)
+		if err != nil {
+			t.Fatal(mode, err)
+		}
+		refused := f.run(t, cli.ExitFailure, append(args, "--input", "retained="+retained.ID)...)
+		if (refused.Category != "workflow_unmappable" && refused.Category != "repository_binding_changed") || len(f.executions(t)) != 0 {
+			t.Fatalf("%s: %s", mode, refused.Raw)
+		}
 	}
 	got := f.run(t, cli.ExitSuccess, append(args, "--input", "retained="+a.ID)...)
 	store, err := local.NewExecutionStore(f.env.state)
@@ -776,7 +813,7 @@ func TestPublicWorkflowRunFreezesProjectContextAndArtifactInputs(t *testing.T) {
 		t.Fatal(err)
 	}
 	inputs := x.Workflow.Stages[0].FrozenInputs
-	if len(inputs) != 2 || inputs[0].Project == nil || inputs[0].Project.ID != x.ProjectID || !strings.HasPrefix(inputs[0].Project.PortableRevision, "sha256:") || inputs[1].Artifact == nil || inputs[1].Artifact.RetainedID != a.ID {
+	if len(inputs) != 2 || inputs[0].Project == nil || inputs[0].Project.ID != x.ProjectID || !strings.HasPrefix(inputs[0].Project.PortableRevision, "sha256:") || inputs[1].Artifact == nil || inputs[1].Artifact.RetainedID != a.ID || inputs[1].Provenance == nil || *inputs[1].Provenance != (workflow.InputProvenance{ExecutionID: draft.ExecutionID, StageID: "producer", AttemptID: "producer-attempt"}) {
 		t.Fatalf("input provenance missing: %+v", inputs)
 	}
 }

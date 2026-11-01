@@ -818,6 +818,13 @@ func executionNext(x workflow.Execution) string {
 	case workflow.RunAwaitingGate:
 		for _, s := range x.Stages {
 			if s.Status == workflow.StageAwaitingGate {
+				for _, spec := range x.Workflow.Stages {
+					if spec.ID == s.StageID && spec.ReviewRequired && s.Review == nil {
+						if digest, err := x.StageResultDigest(s.StageID); err == nil {
+							return "After real human review: axiom workflow run" + selector + " --review-stage " + s.StageID + " --result-digest " + digest + " --evidence <retained-evidence-id> --authorize-human --authorize-external"
+						}
+					}
+				}
 				return "After real human review: axiom workflow run" + selector + " --approve-gate " + s.StageID + " --authorize-human --authorize-external"
 			}
 		}
@@ -962,6 +969,23 @@ func (c executionComposition) freezeInputs(ctx context.Context, stages []workflo
 			if count != 1 {
 				return errWorkflowUnmappable
 			}
+			provenance := &workflow.InputProvenance{ExecutionID: a.ExecutionID}
+			for kind, target := range map[string]*string{"workflow-stage": &provenance.StageID, "workflow-attempt": &provenance.AttemptID} {
+				count := 0
+				for _, ref := range a.References {
+					if ref.Kind == kind {
+						*target = ref.Value
+						count++
+					}
+				}
+				if count != 1 {
+					return errWorkflowUnmappable
+				}
+			}
+			if !provenance.Valid() {
+				return errWorkflowUnmappable
+			}
+			input.Provenance = provenance
 			input.Artifact = &workflow.ArtifactRef{Name: input.Name, RetainedID: a.ID, RepositoryKey: repository, Digest: "sha256:" + hex.EncodeToString(a.Digest[:]), Size: int64(a.ContentBytes)}
 		}
 	}

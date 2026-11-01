@@ -42,8 +42,12 @@ present and may be absent. Work Item inputs come from `target`; earlier-stage
 outputs require a completed successful predecessor in the same Repository.
 `project-context` with source `project` freezes portable Project identity,
 revision and Repository identities, without local paths. Artifact inputs freeze
-retained successful artifacts with matching Repository correlation, selected by
-`--input <declared-source>=<retained-artifact-id>`. Undeclared bindings, missing
+retained successful artifacts with exactly one matching Repository, source stage
+and source attempt reference, plus the source Execution identity, selected by
+`--input <declared-source>=<retained-artifact-id>`. Source stage and attempt use
+`workflow-stage` and `workflow-attempt`; missing or duplicate provenance refuses.
+Earlier-stage input packets retain their producing Execution/stage/attempt IDs.
+Undeclared bindings, missing
 required inputs and unsupported policies refuse rather than disappearing.
 
 A `human-review` validator waits for the exact successful stage result. Inspect
