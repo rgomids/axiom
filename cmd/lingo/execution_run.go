@@ -278,10 +278,18 @@ func (c executionComposition) launcher(executionID, repositoryKey string) (stage
 	if err != nil {
 		return stageexecution.RuntimeLauncher{}, err
 	}
-	inbox := filepath.Join(c.s.stateRoot, "executions", "v2-attempt-outputs", c.project.ID, executionID)
-	if err := os.MkdirAll(inbox, 0o700); err != nil {
+	// Created through the state root so no path component can redirect it
+	// outside; Build still refuses any symlinked component before spawning.
+	relative := filepath.Join("executions", "v2-attempt-outputs", c.project.ID, executionID)
+	state, err := os.OpenRoot(c.s.stateRoot)
+	if err != nil {
 		return stageexecution.RuntimeLauncher{}, err
 	}
+	defer state.Close()
+	if err := state.MkdirAll(relative, 0o700); err != nil {
+		return stageexecution.RuntimeLauncher{}, err
+	}
+	inbox := filepath.Join(c.s.stateRoot, relative)
 	artifacts, err := local.NewArtifactStore(c.s.stateRoot)
 	if err != nil {
 		return stageexecution.RuntimeLauncher{}, err

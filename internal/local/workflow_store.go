@@ -6,13 +6,14 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"github.com/rgomids/axiom/internal/workflow"
-	"github.com/rgomids/axiom/internal/workflowdefinition"
 	"io"
 	"os"
 	"path/filepath"
 	"reflect"
 	"time"
+
+	"github.com/rgomids/axiom/internal/workflow"
+	"github.com/rgomids/axiom/internal/workflowdefinition"
 )
 
 const MaxExecutionBytes = 4 << 20
