@@ -55,7 +55,7 @@ func TestWorkflowStageCommandsRouteExactInputs(t *testing.T) {
 		"delivery packet": {"workflow delivery packet " + stageSelectors, func(in WorkflowStageInput) bool {
 			return in.Operation == "delivery-packet" && in.Record == "" && !in.AuthorizeLocal && in.PreviewDigest == ""
 		}},
-		"status":          {"workflow stage status " + executionSelectors, func(in WorkflowStageInput) bool { return in.Operation == "status" && in.Execution == "e-1" }},
+		"status": {"workflow stage status " + executionSelectors, func(in WorkflowStageInput) bool { return in.Operation == "status" && in.Execution == "e-1" }},
 		"cancel": {"workflow stage cancel " + executionSelectors + " --authorize-local", func(in WorkflowStageInput) bool {
 			return in.Operation == "cancel" && in.AuthorizeLocal && !in.AuthorizeExternal
 		}},
