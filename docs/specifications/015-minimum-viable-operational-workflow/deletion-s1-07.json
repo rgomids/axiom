@@ -1,0 +1,104 @@
+{
+  "attempt": "S1-07-claude-recovery",
+  "from_sha": "05c5787cda00fe4ab64c4f351f7b9a76b28ba5fd",
+  "measured_source_sha": "bb47547",
+  "scope": "Increment from from_sha to measured source over every Go file under cmd/, internal/ and scripts/ (tree-wide, not only the baseline envelope). Physical lines from git diff --shortstat include comments/blanks. Exported declarations are lexical counts of ^type [A-Z] and ^func (receiver)? [A-Z] in deleted/added files plus removed methods of retained files. S3 numerical targets are not S1 gates.",
+  "production": {
+    "files_deleted": 15,
+    "files_added": 2,
+    "net_files": -13,
+    "lines_inserted": 1209,
+    "lines_deleted": 5283,
+    "net_lines": -4074,
+    "net_lines_excluding_scripts_acceptance_runner": -3470,
+    "exported_types_removed": 25,
+    "exported_types_added": 5,
+    "exported_functions_removed": 53,
+    "exported_functions_added": 6
+  },
+  "tests": {
+    "files_deleted": 22,
+    "files_added": 5,
+    "net_files": -17,
+    "lines_inserted": 961,
+    "lines_deleted": 6659,
+    "net_lines": -5698
+  },
+  "deleted_production_files": [
+    "cmd/lingo/delivery.go",
+    "cmd/lingo/delivery_decision.go",
+    "cmd/lingo/delivery_publication.go",
+    "cmd/lingo/stage_legacy_reader.go",
+    "internal/graphapplication/frozen_stage.go",
+    "internal/graphapplication/task_packet.go",
+    "internal/local/dispatch_authority.go",
+    "internal/local/graph_store.go",
+    "internal/local/single_stage_store.go",
+    "internal/local/stage_cancel.go",
+    "internal/local/stage_receipts.go",
+    "internal/local/successor_graph_store.go",
+    "internal/workflowcompiler/compiler.go",
+    "internal/workflowcompiler/stage_plan.go",
+    "scripts/acceptance/s9-graph-runner.go"
+  ],
+  "added_production_files": [
+    "internal/local/execution_list.go",
+    "internal/local/historical_execution_formats.go"
+  ],
+  "removed_methods_of_retained_files": [
+    "internal/local/workflow_store.go: WorkflowStore.Create, Save, Load, List"
+  ],
+  "cli_leaves": {
+    "before": 104,
+    "after": 92,
+    "retired": [
+      "workflow start",
+      "workflow advance",
+      "workflow fact",
+      "workflow resume",
+      "workflow reconcile",
+      "workflow delivery decision",
+      "workflow delivery rework",
+      "workflow delivery prepare",
+      "workflow delivery preview",
+      "workflow delivery apply",
+      "workflow delivery inspect",
+      "workflow delivery reconcile"
+    ]
+  },
+  "intentional_residuals": [
+    {
+      "path": "internal/executiongraph",
+      "reason": "OSProcessRunner process identity/cancel/unknown-stop survivor used by stageexecution; Graph/Single/Dispatch codecs used only by inert inventory/cutover classification; no writer, resume or operational reader"
+    },
+    {
+      "path": "internal/validatorpolicy",
+      "reason": "imported only by internal/local/inventory.go to classify retired validator-policy bytes for cutover inventory"
+    },
+    {
+      "path": "internal/local/historical_execution_formats.go, inventory.go, stage_outcome.go, publication.go",
+      "reason": "inert classification, lease addressing and protected publication primitives; no legacy store, writer, dispatcher or resume"
+    },
+    {
+      "path": "internal/local/workflow_store.go",
+      "reason": "openProject/address helpers still used by delivery stores; legacy workflow.State Create/Save/Load/List removed"
+    },
+    {
+      "path": "internal/workflow/service.go, delivery*.go and internal/local/delivery_*",
+      "reason": "workflow.Service used only for read-only linked Work Item resolution; delivery domain/stores are family I, retained for the S3 Execution-owned port (no CLI writer)"
+    },
+    {
+      "path": "runtime profile preview / runtimeapplication policy_v4",
+      "reason": "predictive role/complexity/capability preview survives only as an optional standalone authoring command and policy-edit guidance rows; removed from readiness, skill readiness routing and the canonical run path (which uses explicit-precedence ResolveInvocation); deletion deferred to S3.4 final union"
+    },
+    {
+      "path": "internal/runtimeadapter stage invocation and effort roots",
+      "reason": "the single effective selector reader used by the canonical launcher (family K retained reader), not a second owner"
+    },
+    {
+      "path": "internal/coordination, internal/gitworkspace",
+      "reason": "coordination record types and git workspace validation used by the canonical engine/ingress and S2 scope"
+    }
+  ],
+  "recovery_status": "Recovered S1-07 local report; not used as current closure proof. See deletion-s1-08.json for independently recomputed tree-wide metrics."
+}
