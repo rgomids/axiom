@@ -12,6 +12,9 @@ authorizes Plan then Tasks; the Specify artifacts retain their historical Propos
 No implementation, merge, live validation or Product Accepted authority is implied.
 S1 contract reconciliation: [ADR-0037](../decisions/0037-one-canonical-execution-for-new-runs.md)
 records the approved architecture with prospective notes on Spec 007, amendments #276/#306 and Spec 004 #272.
+[S1 full review](015-minimum-viable-operational-workflow/review-s1-full.md) and its
+[coverage ledger](015-minimum-viable-operational-workflow/review-s1-full-coverage.json):
+REVIEW_INCOMPLETE with corrections applied; independent review pending.
 
 ## 014 — CLI operability for smaller models
 
