@@ -68,8 +68,8 @@ func advanceConfigured(t *testing.T, s Service, state State) State {
 	t.Helper()
 	value := resultFor(state)
 	out := s.Transition(context.Background(), configuredTarget(), TransitionInput{ExpectedRevision: state.Revision, Stage: state.Stage, Outcome: OutcomePassed, StageResult: &value})
-	if out.Status != Succeeded {
-		t.Fatalf("advance %s: %s", state.Stage, out.Category)
+	if out.Status != Succeeded || out.State.Revision <= state.Revision {
+		t.Fatalf("advance %s revision %d -> %d: %s", state.Stage, state.Revision, out.State.Revision, out.Category)
 	}
 	return out.State
 }

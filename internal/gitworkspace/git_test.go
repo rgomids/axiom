@@ -4,12 +4,14 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"reflect"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -451,22 +453,11 @@ func buildGraph(t *testing.T, workspaceRoot string, options graphOptions) execut
 	for key, value := range options.workspaceOverride {
 		workspaces[key] = value
 	}
-	authorities := map[string][]executiongraph.Effect{}
-	references := map[string]string{}
 	resolutions := map[string]executiongraph.Resolution{}
-	parentEffects := []executiongraph.Effect{}
 	for _, node := range proposal.Nodes {
-		authorities[node.Key] = append([]executiongraph.Effect(nil), node.Effects...)
-		parentEffects = append(parentEffects, node.Effects...)
-		references[node.Key] = "authority:" + node.Key
 		resolutions[node.Key] = executiongraph.Resolution{RuntimeID: "codex", ModelProfileID: "profile-" + node.Key, ConfigurationRevision: 1, ObservationRevision: 1}
 	}
-	store := &memoryGraphStore{}
-	next := uint64(0)
-	graph, err := executiongraph.NewGraphService(store, func() (string, error) { next++; return opaqueID(next), nil }, func() time.Time { return time.Unix(10, 0).UTC() }).Publish(context.Background(), executiongraph.PublicationRequest{Proposal: proposal, ExpectedDigest: proposal.Digest, GraphRevision: 1, ParentAuthority: parentEffects, ChildAuthorities: authorities, AuthorityReferences: references, Workspaces: workspaces, Resolutions: resolutions})
-	if err != nil {
-		t.Fatal(err)
-	}
+	graph := fixtureGraph(t, proposal, 1, workspaces, resolutions)
 	return graph
 }
 
@@ -477,18 +468,6 @@ func (capabilityOK) ValidateCapability(context.Context, executiongraph.Capabilit
 }
 
 type memoryGraphStore struct{ wire []byte }
-
-func (s *memoryGraphStore) Create(_ context.Context, graph executiongraph.Graph) error {
-	wire, err := executiongraph.EncodeGraph(graph)
-	if err == nil {
-		s.wire = wire
-	}
-	return err
-}
-
-func (s *memoryGraphStore) Load(context.Context, string, string) (executiongraph.Graph, error) {
-	return executiongraph.DecodeGraph(s.wire)
-}
 
 func (s *memoryGraphStore) Save(_ context.Context, graph executiongraph.Graph) (executiongraph.Graph, error) {
 	wire, err := executiongraph.EncodeGraph(graph)
@@ -586,4 +565,53 @@ func nativeGit(t *testing.T) string {
 		t.Fatal(err)
 	}
 	return path
+}
+
+// fixtureGraph constructs inert integration/codec test data. It has no writer,
+// admission, scheduler or process path.
+func fixtureGraph(t *testing.T, p executiongraph.Proposal, revision uint64, workspaces map[string]string, resolutions map[string]executiongraph.Resolution) executiongraph.Graph {
+	t.Helper()
+	ids := map[string]string{}
+	for i, n := range p.Nodes {
+		ids[n.Key] = fmt.Sprintf("00000000-0000-4000-8000-%012d", i+2)
+	}
+	effects := []executiongraph.Effect{}
+	for _, n := range p.Nodes {
+		effects = append(effects, n.Effects...)
+	}
+	authority, e := effectsDigest(effects)
+	if e != nil {
+		t.Fatal(e)
+	}
+	g := executiongraph.Graph{FormatVersion: p.FormatVersion, Parent: executiongraph.ParentExecution{ExecutionID: "00000000-0000-4000-8000-000000000001", GraphRevision: revision, ProposalDigest: p.Digest, AuthorityDigest: authority, AuthorityEffects: sortedEffects(effects), CreatedAt: time.Unix(10, 0).UTC()}}
+	for _, n := range p.Nodes {
+		deps := []string{}
+		for _, key := range n.Dependencies {
+			deps = append(deps, ids[key])
+		}
+		g.Children = append(g.Children, executiongraph.ChildExecution{ExecutionID: ids[n.Key], ParentID: g.Parent.ExecutionID, GraphRevision: revision, NodeKey: n.Key, Envelope: executiongraph.ChildEnvelope{Capability: n.Capability, Inputs: n.Inputs, Outputs: n.Outputs, Scope: n.Scope, Workspace: workspaces[n.Key], Dependencies: deps, AllowedEffects: sortedEffects(n.Effects), AuthorityReference: "authority:" + n.Key, Controls: n.Controls, ValidationOwner: n.ValidationOwner, IntegrationOwner: n.IntegrationOwner, Optional: n.Optional, Resolution: resolutions[n.Key]}})
+		if n.IntegrationOwner {
+			g.Parent.IntegrationChild = ids[n.Key]
+		}
+	}
+	if !executiongraph.ValidGraph(g) {
+		t.Fatal("invalid inert graph fixture")
+	}
+	return g
+}
+
+func sortedEffects(effects []executiongraph.Effect) []executiongraph.Effect {
+	result := append([]executiongraph.Effect(nil), effects...)
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].Kind+"\x00"+result[i].Target < result[j].Kind+"\x00"+result[j].Target
+	})
+	return result
+}
+func effectsDigest(effects []executiongraph.Effect) (string, error) {
+	wire, e := json.Marshal(sortedEffects(effects))
+	if e != nil {
+		return "", e
+	}
+	digest := sha256.Sum256(wire)
+	return hex.EncodeToString(digest[:]), nil
 }

@@ -262,9 +262,8 @@ func writeEveryV1Kind(t *testing.T) (string, string) {
 	single, singleAuthority := localSingleStage(t, v3)
 	historicalFixtureWire(t, state, "single-stage-runs", single.Scope.ProjectID, singleStageName(single.ScopeDigest), mustHistoricalWire(executiongraph.EncodeSingleStageRun(single)))
 	historicalFixtureDigestWire(t, state, "single-stage-runs", single.Scope.ProjectID, mustHistoricalWire(executiongraph.EncodeSingleStageAuthority(singleAuthority)))
-	if _, err := ledgers.RecordStageOutcome(context.Background(), v3, localStageOutcome(v3, "00000000-0000-4000-8000-000000000095")); err != nil {
-		t.Fatal(err)
-	}
+	outcomeWire := mustHistoricalWire(executiongraph.EncodeStageOutcome(localStageOutcome(v3, "00000000-0000-4000-8000-000000000095")))
+	historicalFixtureDigestWire(t, state, "executions", v3.ProjectID, outcomeWire)
 	if _, err := ledgers.RecordDeliveryPacket(context.Background(), v3, localDeliveryPacket(v3)); err != nil {
 		t.Fatal(err)
 	}

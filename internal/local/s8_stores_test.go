@@ -2,10 +2,14 @@ package local
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"testing"
 	"time"
 
@@ -80,20 +84,13 @@ func localGraphFixture(t *testing.T) executiongraph.Graph {
 	if err != nil {
 		t.Fatal(err)
 	}
-	request := executiongraph.PublicationRequest{Proposal: proposal, ExpectedDigest: proposal.Digest, GraphRevision: 1, ChildAuthorities: map[string][]executiongraph.Effect{}, AuthorityReferences: map[string]string{}, Workspaces: map[string]string{}, Resolutions: map[string]executiongraph.Resolution{}}
+	workspaces := map[string]string{}
+	resolutions := map[string]executiongraph.Resolution{}
 	for _, node := range proposal.Nodes {
-		request.ParentAuthority = append(request.ParentAuthority, node.Effects...)
-		request.ChildAuthorities[node.Key] = node.Effects
-		request.AuthorityReferences[node.Key] = "authority:" + node.Key
-		request.Workspaces[node.Key] = filepath.Join(t.TempDir(), node.Key)
-		request.Resolutions[node.Key] = executiongraph.Resolution{RuntimeID: "codex", ModelProfileID: "profile-1", ConfigurationRevision: 1, ObservationRevision: 1}
+		workspaces[node.Key] = filepath.Join(t.TempDir(), node.Key)
+		resolutions[node.Key] = executiongraph.Resolution{RuntimeID: "codex", ModelProfileID: "profile-1", ConfigurationRevision: 1, ObservationRevision: 1}
 	}
-	next := 0
-	memory := &noopGraphStore{}
-	graph, err := executiongraph.NewGraphService(memory, func() (string, error) { next++; return opaqueID(next), nil }, func() time.Time { return time.Unix(1, 0).UTC() }).Publish(context.Background(), request)
-	if err != nil {
-		t.Fatal(err)
-	}
+	graph := fixtureGraph(t, proposal, 1, workspaces, resolutions)
 	return graph
 }
 
@@ -101,16 +98,6 @@ type allCapabilities struct{}
 
 func (allCapabilities) ValidateCapability(context.Context, executiongraph.CapabilityRequest) error {
 	return nil
-}
-
-type noopGraphStore struct{ graph executiongraph.Graph }
-
-func (s *noopGraphStore) Create(_ context.Context, graph executiongraph.Graph) error {
-	s.graph = graph
-	return nil
-}
-func (s *noopGraphStore) Load(context.Context, string, string) (executiongraph.Graph, error) {
-	return s.graph, nil
 }
 
 func opaqueID(value int) string { return fmt.Sprintf("00000000-0000-4000-8000-%012d", value) }
@@ -190,4 +177,53 @@ func TestCoordinationLatestRejectsUnsafeHierarchy(t *testing.T) {
 	if _, exists, err := store.Latest(context.Background(), graph.Parent.ExecutionID, graph.Children[0].ExecutionID); !errors.Is(err, ErrUnsafe) || exists {
 		t.Fatalf("unsafe latest exists=%t err=%v", exists, err)
 	}
+}
+
+// fixtureGraph constructs inert integration/codec test data. It has no writer,
+// admission, scheduler or process path.
+func fixtureGraph(t *testing.T, p executiongraph.Proposal, revision uint64, workspaces map[string]string, resolutions map[string]executiongraph.Resolution) executiongraph.Graph {
+	t.Helper()
+	ids := map[string]string{}
+	for i, n := range p.Nodes {
+		ids[n.Key] = fmt.Sprintf("00000000-0000-4000-8000-%012d", i+2)
+	}
+	effects := []executiongraph.Effect{}
+	for _, n := range p.Nodes {
+		effects = append(effects, n.Effects...)
+	}
+	authority, e := effectsDigest(effects)
+	if e != nil {
+		t.Fatal(e)
+	}
+	g := executiongraph.Graph{FormatVersion: p.FormatVersion, Parent: executiongraph.ParentExecution{ExecutionID: "00000000-0000-4000-8000-000000000001", GraphRevision: revision, ProposalDigest: p.Digest, AuthorityDigest: authority, AuthorityEffects: sortedEffects(effects), CreatedAt: time.Unix(10, 0).UTC()}}
+	for _, n := range p.Nodes {
+		deps := []string{}
+		for _, key := range n.Dependencies {
+			deps = append(deps, ids[key])
+		}
+		g.Children = append(g.Children, executiongraph.ChildExecution{ExecutionID: ids[n.Key], ParentID: g.Parent.ExecutionID, GraphRevision: revision, NodeKey: n.Key, Envelope: executiongraph.ChildEnvelope{Capability: n.Capability, Inputs: n.Inputs, Outputs: n.Outputs, Scope: n.Scope, Workspace: workspaces[n.Key], Dependencies: deps, AllowedEffects: sortedEffects(n.Effects), AuthorityReference: "authority:" + n.Key, Controls: n.Controls, ValidationOwner: n.ValidationOwner, IntegrationOwner: n.IntegrationOwner, Optional: n.Optional, Resolution: resolutions[n.Key]}})
+		if n.IntegrationOwner {
+			g.Parent.IntegrationChild = ids[n.Key]
+		}
+	}
+	if !executiongraph.ValidGraph(g) {
+		t.Fatal("invalid inert graph fixture")
+	}
+	return g
+}
+
+func sortedEffects(effects []executiongraph.Effect) []executiongraph.Effect {
+	result := append([]executiongraph.Effect(nil), effects...)
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].Kind+"\x00"+result[i].Target < result[j].Kind+"\x00"+result[j].Target
+	})
+	return result
+}
+func effectsDigest(effects []executiongraph.Effect) (string, error) {
+	wire, e := json.Marshal(sortedEffects(effects))
+	if e != nil {
+		return "", e
+	}
+	digest := sha256.Sum256(wire)
+	return hex.EncodeToString(digest[:]), nil
 }
