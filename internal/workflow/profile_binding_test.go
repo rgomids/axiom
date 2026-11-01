@@ -59,7 +59,11 @@ func TestExecution5FreezesWorkflowAndProfileAcrossRestart(t *testing.T) {
 	restart.store = &s4Store{state: restartedState, created: true}
 	calls := definitions.calls
 	definitions.category = "workflow_selection_required"
-	inspected := restart.Status(context.Background(), target)
+	inspectedState, inspectErr := restart.store.Load(context.Background(), restartedState.ProjectID, restartedState.RepositoryKey, restartedState.WorkItem)
+	inspected := Result{Status: Succeeded, State: inspectedState}
+	if inspectErr != nil {
+		t.Fatal(inspectErr)
+	}
 	if inspected.Status != Succeeded || definitions.calls != calls || !reflect.DeepEqual(frozen, *inspected.State.Binding.FrozenProfile) || CurrentStage(inspected.State).Instructions == "new selection" {
 		t.Fatalf("historical inspection changed binding: %+v", inspected)
 	}

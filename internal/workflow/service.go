@@ -177,10 +177,6 @@ type ProjectionObservation struct {
 	IssueLabels      []string `json:"issueLabels"`
 	CommentPresent   bool     `json:"commentPresent"`
 }
-type ProjectionCapability interface {
-	Inspect(context.Context, WorkItem, string, string) (ProjectionObservation, error)
-	Apply(context.Context, WorkItem, ProjectionEffect) error
-}
 type ProjectionErrorKind string
 
 const (
@@ -229,8 +225,6 @@ type Result struct {
 	Category string
 	State    State
 	Preview  *ProjectionPreview
-	// Executions is set only by List: the deterministic Project summaries.
-	Executions []Summary
 }
 type Target struct {
 	FrozenProfile                                *runtimeprofile.ResolvedProfileV4
@@ -261,27 +255,25 @@ type IDAllocator func() (string, error)
 type Clock func() time.Time
 
 type Service struct {
-	profileContract bool
-	definitions     DefinitionResolver
-	validators      StageValidator
-	resolver        Resolver
-	workItems       WorkItems
-	store           Store
-	projection      ProjectionCapability
-	references      ReferenceValidator
-	source          provenance.Value
-	allocateID      IDAllocator
-	now             Clock
+	definitions DefinitionResolver
+	validators  StageValidator
+	resolver    Resolver
+	workItems   WorkItems
+	store       Store
+	references  ReferenceValidator
+	source      provenance.Value
+	allocateID  IDAllocator
+	now         Clock
 }
 
-func New(resolver Resolver, workItems WorkItems, store Store, projection ProjectionCapability, references ReferenceValidator, source provenance.Value, allocateID IDAllocator, now Clock) Service {
+func New(resolver Resolver, workItems WorkItems, store Store, references ReferenceValidator, source provenance.Value, allocateID IDAllocator, now Clock) Service {
 	if allocateID == nil {
 		allocateID = randomID
 	}
 	if now == nil {
 		now = time.Now
 	}
-	return Service{resolver: resolver, workItems: workItems, store: store, projection: projection, references: references, source: source, allocateID: allocateID, now: now}
+	return Service{resolver: resolver, workItems: workItems, store: store, references: references, source: source, allocateID: allocateID, now: now}
 }
 
 func (s Service) Start(ctx context.Context, target Target) Result {
@@ -311,12 +303,6 @@ func (s Service) Start(ctx context.Context, target Target) Result {
 		resolvedTarget.DefinitionObservation = observation.Digest
 		if observation.ProjectID != project.ID || !validDefinitionObservation(observation) {
 			return result(Failed, "recovery_required", State{})
-		}
-		if s.profileContract && observation.Document.Definition.SchemaVersion != 2 {
-			return result(ValidationFailed, "workflow_migration_required", State{})
-		}
-		if s.profileContract && target.FrozenProfile == nil {
-			return result(ValidationFailed, "profile_effort_unconfigured", State{})
 		}
 	}
 	if target.ReviewedTarget != nil && *target.ReviewedTarget != resolvedTarget {
@@ -383,130 +369,6 @@ func (s Service) Start(ctx context.Context, target Target) Result {
 		return result(Failed, "recovery_required", State{})
 	}
 	return result(Succeeded, "execution_started", loaded)
-}
-
-// Lister is the optional read-only enumeration port of one Project's
-// Executions. A Store that cannot enumerate makes List fail closed.
-type Lister interface {
-	List(context.Context, string) ([]State, error)
-}
-
-// Summary is the read-only discovery projection of one Execution.
-type Summary struct {
-	ExecutionID    string
-	RepositoryKey  string
-	WorkItem       WorkItem
-	Status         ExecutionStatus
-	Stage          Stage
-	LifecycleStage WorkItemLifecycleStage
-	Revision       uint64
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
-}
-
-// List discovers the Executions of one Project without a known identity. It
-// is local and read-only: it never calls a Provider or the Work Item store.
-// Target carries only ProjectSelector and an optional RepositoryKey filter.
-func (s Service) List(ctx context.Context, target Target) Result {
-	if err := ctx.Err(); err != nil {
-		return result(Interrupted, "workflow_cancelled", State{})
-	}
-	lister, ok := s.store.(Lister)
-	if s.resolver == nil || s.store == nil || !ok || !validText(target.ProjectSelector) || target.RepositoryKey != "" && !validText(target.RepositoryKey) || target.ExecutionID != "" || target.WorkItem != "" {
-		return result(ValidationFailed, "invalid_execution_input", State{})
-	}
-	project, category := s.resolver.Resolve(ctx, target.ProjectSelector)
-	if category != "" {
-		return result(ValidationFailed, category, State{})
-	}
-	attached := map[string]bool{}
-	for _, candidate := range project.Repositories {
-		attached[candidate.Key] = true
-	}
-	if target.RepositoryKey != "" && !attached[target.RepositoryKey] {
-		return result(ValidationFailed, "repository_not_configured", State{})
-	}
-	states, err := lister.List(ctx, project.ID)
-	if err != nil {
-		return storeFailure(err)
-	}
-	summaries := make([]Summary, 0, len(states))
-	for _, state := range states {
-		if !ValidState(state) || state.ProjectID != project.ID {
-			return result(Failed, "recovery_required", State{})
-		}
-		lifecycle, err := DeriveLifecycle(state)
-		if err != nil {
-			return result(Failed, "recovery_required", State{})
-		}
-		// History of a detached Repository key stays preserved but is not
-		// listed until the key is re-attached (I230-T01 F-03), as Work Item
-		// list does.
-		if !attached[state.RepositoryKey] || target.RepositoryKey != "" && state.RepositoryKey != target.RepositoryKey {
-			continue
-		}
-		summaries = append(summaries, Summary{ExecutionID: state.ExecutionID, RepositoryKey: state.RepositoryKey, WorkItem: state.WorkItem, Status: state.Status, Stage: state.Stage, LifecycleStage: lifecycle.Stage, Revision: state.Revision, CreatedAt: state.CreatedAt, UpdatedAt: state.UpdatedAt})
-	}
-	sort.Slice(summaries, func(i, j int) bool {
-		a, b := summaries[i], summaries[j]
-		if a.RepositoryKey != b.RepositoryKey {
-			return a.RepositoryKey < b.RepositoryKey
-		}
-		if a.WorkItem.Provider != b.WorkItem.Provider {
-			return a.WorkItem.Provider < b.WorkItem.Provider
-		}
-		if a.WorkItem.Resource != b.WorkItem.Resource {
-			return a.WorkItem.Resource < b.WorkItem.Resource
-		}
-		if a.WorkItem.ExternalID != b.WorkItem.ExternalID {
-			return a.WorkItem.ExternalID < b.WorkItem.ExternalID
-		}
-		return a.ExecutionID < b.ExecutionID
-	})
-	return Result{Status: Succeeded, Category: "executions_listed", Executions: summaries}
-}
-
-func (s Service) Status(ctx context.Context, target Target) Result {
-	if err := ctx.Err(); err != nil {
-		return result(Interrupted, "workflow_cancelled", State{})
-	}
-	state, failed := s.load(ctx, target)
-	if failed.Category != "" {
-		return failed
-	}
-	if _, err := DeriveLifecycle(state); err != nil {
-		return result(Failed, "recovery_required", state)
-	}
-	return result(Succeeded, "execution_"+string(state.Status), state)
-}
-
-func (s Service) Resume(ctx context.Context, target Target, expectedRevision uint64) Result {
-	if err := ctx.Err(); err != nil {
-		return result(Interrupted, "workflow_cancelled", State{})
-	}
-	state, failed := s.load(ctx, target)
-	if failed.Category != "" {
-		return failed
-	}
-	if s.profileContract && state.FormatVersion != OperationalConfiguredFormatVersion {
-		return result(ValidationFailed, "legacy_execution_contract", state)
-	}
-	if state.Revision != expectedRevision {
-		return result(Denied, "stale_execution_revision", state)
-	}
-	if state.Status != ExecutionInterrupted {
-		return result(Succeeded, "execution_not_interrupted", state)
-	}
-	if state.Binding != nil && s.definitions == nil {
-		return result(Failed, "configured_workflow_unavailable", state)
-	}
-	input := TransitionInput{ExpectedRevision: expectedRevision, Stage: state.Stage, Outcome: OutcomeResumed}
-	event := transitionFor(state, input, state.Stage, s.now().UTC(), s.source)
-	state.Revision++
-	state.Status = ExecutionActive
-	state.UpdatedAt = event.CommittedAt
-	state.Transitions = append(state.Transitions, event)
-	return s.save(ctx, state, Succeeded, "execution_resumed")
 }
 
 func (s Service) Transition(ctx context.Context, target Target, input TransitionInput) Result {
@@ -662,100 +524,6 @@ func (s Service) RecordLifecycleFact(ctx context.Context, target Target, input L
 	return s.save(ctx, state, Succeeded, "lifecycle_fact_recorded")
 }
 
-func (s Service) PrepareProjection(ctx context.Context, target Target, expectedRevision uint64) Result {
-	prepared, _ := s.prepareProjection(ctx, target, expectedRevision)
-	return prepared
-}
-
-func (s Service) prepareProjection(ctx context.Context, target Target, expectedRevision uint64) (Result, ProjectionObservation) {
-	if err := ctx.Err(); err != nil {
-		return result(Interrupted, "workflow_cancelled", State{}), ProjectionObservation{}
-	}
-	state, failed := s.load(ctx, target)
-	if failed.Category != "" {
-		return failed, ProjectionObservation{}
-	}
-	if state.Revision != expectedRevision {
-		return result(Denied, "stale_execution_revision", state), ProjectionObservation{}
-	}
-	if len(state.Transitions) == 0 || state.Transitions[len(state.Transitions)-1].Revision != expectedRevision {
-		return result(ValidationFailed, "projection_transition_unavailable", state), ProjectionObservation{}
-	}
-	if s.projection == nil {
-		return result(ValidationFailed, "projection_capability_unavailable", state), ProjectionObservation{}
-	}
-	preview, observation, err := s.projectionPreview(ctx, state)
-	if err != nil {
-		return projectionFailure(err, state, false), ProjectionObservation{}
-	}
-	return Result{Status: Succeeded, Category: "projection_preview_ready", State: state, Preview: &preview}, observation
-}
-
-func (s Service) Project(ctx context.Context, target Target, expectedRevision uint64, previewDigest string, authorized bool) Result {
-	prepared, observation := s.prepareProjection(ctx, target, expectedRevision)
-	if prepared.Status != Succeeded || prepared.Preview == nil {
-		return prepared
-	}
-	if !authorized || previewDigest == "" {
-		prepared.Status, prepared.Category = Denied, "projection_authority_denied"
-		return prepared
-	}
-	state, found, changed := reconcileProjectionRecord(prepared.State, expectedRevision, observation)
-	if changed {
-		saved := s.save(ctx, state, Succeeded, "projection_effect_reconciled")
-		if saved.Status != Succeeded {
-			return result(Partial, "provider_confirmed_projection_bookkeeping_failed", state)
-		}
-		prepared.State = saved.State
-	}
-	if found && projectionComplete(prepared.State, expectedRevision) && len(prepared.Preview.Effects) == 0 {
-		prepared.Category = "projection_converged"
-		return prepared
-	}
-	if previewDigest != prepared.Preview.Digest {
-		prepared.Status, prepared.Category = Denied, "projection_authority_denied"
-		return prepared
-	}
-	if len(prepared.Preview.Effects) == 0 {
-		prepared.Category = "projection_already_converged"
-		return prepared
-	}
-	state = upsertProjection(prepared.State, projectionRecord(prepared.State, *prepared.Preview))
-	saved := s.save(ctx, state, Succeeded, "projection_intent_recorded")
-	if saved.Status != Succeeded {
-		return saved
-	}
-	state = saved.State
-	confirmedAny := false
-	for _, effect := range prepared.Preview.Effects {
-		err := s.projection.Apply(ctx, state.WorkItem, effect)
-		if err != nil {
-			var provider *ProjectionError
-			if !errors.As(err, &provider) || !provider.Ambiguous {
-				return projectionFailure(err, state, confirmedAny)
-			}
-		}
-		observation, inspectErr := s.projection.Inspect(ctx, state.WorkItem, prepared.Preview.Label, prepared.Preview.ProjectionKey)
-		if inspectErr != nil {
-			return projectionFailure(errors.Join(err, inspectErr), state, confirmedAny)
-		}
-		if !validProjectionObservation(state.WorkItem, observation) {
-			return projectionFailure(&ProjectionError{Kind: ProjectionInvalidResponse}, state, confirmedAny)
-		}
-		if !effectObserved(effect, observation) {
-			return projectionFailure(&ProjectionError{Kind: ProjectionInvalidResponse, Retryable: true, Ambiguous: true}, state, confirmedAny)
-		}
-		confirmedAny = true
-		state = confirmProjectionEffect(state, expectedRevision, effect)
-		saved = s.save(ctx, state, Succeeded, "projection_effect_recorded")
-		if saved.Status != Succeeded {
-			return result(Partial, "provider_confirmed_projection_bookkeeping_failed", state)
-		}
-		state = saved.State
-	}
-	return Result{Status: Succeeded, Category: "projection_converged", State: state, Preview: prepared.Preview}
-}
-
 func (s Service) resolve(ctx context.Context, target Target) (Project, Repository, WorkItem, Result) {
 	if s.resolver == nil || s.workItems == nil || !s.source.Valid() || !validText(target.ProjectSelector) || !validText(target.RepositoryKey) || !validWorkItemSelector(target.WorkItem) || target.RuntimeID != "" && !validText(target.RuntimeID) {
 		return Project{}, Repository{}, WorkItem{}, result(ValidationFailed, "invalid_execution_input", State{})
@@ -790,11 +558,6 @@ func (s Service) resolve(ctx context.Context, target Target) (Project, Repositor
 		return Project{}, Repository{}, WorkItem{}, result(ValidationFailed, "work_item_not_linked", State{})
 	}
 	return project, repository, item, Result{}
-}
-
-func (s Service) load(ctx context.Context, target Target) (State, Result) {
-	state, _, failed := s.loadResolved(ctx, target)
-	return state, failed
 }
 
 func (s Service) loadResolved(ctx context.Context, target Target) (State, Repository, Result) {
@@ -858,21 +621,6 @@ func (s Service) save(ctx context.Context, state State, status Status, category 
 	return result(status, category, loaded)
 }
 
-func (s Service) projectionPreview(ctx context.Context, state State) (ProjectionPreview, ProjectionObservation, error) {
-	lifecycle, lifecycleErr := DeriveLifecycle(state)
-	if lifecycleErr != nil {
-		return ProjectionPreview{}, ProjectionObservation{}, ErrRecoveryRequired
-	}
-	label := lifecycleLabel(lifecycle.Stage)
-	key := projectionKey(state.ExecutionID, state.Revision)
-	observation, err := s.projection.Inspect(ctx, state.WorkItem, label, key)
-	if err != nil {
-		return ProjectionPreview{}, ProjectionObservation{}, err
-	}
-	preview, err := prepareProjectionPreview(state, lifecycle, observation)
-	return preview, preview.Observation, err
-}
-
 func prepareProjectionPreview(state State, lifecycle LifecycleProjection, observation ProjectionObservation) (ProjectionPreview, error) {
 	if !validProjectionObservation(state.WorkItem, observation) {
 		return ProjectionPreview{}, &ProjectionError{Kind: ProjectionInvalidResponse}
@@ -929,39 +677,6 @@ func prepareProjectionPreview(state State, lifecycle LifecycleProjection, observ
 	return preview, nil
 }
 
-func reconcileProjectionRecord(state State, revision uint64, observation ProjectionObservation) (State, bool, bool) {
-	for index := range state.Projections {
-		record := &state.Projections[index]
-		if record.ExecutionRevision != revision {
-			continue
-		}
-		changed := false
-		for _, effect := range record.Intended {
-			if containsEffect(record.Confirmed, effect) || !effectObserved(effect, observation) {
-				continue
-			}
-			record.Confirmed = append(record.Confirmed, effect)
-			changed = true
-		}
-		complete := effectsConfirmed(record.Intended, record.Confirmed)
-		if record.Complete != complete {
-			record.Complete = complete
-			changed = true
-		}
-		return state, true, changed
-	}
-	return state, false, false
-}
-
-func projectionComplete(state State, revision uint64) bool {
-	for _, record := range state.Projections {
-		if record.ExecutionRevision == revision {
-			return record.Complete
-		}
-	}
-	return false
-}
-
 func validProjectionObservation(item WorkItem, observation ProjectionObservation) bool {
 	if observation.Provider != item.Provider || observation.Resource != item.Resource || observation.IssueExternalID != item.ExternalID || observation.IssueURL != item.URL || observation.IssueState != "OPEN" && observation.IssueState != "CLOSED" || len(observation.RepositoryLabels) > 100 || len(observation.IssueLabels) > 100 {
 		return false
@@ -981,81 +696,6 @@ func validProjectionObservation(item WorkItem, observation ProjectionObservation
 	return true
 }
 
-func projectionRecord(state State, preview ProjectionPreview) ProjectionRecord {
-	for _, current := range state.Projections {
-		if current.ExecutionRevision == preview.ExecutionRevision {
-			if state.DeliveryDecision != nil {
-				lifecycle, err := DeriveLifecycle(state)
-				if err != nil || !validProjectionEffects(current, append([]string{preview.Label}, lifecycleFlags(lifecycle.Conditions)...), preview.Comment, validProjectionLabel) {
-					break
-				}
-			}
-			for _, effect := range preview.Effects {
-				if !containsEffect(current.Intended, effect) {
-					current.Intended = append(current.Intended, effect)
-				}
-			}
-			current.Complete = effectsConfirmed(current.Intended, current.Confirmed)
-			return current
-		}
-	}
-	return ProjectionRecord{ExecutionRevision: preview.ExecutionRevision, Key: preview.ProjectionKey, Intended: cloneEffects(preview.Effects)}
-}
-func upsertProjection(state State, record ProjectionRecord) State {
-	for index := range state.Projections {
-		if state.Projections[index].ExecutionRevision == record.ExecutionRevision {
-			state.Projections[index] = record
-			return state
-		}
-	}
-	state.Projections = append(state.Projections, record)
-	return state
-}
-func confirmProjectionEffect(state State, revision uint64, effect ProjectionEffect) State {
-	for index := range state.Projections {
-		record := &state.Projections[index]
-		if record.ExecutionRevision != revision {
-			continue
-		}
-		if !containsEffect(record.Confirmed, effect) {
-			record.Confirmed = append(record.Confirmed, effect)
-		}
-		record.Complete = effectsConfirmed(record.Intended, record.Confirmed)
-	}
-	return state
-}
-func effectObserved(effect ProjectionEffect, observation ProjectionObservation) bool {
-	switch effect.Kind {
-	case CreateStageLabel:
-		return contains(observation.RepositoryLabels, effect.Value)
-	case AddStageLabel:
-		return contains(observation.IssueLabels, effect.Value)
-	case RemoveStageLabel:
-		return !contains(observation.IssueLabels, effect.Value)
-	case PostTransitionComment:
-		return observation.CommentPresent
-	}
-	return false
-}
-func projectionFailure(err error, state State, confirmed bool) Result {
-	if errors.Is(err, ErrRecoveryRequired) {
-		return result(Failed, "recovery_required", state)
-	}
-	var provider *ProjectionError
-	if errors.As(err, &provider) {
-		if confirmed {
-			return result(Partial, "provider_projection_partial", state)
-		}
-		if provider.Retryable || provider.Ambiguous || provider.Kind == ProjectionUnavailable || provider.Kind == ProjectionRateLimited {
-			return result(Retryable, "provider_projection_retryable", state)
-		}
-		return result(Failed, "provider_projection_failed", state)
-	}
-	if confirmed {
-		return result(Partial, "provider_projection_partial", state)
-	}
-	return result(Failed, "provider_projection_failed", state)
-}
 func storeFailure(err error) Result {
 	switch {
 	case errors.Is(err, ErrRecoveryRequired):

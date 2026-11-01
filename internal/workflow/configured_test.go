@@ -74,40 +74,6 @@ func advanceConfigured(t *testing.T, s Service, state State) State {
 	return out.State
 }
 
-func TestConfiguredRevisionIsolationAndOfflineResume(t *testing.T) {
-	s, _, d, _ := newConfigured(t)
-	ctx := context.Background()
-	target := configuredTarget()
-	a := s.Start(ctx, target)
-	if a.Status != Succeeded || a.State.Binding.Definition.Revision != 1 {
-		t.Fatalf("start %s", a.Category)
-	}
-	r2 := d.document.Definition
-	r2.Revision = 2
-	r2.Stages[0].Instructions = "Changed R2 instructions"
-	doc, issues := workflowdefinition.Encode(r2)
-	if len(issues) != 0 {
-		t.Fatal(issues)
-	}
-	d.document = doc
-	stopped := s.Transition(ctx, target, TransitionInput{ExpectedRevision: 1, Stage: a.State.Stage, Outcome: OutcomeFailed})
-	if stopped.Status != Interrupted {
-		t.Fatal(stopped.Category)
-	}
-	calls := d.calls
-	d.category = "workflow_selection_required"
-	resumed := s.Resume(ctx, target, stopped.State.Revision)
-	if resumed.Status != Succeeded || d.calls != calls || resumed.State.Binding.Definition != a.State.Binding.Definition || CurrentStage(resumed.State).Instructions != CurrentStage(a.State).Instructions {
-		t.Fatalf("resume switched contract: %s", resumed.Category)
-	}
-	b, _, _, _ := newConfigured(t)
-	b = b.WithDefinitions(&configuredDefinitions{document: doc}, &configuredValidator{})
-	fresh := b.Start(ctx, target)
-	if fresh.Status != Succeeded || fresh.State.Binding.Definition.Revision != 2 {
-		t.Fatalf("new execution %s", fresh.Category)
-	}
-}
-
 func TestConfiguredPrerequisitesValidatorsAndReplay(t *testing.T) {
 	s, store, _, validator := newConfigured(t)
 	target := configuredTarget()
@@ -361,26 +327,5 @@ func TestConfiguredContextIsPinnedAndUnsupportedAdapterBlocks(t *testing.T) {
 	state.Binding.Contexts["business-context"] = ContextObservation{Source: "business-context", Digest: digestBytes(content), Content: []byte("tampered")}
 	if ValidState(state) {
 		t.Fatal("tampered retained context accepted")
-	}
-}
-
-func TestConfiguredProviderProjectionCannotAdvanceCanonicalState(t *testing.T) {
-	s, store, _, _ := newConfigured(t)
-	ctx := context.Background()
-	state := advanceConfigured(t, s, s.Start(ctx, configuredTarget()).State)
-	provider := s.projection.(*s4Projection)
-	provider.observation.IssueLabels = []string{"axiom:stage:accepted"}
-	provider.observation.IssueState = "CLOSED"
-	before := cloneState(store.state)
-	preview := s.PrepareProjection(ctx, configuredTarget(), state.Revision)
-	if preview.Status != Succeeded || !reflect.DeepEqual(before, store.state) {
-		t.Fatalf("provider rewrote canonical state: %s", preview.Category)
-	}
-	if preview.Preview == nil || preview.Preview.Label != "axiom:stage:specifying" {
-		t.Fatalf("projection followed provider: %#v", preview.Preview)
-	}
-	projection, err := DeriveLifecycle(store.state)
-	if err != nil || projection.Stage != LifecycleSpecifying || store.state.Revision != state.Revision {
-		t.Fatal("provider acceptance advanced lifecycle")
 	}
 }

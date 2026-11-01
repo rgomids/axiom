@@ -2,7 +2,6 @@ package executiongraph
 
 import (
 	"bytes"
-	"context"
 	"crypto/sha256"
 	"encoding/json"
 	"errors"
@@ -29,8 +28,20 @@ func validateProposalV3(p Proposal) error {
 	return nil
 }
 
+func validateHistoricalProposal(p Proposal) error {
+	if p.FormatVersion != ProposalFormatVersion && p.FormatVersion != 2 && p.FormatVersion != OperationalProposalVersion {
+		return ErrInvalidGraph
+	}
+	for _, node := range p.Nodes {
+		if !validNodeProfile(p.FormatVersion, node.ResolvedProfile, node.FrozenProfile, node.Controls, node.Capability) {
+			return ErrInvalidGraph
+		}
+	}
+	return validateProposalTopology(p, maxNodes)
+}
+
 func signProposalV3(p Proposal) (string, error) {
-	if p.FormatVersion != OperationalProposalVersion || NewPlanner(&capabilitySpy{}).Validate(context.Background(), p, maxNodes) != nil {
+	if p.FormatVersion != OperationalProposalVersion || validateHistoricalProposal(p) != nil {
 		return "", ErrInvalidGraph
 	}
 	return proposalDigest(p)
@@ -65,7 +76,7 @@ func TestOperationalProposalGolden(t *testing.T) {
 	}
 	old := p
 	old.FormatVersion = 2
-	if NewPlanner(&capabilitySpy{}).Validate(context.Background(), old, maxNodes) == nil {
+	if validateHistoricalProposal(old) == nil {
 		t.Fatal("new tuple accepted as historical Proposal 2")
 	}
 	for _, retired := range []string{"capabilityProofReference", "runtimeVersion", `"resolvedProfile"`} {

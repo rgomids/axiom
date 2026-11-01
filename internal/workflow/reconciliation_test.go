@@ -53,7 +53,15 @@ func TestReconciliationUsesSamePreviewAsProjectionService(t *testing.T) {
 	target := s4Target()
 	service.Start(t.Context(), target)
 	transitioned := service.Transition(t.Context(), target, TransitionInput{ExpectedRevision: 1, Stage: Intake, Outcome: OutcomePassed})
-	projected := service.PrepareProjection(t.Context(), target, transitioned.State.Revision)
+	lifecycle, err := DeriveLifecycle(transitioned.State)
+	if err != nil {
+		t.Fatal(err)
+	}
+	preview, err := prepareProjectionPreview(transitioned.State, lifecycle, provider.observation)
+	if err != nil {
+		t.Fatal(err)
+	}
+	projected := Result{Preview: &preview}
 	reconciled := InspectReconciliation(ReconciliationInput{Current: &transitioned.State, Provider: &provider.observation})
 	if projected.Preview == nil || reconciled.Projection == nil || reconciled.Projection.Digest != projected.Preview.Digest {
 		t.Fatalf("projection preview = %#v reconciliation preview = %#v", projected.Preview, reconciled.Projection)

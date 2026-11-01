@@ -439,16 +439,18 @@ func buildGraph(t *testing.T, workspaceRoot string, options graphOptions) execut
 		integrationPaths = []string{aTarget}
 		integrationEffects = []executiongraph.Effect{{Kind: "integration", Target: aTarget}}
 	}
-	plan := executiongraph.ApprovedPlan{Approved: true, PlanRevision: "plan-1", PlanDigest: digest("plan"), MaximumNodes: 3, Work: []executiongraph.WorkUnit{
+	proposal := executiongraph.Proposal{FormatVersion: executiongraph.ProposalFormatVersion, PlanRevision: "plan-1", PlanDigest: digest("plan"), Nodes: []executiongraph.ProposedNode{
 		{Key: "a", Capability: capability("implementation"), Inputs: []string{"plan"}, Outputs: []string{"a-result"}, Scope: scope(aTarget), Effects: []executiongraph.Effect{{Kind: "repository-write", Target: aTarget}}, Controls: controls},
 		{Key: "b", Capability: capability("documentation"), Dependencies: bDependencies, Inputs: []string{"plan"}, Outputs: []string{"b-result"}, Scope: scope(bTarget), Effects: []executiongraph.Effect{{Kind: "repository-write", Target: bTarget}}, Optional: options.optionalB, Controls: controls},
 		{Key: "integrate", Capability: capability("integration"), Dependencies: []string{"a", "b"}, Inputs: []string{"a-result", "b-result"}, Outputs: []string{"delivery"}, Scope: executiongraph.Scope{ProjectID: "project-1", RepositoryKey: "main", Paths: integrationPaths}, Effects: integrationEffects, ValidationOwner: true, IntegrationOwner: true, Controls: controls},
 	}}
-	planner := executiongraph.NewPlanner(capabilityOK{})
-	proposal, err := planner.Propose(context.Background(), plan)
+	// This is inert fixture identity, with no operational Plan producer.
+	wire, err := json.Marshal(proposal)
 	if err != nil {
 		t.Fatal(err)
 	}
+	sum := sha256.Sum256(wire)
+	proposal.Digest = hex.EncodeToString(sum[:])
 	workspaces := map[string]string{"a": filepath.Join(workspaceRoot, "a"), "b": filepath.Join(workspaceRoot, "b"), "integrate": filepath.Join(workspaceRoot, "integrate")}
 	for key, value := range options.workspaceOverride {
 		workspaces[key] = value
@@ -459,12 +461,6 @@ func buildGraph(t *testing.T, workspaceRoot string, options graphOptions) execut
 	}
 	graph := fixtureGraph(t, proposal, 1, workspaces, resolutions)
 	return graph
-}
-
-type capabilityOK struct{}
-
-func (capabilityOK) ValidateCapability(context.Context, executiongraph.CapabilityRequest) error {
-	return nil
 }
 
 type memoryGraphStore struct{ wire []byte }

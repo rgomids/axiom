@@ -75,15 +75,17 @@ func runtimeConfiguration(revision uint64) runtimeprofile.Configuration {
 
 func localGraphFixture(t *testing.T) executiongraph.Graph {
 	t.Helper()
-	plan := executiongraph.ApprovedPlan{Approved: true, PlanRevision: "plan-1", PlanDigest: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", MaximumNodes: 2, Work: []executiongraph.WorkUnit{
+	proposal := executiongraph.Proposal{FormatVersion: executiongraph.ProposalFormatVersion, PlanRevision: "plan-1", PlanDigest: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", Nodes: []executiongraph.ProposedNode{
 		{Key: "implementation", Capability: executiongraph.CapabilityRequest{Role: "implementation", Complexity: "low", Capabilities: []string{"go"}}, Inputs: []string{"plan"}, Outputs: []string{"result"}, Scope: executiongraph.Scope{ProjectID: "project-1", RepositoryKey: "main", Paths: []string{"internal/api"}}, Effects: []executiongraph.Effect{{Kind: "repository-write", Target: "internal/api"}}, Controls: executiongraph.ExecutionControls{Timeout: time.Minute, MaximumAttempts: 2}},
 		{Key: "integration", Capability: executiongraph.CapabilityRequest{Role: "integration", Complexity: "high", Capabilities: []string{"validation"}}, Dependencies: []string{"implementation"}, Inputs: []string{"result"}, Outputs: []string{"delivery"}, Scope: executiongraph.Scope{ProjectID: "project-1", RepositoryKey: "main", Paths: []string{"internal/api"}}, Effects: []executiongraph.Effect{{Kind: "integration", Target: "internal/api"}}, ValidationOwner: true, IntegrationOwner: true, Controls: executiongraph.ExecutionControls{Timeout: time.Minute, MaximumAttempts: 2}},
 	}}
-	planner := executiongraph.NewPlanner(allCapabilities{})
-	proposal, err := planner.Propose(context.Background(), plan)
+	// This is inert fixture identity, with no operational Plan producer.
+	wire, err := json.Marshal(proposal)
 	if err != nil {
 		t.Fatal(err)
 	}
+	sum := sha256.Sum256(wire)
+	proposal.Digest = hex.EncodeToString(sum[:])
 	workspaces := map[string]string{}
 	resolutions := map[string]executiongraph.Resolution{}
 	for _, node := range proposal.Nodes {
@@ -92,12 +94,6 @@ func localGraphFixture(t *testing.T) executiongraph.Graph {
 	}
 	graph := fixtureGraph(t, proposal, 1, workspaces, resolutions)
 	return graph
-}
-
-type allCapabilities struct{}
-
-func (allCapabilities) ValidateCapability(context.Context, executiongraph.CapabilityRequest) error {
-	return nil
 }
 
 func opaqueID(value int) string { return fmt.Sprintf("00000000-0000-4000-8000-%012d", value) }

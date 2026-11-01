@@ -155,10 +155,6 @@ func (s Service) WithDefinitions(definitions DefinitionResolver, validators Stag
 	return s
 }
 
-// WithProfileContract activates current admission at the production boundary.
-// Canonical historical readers and lifecycle completion keep their old meaning.
-func (s Service) WithProfileContract() Service { s.profileContract = true; return s }
-
 func bindingDocument(state State) (workflowdefinition.Document, bool) {
 	b := state.Binding
 	if b != nil && (!workflowdefinition.ValidDigest(b.ProjectRevision) || !workflowdefinition.ValidDigest(b.LocalRevision)) {

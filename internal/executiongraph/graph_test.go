@@ -1,7 +1,6 @@
 package executiongraph
 
 import (
-	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -9,11 +8,7 @@ import (
 
 func mustProposal(t *testing.T) Proposal {
 	t.Helper()
-	p, e := NewPlanner(&capabilitySpy{}).Propose(context.Background(), testPlan())
-	if e != nil {
-		t.Fatal(e)
-	}
-	return p
+	return historicalProposalFixture(t)
 }
 
 func mustGraph(t *testing.T) Graph {

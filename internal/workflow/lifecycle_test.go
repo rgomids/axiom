@@ -89,7 +89,15 @@ func TestProjectionUsesDerivedStageAndIndependentFlags(t *testing.T) {
 	service.Start(context.Background(), target)
 	service.Transition(context.Background(), target, TransitionInput{ExpectedRevision: 1, Stage: Intake, Outcome: OutcomePassed})
 	service.RecordLifecycleFact(context.Background(), target, LifecycleFactInput{ExpectedRevision: 2, Kind: FactBlocked, Active: true, Reference: Reference{Kind: "evidence", ID: "blocker", Digest: testDigest}}, true)
-	previewed := service.PrepareProjection(context.Background(), target, store.state.Revision)
+	lifecycle, err := DeriveLifecycle(store.state)
+	if err != nil {
+		t.Fatal(err)
+	}
+	preview, err := prepareProjectionPreview(store.state, lifecycle, provider.observation)
+	if err != nil {
+		t.Fatal(err)
+	}
+	previewed := Result{Status: Succeeded, Preview: &preview}
 	if previewed.Status != Succeeded || previewed.Preview == nil || previewed.Preview.LifecycleStage != LifecycleSpecifying || previewed.Preview.Label != "axiom:stage:specifying" {
 		t.Fatalf("preview = %#v", previewed)
 	}

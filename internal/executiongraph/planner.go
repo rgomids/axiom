@@ -1,15 +1,13 @@
-// Package executiongraph owns proposal, validation and durable semantics for
-// bounded parent/child Execution graphs.
+// Package executiongraph retains inert historical graph codecs and shared
+// process/integration contracts. It has no operational Plan producer.
 package executiongraph
 
 import (
-	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"path"
-	"sort"
 	"strings"
 	"time"
 
@@ -26,11 +24,9 @@ const (
 )
 
 var (
-	ErrInvalidPlan     = errors.New("invalid approved plan")
 	ErrInvalidGraph    = errors.New("invalid execution graph")
 	ErrCycle           = errors.New("execution graph contains cycle")
 	ErrUnsafeOverlap   = errors.New("unsafe overlapping effects")
-	ErrUnresolvable    = errors.New("unresolvable capability request")
 	ErrMissingOwner    = errors.New("missing integration owner")
 	ErrAuthoritySubset = errors.New("child authority exceeds parent authority")
 	ErrStaleGraph      = errors.New("stale execution graph authority")
@@ -59,30 +55,6 @@ type ExecutionControls struct {
 	ReasoningEffort string        `json:"reasoningEffort,omitempty"`
 }
 
-type WorkUnit struct {
-	ResolvedProfile  *runtimeprofile.ResolvedProfile   `json:"resolvedProfile,omitempty"`
-	FrozenProfile    *runtimeprofile.ResolvedProfileV4 `json:"frozenProfile,omitempty"`
-	Key              string                            `json:"key"`
-	Capability       CapabilityRequest                 `json:"capability"`
-	Dependencies     []string                          `json:"dependencies"`
-	Inputs           []string                          `json:"inputs"`
-	Outputs          []string                          `json:"outputs"`
-	Scope            Scope                             `json:"scope"`
-	Effects          []Effect                          `json:"effects"`
-	ValidationOwner  bool                              `json:"validationOwner"`
-	IntegrationOwner bool                              `json:"integrationOwner"`
-	Optional         bool                              `json:"optional"`
-	Controls         ExecutionControls                 `json:"controls"`
-}
-
-type ApprovedPlan struct {
-	Approved     bool       `json:"approved"`
-	PlanRevision string     `json:"planRevision"`
-	PlanDigest   string     `json:"planDigest"`
-	MaximumNodes int        `json:"maximumNodes"`
-	Work         []WorkUnit `json:"work"`
-}
-
 type ProposedNode struct {
 	ResolvedProfile  *runtimeprofile.ResolvedProfile   `json:"resolvedProfile,omitempty"`
 	FrozenProfile    *runtimeprofile.ResolvedProfileV4 `json:"frozenProfile,omitempty"`
@@ -105,67 +77,6 @@ type Proposal struct {
 	PlanDigest    string         `json:"planDigest"`
 	Nodes         []ProposedNode `json:"nodes"`
 	Digest        string         `json:"digest"`
-}
-
-type CapabilityValidator interface {
-	ValidateCapability(context.Context, CapabilityRequest) error
-}
-
-type Planner struct{ capabilities CapabilityValidator }
-
-func NewPlanner(capabilities CapabilityValidator) Planner { return Planner{capabilities: capabilities} }
-
-func (p Planner) Propose(ctx context.Context, plan ApprovedPlan) (Proposal, error) {
-	if !plan.Approved || !validToken(plan.PlanRevision) || !validDigest(plan.PlanDigest) || plan.MaximumNodes < 1 || plan.MaximumNodes > maxNodes || len(plan.Work) == 0 || len(plan.Work) > plan.MaximumNodes {
-		return Proposal{}, ErrInvalidPlan
-	}
-	proposal := Proposal{FormatVersion: ProposalFormatVersion, PlanRevision: plan.PlanRevision, PlanDigest: plan.PlanDigest, Nodes: make([]ProposedNode, 0, len(plan.Work))}
-	for _, unit := range plan.Work {
-		if unit.ResolvedProfile != nil {
-			frozen := *unit.ResolvedProfile
-			unit.ResolvedProfile = &frozen
-			proposal.FormatVersion = 2
-		}
-		if unit.FrozenProfile != nil {
-			frozen := *unit.FrozenProfile
-			unit.FrozenProfile = &frozen
-			proposal.FormatVersion = OperationalProposalVersion
-		}
-		proposal.Nodes = append(proposal.Nodes, ProposedNode(unit))
-	}
-	normalizeProposal(&proposal)
-	if err := p.Validate(ctx, proposal, plan.MaximumNodes); err != nil {
-		return Proposal{}, err
-	}
-	digest, err := proposalDigest(proposal)
-	if err != nil {
-		return Proposal{}, err
-	}
-	proposal.Digest = digest
-	return proposal, nil
-}
-
-func (p Planner) Validate(ctx context.Context, proposal Proposal, maximumNodes int) error {
-	if proposal.FormatVersion != ProposalFormatVersion && proposal.FormatVersion != 2 && proposal.FormatVersion != OperationalProposalVersion {
-		return ErrInvalidGraph
-	}
-	for _, node := range proposal.Nodes {
-		if !validNodeProfile(proposal.FormatVersion, node.ResolvedProfile, node.FrozenProfile, node.Controls, node.Capability) {
-			return ErrInvalidGraph
-		}
-	}
-	if err := validateProposalTopology(proposal, maximumNodes); err != nil {
-		return err
-	}
-	if p.capabilities == nil {
-		return ErrUnresolvable
-	}
-	for _, node := range proposal.Nodes {
-		if p.capabilities.ValidateCapability(ctx, node.Capability) != nil {
-			return ErrUnresolvable
-		}
-	}
-	return nil
 }
 
 func validateProposalTopology(proposal Proposal, maximumNodes int) error {
@@ -231,21 +142,6 @@ func proposalDigest(proposal Proposal) (string, error) {
 	}
 	digest := sha256.Sum256(wire)
 	return hex.EncodeToString(digest[:]), nil
-}
-
-func normalizeProposal(proposal *Proposal) {
-	sort.Slice(proposal.Nodes, func(i, j int) bool { return proposal.Nodes[i].Key < proposal.Nodes[j].Key })
-	for index := range proposal.Nodes {
-		node := &proposal.Nodes[index]
-		node.Capability.Capabilities = sortedUnique(node.Capability.Capabilities)
-		node.Dependencies = sortedUnique(node.Dependencies)
-		node.Inputs = sortedUnique(node.Inputs)
-		node.Outputs = sortedUnique(node.Outputs)
-		node.Scope.Paths = sortedUnique(node.Scope.Paths)
-		sort.Slice(node.Effects, func(i, j int) bool {
-			return node.Effects[i].Kind+"\x00"+node.Effects[i].Target < node.Effects[j].Kind+"\x00"+node.Effects[j].Target
-		})
-	}
 }
 
 func validNode(node ProposedNode) bool {
@@ -398,17 +294,6 @@ func validToken(value string) bool {
 func validDigest(value string) bool {
 	decoded, err := hex.DecodeString(value)
 	return err == nil && len(decoded) == sha256.Size
-}
-
-func sortedUnique(values []string) []string {
-	result := append([]string(nil), values...)
-	sort.Strings(result)
-	for index := 1; index < len(result); index++ {
-		if result[index] == result[index-1] {
-			return nil
-		}
-	}
-	return result
 }
 
 // ValidProfileControls verifies the frozen sole-owner projection without acquiring proof.

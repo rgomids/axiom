@@ -55,7 +55,11 @@ func TestExecutionStartCapturesEffectiveProjectBeforeContextChanges(t *testing.T
 	if !reflect.DeepEqual(before, store.state) || started.State.ProjectID != idA {
 		t.Fatal("Execution or provenance changed")
 	}
-	retained := service.Status(ctx, target)
+	retainedState, err := store.Load(ctx, started.State.ProjectID, started.State.RepositoryKey, started.State.WorkItem)
+	if err != nil {
+		t.Fatal(err)
+	}
+	retained := Result{State: retainedState}
 	if retained.State.ProjectID != idA || retained.State.ExecutionID != started.State.ExecutionID || !reflect.DeepEqual(retained.State.Provenance, started.State.Provenance) {
 		t.Fatal(retained)
 	}
