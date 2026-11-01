@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/rgomids/axiom/internal/cli"
+	"github.com/rgomids/axiom/internal/detailartifact"
 	"github.com/rgomids/axiom/internal/local"
 	"github.com/rgomids/axiom/internal/projectapp"
 	"github.com/rgomids/axiom/internal/runtimeapplication"
@@ -434,10 +435,11 @@ func TestPublicWorkflowRunTwoStagesProgressWithoutManualIntervention(t *testing.
 
 func TestPublicWorkflowRunRefusesUnsupportedWorkflowControls(t *testing.T) {
 	f := newExecutionRunFixture(t)
-	// Artifact schema checks are now supported. Result-bound human review
-	// remains unsupported and must refuse before writing an Execution.
-	d := workflowdefinition.Builtin().Definition
-	d.Stages[0].Validators[0].Kind = "human-review"
+	// Combined instruction bytes must refuse before creation.
+	doc, _ := workflowdefinition.BuiltinRevision(2)
+	d := doc.Definition
+	d.Stages[0].Instructions = strings.Repeat("a", 9000)
+	d.Stages[0].Agents[0].Responsibilities = strings.Repeat("b", 9000)
 	f.installWorkflowDefinition(t, d)
 	got := f.run(t, cli.ExitFailure, "workflow", "run", "--project", "external", "--repository", "main", "--work-item", "github:owner/repo#7", "--select", "owner.runtime=codex", "--select", "owner.model=stub-model", "--select", "owner.effort=runtime-default", "--authorize-external")
 	if got.Category != "workflow_unmappable" || len(f.executions(t)) != 0 {
@@ -634,7 +636,7 @@ func TestMapWorkflowDefinitionFreezesExactOutputChecks(t *testing.T) {
 	if checks == 0 {
 		t.Fatal("no configured validation exercised")
 	}
-	for _, kind := range []string{"human-review", "uninstalled-validator"} {
+	for _, kind := range []string{"uninstalled-validator"} {
 		d.Stages[0].Validators[0].Kind = kind
 		if _, _, _, err := mapWorkflowDefinition(d); err == nil {
 			t.Fatal("unsupported validator accepted")
@@ -656,8 +658,125 @@ func TestMapWorkflowDefinitionNeverDropsUnsupportedInputs(t *testing.T) {
 		if _, issues := workflowdefinition.Encode(d); len(issues) != 0 {
 			t.Fatal(issues)
 		}
-		if _, _, _, err := mapWorkflowDefinition(d); err == nil {
-			t.Fatal("unresolved input silently omitted")
+		if _, _, stages, err := mapWorkflowDefinition(d); err != nil || len(stages[0].FrozenInputs) != 1 || stages[0].FrozenInputs[0].Source != "unresolved-context" {
+			t.Fatal("context source dropped before resolution", err)
 		}
+	}
+}
+
+func TestPublicWorkflowRunResultReviewRequiresExactHumanEvidence(t *testing.T) {
+	f := newExecutionRunFixture(t)
+	first := f.run(t, cli.ExitSuccess, minimalRun("--authorize-external")...)
+	store, err := local.NewExecutionStore(f.env.state)
+	if err != nil {
+		t.Fatal(err)
+	}
+	initial, err := store.Load(context.Background(), first.Stage.ProjectID, first.Stage.ExecutionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stages := initial.Workflow.Stages
+	stages[0].ReviewRequired = true
+	x, err := workflow.NewExecution(workflow.NewExecutionInput{ExecutionID: "00000000-0000-4000-8000-000000000077", ProjectID: initial.ProjectID, WorkItem: initial.WorkItem, Repositories: initial.Repositories, WorkflowID: "review-stub", Revision: "r1", Stages: stages, Now: time.Now()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = store.Create(context.Background(), x); err != nil {
+		t.Fatal(err)
+	}
+	lease, err := store.AcquireFence(context.Background(), x.ProjectID, x.ExecutionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = x.ClaimRunner(lease.Generation(), time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	previous := initial.Stages[0].Tasks[0].Attempts[0]
+	ref := workflow.TaskRef{StageID: stages[0].ID, AgentID: stages[0].Agents[0].ID}
+	if err = x.PrepareAttempt(workflow.PrepareInput{Ref: ref, AttemptID: "review-attempt", Generation: 1, Invocation: previous.Invocation, Authority: previous.Authority, Now: time.Now()}); err != nil {
+		t.Fatal(err)
+	}
+	if err = x.MarkStarted("review-attempt", 1, workflow.ProcessIdentity{PID: 4242, StartIdentity: "fixture", GroupIdentity: "4242"}, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	if err = x.CompleteAttempt("review-attempt", 1, workflow.AttemptResult{ExitCode: 0, Artifacts: previous.Artifacts, Now: time.Now()}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = store.UpdateFenced(context.Background(), x.ProjectID, x.ExecutionID, lease, func(current *workflow.Execution) error { *current = x; return nil }); err != nil {
+		t.Fatal(err)
+	}
+	lease.Close()
+	digest, err := x.StageResultDigest(ref.StageID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	artifacts, err := local.NewArtifactStore(f.env.state)
+	if err != nil {
+		t.Fatal(err)
+	}
+	draft := detailartifact.Draft{ExecutionID: x.ExecutionID, Category: "evidence", Outcome: "success", Retention: detailartifact.Evidence, Markdown: []byte("Human reviewed the exact result."), Provenance: currentProvenance(), References: []detailartifact.Reference{{Kind: "workflow-stage", Value: ref.StageID}, {Kind: "workflow-definition", Value: x.Workflow.Digest}, {Kind: "workflow-result", Value: digest}, {Kind: "workflow-repository", Value: x.WorkItem.RepositoryKey}}}
+	evidence, err := artifacts.Create(context.Background(), draft)
+	if err != nil {
+		t.Fatal(err)
+	}
+	args := []string{"workflow", "run", "--project", "external", "--execution", x.ExecutionID, "--review-stage", ref.StageID, "--result-digest", digest, "--evidence", evidence.ID, "--authorize-external"}
+	denied := f.run(t, cli.ExitFailure, args...)
+	if denied.Category != "human_authority_required" {
+		t.Fatal(denied.Raw)
+	}
+	stale := append([]string(nil), args...)
+	for i := range stale {
+		if stale[i] == digest {
+			stale[i] = workflow.DigestText([]byte("stale"))
+		}
+	}
+	stale = append(stale, "--authorize-human")
+	bad := f.run(t, cli.ExitFailure, stale...)
+	if bad.Category != "transition_refused" {
+		t.Fatal(bad.Raw)
+	}
+	completed := f.run(t, cli.ExitSuccess, append(args, "--authorize-human")...)
+	if completed.Stage.Status != workflow.RunCompleted || completed.Stage.Stages[0].Review == nil {
+		t.Fatal(completed.Raw)
+	}
+}
+
+func TestPublicWorkflowRunFreezesProjectContextAndArtifactInputs(t *testing.T) {
+	f := newExecutionRunFixture(t)
+	builtin, _ := workflowdefinition.BuiltinRevision(2)
+	d := builtin.Definition
+	d.Stages = d.Stages[:1]
+	stage := &d.Stages[0]
+	stage.Validators = []workflowdefinition.Validator{}
+	stage.CompletionCriteria = []workflowdefinition.Criterion{}
+	stage.HumanGates = []workflowdefinition.Gate{}
+	stage.Inputs = []workflowdefinition.Input{{ID: "context", Kind: "project-context", Source: "project", Required: true}, {ID: "prior", Kind: "artifact", Source: "retained", Required: true}}
+	stage.Agents[0].Inputs = []string{"context", "prior"}
+	f.installWorkflowDefinition(t, d)
+	artifacts, err := local.NewArtifactStore(f.env.state)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a, err := artifacts.Create(context.Background(), detailartifact.Draft{CorrelationID: "018f4a44-7c31-4dd4-9d00-222222222222", Category: "artifact", Outcome: "success", Retention: detailartifact.Evidence, Markdown: []byte("Prior scoped result"), Provenance: currentProvenance(), References: []detailartifact.Reference{{Kind: "workflow-repository", Value: "main"}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	args := []string{"workflow", "run", "--project", "external", "--repository", "main", "--work-item", "github:owner/repo#7", "--select", "owner.runtime=codex", "--select", "owner.model=stub-model", "--select", "owner.effort=runtime-default", "--authorize-external"}
+	missing := f.run(t, cli.ExitFailure, args...)
+	if missing.Category != "workflow_unmappable" || len(f.executions(t)) != 0 {
+		t.Fatal(missing.Raw)
+	}
+	got := f.run(t, cli.ExitSuccess, append(args, "--input", "retained="+a.ID)...)
+	store, err := local.NewExecutionStore(f.env.state)
+	if err != nil {
+		t.Fatal(err)
+	}
+	x, err := store.Load(context.Background(), got.Stage.ProjectID, got.Stage.ExecutionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	inputs := x.Workflow.Stages[0].FrozenInputs
+	if len(inputs) != 2 || inputs[0].Project == nil || inputs[0].Project.ID != x.ProjectID || !strings.HasPrefix(inputs[0].Project.PortableRevision, "sha256:") || inputs[1].Artifact == nil || inputs[1].Artifact.RetainedID != a.ID {
+		t.Fatalf("input provenance missing: %+v", inputs)
 	}
 }

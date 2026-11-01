@@ -14,17 +14,11 @@ import (
 // Canonical Execution operations (ADR-0037, Spec 015 S1): one run action
 // starts or continues the linked Work Item's Execution and progresses eligible
 // work; stage status/cancel/retry/reconcile inspect and control that same
-// Execution. Delivery and coordination keep their #276 preview contracts until
-// their own slices replace them.
+// Execution. Delivery packet is read-only canonical readiness; legacy delivery
+// mutation verbs over retired ledgers were removed and S3 owns their
+// Execution-owned replacement.
 const (
 	workflowRunAction                 action = "workflow_run"
-	workflowDeliveryDecisionAction    action = "workflow_delivery_decision"
-	workflowDeliveryReworkAction      action = "workflow_delivery_rework"
-	workflowDeliveryPrepareAction     action = "workflow_delivery_prepare"
-	workflowDeliveryPreviewAction     action = "workflow_delivery_preview"
-	workflowDeliveryApplyAction       action = "workflow_delivery_apply"
-	workflowDeliveryInspectAction     action = "workflow_delivery_inspect"
-	workflowDeliveryReconcileAction   action = "workflow_delivery_reconcile"
 	workflowDeliveryPacketAction      action = "workflow_delivery_packet"
 	workflowStageStatusAction         action = "workflow_stage_status"
 	workflowStageCancelAction         action = "workflow_stage_cancel"
@@ -47,12 +41,11 @@ const MaxCoordinationWait = 30 * time.Second
 // coordination command. It carries no lineage for publish: the running child
 // context is resolved by the trusted launcher, never from flags.
 type WorkflowStageInput struct {
-	AuthorizeHuman, AuthorizeExecution       bool
-	AuthorizePush, AuthorizePR               bool
+	AuthorizeHuman                           bool
 	Operation                                string
 	Project, Repository, WorkItem, Execution string
 	ExpectedRevision                         uint64
-	Stage, PlanFile                          string
+	Stage                                    string
 	PreviewDigest                            string
 	AuthorizeLocal, AuthorizeExternal        bool
 	Child, Attempt                           string
@@ -63,10 +56,13 @@ type WorkflowStageInput struct {
 	// Canonical Execution inputs. Selections are explicit per-agent run
 	// overrides `[<stage-id>/]<agent-id>.<field>=<value>`; NewSelection
 	// authorizes a retry to freeze them instead of the previous invocation.
-	Workflow, Agent, ApproveGate, Abandon string
-	Selections                            []string
-	NewSelection                          bool
-	WorkspaceDisposition                  string
+	Workflow, Agent, ApproveGate, Abandon     string
+	Inputs                                    []string
+	ReviewStage, ResultDigest, ReviewEvidence string
+	AuthorizeCommands                         bool
+	Selections                                []string
+	NewSelection                              bool
+	WorkspaceDisposition                      string
 }
 
 // WorkflowStageService is optional so presentation services and mocks need
@@ -83,9 +79,7 @@ type WorkflowStageResponse struct {
 }
 
 var workflowStageOperations = map[action]string{
-	workflowRunAction:              "execution-run",
-	workflowDeliveryDecisionAction: "delivery-decision", workflowDeliveryReworkAction: "delivery-rework",
-	workflowDeliveryPrepareAction: "delivery-prepare", workflowDeliveryPreviewAction: "delivery-preview", workflowDeliveryApplyAction: "delivery-apply", workflowDeliveryInspectAction: "delivery-inspect", workflowDeliveryReconcileAction: "delivery-reconcile",
+	workflowRunAction:            "execution-run",
 	workflowDeliveryPacketAction: "delivery-packet", workflowStageStatusAction: "status", workflowStageCancelAction: "cancel",
 	workflowStageRetryAction: "retry", workflowStageReconcileAction: "reconcile",
 	workflowCoordinationListAction: "coordination-list", workflowCoordinationShowAction: "coordination-show", workflowCoordinationPublishAction: "coordination-publish",
@@ -143,10 +137,16 @@ func workflowStageFlagSet(operation action, in *WorkflowStageInput) *flag.FlagSe
 			set.StringVar(&in.WorkItem, "work-item", "", "Exact existing linked Work Item; `github:<owner>/<repository>#<number>`.")
 			set.StringVar(&in.Workflow, "workflow", "", "Run the built-in minimal Workflow instead of the Project selection; `minimal`.")
 			selections()
+			set.Func("input", "Bind a logical artifact input source to a retained artifact ID; <source>=<artifact-id>.", func(v string) error { in.Inputs = append(in.Inputs, v); return nil })
+			set.StringVar(&in.ReviewStage, "review-stage", "", "Stage whose exact successful results the human approves.")
+			set.StringVar(&in.ResultDigest, "result-digest", "", "Exact stage result digest displayed by status.")
+			set.StringVar(&in.ReviewEvidence, "evidence", "", "Retained Evidence artifact ID for this result review.")
+			set.BoolVar(&in.AuthorizeCommands, "authorize-commands", false, "Authorize the exact configured validation command argv within its declared effect bounds.")
 			set.StringVar(&in.ApproveGate, "approve-gate", "", "Record the human gate decision of a stage awaiting it; `<stage-id>`.")
 			set.BoolVar(&in.AuthorizeHuman, "authorize-human", false, "Record only this explicit human gate decision.")
 			set.BoolVar(&in.AuthorizeExternal, "authorize-external", false, "Allow spawning the selected Runtime processes (vendor inference) within the Workflow effect bounds.")
 		case workflowStageRetryAction:
+			set.BoolVar(&in.AuthorizeCommands, "authorize-commands", false, "Authorize the frozen validation command argv and effect bounds on this retry.")
 			set.StringVar(&in.WorkspaceDisposition, "disposition", "", "Explicitly preserve a prior writable workspace; preserve. Reset is unsupported.")
 			set.StringVar(&in.Stage, "stage", "", "Stage ID in the Execution's frozen Workflow; `<stage-id>`.")
 			set.StringVar(&in.Agent, "agent", "", "Agent ID of that stage; `<agent-id>`.")
@@ -168,27 +168,7 @@ func workflowStageFlagSet(operation action, in *WorkflowStageInput) *flag.FlagSe
 		set.StringVar(&in.WorkItem, "work-item", "", "Exact existing Work Item; `github:<owner>/<repository>#<number>`.")
 		set.StringVar(&in.Execution, "execution", "", "Exact Execution identity; `<execution-id>`.")
 	}
-	preview := func() {
-		set.StringVar(&in.PreviewDigest, "preview-digest", "", "Exact digest of the reviewed preview; absent means preview only; `<digest>`.")
-		set.BoolVar(&in.AuthorizeLocal, "authorize-local", false, "Apply only the reviewed machine-local effects.")
-	}
 	switch operation {
-	case workflowDeliveryDecisionAction, workflowDeliveryReworkAction:
-		preview()
-		set.StringVar(&in.PlanFile, "request", "", "Exact decision or rework JSON; `<json-file>`.")
-		set.BoolVar(&in.AuthorizeHuman, "authorize-human", false, "Record only explicit human authority for this exact delivery decision.")
-		set.BoolVar(&in.AuthorizeExecution, "authorize-execution", false, "Authorize only the previewed new Execution; no authority carries over.")
-	case workflowDeliveryPrepareAction, workflowDeliveryPreviewAction, workflowDeliveryApplyAction:
-		preview()
-		set.StringVar(&in.PlanFile, "request", "", "Exact delivery target JSON; `<json-file>`.")
-		set.BoolVar(&in.AuthorizePush, "authorize-push", false, "Authorize the exact previewed Git push only.")
-		set.BoolVar(&in.AuthorizePR, "authorize-pr", false, "Authorize the exact previewed PR creation only.")
-	case workflowDeliveryInspectAction, workflowDeliveryReconcileAction:
-		preview()
-		set.StringVar(&in.Record, "publication", "", "Exact publication preview `<digest>`.")
-	case workflowDeliveryPacketAction:
-		preview()
-		set.StringVar(&in.Record, "packet", "", "Inspect an existing immutable packet by `<digest>`; omitted previews current readiness.")
 	case workflowCoordinationListAction:
 		set.StringVar(&in.Child, "child", "", "Child stream; `<child-id>`.")
 		set.StringVar(&in.Attempt, "attempt", "", "Attempt filter; `<attempt-id>`.")
@@ -337,22 +317,9 @@ func workflowStageSkillSpecs() []skillOperationSpec {
 	read := func(name string, act action, example string) skillOperationSpec {
 		return skillOperationSpec{name: name, actions: []action{act}, modes: []skillModeSpec{{name: "default", effect: effectReadOnly, authority: "none; persisted state only, never a stop or success claim", actions: []action{act}, authorityInputs: []string{}, rejectedInputs: []string{}, example: example}}}
 	}
-	local := func(name string, act action, example string) skillOperationSpec {
-		return skillOperationSpec{name: name, actions: []action{act}, modes: []skillModeSpec{{name: "default", effect: effectLocalMutation, authority: "preview first; apply only with the exact --preview-digest and --authorize-local", actions: []action{act}, authorityInputs: []string{"--preview-digest", "--authorize-local"}, rejectedInputs: []string{}, example: example}}}
-	}
-	decisionMode := func(name string, act action, authority, example string) skillOperationSpec {
-		return skillOperationSpec{name: name, actions: []action{act}, modes: []skillModeSpec{{name: "default", effect: effectLocalMutation, authority: "exact digest, local authority and independent human or new Execution authority", actions: []action{act}, authorityInputs: []string{"--preview-digest", "--authorize-local", authority}, rejectedInputs: []string{}, example: example}}}
-	}
 	return []skillOperationSpec{
 		{name: "execution.run", actions: []action{workflowRunAction}, modes: []skillModeSpec{{name: "default", effect: effectExternalMutation, authority: "one run action; spawning the selected Runtimes needs --authorize-external; a human gate records only with --approve-gate and --authorize-human", actions: []action{workflowRunAction}, authorityInputs: []string{"--authorize-external", "--authorize-human"}, rejectedInputs: []string{}, example: "axiom workflow run --project <uuid-or-slug> --repository <key> --work-item github:<owner>/<repository>#<number> --select agent.runtime=<codex|claude> --select agent.model=<model> --select agent.effort=<runtime-default|token> --authorize-external"}}},
-		local("delivery.packet", workflowDeliveryPacketAction, "axiom workflow delivery packet "+selectors),
-		decisionMode("delivery.decision", workflowDeliveryDecisionAction, "--authorize-human", "axiom workflow delivery decision "+selectors+" --request <json-file>"),
-		decisionMode("delivery.rework", workflowDeliveryReworkAction, "--authorize-execution", "axiom workflow delivery rework "+selectors+" --request <json-file>"),
-		local("delivery.prepare", workflowDeliveryPrepareAction, "axiom workflow delivery prepare "+selectors+" --request <json-file>"),
-		read("delivery.preview", workflowDeliveryPreviewAction, "axiom workflow delivery preview "+selectors+" --request <json-file>"),
-		{name: "delivery.apply", actions: []action{workflowDeliveryApplyAction}, modes: []skillModeSpec{{name: "default", effect: effectExternalMutation, authority: "exact digest and local authority; each remote effect needs separate push/PR authority", actions: []action{workflowDeliveryApplyAction}, authorityInputs: []string{"--preview-digest", "--authorize-local", "--authorize-push", "--authorize-pr"}, rejectedInputs: []string{}, example: "axiom workflow delivery apply " + selectors + " --request <json-file>"}}},
-		read("delivery.inspect", workflowDeliveryInspectAction, "axiom workflow delivery inspect "+selectors+" --publication <digest>"),
-		local("delivery.reconcile", workflowDeliveryReconcileAction, "axiom workflow delivery reconcile "+selectors+" --publication <digest>"),
+		read("delivery.packet", workflowDeliveryPacketAction, "axiom workflow delivery packet "+selectors),
 		read("stage.status", workflowStageStatusAction, "axiom workflow stage status "+execution),
 		{name: "stage.cancel", actions: []action{workflowStageCancelAction}, modes: []skillModeSpec{{name: "default", effect: effectLocalMutation, authority: "--authorize-local records cancel intent only; the runner reports requested versus observed stop", actions: []action{workflowStageCancelAction}, authorityInputs: []string{"--authorize-local"}, rejectedInputs: []string{}, example: "axiom workflow stage cancel " + execution}}},
 		{name: "stage.retry", actions: []action{workflowStageRetryAction}, modes: []skillModeSpec{{name: "default", effect: effectExternalMutation, authority: "one new attempt with --authorize-external; prior writable workspace needs --disposition preserve; frozen invocation unless --new-selection", actions: []action{workflowStageRetryAction}, authorityInputs: []string{"--authorize-external", "--new-selection", "--disposition"}, rejectedInputs: []string{}, example: "axiom workflow stage retry " + execution + " --stage <stage-id> --agent <agent-id> --authorize-external"}}},

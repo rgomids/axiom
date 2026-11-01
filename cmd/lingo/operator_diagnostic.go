@@ -1,11 +1,10 @@
 package main
 
 import (
-	"strconv"
-
 	"github.com/rgomids/axiom/internal/cli"
 	"github.com/rgomids/axiom/internal/completion"
 	"github.com/rgomids/axiom/internal/projectapp"
+	"strconv"
 )
 
 // diagnosticBase uses only bounded, trusted mapper constants. Empty fields
@@ -50,29 +49,6 @@ func stageDiagnostic(category string, status completion.Status) *cli.Diagnostic 
 		d.UncertainEffects = []string{"Interruption does not establish acknowledgement or absence of effects; inspect before replay"}
 	}
 	return d
-}
-
-func bindStageDiagnostic(d *cli.Diagnostic, t stageTarget) {
-	d.Target = map[string]string{"project": t.state.ProjectID, "execution": t.state.ExecutionID, "repository": t.state.RepositoryKey, "stage": string(t.state.Stage)}
-	if w := t.state.WorkItem; w.Provider != "" && w.Resource != "" && w.ExternalID != "" {
-		d.Target["work-item"] = w.Provider + ":" + w.Resource + "#" + w.ExternalID
-	}
-	o := &d.Options[0]
-	o.Arguments = map[string]string{"--project": t.state.ProjectID, "--execution": t.state.ExecutionID, "--repository": t.state.RepositoryKey}
-	if w := d.Target["work-item"]; w != "" && t.state.RepositoryKey != "" {
-		o.Arguments["--work-item"] = w
-		o.MissingArguments = []string{}
-		o.Availability = "available"
-		o.Prerequisites = []string{"Reobserve current state; diagnostic grants no effect authority"}
-	}
-	d.ObservedRevision = strconv.FormatUint(t.state.Revision, 10)
-	d.Observed = append(d.Observed, "Execution identity and revision observed through canonical resolution")
-	if t.single != nil && len(t.single.Attempts) > 0 {
-		d.Target["latestAttempt"] = t.single.Attempts[len(t.single.Attempts)-1].AttemptID
-	}
-	if t.request.ParentID != "" {
-		d.Target["parent"] = t.request.ParentID
-	}
 }
 
 // Partial completion requires an existing confirmed reference. Only the

@@ -11,7 +11,6 @@ import (
 	"github.com/rgomids/axiom/internal/cli"
 	"github.com/rgomids/axiom/internal/local"
 	"github.com/rgomids/axiom/internal/projectapp"
-	"github.com/rgomids/axiom/internal/runtimeprofile"
 	"github.com/rgomids/axiom/internal/workflowdefinition"
 )
 
@@ -84,54 +83,6 @@ func TestProjectInstallBindsEveryDeclaredRepository(t *testing.T) {
 	runCLI(t, env.service, []string{"project", "install", "--source", source, "--repository", "main=" + repository}, cli.ExitSuccess, "installed")
 	runCanonicalCLI(t, env.service, []string{"project", "show", "--selector", "authored"}, cli.ExitSuccess, "success", "Project resolved")
 	runCLI(t, env.service, []string{"project", "install", "--source", source, "--repository", "main=" + repository}, cli.ExitSuccess, "already_installed")
-}
-
-// The installed authored policy resolves through Lingo's own observation and
-// the reviewed digest is the only way from preview to the next step.
-func TestAuthoredPolicyPreviewThenStartBothRuntimes(t *testing.T) {
-	for _, runtimeID := range []string{"codex", "claude"} {
-		t.Run(runtimeID, func(t *testing.T) {
-			env := newWorkItemSourceEnvironment(t)
-			source := filepath.Join(env.elsewhere, "authored")
-			repository := filepath.Join(t.TempDir(), "repository")
-			for _, directory := range []string{source, repository} {
-				if err := os.Mkdir(directory, 0o700); err != nil {
-					t.Fatal(err)
-				}
-			}
-			if err := os.WriteFile(filepath.Join(source, "axiom.yaml"), []byte(authoredPolicyManifest), 0o600); err != nil {
-				t.Fatal(err)
-			}
-			runCLI(t, env.service, []string{"project", "install", "--source", source, "--repository", "main=" + repository}, cli.ExitSuccess, "installed")
-			selectProfileBuiltinForTest(t, env.service.(lifecycleService), "authored")
-			profile := map[string]string{"codex": "worker", "claude": "careful"}[runtimeID]
-			defaultEffort := runtimeprofile.Effort{Mode: runtimeprofile.EffortRuntimeDefault, Value: "default"}
-			publishRuntimeProfileV3(t, env.state, runtimeprofile.ConfigurationV3{FormatVersion: runtimeprofile.FormatVersionV3, Revision: 1,
-				Runtimes:      []runtimeprofile.RuntimeV3{{ID: "claude", Adapter: "claude", Enabled: true, AllowlistedProfileIDs: []string{"careful"}}, {ID: "codex", Adapter: "codex", Enabled: true, AllowlistedProfileIDs: []string{"worker"}}},
-				ModelProfiles: []runtimeprofile.ModelProfile{{ID: "careful", RuntimeID: "claude", Model: "approved-model", Effort: defaultEffort, Capabilities: []string{"axiom-skills"}}, {ID: "worker", RuntimeID: "codex", Model: "approved-model", Effort: defaultEffort, Capabilities: []string{"axiom-skills"}}}})
-			// Only one Runtime is observable; the other declared one is absent.
-			service, _ := testRuntime(t, env.service.(lifecycleService), runtimeID)
-			service = currentProfileStartFixture(t, service, env.state)
-			saveTargetLink(t, env.state, "123e4567-e89b-42d3-a456-426614174000", "7", "owner/repo")
-			input := cli.WorkflowInput{Project: "authored", Repository: "main", Number: 7, Role: "review", Complexity: "low", Capabilities: []string{"axiom-skills"}}
-			// Machine availability never selects a Runtime: two configured,
-			// admissible Profiles are ambiguous until one is chosen explicitly.
-			if implicit := service.WorkflowStart(context.Background(), input); implicit.RuntimeResolution == nil || implicit.RuntimeResolution.Blocker == nil || implicit.RuntimeResolution.Blocker.Code != "ambiguous_match" || implicit.Workflow != nil {
-				t.Fatalf("implicit selection=%+v", implicit.RuntimeResolution)
-			}
-			input.Runtime = runtimeID
-			preview := service.WorkflowStart(context.Background(), input)
-			if preview.RuntimeResolution == nil || preview.RuntimeResolution.Choice == nil || preview.RuntimeResolution.Choice.RuntimeID != runtimeID || preview.RuntimeResolution.Choice.ModelProfileID != profile || preview.Workflow != nil || preview.PreviewDigest == "" {
-				t.Fatalf("preview=%+v", preview.RuntimeResolution)
-			}
-			input.RuntimePreview = preview.PreviewDigest
-			started := service.WorkflowStart(context.Background(), input)
-			// The linked target and reviewed policy produce the selected Runtime.
-			if started.RuntimeResolution != nil || started.Workflow == nil || started.Workflow.RuntimeID != runtimeID {
-				t.Fatalf("reviewed start still blocked by policy: %+v", started.RuntimeResolution)
-			}
-		})
-	}
 }
 
 func selectProfileBuiltinForTest(t *testing.T, s lifecycleService, selector string) {

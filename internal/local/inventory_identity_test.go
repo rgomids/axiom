@@ -162,19 +162,19 @@ func TestEverySupportedRecordLoadsThroughItsCanonicalStore(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			store, _ := NewWorkflowStore(state)
-			if _, err = store.LoadDeliveryRework(ctx, parts[2], p.OriginalPacket.ExecutionID); err != nil {
-				t.Fatal(err)
+			if classifyDeliveryRework(parts[2], parts[3], wire()) != InventoryDeliveryRework || p.OriginalPacket.ProjectID != parts[2] {
+				t.Fatal("historical rework address mismatch")
 			}
+
 		case InventoryRetainedExecution:
 			execution, err := decodeExecution(wire())
 			if err != nil {
 				t.Fatal(err)
 			}
-			store, _ := NewWorkflowStore(state)
-			if _, err = store.LoadExecutionID(ctx, parts[2], execution.RepositoryKey, execution.WorkItem, execution.ExecutionID); err != nil {
-				t.Fatal(err)
+			if execution.ProjectID != parts[2] || retainedExecutionName(execution.ExecutionID) != parts[3] {
+				t.Fatal("historical execution address mismatch")
 			}
+
 		case InventoryDeliveryPublication:
 			r, err := workflow.DecodeDeliveryPublication(wire())
 			if err != nil {
@@ -194,13 +194,10 @@ func TestEverySupportedRecordLoadsThroughItsCanonicalStore(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			store, err := NewGraphStore(state)
-			if err != nil {
-				t.Fatal(err)
+			if classifyDispatchAuthority(a.ProjectID, parts[3], wire(), a.Scope) != InventoryDispatchAuthority {
+				t.Fatal("historical authority identity mismatch")
 			}
-			if _, err := store.LoadDispatchAuthority(ctx, a.ProjectID, a.ParentID, a.PreviewDigest); err != nil {
-				t.Errorf("supported authority %s does not load canonically: %v", entry.Relative, err)
-			}
+
 		case InventoryRunLease:
 			record, err := decodeRunLease(wire())
 			if err != nil {
@@ -229,18 +226,10 @@ func TestEverySupportedRecordLoadsThroughItsCanonicalStore(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			store, err := NewGraphStore(state)
-			if err != nil {
-				t.Fatal(err)
+			if decoded.Successor == nil && decoded.Historical == nil {
+				t.Fatal("historical graph malformed")
 			}
-			if decoded.Successor != nil {
-				_, err = store.LoadSuccessor(ctx, decoded.Successor.Children[0].Envelope.Scope.ProjectID, decoded.Successor.Parent.ExecutionID)
-			} else {
-				_, err = store.Load(ctx, graphProjectID(*decoded.Historical), decoded.Historical.Parent.ExecutionID)
-			}
-			if err != nil {
-				t.Errorf("supported graph %s does not load canonically: %v", entry.Relative, err)
-			}
+
 		case InventoryCoordination:
 			stream, err := coordination.DecodeStream(wire())
 			if err != nil {

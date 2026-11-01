@@ -10,7 +10,6 @@ import (
 
 	"github.com/rgomids/axiom/internal/completion"
 	"github.com/rgomids/axiom/internal/coordination"
-	"github.com/rgomids/axiom/internal/executiongraph"
 	"github.com/rgomids/axiom/internal/local"
 	"github.com/rgomids/axiom/internal/projectapp"
 	"github.com/rgomids/axiom/internal/workflowdefinition"
@@ -24,10 +23,10 @@ func TestOperatorStageDiagnosticTypedRefusals(t *testing.T) {
 		category string
 		status   completion.Status
 	}{
-		{errStageGraphMissing, "stage_not_dispatched", completion.ValidationFailure},
+
 		{coordination.ErrChildContext, "child_context_required", completion.DeniedAuthority},
 		{local.ErrConflict, "temporarily_unavailable", completion.RetryableFailure},
-		{executiongraph.ErrInvalidGraph, "recovery_required", completion.Failure},
+		{local.ErrRecoveryRequired, "recovery_required", completion.Failure},
 	} {
 		t.Run(tc.category, func(t *testing.T) {
 			var payload any = map[string]string{"persisted": "unchanged"}

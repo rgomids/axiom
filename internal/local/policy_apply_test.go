@@ -312,7 +312,7 @@ func TestPolicyRemovalPreservesOtherProjectRegistryAndBindings(t *testing.T) {
 	if !reflect.DeepEqual(a, b) {
 		t.Fatal("local bindings changed")
 	}
-	retained, err := executions.Load(ctx, frozen.ProjectID, frozen.RepositoryKey, frozen.WorkItem)
+	retained, err := readHistoricalExecutionFixture(executions, frozen)
 	if err != nil || !reflect.DeepEqual(retained.Binding, frozen.Binding) || retained.StorageRevision != frozen.StorageRevision {
 		t.Fatal("immutable Execution binding changed", err)
 	}

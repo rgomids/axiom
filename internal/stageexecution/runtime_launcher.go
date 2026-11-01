@@ -8,6 +8,8 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
+	"time"
 
 	"github.com/rgomids/axiom/internal/executiongraph"
 	"github.com/rgomids/axiom/internal/runtimeadapter"
@@ -109,8 +111,12 @@ func (l RuntimeLauncher) Build(ctx context.Context, r LaunchRequest) (executiong
 	// JSON is data on stdin, never shell syntax or a source of authority. Child
 	// output is accepted only as bounded files with declared names in this inbox.
 	type inputValue struct {
+		Content  string                 `json:"content,omitempty"`
+		Digest   string                 `json:"digest,omitempty"`
 		WorkItem *workflow.WorkItemLink `json:"workItem,omitempty"`
 		Artifact *workflow.ArtifactRef  `json:"artifact,omitempty"`
+		Project  *workflow.ProjectInput `json:"project,omitempty"`
+		Source   string                 `json:"source,omitempty"`
 	}
 	inputs := map[string]inputValue{}
 	for _, name := range r.Agent.Inputs {
@@ -159,6 +165,17 @@ func (l RuntimeLauncher) Build(ctx context.Context, r LaunchRequest) (executiong
 			}
 			if selected != nil {
 				inputs[name] = inputValue{Artifact: selected}
+			}
+		}
+		for _, input := range r.Stage.FrozenInputs {
+			if input.Name == name {
+				found = true
+				if input.Required && input.Project == nil && input.Artifact == nil && input.Content == "" {
+					return fail()
+				}
+				if input.Project != nil || input.Artifact != nil || input.Content != "" {
+					inputs[name] = inputValue{Project: input.Project, Artifact: input.Artifact, Source: input.Source, Content: input.Content, Digest: input.Digest}
+				}
 			}
 		}
 		if !found {
@@ -239,6 +256,56 @@ func (l RuntimeLauncher) Collect(ctx context.Context, r LaunchRequest, p executi
 		}
 		out.Artifacts = append(out.Artifacts, artifact)
 	}
+	for _, check := range r.Stage.Commands {
+		for _, effect := range check.Effects {
+			if !slices.Contains(r.Attempt.Authority.Effects, effect) {
+				return Outcome{}, ErrRuntimeOutput
+			}
+		}
+		if !slices.Contains(check.Effects, "validation_command") || len(check.Argv) == 0 || !cleanRuntimePath(l.Workspace) {
+			return Outcome{}, ErrRuntimeOutput
+		}
+		executable := check.Argv[0]
+		if !filepath.IsAbs(executable) || !cleanRuntimePath(executable) {
+			return Outcome{}, ErrRuntimeOutput
+		}
+		if r.PrepareCommand == nil || r.StartCommand == nil || r.FinishCommand == nil {
+			return Outcome{}, ErrRuntimeOutput
+		}
+		if err := r.PrepareCommand(check.ID); err != nil {
+			return Outcome{}, err
+		}
+		commandCtx, cancel := context.WithTimeout(ctx, time.Duration(check.TimeoutSeconds)*time.Second)
+		inv := executiongraph.Invocation{Argv: append([]string{executable}, check.Argv[1:]...), CWD: l.Workspace, OutputMax: 4096}
+		environment, err := runtimeadapter.StageEnvironment(r.Attempt.Invocation.Runtime, l.Environment)
+		if err != nil {
+			cancel()
+			return Outcome{}, ErrRuntimeOutput
+		}
+		safeEnvironment := []string{}
+		for _, entry := range environment {
+			if !strings.HasPrefix(entry, "CODEX_HOME=") && !strings.HasPrefix(entry, "CLAUDE_CONFIG_DIR=") {
+				safeEnvironment = append(safeEnvironment, entry)
+			}
+		}
+		inv = executiongraph.WithExactEnvironment(inv, safeEnvironment)
+		result := (executiongraph.OSProcessRunner{}).RunObserved(commandCtx, inv, func(p *executiongraph.ProcessCorrelation) error {
+			return r.StartCommand(check.ID, workflow.ProcessIdentity{PID: p.PID, StartIdentity: p.StartIdentity, GroupIdentity: p.GroupIdentity})
+		})
+		cancel()
+		if result.SpawnFailed || result.OutcomeUnknown || result.EffectAmbiguous || result.TimedOut || ctx.Err() != nil {
+			return Outcome{}, ErrRuntimeOutput
+		}
+		record, err := r.FinishCommand(check.ID, result.ExitCode)
+		if err != nil {
+			return Outcome{}, err
+		}
+		out.Commands = append(out.Commands, record)
+		if result.ExitCode != 0 {
+			out.Diagnostic = "command_validation_failed"
+			break
+		}
+	}
 	return out, nil
 }
 
@@ -261,5 +328,5 @@ func attemptOutputs(r LaunchRequest) []string {
 	if r.Agent.OutputScope {
 		return r.Agent.Outputs
 	}
-	return r.Stage.Outputs
+	return append(append([]string(nil), r.Stage.Outputs...), r.Stage.OptionalOutputs...)
 }

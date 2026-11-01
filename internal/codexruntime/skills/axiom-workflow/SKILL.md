@@ -89,7 +89,7 @@ verify their effective installed metadata before any separate execution request.
 | `definition.remove` | - | `axiom --json project workflow remove --project <uuid-or-slug>` | local mutation | preview first; exact `--expected-revision`, `--preview-digest` plus `--authorize-local` | only for unambiguous workflow intent |
 | `definition.recover` | - | `axiom --json project workflow recover --project <uuid-or-slug>` | local mutation | preview first; exact `--expected-revision`, `--preview-digest` plus `--authorize-local` | only for unambiguous workflow intent |
 | `definition.migrate` | - | `axiom --json project workflow migrate --project <uuid-or-slug>` | local mutation | preview first; exact `--expected-revision`, `--preview-digest` plus `--authorize-local` | only for unambiguous workflow intent |
-| `configuration.readiness` | configuration | `axiom --json runtime profile validate`, `axiom --json runtime profile preview` | read-only | none | allowed |
+| `configuration.readiness` | configuration | `axiom --json runtime profile validate` | read-only | none | allowed |
 | `configuration.readiness` | runtime | `axiom --json runtime codex status`, `axiom --json runtime claude status` | read-only | none | allowed |
 | `configuration.readiness` | authentication | `axiom --json runtime codex auth`, `axiom --json runtime claude auth` | read-only | none | allowed |
 
@@ -154,8 +154,9 @@ preview. Never repair, rewrite or prune internal files from this skill.
 ## Configuration readiness
 
 Report three distinct point-in-time facts, without merging them into one verdict:
-Configuration Valid from `runtime profile validate/preview`; Runtime Ready from
+Configuration Valid from `runtime profile validate`; Runtime Ready from
 `runtime codex/claude status`; Authentication Ready from `runtime codex/claude auth`.
+These are optional observations, never canonical run admission prerequisites.
 Authentication is read-only: no login or credential write and it never blocks
 authoring. Auth preflight can execute vendor processes; read-only does not grant
 its consent. Use existing valid observations or obtain its separate authority. Report canonical observations only; do not infer authentication from

@@ -28,12 +28,8 @@ func TestStrictSelectorLongFormsBeforeDispatch(t *testing.T) {
 		{"work-item update", "project repository work-item provider-repository number title scope"},
 		{"work-item close", "project repository work-item provider-repository number"},
 		{"work-item reopen", "project repository work-item provider-repository number"},
-		{"workflow start", "project repository work-item execution number runtime"},
-		{"workflow advance", "project repository work-item execution number"},
-		{"workflow resume", "project repository work-item execution number"},
-		{"workflow status", "project repository work-item execution number"},
-		{"workflow evidence", "project repository work-item execution number"},
-		{"workflow reconcile", "project repository work-item execution number"},
+		{"workflow status", "project repository work-item execution"},
+		{"workflow evidence", "project repository work-item execution"},
 	}
 	for _, surface := range surfaces {
 		for _, name := range strings.Fields(surface.flags) {
@@ -98,36 +94,5 @@ func TestStrictProjectConfigurePreservesRepeatableRepository(t *testing.T) {
 	values, ok := flags(configureAction, []string{"--slug", "alpha", "--name", "Alpha", "--repository", "main=/tmp/main", "--repository=other=/tmp/other"})
 	if !ok || len(values.repositories) != 2 || values.repositories[0] != "main=/tmp/main" || values.repositories[1] != "other=/tmp/other" {
 		t.Fatalf("repeatable repositories: ok=%v values=%+v", ok, values)
-	}
-}
-
-func TestWorkflowStartRuntimeSelector(t *testing.T) {
-	base := []string{"workflow", "start", "--project", "sample", "--repository", "main", "--number", "7", "--role", "implementation", "--complexity", "high", "--capabilities", "code"}
-	for name, test := range map[string]struct {
-		args []string
-		want string
-	}{
-		"claude":                   {[]string{"--runtime", "claude"}, "workflow-start:sample:main:7:claude"},
-		"codex":                    {[]string{"--runtime=codex"}, "workflow-start:sample:main:7:codex"},
-		"policy resolved omission": {nil, "workflow-start:sample:main:7:"},
-	} {
-		t.Run(name, func(t *testing.T) {
-			var output bytes.Buffer
-			service := &recordingService{}
-			if code := Run(context.Background(), append(append([]string{}, base...), test.args...), service, completionProvenance(t), &output); code != ExitSuccess || service.call != test.want {
-				t.Fatalf("exit=%d call=%q output=%s", code, service.call, output.String())
-			}
-		})
-	}
-	for _, invalid := range [][]string{{"--runtime", "gemini"}, {"--runtime", ""}, {"--runtime="}, {"--runtime", "Claude"}, {"--runtime", "codex "}} {
-		t.Run("invalid "+strings.Join(invalid, " "), func(t *testing.T) {
-			assertStrictParserFailure(t, append(append([]string{}, base...), invalid...))
-		})
-	}
-	// Only start selects a Runtime; later operations cannot name or switch it.
-	for _, command := range []string{"advance", "fact", "resume", "status", "evidence", "reconcile"} {
-		t.Run(command+" rejects --runtime", func(t *testing.T) {
-			assertStrictParserFailure(t, []string{"workflow", command, "--project", "sample", "--repository", "main", "--number", "7", "--execution", "018f4a44-7c31-7dd4-9d00-111111111111", "--expected-revision", "1", "--runtime", "claude"})
-		})
 	}
 }

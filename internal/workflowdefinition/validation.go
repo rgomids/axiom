@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/rgomids/axiom/internal/portableconfig"
 	"sort"
+	"strings"
 )
 
 func validate(d Definition) []Diagnostic {
@@ -56,6 +57,18 @@ func validate(d Definition) []Diagnostic {
 		}
 		for _, v := range s.Validators {
 			validators = append(validators, v.ID)
+			if v.Kind == "command" {
+				if d.SchemaVersion != 2 || len(v.Argv) == 0 || v.TimeoutSeconds <= 0 || len(v.EffectCeilings) == 0 {
+					add(field+".validators", "invalid_command")
+				}
+				for _, arg := range v.Argv {
+					if strings.ContainsRune(arg, 0) {
+						add(field+".validators", "invalid_command")
+					}
+				}
+			} else if len(v.Argv) != 0 || v.TimeoutSeconds != 0 || len(v.EffectCeilings) != 0 {
+				add(field+".validators", "unexpected_command_control")
+			}
 		}
 		for _, c := range s.CompletionCriteria {
 			criteria = append(criteria, c.ID)

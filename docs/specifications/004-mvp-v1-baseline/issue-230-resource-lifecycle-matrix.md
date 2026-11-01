@@ -459,6 +459,9 @@ The current routing catalog below is mechanically checked against
 `TestCanonicalRoutingContract`. CLI FlagSets remain the argument registry;
 existing parser and application tests enforce request and effect boundaries.
 Removing aliases removes no lifecycle CLI command or application operation.
+Spec 015 S1.7 later retired the legacy `workflow start/advance/fact/resume/reconcile`
+and delivery mutation verbs over retired ledgers; the catalog reflects the
+canonical `workflow run` and read-only delivery packet routes.
 
 <!-- canonical-runtime-catalog:start -->
 | Skill | Operation | Mode | Commands | Effect | Authority inputs |
@@ -479,9 +482,7 @@ Removing aliases removes no lifecycle CLI command or application operation.
 | axiom-project | workflow.select | default | axiom project workflow select | local-mutation | --expected-revision --preview-digest --authorize-local |
 | axiom-work-item | create | new | axiom work-item create | external-mutation | --preview-digest --authorize-external |
 | axiom-work-item | create | existing | axiom work-item select | local-mutation | --preview-digest --authorize-local |
-| axiom-work-item | run | transition | axiom workflow start; axiom workflow advance; axiom workflow resume | local-mutation |  |
-| axiom-work-item | run | fact | axiom workflow fact | local-mutation | --authorize-local |
-| axiom-work-item | run | reconcile | axiom workflow reconcile | external-mutation | --preview-digest --authorize-external |
+| axiom-work-item | run | default | axiom workflow run | external-mutation | --authorize-external --authorize-human |
 | axiom-work-item | status | default | axiom workflow status; axiom workflow evidence | read-only |  |
 | axiom-work-item | status | list | axiom workflow list | read-only |  |
 | axiom-work-item | list | default | axiom work-item list | read-only |  |
@@ -491,14 +492,7 @@ Removing aliases removes no lifecycle CLI command or application operation.
 | axiom-work-item | close | default | axiom work-item close | external-mutation | --preview-digest --authorize-external |
 | axiom-work-item | reopen | default | axiom work-item reopen | external-mutation | --preview-digest --authorize-external |
 | axiom-work-item | execution.run | default | axiom workflow run | external-mutation | --authorize-external --authorize-human |
-| axiom-work-item | delivery.packet | default | axiom workflow delivery packet | local-mutation | --preview-digest --authorize-local |
-| axiom-work-item | delivery.decision | default | axiom workflow delivery decision | local-mutation | --preview-digest --authorize-local --authorize-human |
-| axiom-work-item | delivery.rework | default | axiom workflow delivery rework | local-mutation | --preview-digest --authorize-local --authorize-execution |
-| axiom-work-item | delivery.prepare | default | axiom workflow delivery prepare | local-mutation | --preview-digest --authorize-local |
-| axiom-work-item | delivery.preview | default | axiom workflow delivery preview | read-only |  |
-| axiom-work-item | delivery.apply | default | axiom workflow delivery apply | external-mutation | --preview-digest --authorize-local --authorize-push --authorize-pr |
-| axiom-work-item | delivery.inspect | default | axiom workflow delivery inspect | read-only |  |
-| axiom-work-item | delivery.reconcile | default | axiom workflow delivery reconcile | local-mutation | --preview-digest --authorize-local |
+| axiom-work-item | delivery.packet | default | axiom workflow delivery packet | read-only |  |
 | axiom-work-item | stage.status | default | axiom workflow stage status | read-only |  |
 | axiom-work-item | stage.cancel | default | axiom workflow stage cancel | local-mutation | --authorize-local |
 | axiom-work-item | stage.retry | default | axiom workflow stage retry | external-mutation | --authorize-external --new-selection --disposition |
@@ -513,7 +507,7 @@ Removing aliases removes no lifecycle CLI command or application operation.
 | axiom-workflow | definition.remove | default | axiom project workflow remove | local-mutation | --expected-revision --preview-digest --authorize-local |
 | axiom-workflow | definition.recover | default | axiom project workflow recover | local-mutation | --expected-revision --preview-digest --authorize-local |
 | axiom-workflow | definition.migrate | default | axiom project workflow migrate | local-mutation | --expected-revision --preview-digest --authorize-local |
-| axiom-workflow | configuration.readiness | configuration | axiom runtime profile validate; axiom runtime profile preview | read-only |  |
+| axiom-workflow | configuration.readiness | configuration | axiom runtime profile validate | read-only |  |
 | axiom-workflow | configuration.readiness | runtime | axiom runtime codex status; axiom runtime claude status | read-only |  |
 | axiom-workflow | configuration.readiness | authentication | axiom runtime codex auth; axiom runtime claude auth | read-only |  |
 | axiom-runtime | binding.list | default | axiom runtime binding list | read-only |  |

@@ -231,15 +231,18 @@ func writeEveryV1Kind(t *testing.T) (string, string) {
 	evidence := fixture.create(t, 800*day, evidenceDraft)
 	fixture.retire(t, evidence.ID, cleanupClock)
 
-	graphs, err := NewGraphStore(state)
-	if err != nil {
-		t.Fatal(err)
-	}
 	successor, authority := localDispatch(t)
+	failed := localSuccessor(t, "process_failed")
 	graph := executiongraph.Graph{FormatVersion: 2, Parent: successor.Parent}
 	for _, child := range successor.Children {
 		graph.Children = append(graph.Children, executiongraph.ChildExecution{ExecutionID: child.ExecutionID, ParentID: child.ParentID, GraphRevision: child.GraphRevision, NodeKey: child.NodeKey, Envelope: child.Envelope})
 	}
+	historicalFixtureWire(t, state, "graphs", authority.ProjectID, graphName(authority.ParentID), mustHistoricalWire(executiongraph.EncodeSuccessorGraph(failed)))
+	historicalFixtureWire(t, state, "graphs", authority.ProjectID, successor.DispatchAuthorityRef+".json", mustHistoricalWire(executiongraph.EncodeDispatchAuthority(authority)))
+	retry := localRetryAuthority(failed)
+	historicalFixtureDigestWire(t, state, "graphs", authority.ProjectID, mustHistoricalWire(executiongraph.EncodeRetryAuthority(retry)))
+	historicalFixtureDigestWire(t, state, "graphs", authority.ProjectID, mustHistoricalWire(executiongraph.EncodeIntegrationReceipt(localIntegrationReceipt(failed))))
+	historicalFixtureDigestWire(t, state, "graphs", authority.ProjectID, mustHistoricalWire(executiongraph.EncodeDispatchInputs(localDispatchInputs(failed, "00000000-0000-4000-8000-0000000005e1", "implementation"))))
 	leases, err := NewRunLeaseStore(state)
 	if err != nil {
 		t.Fatal(err)
@@ -248,20 +251,7 @@ func writeEveryV1Kind(t *testing.T) (string, string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := graphs.CommitDispatch(context.Background(), successor, authority, authority.PreviewDigest, lease); err != nil {
-		t.Fatal(err)
-	}
 	if err := lease.Close(); err != nil {
-		t.Fatal(err)
-	}
-	failed := failLocalFirstAttempt(t, graphs, leases, authority.ProjectID, authority.ParentID)
-	if _, err := graphs.CommitRetry(context.Background(), failed, localRetryAuthority(failed)); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := graphs.CommitIntegrationReceipt(context.Background(), failed, localIntegrationReceipt(failed)); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := graphs.CommitDispatchInputs(context.Background(), localDispatchInputs(failed, "00000000-0000-4000-8000-0000000005e1", "implementation")); err != nil {
 		t.Fatal(err)
 	}
 	ledgers, err := NewWorkflowStore(state)
@@ -270,20 +260,8 @@ func writeEveryV1Kind(t *testing.T) (string, string) {
 	}
 	v3 := createLocalOperationalExecution(t, ledgers)
 	single, singleAuthority := localSingleStage(t, v3)
-	singles, err := NewSingleStageStore(state)
-	if err != nil {
-		t.Fatal(err)
-	}
-	singleLease, err := leases.Acquire(context.Background(), single.Scope.ProjectID, single.Scope.ExecutionID, 0)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := singles.CommitAuthority(context.Background(), single, singleAuthority, v3, singleLease); err != nil {
-		t.Fatal(err)
-	}
-	if err := singleLease.Close(); err != nil {
-		t.Fatal(err)
-	}
+	historicalFixtureWire(t, state, "single-stage-runs", single.Scope.ProjectID, singleStageName(single.ScopeDigest), mustHistoricalWire(executiongraph.EncodeSingleStageRun(single)))
+	historicalFixtureDigestWire(t, state, "single-stage-runs", single.Scope.ProjectID, mustHistoricalWire(executiongraph.EncodeSingleStageAuthority(singleAuthority)))
 	if _, err := ledgers.RecordStageOutcome(context.Background(), v3, localStageOutcome(v3, "00000000-0000-4000-8000-000000000095")); err != nil {
 		t.Fatal(err)
 	}
@@ -296,12 +274,14 @@ func writeEveryV1Kind(t *testing.T) (string, string) {
 		t.Fatal(err)
 	}
 	original, rework := localReworkFixture(t, ledgers, v3)
-	if err := ledgers.Save(context.Background(), original); err != nil {
+	projectionWire, err := json.Marshal(deliveryProjection{1, "delivery_projection", original.ProjectID, original.ExecutionID, original.DeliveryDecision.Digest(), hexDigestRevision(original.StorageRevision), original.Projections})
+	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := ledgers.ApplyDeliveryRework(context.Background(), original, rework); err != nil {
-		t.Fatal(err)
-	}
+	historicalFixtureWire(t, state, "executions", original.ProjectID, deliveryProjectionName(original.ExecutionID), projectionWire)
+	originalWire := mustHistoricalWire(encodeExecution(original))
+	historicalFixtureWire(t, state, "executions", original.ProjectID, retainedExecutionName(original.ExecutionID), originalWire)
+	historicalFixtureWire(t, state, "executions", original.ProjectID, reworkName(original.ExecutionID), mustHistoricalWire(workflow.EncodeReworkPreview(rework)))
 	streams, err := NewCoordinationStore(state, authority.ProjectID)
 	if err != nil {
 		t.Fatal(err)

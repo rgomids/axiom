@@ -757,7 +757,7 @@ func (s Service) Project(ctx context.Context, target Target, expectedRevision ui
 }
 
 func (s Service) resolve(ctx context.Context, target Target) (Project, Repository, WorkItem, Result) {
-	if s.resolver == nil || s.workItems == nil || s.store == nil || !s.source.Valid() || !validText(target.ProjectSelector) || !validText(target.RepositoryKey) || !validWorkItemSelector(target.WorkItem) || target.RuntimeID != "" && !validText(target.RuntimeID) {
+	if s.resolver == nil || s.workItems == nil || !s.source.Valid() || !validText(target.ProjectSelector) || !validText(target.RepositoryKey) || !validWorkItemSelector(target.WorkItem) || target.RuntimeID != "" && !validText(target.RuntimeID) {
 		return Project{}, Repository{}, WorkItem{}, result(ValidationFailed, "invalid_execution_input", State{})
 	}
 	project, category := s.resolver.Resolve(ctx, target.ProjectSelector)

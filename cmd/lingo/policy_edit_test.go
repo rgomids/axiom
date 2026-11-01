@@ -72,7 +72,7 @@ func TestPolicyCLIJourneyGuidedParityReadbackAndValidate(t *testing.T) {
 		t.Fatal(applied)
 	}
 	validated, _ := runPolicyCLI(t, env, cli.ExitSuccess, "project", "validate", "--project", env.projectID)
-	if validated.Readiness == nil || validated.Readiness.Runtime.Detail != applied.Policy.ReadBack.Observed.Runtime[0].Code || !reflect.DeepEqual(validated.Readiness.Operations, applied.Policy.ReadBack.Observed.Readiness) {
+	if validated.Readiness == nil || validated.Readiness.Runtime.Status != projectapp.RuntimeSelectedAtDispatch || applied.Policy.ReadBack.Observed.Runtime[0].Code == "" || !reflect.DeepEqual(validated.Readiness.Operations, applied.Policy.ReadBack.Observed.Readiness) {
 		t.Fatal("validate/read-back parity failed", validated)
 	}
 	read, _ := runPolicyCLI(t, env, cli.ExitSuccess, "project", "configure", "--project", env.projectID, "--policy-draft", "{}")

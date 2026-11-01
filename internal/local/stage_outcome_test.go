@@ -28,14 +28,7 @@ func createLocalV3Execution(t *testing.T, s WorkflowStore) workflow.State {
 		t.Fatal(err)
 	}
 	state.StorageRevision = [32]byte{}
-	if err := s.Create(context.Background(), state); err != nil {
-		t.Fatal(err)
-	}
-	loaded, err := s.Load(context.Background(), state.ProjectID, state.RepositoryKey, state.WorkItem)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return loaded
+	return seedHistoricalExecutionFixture(t, s.root, state)
 }
 
 func createLocalOperationalExecution(t *testing.T, s WorkflowStore) workflow.State {
@@ -60,14 +53,7 @@ func createLocalOperationalExecution(t *testing.T, s WorkflowStore) workflow.Sta
 	state.Binding.ResolvedProfile = nil
 	state.Binding.FrozenProfile = &profile
 	state.StorageRevision = [32]byte{}
-	if err := s.Create(context.Background(), state); err != nil {
-		t.Fatal(err)
-	}
-	loaded, err := s.Load(context.Background(), state.ProjectID, state.RepositoryKey, state.WorkItem)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return loaded
+	return seedHistoricalExecutionFixture(t, s.root, state)
 }
 
 func localStageOutcome(state workflow.State, integrationAttempt string) executiongraph.StageOutcome {
@@ -112,7 +98,7 @@ func TestStageOutcomeProjectionBindsLedgerGeneration(t *testing.T) {
 	if err != nil || string(after) != string(before) {
 		t.Fatal("projection changed the Execution ledger bytes")
 	}
-	if loaded, err := s.Load(ctx, state.ProjectID, state.RepositoryKey, state.WorkItem); err != nil || loaded.StorageRevision != state.StorageRevision {
+	if loaded, err := readHistoricalExecutionFixture(s, state); err != nil || loaded.StorageRevision != state.StorageRevision {
 		t.Fatalf("ledger reload = %v", err)
 	}
 	inventory, err := InspectStateInventory(ctx, root)
@@ -174,41 +160,6 @@ func TestStageOutcomeProjectionRefusals(t *testing.T) {
 			t.Fatalf("renamed outcome inventoried as %s", kind)
 		}
 	})
-}
-
-func TestIntegrationReceiptCommitLoadAndInventory(t *testing.T) {
-	ctx := context.Background()
-	root, graphs, _, g := committedLocalDispatch(t)
-	a := localIntegrationReceipt(g)
-	ref, err := graphs.CommitIntegrationReceipt(ctx, g, a)
-	if err != nil {
-		t.Fatal(err)
-	}
-	loaded, err := graphs.LoadIntegrationReceipt(ctx, a.ProjectID, a.ParentID, ref)
-	if err != nil || executiongraph.CheckIntegrationDispatch(g, loaded) != nil {
-		t.Fatalf("receipt readback = %v", err)
-	}
-	if _, err := graphs.LoadRetry(ctx, a.ProjectID, a.ParentID, ref); !errors.Is(err, ErrUnsafe) {
-		t.Fatalf("integration receipt accepted as retry authority: %v", err)
-	}
-	inventory, err := InspectStateInventory(ctx, root)
-	if err != nil {
-		t.Fatal(err)
-	}
-	found := false
-	for _, entry := range inventory.Entries {
-		if strings.HasSuffix(entry.Relative, ref+".json") {
-			found = entry.Kind == InventoryIntegrationAuthority
-		}
-	}
-	if !found {
-		t.Fatal("integration receipt not inventoried")
-	}
-	wrong := a
-	wrong.AttemptNumber = 2
-	if _, err := graphs.CommitIntegrationReceipt(ctx, g, wrong); err == nil {
-		t.Fatal("receipt for a later integration attempt committed")
-	}
 }
 
 func localIntegrationReceipt(g executiongraph.SuccessorGraph) executiongraph.IntegrationReceipt {

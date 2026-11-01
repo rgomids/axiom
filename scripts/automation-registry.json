@@ -708,42 +708,6 @@
       "removal_condition": null
     },
     {
-      "path": "scripts/acceptance/s9-graph-runner.go",
-      "kind": "script",
-      "owner": "maintainer-acceptance",
-      "purpose": "Maintainer acceptance adapter that drives the Execution Graph through internal/graphapplication (prepare, run, question/answer/wait-answer) for exact-candidate acceptance.",
-      "lifecycle": "durable",
-      "disposition": "keep",
-      "disposition_ref": null,
-      "runtime": [
-        "go"
-      ],
-      "scope": [
-        "maintainer"
-      ],
-      "trigger": "Manual maintainer exact-candidate acceptance run, built (go build ./scripts/acceptance/s9-graph-runner.go) from a checkout whose product tree equals the RC revision and run under an envelope phase.",
-      "replay_reason": null,
-      "callers": [],
-      "inputs": "Mode (prepare|run|question|answer|wait-answer) with --spec (absolute reviewed JSON), --project-id, --parent, --run-envelope-sha256, --retry-child.",
-      "outputs": "Evidence JSON records written once (O_EXCL) under the spec EvidenceRoot; errors as 't24-graph-runner: ...' on stderr and exit 1.",
-      "local_effects": "Writes Evidence under the spec EvidenceRoot, persists Execution Graph/Runtime state under the spec StateRoot and uses child git worktrees under WorkspaceRoot; never pushes or deletes",
-      "network_effects": "none directly; dispatched codex/claude Runtime CLIs may contact their model providers; no Provider writes",
-      "authority": "human-authorized run envelope SHA-256 (--run-envelope-sha256) for the run mode; reviewed spec file",
-      "tests": [],
-      "evidence": "Execution Graph Evidence records under the spec EvidenceRoot, consumed by the acceptance Evidence under docs/specifications/004-mvp-v1-baseline/evidence-s9-rc2.",
-      "compatibility": [
-        {
-          "relation": "historical rc2 envelope D builds ./scripts/s9-graph-runner.go inside a tooling checkout at its human-approved toolingRevision; replay uses that pinned revision, whose source equals this merge commit for runs 02/03",
-          "revision": "6388f424220fc26ce8970eb08c107904db565b50"
-        },
-        {
-          "relation": "retained rc2 envelope D and graph specs that record the historical runner path",
-          "path": "docs/specifications/004-mvp-v1-baseline/evidence-s9-rc2/envelopes"
-        }
-      ],
-      "removal_condition": null
-    },
-    {
       "path": "scripts/acceptance/s9-rc-envelope.py",
       "kind": "script",
       "owner": "maintainer-acceptance",

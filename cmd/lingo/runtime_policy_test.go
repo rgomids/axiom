@@ -11,8 +11,6 @@ import (
 
 	"github.com/rgomids/axiom/internal/cli"
 	"github.com/rgomids/axiom/internal/codexruntime"
-	"github.com/rgomids/axiom/internal/runtimeapplication"
-	"github.com/rgomids/axiom/internal/runtimeprofile"
 )
 
 func TestRuntimePolicyPreviewReadsRecordedSourceAndMachineState(t *testing.T) {
@@ -117,108 +115,5 @@ func TestRuntimePolicyObservesConsentIdentityAndIntent(t *testing.T) {
 			}
 			blockedWith("non-executable file", "executable_unavailable", service, input)
 		})
-	}
-}
-
-type changingRuntimePolicySource struct {
-	snapshot runtimeapplication.Snapshot
-	loads    int
-}
-
-func (s *changingRuntimePolicySource) Load(context.Context, string) (runtimeapplication.Snapshot, error) {
-	s.loads++
-	snapshot := s.snapshot
-	if s.loads > 1 {
-		cfg := snapshot.Consumer.Configuration()
-		cfg.Revision++
-		snapshot.Consumer, _ = runtimeprofile.NewConsumerV4(cfg)
-	}
-	return snapshot, nil
-}
-
-func TestWorkflowStartRequiresReviewedFreshPolicy(t *testing.T) {
-	env := newWorkItemSourceEnvironment(t)
-	installLinkedTarget(t, env)
-	installTestRuntimePolicy(t, env.state, workItemSourceProjectID, "codex")
-	service, executable := testRuntime(t, env.service.(lifecycleService), "codex")
-	service = currentProfileStartFixture(t, service, env.state)
-	input := cli.WorkflowInput{Project: workItemSourceProjectID, Repository: "main", Number: 7, Role: "implementation", Complexity: "high", Capabilities: []string{"axiom-skills"}}
-	before := snapshotTrees(t, env.root, env.state, env.elsewhere)
-	preview := service.WorkflowStart(context.Background(), input)
-	if preview.RuntimeResolution == nil || preview.RuntimeResolution.Choice == nil || preview.Workflow != nil {
-		t.Fatalf("preview=%+v", preview)
-	}
-	if after := snapshotTrees(t, env.root, env.state, env.elsewhere); !bytes.Equal(before, after) {
-		t.Fatal("preview created an execution")
-	}
-	input.RuntimePreview = strings.Repeat("a", 64)
-	mismatch := service.WorkflowStart(context.Background(), input)
-	if mismatch.RuntimeResolution.Blocker.Code != "stale_preview" {
-		t.Fatalf("mismatch=%+v", mismatch)
-	}
-	input.RuntimePreview = preview.PreviewDigest
-	originalSource := service.RuntimePolicySource
-	snapshot, err := originalSource.Load(context.Background(), input.Project)
-	if err != nil {
-		t.Fatal(err)
-	}
-	changing := &changingRuntimePolicySource{snapshot: snapshot}
-	service.RuntimePolicySource = changing
-	stale := service.WorkflowStart(context.Background(), input)
-	if stale.RuntimeResolution.Blocker.Code != "stale_preview" || changing.loads != 2 {
-		t.Fatalf("stale=%+v loads=%d", stale, changing.loads)
-	}
-	if after := snapshotTrees(t, env.root, env.state, env.elsewhere); !bytes.Equal(before, after) {
-		t.Fatal("stale preview created an execution")
-	}
-	service.RuntimePolicySource = originalSource
-	// The reviewed digest names one executable; replacing or removing it after
-	// review blocks before any Execution exists.
-	if err := os.WriteFile(executable, []byte("#!/bin/sh\n# replaced\n"), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	if replaced := service.WorkflowStart(context.Background(), input); replaced.RuntimeResolution == nil || replaced.RuntimeResolution.Blocker == nil || replaced.RuntimeResolution.Blocker.Code != "stale_preview" || replaced.Workflow != nil {
-		t.Fatalf("replaced=%+v", replaced)
-	}
-	if err := os.Remove(executable); err != nil {
-		t.Fatal(err)
-	}
-	if removed := service.WorkflowStart(context.Background(), input); removed.RuntimeResolution == nil || removed.RuntimeResolution.Blocker == nil || removed.Workflow != nil {
-		t.Fatalf("removed=%+v", removed)
-	}
-	if after := snapshotTrees(t, env.root, env.state, env.elsewhere); !bytes.Equal(before, after) {
-		t.Fatal("drifted Runtime created an execution")
-	}
-	input.Runtime = "claude"
-	denied := service.WorkflowStart(context.Background(), input)
-	if denied.RuntimeResolution.Choice != nil || denied.RuntimeResolution.Blocker == nil {
-		t.Fatal("explicit Runtime widened policy")
-	}
-	input.Role = ""
-	input.Runtime = ""
-	invalid := service.WorkflowStart(context.Background(), input)
-	if invalid.RuntimeResolution.Blocker.Code != "invalid_request" {
-		t.Fatal("missing policy requirements used fallback")
-	}
-}
-
-// A Project that allows only Claude never starts on an installed Codex, with or
-// without an explicit Runtime, and nothing selects Codex by default.
-func TestWorkflowStartNeverFallsBackToCodex(t *testing.T) {
-	env := newWorkItemSourceEnvironment(t)
-	installLinkedTarget(t, env)
-	installTestRuntimePolicy(t, env.state, workItemSourceProjectID, "claude")
-	service, _ := testRuntime(t, env.service.(lifecycleService), "codex")
-	service = currentProfileStartFixture(t, service, env.state)
-	before := snapshotTrees(t, env.root, env.state, env.elsewhere)
-	for _, runtimeID := range []string{"", "codex", "claude"} {
-		input := cli.WorkflowInput{Project: workItemSourceProjectID, Repository: "main", Number: 7, Role: "implementation", Complexity: "high", Capabilities: []string{"axiom-skills"}, Runtime: runtimeID}
-		result := service.WorkflowStart(context.Background(), input)
-		if result.RuntimeResolution == nil || result.RuntimeResolution.Choice != nil || result.RuntimeResolution.Blocker == nil || result.Workflow != nil {
-			t.Fatalf("runtime=%q result=%+v", runtimeID, result)
-		}
-	}
-	if after := snapshotTrees(t, env.root, env.state, env.elsewhere); !bytes.Equal(before, after) {
-		t.Fatal("blocked start wrote state")
 	}
 }

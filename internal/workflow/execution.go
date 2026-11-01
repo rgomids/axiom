@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/rgomids/axiom/internal/strictjson"
@@ -149,10 +150,37 @@ type StageOutputInput struct {
 	Required bool   `json:"required"`
 }
 
+type FrozenInput struct {
+	Content  string        `json:"content,omitempty"`
+	Digest   string        `json:"digest,omitempty"`
+	Name     string        `json:"name"`
+	Kind     string        `json:"kind"`
+	Source   string        `json:"source"`
+	Required bool          `json:"required"`
+	Project  *ProjectInput `json:"project,omitempty"`
+	Artifact *ArtifactRef  `json:"artifact,omitempty"`
+}
+type ProjectInput struct {
+	ID               string              `json:"id"`
+	Slug             string              `json:"slug"`
+	PortableRevision string              `json:"portableRevision"`
+	Repositories     []RepositoryBinding `json:"repositories"`
+}
+
+type CommandCheck struct {
+	ID             string   `json:"id"`
+	Argv           []string `json:"argv"`
+	TimeoutSeconds int64    `json:"timeoutSeconds"`
+	Effects        []string `json:"effects"`
+}
 type StageSpec struct {
+	Commands          []CommandCheck     `json:"commands,omitempty"`
+	FrozenInputs      []FrozenInput      `json:"frozenInputs,omitempty"`
 	StageOutputInputs []StageOutputInput `json:"stageOutputInputs,omitempty"`
 	WorkItemInputs    []string           `json:"workItemInputs,omitempty"`
 	DefinitionDigest  string             `json:"definitionDigest,omitempty"`
+	OptionalOutputs   []string           `json:"optionalOutputs,omitempty"`
+	ReviewRequired    bool               `json:"reviewRequired,omitempty"`
 	OutputChecks      []OutputCheck      `json:"outputChecks,omitempty"`
 	ID                string             `json:"id"`
 	DependsOn         []string           `json:"dependsOn,omitempty"`
@@ -228,7 +256,18 @@ type Disposition struct {
 
 var ErrWorkspaceDispositionRequired = errors.New("workspace_disposition_required")
 
+type CommandResult struct {
+	Status     string           `json:"status"`
+	PreparedAt time.Time        `json:"preparedAt"`
+	StartedAt  *time.Time       `json:"startedAt,omitempty"`
+	EndedAt    *time.Time       `json:"endedAt,omitempty"`
+	Process    *ProcessIdentity `json:"process,omitempty"`
+	ID         string           `json:"id"`
+	ArgvDigest string           `json:"argvDigest"`
+	ExitCode   int              `json:"exitCode"`
+}
 type Attempt struct {
+	Commands             []CommandResult  `json:"commands,omitempty"`
 	WorkspaceDisposition string           `json:"workspaceDisposition,omitempty"`
 	AttemptID            string           `json:"attemptId"`
 	Number               int              `json:"number"`
@@ -253,10 +292,19 @@ type TaskRun struct {
 }
 
 type StageRun struct {
-	StageID string       `json:"stageId"`
-	Status  StageStatus  `json:"status"`
-	Tasks   []TaskRun    `json:"tasks"`
-	Gate    *Disposition `json:"gate,omitempty"`
+	StageID        string        `json:"stageId"`
+	Status         StageStatus   `json:"status"`
+	Tasks          []TaskRun     `json:"tasks"`
+	Gate           *Disposition  `json:"gate,omitempty"`
+	BeforeApproval *Disposition  `json:"beforeApproval,omitempty"`
+	Review         *ResultReview `json:"review,omitempty"`
+}
+
+type ResultReview struct {
+	Actor        string      `json:"actor"`
+	ResultDigest string      `json:"resultDigest"`
+	Evidence     ArtifactRef `json:"evidence"`
+	RecordedAt   time.Time   `json:"recordedAt"`
 }
 
 type CancelIntent struct {
@@ -539,6 +587,16 @@ func (e Execution) Validate() error {
 		if run.Gate != nil && ((!spec.HumanGate && !spec.BeforeGate) || !validDisposition(*run.Gate) || run.Gate.Decision != DispositionApproved || len(run.Gate.Actor) < 7 || run.Gate.Actor[:6] != "human:") {
 			return invalid("stage %q gate", run.StageID)
 		}
+		if run.BeforeApproval != nil && (!spec.BeforeGate || !humanDisposition(*run.BeforeApproval)) {
+			return invalid("before approval")
+		}
+		if run.Review != nil {
+			digest, err := e.StageResultDigest(run.StageID)
+			r := run.Review
+			if err != nil || !spec.ReviewRequired || r.ResultDigest != digest || !humanActor(r.Actor) || r.RecordedAt.IsZero() || r.Evidence.RetainedID == "" || r.Evidence.RepositoryKey != e.WorkItem.RepositoryKey || !validPrefixedDigest(r.Evidence.Digest) {
+				return invalid("result review")
+			}
+		}
 		for j, task := range run.Tasks {
 			if task.AgentID != spec.Agents[j].ID || len(task.Attempts) > spec.Agents[j].AttemptLimit() {
 				return invalid("task %q", task.AgentID)
@@ -546,6 +604,24 @@ func (e Execution) Validate() error {
 			for k, attempt := range task.Attempts {
 				if err := validateAttempt(attempt, k+1, e.RunnerGeneration, repos); err != nil {
 					return err
+				}
+				if len(attempt.Commands) > len(spec.Commands) {
+					return invalid("command results")
+				}
+				if attempt.Status == AttemptSucceeded && len(attempt.Commands) != len(spec.Commands) {
+					return invalid("missing command results")
+				}
+				for k, result := range attempt.Commands {
+					wire, _ := json.Marshal(spec.Commands[k])
+					if result.ID != spec.Commands[k].ID || result.ArgvDigest != DigestText(wire) || attempt.Status == AttemptSucceeded && (result.ExitCode != 0 || result.Status != "completed") {
+						return invalid("command result")
+					}
+					if result.PreparedAt.IsZero() || (result.Status != "prepared" && result.Status != "running" && result.Status != "completed") || result.Status == "prepared" && (result.Process != nil || result.StartedAt != nil || result.EndedAt != nil) || result.Status == "running" && (result.Process == nil || result.StartedAt == nil || result.EndedAt != nil) || result.Status == "completed" && (result.Process == nil || result.StartedAt == nil || result.EndedAt == nil) {
+						return invalid("command process facts")
+					}
+					if result.Process != nil && (result.Process.PID <= 1 || result.Process.StartIdentity == "" || result.Process.GroupIdentity == "") {
+						return invalid("command identity")
+					}
 				}
 				seen := map[string]bool{}
 				for _, artifact := range attempt.Artifacts {
@@ -574,6 +650,10 @@ func (e Execution) Validate() error {
 	if !validRunStatus(e.Status) || e.Status != e.derivedStatus() {
 		return invalid("status %q does not match its facts", e.Status)
 	}
+	wire, err := json.Marshal(e)
+	if err != nil || len(wire)+1 > MaxExecutionBytes {
+		return invalid("aggregate bounds")
+	}
 	return nil
 }
 
@@ -594,17 +674,33 @@ func validateWorkflow(w WorkflowSnapshot, repos map[string]bool) error {
 			return invalid("duplicate stage %q", s.ID)
 		}
 		index[s.ID] = i
-		if len(s.Agents) == 0 || len(s.Agents) > MaxStageAgents || len(s.Outputs) > MaxStageOutputs {
+		if len(s.Agents) == 0 || len(s.Agents) > MaxStageAgents || len(s.Outputs)+len(s.OptionalOutputs) > MaxStageOutputs {
 			return invalid("stage %q agents/outputs", s.ID)
 		}
-		if s.BeforeGate && s.HumanGate {
-			return invalid("separate gate positions required")
-		}
+
 		if s.TimeoutSeconds <= 0 || s.TimeoutSeconds > int64(MaxAttemptTimeout/time.Second) {
 			return invalid("stage %q timeout", s.ID)
 		}
-		if len(s.OutputChecks) > MaxStageOutputs || (len(s.OutputChecks) != 0 && len(s.OutputChecks) != len(s.Outputs)) || (len(s.OutputChecks) != 0 && !validPrefixedDigest(s.DefinitionDigest)) || (len(s.OutputChecks) == 0 && s.DefinitionDigest != "") {
+		if len(s.OutputChecks) > MaxStageOutputs || (len(s.OutputChecks) != 0 && len(s.OutputChecks) != len(s.Outputs)+len(s.OptionalOutputs)) || (len(s.OutputChecks) != 0 && !validPrefixedDigest(s.DefinitionDigest)) || (len(s.OutputChecks) == 0 && s.DefinitionDigest != "") {
 			return invalid("output validator bounds/digest")
+		}
+		if len(s.Commands) > 64 {
+			return invalid("command bounds")
+		}
+		commandIDs := map[string]bool{}
+		for _, c := range s.Commands {
+			if !ValidToken(c.ID) || commandIDs[c.ID] || len(c.Argv) == 0 || len(c.Argv) > 64 || c.TimeoutSeconds <= 0 || c.TimeoutSeconds > int64(MaxAttemptTimeout/time.Second) {
+				return invalid("command")
+			}
+			commandIDs[c.ID] = true
+			for _, arg := range c.Argv {
+				if arg == "" || !boundedText(arg, 4096) {
+					return invalid("command argv")
+				}
+			}
+			if validEffectKinds(c.Effects) != nil || !slices.Contains(c.Effects, "validation_command") {
+				return invalid("command effects")
+			}
 		}
 		inputs := map[string]bool{}
 		if len(s.WorkItemInputs) > 64 {
@@ -616,7 +712,33 @@ func validateWorkflow(w WorkflowSnapshot, repos map[string]bool) error {
 			}
 			inputs[name] = true
 		}
-		if len(s.WorkItemInputs)+len(s.StageOutputInputs) > 64 {
+		for _, input := range s.FrozenInputs {
+			if !ValidToken(input.Name) || inputs[input.Name] || !boundedText(input.Source, 256) || input.Source == "" {
+				return invalid("frozen input")
+			}
+			if input.Kind == "project-context" {
+				if input.Artifact != nil {
+					return invalid("project input")
+				}
+				if !boundedText(input.Content, MaxInstructionBytes) || input.Content != "" && input.Digest != DigestText([]byte(input.Content)) {
+					return invalid("context digest/bounds")
+				}
+				if input.Project != nil && (!ValidToken(input.Project.ID) || len(input.Project.Repositories) > 16 || !boundedText(input.Project.PortableRevision, 256)) {
+					return invalid("project context")
+				}
+			} else if input.Kind == "artifact" {
+				if input.Project != nil {
+					return invalid("artifact input")
+				}
+				if input.Artifact != nil && (!ValidToken(input.Artifact.RetainedID) || !validPrefixedDigest(input.Artifact.Digest) || input.Artifact.RepositoryKey == "") {
+					return invalid("artifact reference")
+				}
+			} else {
+				return invalid("frozen input kind")
+			}
+			inputs[input.Name] = true
+		}
+		if len(s.WorkItemInputs)+len(s.StageOutputInputs)+len(s.FrozenInputs) > 64 {
 			return invalid("stage input bounds")
 		}
 		for _, input := range s.StageOutputInputs {
@@ -628,7 +750,7 @@ func validateWorkflow(w WorkflowSnapshot, repos map[string]bool) error {
 				if w.Stages[j].ID != input.StageID {
 					continue
 				}
-				for _, out := range w.Stages[j].Outputs {
+				for _, out := range append(append([]string(nil), w.Stages[j].Outputs...), w.Stages[j].OptionalOutputs...) {
 					found = found || out == input.Output
 				}
 			}
@@ -640,7 +762,7 @@ func validateWorkflow(w WorkflowSnapshot, repos map[string]bool) error {
 		checks := map[string]bool{}
 		for _, check := range s.OutputChecks {
 			found := false
-			for _, name := range s.Outputs {
+			for _, name := range append(append([]string(nil), s.Outputs...), s.OptionalOutputs...) {
 				found = found || name == check.Name
 			}
 			if !found || checks[check.Name] || (check.Kind != "artifact" && check.Kind != "evidence" && check.Kind != "decision" && check.Kind != "result") {
@@ -674,7 +796,7 @@ func validateWorkflow(w WorkflowSnapshot, repos map[string]bool) error {
 				}
 				seen[out] = true
 				found := false
-				for _, output := range s.Outputs {
+				for _, output := range append(append([]string(nil), s.Outputs...), s.OptionalOutputs...) {
 					found = found || out == output
 				}
 				if !found {
@@ -724,7 +846,7 @@ func validateWorkflow(w WorkflowSnapshot, repos map[string]bool) error {
 			}
 		}
 		outputs := map[string]bool{}
-		for _, o := range s.Outputs {
+		for _, o := range append(append([]string(nil), s.Outputs...), s.OptionalOutputs...) {
 			if !ValidToken(o) || outputs[o] {
 				return invalid("stage %q output", s.ID)
 			}

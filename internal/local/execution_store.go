@@ -262,7 +262,7 @@ func preservesExecutionHistory(prior, next workflow.Execution) bool {
 		return false
 	}
 	for i, stage := range prior.Stages {
-		if stage.StageID != next.Stages[i].StageID || len(stage.Tasks) != len(next.Stages[i].Tasks) || stage.Gate != nil && !reflect.DeepEqual(stage.Gate, next.Stages[i].Gate) {
+		if stage.StageID != next.Stages[i].StageID || len(stage.Tasks) != len(next.Stages[i].Tasks) || (stage.Gate != nil && !reflect.DeepEqual(stage.Gate, next.Stages[i].Gate)) || (stage.BeforeApproval != nil && !reflect.DeepEqual(stage.BeforeApproval, next.Stages[i].BeforeApproval)) || (stage.Review != nil && !reflect.DeepEqual(stage.Review, next.Stages[i].Review)) {
 			return false
 		}
 		for j, task := range stage.Tasks {
@@ -274,6 +274,15 @@ func preservesExecutionHistory(prior, next workflow.Execution) bool {
 				changed := updated.Attempts[k]
 				if attempt.AttemptID != changed.AttemptID || attempt.Number != changed.Number || attempt.RunnerGeneration != changed.RunnerGeneration || !attempt.PreparedAt.Equal(changed.PreparedAt) || attempt.WorkspaceDisposition != changed.WorkspaceDisposition || !reflect.DeepEqual(attempt.Invocation, changed.Invocation) || !reflect.DeepEqual(attempt.Authority, changed.Authority) {
 					return false
+				}
+				if len(changed.Commands) < len(attempt.Commands) {
+					return false
+				}
+				for n, command := range attempt.Commands {
+					nextCommand := changed.Commands[n]
+					if command.ID != nextCommand.ID || command.ArgvDigest != nextCommand.ArgvDigest || !command.PreparedAt.Equal(nextCommand.PreparedAt) || command.Process != nil && !reflect.DeepEqual(command.Process, nextCommand.Process) || command.StartedAt != nil && !reflect.DeepEqual(command.StartedAt, nextCommand.StartedAt) || command.EndedAt != nil && !reflect.DeepEqual(command, nextCommand) {
+						return false
+					}
 				}
 				if attempt.Status == workflow.AttemptPrepared || attempt.Status == workflow.AttemptRunning {
 					if attempt.Process != nil && !reflect.DeepEqual(attempt.Process, changed.Process) || attempt.StartedAt != nil && !reflect.DeepEqual(attempt.StartedAt, changed.StartedAt) {

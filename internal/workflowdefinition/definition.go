@@ -92,9 +92,12 @@ type Criterion struct {
 	ValidatorRef string `json:"validatorRef"`
 }
 type Validator struct {
-	ID        string `json:"id"`
-	Kind      string `json:"kind"`
-	PolicyRef string `json:"policyRef"`
+	Argv           []string `json:"argv,omitempty"`
+	TimeoutSeconds int64    `json:"timeoutSeconds,omitempty"`
+	EffectCeilings []string `json:"effectCeilings,omitempty"`
+	ID             string   `json:"id"`
+	Kind           string   `json:"kind"`
+	PolicyRef      string   `json:"policyRef"`
 }
 type Gate struct {
 	Kind   string `json:"kind"`

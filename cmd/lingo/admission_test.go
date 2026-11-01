@@ -68,23 +68,14 @@ func evolution(service lifecycleService) map[string]cli.Result {
 	item := cli.WorkItemInput{Project: "guarded", Repository: "main", ProviderRepository: "owner/repo", Number: 1, Message: "x", Intent: "x", Problem: "x", DesiredOutcome: "x", Context: "x", Scope: "x", Constraints: "x", NonGoals: "x", Acceptance: "x"}
 	authorized := item
 	authorized.PreviewDigest, authorized.AuthorizeExternal, authorized.AuthorizeLocal = "any", true, true
-	flow := cli.WorkflowInput{Project: "guarded", Repository: "main", Number: 1, ExpectedRevision: 1, Role: "implementation", Complexity: "high", Capabilities: []string{"axiom-skills"}, Gate: "planning", Outcome: "pass", Reference: "evidence:x", Fact: "blocked", Active: true}
-	authorizedFlow := flow
-	authorizedFlow.RuntimePreview, authorizedFlow.PreviewDigest, authorizedFlow.AuthorizeExternal, authorizedFlow.AuthorizeLocal = "any", "any", true, true
 	return map[string]cli.Result{
-		"create preview":    service.WorkItemCreate(ctx, item),
-		"create":            service.WorkItemCreate(ctx, authorized),
-		"select preview":    service.WorkItemSelect(ctx, item),
-		"select":            service.WorkItemSelect(ctx, authorized),
-		"comment":           service.WorkItemComment(ctx, authorized),
-		"complete":          service.WorkItemComplete(ctx, authorized),
-		"start preview":     service.WorkflowStart(ctx, flow),
-		"start":             service.WorkflowStart(ctx, authorizedFlow),
-		"advance":           service.WorkflowAdvance(ctx, flow),
-		"fact":              service.WorkflowFact(ctx, authorizedFlow),
-		"resume":            service.WorkflowResume(ctx, flow),
-		"reconcile preview": service.WorkflowReconcile(ctx, flow),
-		"reconcile":         service.WorkflowReconcile(ctx, authorizedFlow),
+		"create preview": service.WorkItemCreate(ctx, item),
+		"create":         service.WorkItemCreate(ctx, authorized),
+		"select preview": service.WorkItemSelect(ctx, item),
+		"select":         service.WorkItemSelect(ctx, authorized),
+		"comment":        service.WorkItemComment(ctx, authorized),
+		"complete":       service.WorkItemComplete(ctx, authorized),
+		"execution run":  service.executionStage(ctx, cli.WorkflowStageInput{Operation: "execution-run", Project: "guarded", Repository: "main", WorkItem: "github:owner/repo#1", AuthorizeExternal: true}).Result,
 	}
 }
 
@@ -119,7 +110,7 @@ func TestArchivedProjectDeniesEvolutionBeforeAnyEffect(t *testing.T) {
 	}
 	// Reactivation restores admission; the next denial is the operation's own.
 	env.apply(t, projectapp.ReactivateProject, "")
-	if result := service.WorkflowAdvance(context.Background(), cli.WorkflowInput{Project: "guarded", Repository: "main", Number: 1, ExpectedRevision: 1, Gate: "planning", Outcome: "pass", Reference: "evidence:x"}); result.Admission != nil || result.Category == projectapp.AdmissionProjectArchived {
+	if result := service.executionStage(context.Background(), cli.WorkflowStageInput{Operation: "execution-run", Project: "guarded", Repository: "main", WorkItem: "github:owner/repo#1", AuthorizeExternal: true}).Result; result.Admission != nil || result.Category == projectapp.AdmissionProjectArchived {
 		t.Fatalf("reactivated Project still denied: %+v", result)
 	}
 }
@@ -129,14 +120,14 @@ func TestDisabledIntegrationDeniesOnlyItsProviderUse(t *testing.T) {
 	env.apply(t, projectapp.DisableIntegration, "work-items")
 	before := snapshotTrees(t, env.root, env.state, env.workspace)
 	results := evolution(env.service.(lifecycleService))
-	for _, name := range []string{"create preview", "create", "select preview", "select", "comment", "complete", "reconcile preview", "reconcile"} {
+	for _, name := range []string{"create preview", "create", "select preview", "select", "comment", "complete"} {
 		result := results[name]
 		if result.Category != projectapp.AdmissionIntegrationDisabled || result.Admission == nil || result.Admission.Integration != "work-items" || result.Preflight != nil {
 			t.Fatalf("%s: %+v", name, result)
 		}
 	}
 	// Execution transitions use no Provider through the Integration.
-	for _, name := range []string{"start preview", "start", "advance", "fact", "resume"} {
+	for _, name := range []string{"execution run"} {
 		if result := results[name]; result.Admission != nil || result.Category == projectapp.AdmissionIntegrationDisabled {
 			t.Fatalf("%s denied by a disabled Integration it does not use: %+v", name, result)
 		}
@@ -160,7 +151,7 @@ func TestCorruptOperationalStateFailsClosedForEvolutionOnly(t *testing.T) {
 		t.Fatal(err)
 	}
 	service := env.service.(lifecycleService)
-	result := service.WorkflowAdvance(context.Background(), cli.WorkflowInput{Project: "guarded", Repository: "main", Number: 1, ExpectedRevision: 1, Gate: "planning", Outcome: "pass", Reference: "evidence:x"})
+	result := service.executionStage(context.Background(), cli.WorkflowStageInput{Operation: "execution-run", Project: "guarded", Repository: "main", WorkItem: "github:owner/repo#1", AuthorizeExternal: true}).Result
 	if result.Category != projectapp.OperationalStateInvalid || result.Admission == nil {
 		t.Fatalf("corrupt state admitted evolution: %+v", result)
 	}

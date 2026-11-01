@@ -2,13 +2,9 @@ package main
 
 import (
 	"bytes"
-	"context"
-	"crypto/sha256"
 	"encoding/json"
-	"fmt"
 	"github.com/rgomids/axiom/internal/cli"
 	"github.com/rgomids/axiom/internal/projectapp"
-	"github.com/rgomids/axiom/internal/workflow"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -184,12 +180,8 @@ func TestExecutableRejectsSingleHyphenSelectorFlagsBeforeEffects(t *testing.T) {
 		{"work-item update", "project repository work-item"},
 		{"work-item close", "project repository work-item"},
 		{"work-item reopen", "project repository work-item"},
-		{"workflow start", "project repository work-item execution"},
-		{"workflow advance", "project repository work-item execution"},
-		{"workflow resume", "project repository work-item execution"},
 		{"workflow status", "project repository work-item execution"},
 		{"workflow evidence", "project repository work-item execution"},
-		{"workflow reconcile", "project repository work-item execution"},
 	}
 	var cases [][]string
 	for _, surface := range surfaces {
@@ -400,14 +392,6 @@ func TestExecutableMinimalLifecycleAndFailurePaths(t *testing.T) {
 	if err := os.Mkdir(repository, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	referenceContent := []byte("S6 synthetic lifecycle reference\n")
-	if err := os.WriteFile(filepath.Join(repository, "s6-reference.md"), referenceContent, 0o600); err != nil {
-		t.Fatal(err)
-	}
-	referenceDigest := fmt.Sprintf("%x", sha256.Sum256(referenceContent))
-	factArgs := func(revision uint64, fact, kind string) []string {
-		return []string{"workflow", "fact", "--project", "configured", "--repository", "main", "--number", "7", "--expected-revision", strconv.FormatUint(revision, 10), "--fact", fact, "--active", "--actor", "maintainer", "--reference", kind + ":s6-reference.md:" + referenceDigest, "--authorize-local"}
-	}
 	ghBinary := filepath.Join(t.TempDir(), "gh")
 	createCount := filepath.Join(t.TempDir(), "create-count")
 	if err := os.WriteFile(createCount, []byte("0\n"), 0o600); err != nil {
@@ -525,151 +509,9 @@ exit 0
 		t.Fatalf("comment preview = %+v", commentPreview.Change)
 	}
 	runCanonical(0, "success", "Work Item comment added", append(commentArgs, "--preview-digest", commentPreview.Change.Digest, "--authorize-external")...)
-	policyFlags := installTestRuntimePolicy(t, state, preview.Setup.ProjectID, "codex")
-	selectBuiltinWorkflowExecutable(t, binary, environment, "configured")
-	startArgs := append([]string{"workflow", "start", "--project", "configured", "--repository", "main", "--number", "7"}, policyFlags...)
-	runtimePreview := runCanonical(1, "validation_failure", "Project Runtime policy resolution blocked", startArgs...)
-	if runtimePreview.RuntimeResolution == nil || runtimePreview.RuntimeResolution.Blocker == nil || runtimePreview.RuntimeResolution.Blocker.Code != "inspection_consent_required" || runtimePreview.RuntimeResolution.Choice != nil {
-		t.Fatalf("unconsented inspection resolved: %+v", runtimePreview.RuntimeResolution)
-	}
-	refused := runCanonical(1, "validation_failure", "Project Runtime policy resolution blocked", append(startArgs, "--runtime-preview", runtimePreview.PreviewDigest)...)
-	if refused.Workflow != nil {
-		t.Fatal("unconsented start wrote an Execution")
-	}
-	t.Setenv("LINGO_PROJECTS_ROOT", portable)
-	t.Setenv("LINGO_STATE_ROOT", state)
-	t.Setenv("AXIOM_CODEX_SKILLS_ROOT", skills)
-	t.Setenv("HOME", home)
-	t.Setenv("CLAUDE_CONFIG_DIR", filepath.Join(home, ".claude"))
-	t.Setenv("AXIOM_GH_BIN", ghBinary)
-	fixtureService := compose().(lifecycleService)
-	historical := seedHistoricalWorkflow(t, fixtureService, cli.WorkflowInput{Project: "configured", Repository: "main", Provider: "github", ProviderRepository: "owner/repo", ExternalID: "7", Runtime: "codex", RuntimePreview: runtimePreview.PreviewDigest})
-	started := canonicalEvent{Workflow: historical}
-	// Omitted --runtime resolves Codex from the explicitly configured policy and
-	// the codex executable plus verified skills observed on this PATH.
-	if started.Workflow == nil || started.Workflow.ExecutionID == "" || started.Workflow.CurrentGate != "intake" || started.Workflow.Revision != 1 || started.Workflow.RuntimeID != "codex" {
-		t.Fatalf("started workflow = %+v", started.Workflow)
-	}
-	if _, err := os.Lstat(executed); !os.IsNotExist(err) {
-		t.Fatal("Runtime observation executed the Runtime")
-	}
-	exactWorkItem := "github:owner/repo#7"
-	runCanonical(0, "success", "Work Item link loaded", "work-item", "show", "--project", preview.Setup.ProjectID, "--repository", "main", "--work-item", exactWorkItem)
-	exactStatus := runCanonical(0, "success", "Execution workflow operation completed", "workflow", "status", "--project", "configured", "--repository", "main", "--work-item", exactWorkItem, "--execution", started.Workflow.ExecutionID)
-	if exactStatus.Workflow == nil || exactStatus.Workflow.ExecutionID != started.Workflow.ExecutionID || exactStatus.Workflow.WorkItem.Resource != "owner/repo" || exactStatus.Workflow.RepositoryKey != "main" {
-		t.Fatalf("exact selector result = %+v", exactStatus.Workflow)
-	}
-	fullySpecified := exec.Command(binary, "--json", "workflow", "status", "--project", preview.Setup.ProjectID, "--repository", "main", "--work-item", exactWorkItem, "--execution", started.Workflow.ExecutionID)
-	fullySpecified.Env = environment
-	fullySpecified.Dir = unrelatedCWD
-	var fullOutput, fullPrompts bytes.Buffer
-	fullySpecified.Stdout = &fullOutput
-	fullySpecified.Stderr = &fullPrompts
-	if err := fullySpecified.Run(); err != nil || fullPrompts.Len() != 0 {
-		t.Fatalf("full selector err=%v prompts=%q output=%s", err, fullPrompts.String(), fullOutput.String())
-	}
-	partial := exec.Command(binary, "--json", "workflow", "status", "--project", "configured", "--repository", "main", "--work-item", exactWorkItem)
-	partial.Env = environment
-	partial.Dir = unrelatedCWD
-	partial.Stdin = strings.NewReader(started.Workflow.ExecutionID + "\n")
-	var partialOutput, partialPrompts bytes.Buffer
-	partial.Stdout = &partialOutput
-	partial.Stderr = &partialPrompts
-	if err := partial.Run(); err != nil || partialPrompts.String() != "Execution ID: " {
-		t.Fatalf("partial err=%v prompts=%q output=%s", err, partialPrompts.String(), partialOutput.String())
-	}
-	executionRecords, err := filepath.Glob(filepath.Join(state, "executions", "v1", preview.Setup.ProjectID, "*.json"))
-	if err != nil || len(executionRecords) != 1 {
-		t.Fatalf("execution records=%v err=%v", executionRecords, err)
-	}
-	beforeInvalid, err := os.ReadFile(executionRecords[0])
-	if err != nil {
-		t.Fatal(err)
-	}
-	runCanonical(1, "validation_failure", "Execution workflow operation did not complete", "workflow", "status", "--project", "configured", "--repository", "main", "--work-item", exactWorkItem, "--execution", "018f4a44-7c31-7dd4-9d00-222222222222")
-	runCanonical(1, "validation_failure", "Execution workflow operation did not complete", "workflow", "status", "--project", "configured", "--repository", "missing", "--work-item", exactWorkItem, "--execution", started.Workflow.ExecutionID)
-	runCanonical(1, "validation_failure", "Execution workflow operation did not complete", "workflow", "status", "--project", "configured", "--repository", "main", "--work-item", "github:owner/repo#999", "--execution", started.Workflow.ExecutionID)
-	runCanonical(1, "validation_failure", "Explicit selector input is invalid", "workflow", "status", "--project", "configured", "--project", preview.Setup.ProjectID, "--repository", "main", "--work-item", exactWorkItem, "--execution", started.Workflow.ExecutionID)
-	afterInvalid, err := os.ReadFile(executionRecords[0])
-	if err != nil || !bytes.Equal(beforeInvalid, afterInvalid) {
-		t.Fatalf("invalid selector changed execution: %v", err)
-	}
-	revision := uint64(1)
-	advance := func(gate string, revision uint64) canonicalEvent {
-		t.Helper()
-		status := runCanonical(0, "success", "Execution workflow operation completed", "workflow", "status", "--project", "configured", "--repository", "main", "--number", "7")
-		file := publishConfiguredOutput(t, state, status.Workflow)
-		return runCanonical(0, "success", "Execution workflow operation completed", "workflow", "advance", "--project", "configured", "--repository", "main", "--number", "7", "--expected-revision", strconv.FormatUint(revision, 10), "--gate", gate, "--outcome", "pass", "--stage-result", file)
-	}
-	for _, gate := range []string{"intake", "specification", "clarification"} {
-		advanced := advance(gate, revision)
-		revision++
-		if advanced.Workflow == nil || advanced.Workflow.Revision != revision {
-			t.Fatalf("advanced workflow = %+v", advanced.Workflow)
-		}
-	}
-	runCanonical(0, "success", "Execution workflow operation completed", factArgs(revision, "planning-authority", "specification")...)
-	revision++
-	for _, gate := range []string{"plan", "tasks"} {
-		advanced := advance(gate, revision)
-		revision++
-		if advanced.Workflow == nil || advanced.Workflow.Revision != revision {
-			t.Fatalf("advanced workflow = %+v", advanced.Workflow)
-		}
-	}
-	runCanonical(0, "success", "Execution workflow operation completed", factArgs(revision, "implementation-authority", "plan")...)
-	revision++
-	interrupted := runCanonical(2, "interrupted", "Execution remains at the current workflow stage", "workflow", "advance", "--project", "configured", "--repository", "main", "--number", "7", "--expected-revision", strconv.FormatUint(revision, 10), "--gate", "implementation", "--outcome", "fail")
-	revision++
-	if interrupted.Workflow == nil || interrupted.Workflow.Status != "interrupted" || interrupted.Workflow.CurrentGate != "implementation" || interrupted.Workflow.Revision != revision {
-		t.Fatalf("workflow payload = %+v", interrupted.Workflow)
-	}
-	// Resume must observe the configured Runtime before mutating an interrupted
-	// Execution. Hide PATH while retaining its policy and installed skills.
-	observedEnvironment := environment
-	environment = append(append([]string(nil), environment...), "PATH="+t.TempDir())
-	beforeResume := snapshotTrees(t, portable, state, skills, repository, home)
-	blockedResume := runCanonical(1, "validation_failure", "Execution workflow operation did not complete", "workflow", "resume", "--project", "configured", "--repository", "main", "--number", "7", "--expected-revision", strconv.FormatUint(revision, 10))
-	if blockedResume.Workflow == nil || blockedResume.Workflow.Status != "interrupted" || blockedResume.Workflow.Revision != revision {
-		t.Fatal("legacy retry did not preserve retained record")
-	}
-	if after := snapshotTrees(t, portable, state, skills, repository, home); !bytes.Equal(beforeResume, after) {
-		t.Fatal("blocked resume changed local state")
-	}
-	environment = observedEnvironment
-	denied := runCanonical(1, "validation_failure", "Execution workflow operation did not complete", "workflow", "resume", "--project", "configured", "--repository", "main", "--number", "7", "--expected-revision", strconv.FormatUint(revision, 10))
-	if denied.Workflow == nil || denied.Workflow.Revision != revision {
-		t.Fatal("legacy retry mutated record")
-	}
-	// Prepare a historical continuation receipt through its retained library contract.
-	continuation := historicalWorkflowService(t, fixtureService).Resume(context.Background(), workflowTarget(cli.WorkflowInput{Project: "configured", Repository: "main", Provider: "github", ProviderRepository: "owner/repo", ExternalID: "7"}), revision)
-	if continuation.Status != workflow.Succeeded {
-		t.Fatal(continuation.Category)
-	}
-	resumed := canonicalEvent{Workflow: workflowResult(continuation, fixtureService.provenance).Workflow}
-	revision++
-	if resumed.Workflow == nil || resumed.Workflow.Status != "active" || resumed.Workflow.Revision != revision {
-		t.Fatalf("resumed = %+v", resumed.Workflow)
-	}
-	advancedToReview := advance("implementation", revision)
-	revision++
-	if advancedToReview.Workflow == nil || advancedToReview.Workflow.Revision != revision {
-		t.Fatalf("advanced workflow = %+v", advancedToReview.Workflow)
-	}
-	runCanonical(0, "success", "Execution workflow operation completed", factArgs(revision, "review-started", "evidence")...)
-	revision++
-	for _, gate := range []string{"review", "evidence", "reconciliation", "completion"} {
-		advanced := advance(gate, revision)
-		revision++
-		if advanced.Workflow == nil || advanced.Workflow.Revision != revision {
-			t.Fatalf("advanced workflow = %+v", advanced.Workflow)
-		}
-	}
-	deniedAcceptance := runCanonical(1, "denied_authority", "Execution authority is stale or incomplete", factArgs(revision, "human-acceptance", "evidence")...)
-	if deniedAcceptance.Workflow.Revision != revision || deniedAcceptance.Workflow.LifecycleStage != "reviewed" || deniedAcceptance.Workflow.GateAction != nil || len(deniedAcceptance.Workflow.Blockers) != 1 || deniedAcceptance.Workflow.Blockers[0] != "delivery_packet_required" {
-		t.Fatalf("unbound acceptance: %+v", deniedAcceptance.Workflow)
-	}
-	runCanonical(0, "success", "Execution workflow operation completed", "workflow", "evidence", "--project", "configured", "--repository", "main", "--number", "7")
+	// Canonical run/status coverage lives in execution_run_test.go and
+	// canonical_lifecycle_test.go. This mixed executable journey retains the
+	// unrelated Project/Work Item authoring and exact-effect controls.
 	run(1, "error", "missing_required_input", "project", "init", "--slug", "sample")
 	run(0, "success", "applied", "project", "init", "--slug", "sample", "--name", "Sample")
 	run(0, "success", "already_initialized", "project", "init", "--slug", "sample", "--name", "Sample")

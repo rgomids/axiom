@@ -31,18 +31,12 @@ func TestWorkItemRunExecutionTargetParity(t *testing.T) {
 		return block
 	}
 	block := section(domain, "## run\n\n", "\n## status")
-	assertReviewedRuntimePreview(t, "shared run", block)
-	for _, required := range []string{
-		"Project is optional", "explicit > session > default", "`--session <id>`",
-		"CWD, Git, conversation, or recent activity", "authoritative resolver and validator",
-		"`projectId`, `projectSource`", "`repositoryKey`, `provider`, `resource`, `externalId`, and `workItem`",
-		"binds this full target", "Runtime/Profile policy", "repeat the identical selectors, `--session`",
-		"resolved Project UUID is the same", "persisted exact Project UUID", "`workflow.gateCommand`",
-	} {
+	for _, required := range []string{"exact linked Work Item", "Project-scoped Repository", "Lingo resolves and validates selectors", "persisted Project", "`--execution`", "Old start/advance/fact/resume"} {
 		if !strings.Contains(block, required) {
-			t.Fatalf("shared run missing %q", required)
+			t.Fatalf("shared canonical run missing %q", required)
 		}
 	}
+
 }
 
 func TestExecutionTargetPreviousSkillSetOwnedByBothRuntimes(t *testing.T) {

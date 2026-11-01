@@ -169,11 +169,11 @@ variables to clear authentication. Report the vendor login result and any
 explicit non-environment configuration or identity failure. A subscription login
 does not prove inference route, billing, token usability or execution readiness.
 
-Stage execution retains its closed environment and repeats the same preflight
-against the exact effective child invocation. Do not silently modify the parent
-environment, switch authentication paths or bypass the child check. A shell
-observation cannot replace that check or establish Project readiness. Use
-supported inspection for the actual target; otherwise report the qualification gap.
+Canonical stage execution retains its closed environment and records actual
+vendor authentication/spawn failures. It does not require or repeat a preventive
+authentication probe. A shell observation grants no effect authority and proves
+no inference result. Do not modify the parent environment, switch authentication
+paths or substitute Runtime/model automatically after a failure.
 
 ## Model Advisor
 

@@ -50,11 +50,14 @@ type ObservedRunner interface {
 }
 
 type LaunchRequest struct {
-	Execution workflow.Execution
-	Ref       workflow.TaskRef
-	Stage     workflow.StageSpec
-	Agent     workflow.AgentSpec
-	Attempt   workflow.Attempt
+	PrepareCommand func(string) error
+	StartCommand   func(string, workflow.ProcessIdentity) error
+	FinishCommand  func(string, int) (workflow.CommandResult, error)
+	Execution      workflow.Execution
+	Ref            workflow.TaskRef
+	Stage          workflow.StageSpec
+	Agent          workflow.AgentSpec
+	Attempt        workflow.Attempt
 }
 
 // Launcher maps a frozen attempt to its concrete process and reads its
@@ -67,6 +70,7 @@ type Launcher interface {
 }
 
 type Outcome struct {
+	Commands   []workflow.CommandResult
 	Artifacts  []workflow.ArtifactRef
 	Effects    []workflow.EffectFact
 	Diagnostic string
@@ -253,6 +257,36 @@ func (e Engine) attempt(ctx context.Context, lease workflow.RunnerFence, current
 	stop()
 	now := e.now()
 	cancelRequested := cancelled() || e.cancelPersisted(ctx, projectID, executionID)
+	// Collection may run explicitly authorized checks. Keep it outside the
+	// aggregate lock so cancellation can be persisted while a check runs.
+	var outcome Outcome
+	var collectErr error
+	if startedCommitted && !cancelRequested && !result.OutcomeUnknown && !result.EffectAmbiguous && !result.TimedOut {
+		collectCtx, done := context.WithCancel(ctx)
+		checkCancelled := e.watchCancel(collectCtx, done, projectID, executionID)
+		request.PrepareCommand = func(id string) error {
+			_, err := update(func(x *workflow.Execution) error { return x.PrepareCommand(attemptID, gen, id, e.now()) })
+			return err
+		}
+		request.StartCommand = func(id string, p workflow.ProcessIdentity) error {
+			_, err := update(func(x *workflow.Execution) error { return x.StartCommand(attemptID, gen, id, p, e.now()) })
+			return err
+		}
+		request.FinishCommand = func(id string, code int) (workflow.CommandResult, error) {
+			x, err := update(func(x *workflow.Execution) error { return x.FinishCommand(attemptID, gen, id, code, e.now()) })
+			if err != nil {
+				return workflow.CommandResult{}, err
+			}
+			a, _, ok := x.FindAttempt(attemptID)
+			if !ok || len(a.Commands) == 0 {
+				return workflow.CommandResult{}, workflow.ErrTransition
+			}
+			return a.Commands[len(a.Commands)-1], nil
+		}
+		outcome, collectErr = e.Launcher.Collect(collectCtx, request, result)
+		done()
+		cancelRequested = checkCancelled() || e.cancelPersisted(ctx, projectID, executionID)
+	}
 	return update(func(x *workflow.Execution) error {
 		switch {
 		case result.SpawnFailed && !startedCommitted:
@@ -275,11 +309,10 @@ func (e Engine) attempt(ctx context.Context, lease workflow.RunnerFence, current
 		case result.TimedOut:
 			return x.CompleteAttempt(attemptID, gen, workflow.AttemptResult{ExitCode: -1, Diagnostic: "attempt_timeout", Now: now})
 		}
-		outcome, err := e.Launcher.Collect(ctx, request, result)
-		if err != nil {
+		if collectErr != nil {
 			return x.MarkUnknown(attemptID, gen, "output_collection_failed", now)
 		}
-		err = x.CompleteAttempt(attemptID, gen, workflow.AttemptResult{ExitCode: result.ExitCode, Diagnostic: outcome.Diagnostic, Effects: outcome.Effects, Artifacts: outcome.Artifacts, Now: now})
+		err = x.CompleteAttempt(attemptID, gen, workflow.AttemptResult{ExitCode: result.ExitCode, Diagnostic: outcome.Diagnostic, Effects: outcome.Effects, Artifacts: outcome.Artifacts, Commands: outcome.Commands, Now: now})
 		if errors.Is(err, workflow.ErrUnauthorizedEffect) {
 			return x.MarkUnknown(attemptID, gen, "unauthorized_effect_reported", now)
 		}
@@ -404,6 +437,11 @@ func (e Engine) Reconcile(ctx context.Context, projectID, executionID string) (w
 	for _, id := range orphanedAttempts(before, lease.Generation()) {
 		a, _, _ := before.FindAttempt(id)
 		facts = append(facts, ReconcileFact{AttemptID: id, Observation: observeRecorded(a.Process)})
+		for _, command := range a.Commands {
+			if command.Status != "completed" {
+				facts = append(facts, ReconcileFact{AttemptID: id, Observation: "command:" + command.ID + ":" + observeRecorded(command.Process)})
+			}
+		}
 	}
 	return after, facts, nil
 }

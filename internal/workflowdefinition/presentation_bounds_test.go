@@ -198,7 +198,7 @@ func TestPresentationDeclaredBoundsAndUntrustedProse(t *testing.T) {
 				id := fmt.Sprintf("item-%02d", i)
 				s.Inputs = append(s.Inputs, Input{id, "work-item", "target", false})
 				s.Outputs = append(s.Outputs, Output{id, "artifact", false})
-				s.Validators = append(s.Validators, Validator{id, "artifact-schema", "builtin-sdd-v1"})
+				s.Validators = append(s.Validators, Validator{ID: id, Kind: "artifact-schema", PolicyRef: "builtin-sdd-v1"})
 				s.CompletionCriteria = append(s.CompletionCriteria, Criterion{id, "Declared criterion", "result", "validate-result"})
 			}
 			_, issues := Encode(d)

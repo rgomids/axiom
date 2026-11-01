@@ -99,13 +99,14 @@ func TestPolicyPreviewDeterministicSafeAndReadOnly(t *testing.T) {
 	if preview.Runtime[0].Code != "configuration_missing" || !preview.Workflow.Compatible || !preview.Admission.Allowed || preview.Admission.GrantsAuthority || len(preview.Diff) != 1 || len(preview.Effects) != 2 {
 		t.Fatalf("incorrect preview: %+v", preview)
 	}
-	if preview.Runtime[0].Blocker != projectapp.BlockerRuntimeResolution || len(preview.Readiness) != 2 {
-		t.Fatal("lost scoped readiness", preview)
+	// Per-agent policy coverage is authoring guidance, never a predictive gate.
+	if preview.Runtime[0].Blocker != "" || preview.Runtime[0].Next == "" || len(preview.Readiness) != 2 {
+		t.Fatal("lost scoped guidance or kept predictive blocker", preview)
 	}
 	for _, operation := range preview.Readiness {
 		for _, blocker := range operation.Blockers {
-			if operation.Operation == projectapp.OperationWorkItem && blocker.Code == projectapp.BlockerRuntimeResolution {
-				t.Fatal("Work Item inherited execution blocker")
+			if blocker.Code == projectapp.BlockerRuntimeResolution || blocker.Code == projectapp.BlockerRuntimePolicyUnavailable {
+				t.Fatal("Runtime prediction blocked an operation", operation)
 			}
 		}
 	}
@@ -207,7 +208,7 @@ func TestPolicyPreviewRejectsUnsafeOrUnsealedFacts(t *testing.T) {
 	}
 }
 
-func TestPolicyPreviewUnconfiguredPolicyKeepsCanonicalBlocker(t *testing.T) {
+func TestPolicyPreviewUnconfiguredPolicyIsGuidanceNotBlocker(t *testing.T) {
 	f := newPolicyEditFixture(t)
 	intent := policyIntent(t, `{"runtimes":{"mode":"absent"},"modelProfiles":{"mode":"absent"},"runtimePreferences":{"mode":"absent"}}`)
 	proposal, failure := projectapp.PreviewPolicyEdit(context.Background(), f.policyPorts(t), intent)
@@ -215,8 +216,13 @@ func TestPolicyPreviewUnconfiguredPolicyKeepsCanonicalBlocker(t *testing.T) {
 		t.Fatal(failure)
 	}
 	row := proposal.Preview().Runtime[0]
-	if row.Code != "policy_unconfigured" || row.Blocker != projectapp.BlockerRuntimePolicyUnavailable {
-		t.Fatal("lost canonical unconfigured blocker", row)
+	if row.Code != "policy_unconfigured" || row.Blocker != "" || row.Next != projectapp.PolicyRuntimeGuidance("policy_unconfigured") {
+		t.Fatal("unconfigured policy guidance changed or became a gate", row)
+	}
+	for _, operation := range proposal.Preview().Readiness {
+		if operation.Operation == projectapp.OperationExecution && len(operation.Blockers) != 0 && operation.Blockers[0].Code == projectapp.BlockerRuntimePolicyUnavailable {
+			t.Fatal("absent optional policy blocked Execution", operation)
+		}
 	}
 }
 
@@ -260,8 +266,10 @@ func TestPolicyReadinessSnapshotParityAndGuidance(t *testing.T) {
 			if code != scenario.code || code != proposal.Preview().Runtime[0].Code {
 				t.Fatalf("parity: %s %+v", code, proposal.Preview().Runtime)
 			}
-			report := projectapp.EvaluateReadiness(projectapp.ReadinessInput{Project: subject.Project, Local: subject.Local, RuntimeCode: code, Catalog: projectapp.SupportedProviders})
-			if !reflect.DeepEqual(report.Operations, proposal.Preview().Readiness) || report.Runtime.Next == "" || report.Runtime.Next != proposal.Preview().Runtime[0].Next {
+			// Readiness parity uses the canonical non-predictive basis; the
+			// per-agent code remains guidance with its canonical next step.
+			report := projectapp.EvaluateReadiness(projectapp.ReadinessInput{Project: subject.Project, Local: subject.Local, RuntimeCode: projectapp.RuntimeSelectedAtDispatch, Catalog: projectapp.SupportedProviders})
+			if !reflect.DeepEqual(report.Operations, proposal.Preview().Readiness) || report.Runtime.Status != projectapp.RuntimeSelectedAtDispatch || proposal.Preview().Runtime[0].Next != projectapp.PolicyRuntimeGuidance(code) || proposal.Preview().Runtime[0].Next == "" {
 				t.Fatal("canonical readiness differs", report, proposal.Preview())
 			}
 		})

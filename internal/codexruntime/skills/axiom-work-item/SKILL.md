@@ -18,12 +18,12 @@ names, `requiredWhen` conditions and accepted forms. Never invent a flag. On a
 refusal, read `details` (`<code>` or `<code>:--<flag>`) and change only the
 named input; never repeat an unchanged command.
 
-Supported domain operations are `create`, `run`, `status`, `list`, `show`, `update`, `comment`, `close`, `reopen`, `execution.run`, `delivery.packet`, `delivery.decision`, `delivery.rework`, `delivery.prepare`, `delivery.preview`, `delivery.apply`, `delivery.inspect`, `delivery.reconcile`, `stage.status`, `stage.cancel`, `stage.retry`, `stage.reconcile`, `coordination.list`, and `coordination.show`.
+Supported domain operations are `create`, `run`, `status`, `list`, `show`, `update`, `comment`, `close`, `reopen`, `execution.run`, `delivery.packet`, `stage.status`, `stage.cancel`, `stage.retry`, `stage.reconcile`, `coordination.list`, and `coordination.show`.
 Any other operation, such as `delete` or Execution `cancel`, is unsupported:
 report that it is not available and do not run a Lingo command for it. Work
-Items are closed or reopened, never deleted; legacy sequential Executions have
-no cancellation contract (a canonical `execution.run` Execution has
-`stage.cancel`), and Execution history and Evidence are never edited. The
+Items are closed or reopened, never deleted. Canonical Executions use
+`stage.cancel`; old state is inert and cannot be resumed or converted.
+Execution history and Evidence are never edited. The
 retired `workflow stage plan`, `stage run` and `stage integrate` commands
 return replacement guidance only. Runtime certification commands
 are retired. Follow inspect → authorize → execute → observe → diagnose/recover;
@@ -36,9 +36,7 @@ Login and successful process exit do not prove successful Stage output.
 |---|---|---|---|---|---|
 | `create` | new | `axiom --json work-item create` | external mutation | preview first; create only with the exact `--preview-digest` plus `--authorize-external` | only for unambiguous create intent |
 | `create` | existing | `axiom --json work-item select` | local mutation | preview first; link only with the exact `--preview-digest` plus `--authorize-local` | only for unambiguous select intent |
-| `run` | transition | `axiom --json workflow start`, `axiom --json workflow advance`, `axiom --json workflow resume` | local mutation | `workflow start` previews the Runtime/Profile resolution first and starts only with the exact `--runtime-preview`; Lingo enforces the exact Execution revision and gate rules | only for unambiguous run intent |
-| `run` | fact | `axiom --json workflow fact` | local mutation | only with `--authorize-local` and the exact Execution revision | only for unambiguous run intent |
-| `run` | reconcile | `axiom --json workflow reconcile` | external mutation | preview first; publish only with the exact `--preview-digest` plus `--authorize-external` | only for unambiguous run intent |
+| `run` | - | `axiom --json workflow run` | external mutation | spawning requires `--authorize-external`; exact human gates/reviews require `--authorize-human` | only for unambiguous run intent |
 | `status` | - | `axiom --json workflow status`, `axiom --json workflow evidence` | read-only | none | allowed |
 | `status` | list | `axiom --json workflow list --project <uuid-or-slug>` | read-only | none | allowed |
 | `list` | - | `axiom --json work-item list --project <uuid-or-slug>` | read-only | none | allowed |
@@ -48,14 +46,7 @@ Login and successful process exit do not prove successful Stage output.
 | `close` | - | `axiom --json work-item close --project <uuid-or-slug>` | external mutation | preview first; close only with the exact `--preview-digest` plus `--authorize-external` | only for unambiguous close intent |
 | `reopen` | - | `axiom --json work-item reopen --project <uuid-or-slug>` | external mutation | preview first; reopen only with the exact `--preview-digest` plus `--authorize-external` | only for unambiguous reopen intent |
 | `execution.run` | - | `axiom --json workflow run` | external mutation | one run action; spawning the selected Runtimes needs `--authorize-external`; a human gate records only with `--approve-gate` and `--authorize-human` | only for unambiguous run intent |
-| `delivery.packet` | - | `axiom --json workflow delivery packet` | local mutation | preview first; apply only with the exact `--preview-digest` and `--authorize-local` | only for unambiguous delivery packet intent |
-| `delivery.decision` | - | `axiom --json workflow delivery decision` | local mutation | exact `--preview-digest`, `--authorize-local` and `--authorize-human` | only for unambiguous human delivery decision intent |
-| `delivery.rework` | - | `axiom --json workflow delivery rework` | local mutation | exact `--preview-digest`, `--authorize-local` and `--authorize-execution` | only for unambiguous new linked Execution intent |
-| `delivery.prepare` | - | `axiom --json workflow delivery prepare` | local mutation | exact `--preview-digest` and `--authorize-local` | only for unambiguous delivery preparation intent |
-| `delivery.preview` | - | `axiom --json workflow delivery preview` | read-only | none | allowed |
-| `delivery.apply` | - | `axiom --json workflow delivery apply` | external mutation | exact `--preview-digest`, `--authorize-local`, `--authorize-push` and `--authorize-pr` for requested effects | only for unambiguous delivery intent |
-| `delivery.inspect` | - | `axiom --json workflow delivery inspect` | read-only | none | allowed |
-| `delivery.reconcile` | - | `axiom --json workflow delivery reconcile` | local mutation | exact `--preview-digest` and `--authorize-local` | only for unambiguous delivery intent |
+| `delivery.packet` | - | `axiom --json workflow delivery packet` | read-only | none; readiness grants no delivery authority | allowed |
 | `stage.status` | - | `axiom --json workflow stage status` | read-only | none; persisted state only, never a stop or success claim | allowed |
 | `stage.cancel` | - | `axiom --json workflow stage cancel` | local mutation | `--authorize-local` records cancel intent only; the runner reports requested versus observed stop | only for unambiguous stage cancel intent |
 | `stage.retry` | - | `axiom --json workflow stage retry` | external mutation | one new attempt with `--authorize-external`; prior writable workspace requires `--disposition` set to `preserve`; `--new-selection` authorizes fresh invocation values | only for unambiguous stage retry intent |
@@ -76,8 +67,8 @@ need not name an English CLI token or another skill.
 Distinguish Work Item discovery (`list`) from Execution discovery (`status` /
 `list`), and Work Item inspection (`show`) from Execution status or Evidence
 (`status` / `default`). "Continue a execução" selects `run`; read its exact
-status first and follow Lingo's applicable `resume` or gate action. Never guess
-an advance, fact, or reconcile action. "Finish this" does not identify which
+status first and follow the canonical run or stage next action. Never invent
+a gate, result review or unknown-effect disposition. "Finish this" does not identify which
 resource or effect: clarify first.
 
 If the intent is unknown or materially ambiguous, ask one bounded clarification
@@ -164,107 +155,14 @@ as human acceptance.
 
 ## run
 
-Require an explicit exact Work Item on every invocation. Collect only missing
-Project-scoped Repository and applicable Execution selectors. Project is optional
-when Lingo resolves the effective Project through explicit > session > default
-selection; preserve any supplied `--session <id>`. Never infer Project, Repository,
-Work Item, or Execution from CWD, Git, conversation, or recent activity. Lingo is
-the authoritative resolver and validator; stop on missing or conflicting inputs.
-Use `--work-item github:<owner>/<repository>#<number>`, with
-`--project <uuid-or-slug>` and `--repository <key>` when supplied or required.
-
-Starting is a reviewed two-step protocol; the first call only previews:
-
-```text
-axiom --json workflow start <selectors> --role <role> --complexity <complexity> --capabilities <capabilities> --runtime <runtime>
-axiom --json workflow start <selectors> --role <role> --complexity <complexity> --capabilities <capabilities> --runtime <runtime> --runtime-preview <previewDigest>
-axiom --json workflow status <selectors> --execution <executionId>
-```
-
-Collect role, complexity, and comma-separated capabilities from the user or the
-approved Plan; never invent them. `<runtime>` is `codex` or `claude`, naming the
-Runtime executing this skill, which narrows the Project policy and never widens
-it. Never default to Codex or infer a Runtime from installed executables. Lingo
-observes Runtimes itself: never supply, invent, or claim an observation, version,
-or proven capability. Preserve and report the first call's `executionTarget`,
-`runtimeResolution`, and `previewDigest`. `executionTarget` contains `projectId`, `projectSource`,
-`repositoryKey`, `provider`, `resource`, `externalId`, and `workItem`. The digest
-binds this full target, including Project source, and the Runtime/Profile policy.
-A blocker stops the workflow. Otherwise show the exact target, selected Runtime,
-Model Profile, model, and revisions and wait for an explicit decision; only then
-repeat the identical selectors, `--session`, and policy inputs with
-`--runtime-preview <previewDigest>`. Changing a selector or Project source,
-including replacing an omitted Project with an explicit one, needs a fresh
-preview even when the resolved Project UUID is the same.
-Never edit a digest or reuse one after a blocker: `stale_preview` requires a
-fresh preview. The Execution's Runtime is the selected
-`runtimeResolution.choice.runtimeId`. `workflow start` omits `--execution`.
-After start, use the persisted exact Project UUID, Repository key, Work Item,
-and `--execution <id>` returned by Lingo for resume, advance, status, evidence,
-fact, and reconcile calls. Never resolve a different effective Project for an
-existing Execution, and never pass `--runtime`, policy inputs, or
-`--runtime-preview` again. In the status line above, `<selectors>` means these
-persisted selectors, not the original optional Project context.
-
-Reconcile through `axiom --json workflow reconcile` with the exact Execution
-revision; present the returned preview and repeat with its
-`--preview-digest <digest> --authorize-external` only after explicit authority
-for that exact preview.
-
-After the reviewed start, follow Lingo's `workflow.gateAction` and
-`workflow.gateCommand` argument array using the exact returned selectors and
-revision. Do not ask the user to name an internal gate or say a magic phrase.
-
-New configured Executions require an explicitly selected Project workflow; report
-`workflow_selection_required` through the Project workflow surface without
-silently selecting a default. Preserve `workflow.binding`, including definition
-revision/digest, and inspect `stageContract`, `stageInputs`, `stageLedger` and
-`blockers`. Resume always uses the retained snapshot; never substitute a newer
-Project selection or repair a corrupt binding. Follow the returned ordered stage
-IDs rather than imposing the legacy gate list.
-
-Configured advance requires `--stage-result <json-file>` with exact declared input
-and output references from authorized work. Preserve prior output/context digests
-from `stageInputs`; the canonical Work Item needs no caller-supplied input.
-Registered validators run in Lingo. Never invent an artifact, validator result,
-human actor or authority. For a required human review, record `stage-review` only
-after explicit authority for the exact result file and validated reference,
-including `--actor <human-identity>`, `--active true` and `--authorize-local`.
-Other configured human facts also require the actor. A technical pass cannot
-replace a human fact or final acceptance.
-
-Configured technical completion stops at `reviewed` with
-`delivery_packet_required`. Exact packet-bound acceptance belongs to the delivery
-`delivery decision` operation. Never submit configured
-`human-acceptance` with an Evidence file or stage output as a substitute packet.
-Legacy format-1 acceptance retains its historical protocol.
-
-- An action with `automatic: true` runs `workflow advance --automatic` during
-  the authorized run without another conversational confirmation. Intake is
-  the only legacy gate Lingo can evaluate automatically; configured stages require
-  their complete result contract. Do not combine automatic mode with gate,
-  outcome, reference, stage-result or next inputs.
-- Other advance actions require actual authorized work and its observed `pass`
-  or `fail` result with applicable validated Evidence. Fill command placeholders
-  from observations; a file digest alone does not prove correctness.
-- Fact actions identify explicit authority or a condition to resolve. Present
-  the missing decision/input and record it only with validated references and
-  explicit local authority. A returned `--authorize-local` grants no authority.
-  Never clear conditions merely to make the workflow progress.
-- Resume uses the exact committed revision. Re-read status after each result;
-  stop and report denied/failed operations without inferring progression.
-
-Gate policies remain in Lingo; the canonical domain skill routes directly
-to the supported operations. The reviewed Runtime/Profile start protocol above remains
-mandatory before these actions.
-
-Record planning authority, implementation authority, review start, human
-acceptance, or auxiliary conditions only through
-`axiom --json workflow fact` with the exact Execution revision, one validated
-reference, explicit `--active` value, and `--authorize-local`. Never infer a
-fact from GitHub, CI, merge, review, Issue state, or conversation. Human
-acceptance additionally requires terminal canonical completion and an explicit
-human decision.
+`run` and `execution.run` use the same canonical operation described below.
+Use `--project <uuid-or-slug> --repository <key>
+--work-item github:<owner>/<repository>#<number>`.
+Require the exact linked Work Item, Project-scoped Repository and observed
+Project selection. Lingo resolves and validates selectors; never infer them
+from CWD, Git or recent activity. Continue an existing Execution only with its
+persisted Project and `--execution` identity. Old start/advance/fact/resume and
+Provider projection operations are retired.
 
 ## status
 
@@ -276,8 +174,8 @@ This operation is read-only. Never infer selectors from CWD, Git, Provider,
 Runtime chat, or global discovery, and never classify workflow state
 independently.
 
-For configured Executions report the retained definition/revision/digest,
-Project/Repository/Work Item identity, current stage, criteria, ledger, human facts,
+For canonical Executions report the retained definition/revision/digest,
+Project/Repository/Work Item identity, current stage, attempts, results and review,
 blockers and returned next action. Do not expose retained context bodies or infer
 acceptance from Provider projection.
 
@@ -301,20 +199,27 @@ or rank them. Effort is an explicit token or `runtime-default`. Spawning needs
 Report the returned `stage` Execution exactly: `status`, per-attempt `status`,
 frozen Runtime/model/effort and provenance, `diagnostic`, artifacts and
 `nextAction`. Exit zero alone never proves completion; a stage completes only
-with its declared outputs. Stages whose Workflow declares validators or human
-gates stop at `awaiting_gate`; continue only after real human review with
+with its declared validated outputs. Human gates stop at `awaiting_gate`;
+continue only after real human review with
 `--execution <id> --approve-gate <stage-id> --authorize-human
 --authorize-external`. Start selections are immutable. Definition configuration
 belongs to `axiom-workflow`, selection belongs to `axiom-project`.
+
+Result-bound review uses the returned exact `resultDigest`, `--review-stage`,
+`--result-digest`, retained `--evidence` and explicit `--authorize-human`; a gate
+approval cannot substitute for it. Never fabricate a human actor, approval or
+Evidence. Artifact inputs use declared `--input source=retained-id` bindings;
+Project context freezes portable identity/revision/Repository observations.
+Configured command validators require explicit `--authorize-commands` for their
+exact frozen argv and effect bounds. Do not infer this authority from a run.
 
 ## delivery packet
 
 Use `axiom --json workflow delivery packet` with the exact persisted Project, Repository,
 Work Item and Execution selectors. Report `packetDigest`, readiness, blockers and
-next action unchanged. Retain only after exact local authority by repeating with
-`--preview-digest <packetDigest> --authorize-local`. `--packet <digest>` inspects
-a retained immutable packet.
-Packet readiness grants no publication, acceptance or rework authority.
+next action unchanged. This reads canonical state without retaining a companion
+packet or contacting a Provider. Publication, acceptance and linked rework
+effects remain unavailable on S1. Packet readiness grants no effect authority.
 
 ## stage dispatch and coordination
 
@@ -336,9 +241,9 @@ effects remain uncertain and are never replayed. `unknown` and
 blindly. Continuing after a restart is `workflow run --execution <id>`.
 
 `coordination.list` and `coordination.show` read canonical records only.
-`axiom --json workflow coordination publish` is used by a running stage child from its
-task packet, never by this skill or from a human shell. Records grant no
-authority.
+Public child publication is unavailable in S1; private engine ingress validates
+attempt and fence identity internally. Cross-Runtime transport belongs to S2.
+Records grant no authority.
 
 ## list and show
 

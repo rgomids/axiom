@@ -339,7 +339,7 @@ func commandExample(operation action, path []string) string {
 		}
 		seen[rule.name] = true
 	}
-	if strings.HasPrefix(string(operation), "context_") && operation != "context_show" || operation == workflowFactAction {
+	if strings.HasPrefix(string(operation), "context_") && operation != "context_show" {
 		result += " --authorize-local"
 	}
 	if operation == recoveryApplyAction {

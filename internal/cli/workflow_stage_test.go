@@ -52,7 +52,9 @@ func TestWorkflowStageCommandsRouteExactInputs(t *testing.T) {
 		"run minimal": {"workflow run --repository main --work-item github:owner/repo#7 --project alpha --workflow minimal", func(in WorkflowStageInput) bool {
 			return in.Workflow == "minimal" && !in.AuthorizeExternal
 		}},
-		"delivery packet": {"workflow delivery packet " + stageSelectors + " --packet digest", func(in WorkflowStageInput) bool { return in.Operation == "delivery-packet" && in.Record == "digest" }},
+		"delivery packet": {"workflow delivery packet " + stageSelectors, func(in WorkflowStageInput) bool {
+			return in.Operation == "delivery-packet" && in.Record == "" && !in.AuthorizeLocal && in.PreviewDigest == ""
+		}},
 		"status":          {"workflow stage status " + executionSelectors, func(in WorkflowStageInput) bool { return in.Operation == "status" && in.Execution == "e-1" }},
 		"cancel": {"workflow stage cancel " + executionSelectors + " --authorize-local", func(in WorkflowStageInput) bool {
 			return in.Operation == "cancel" && in.AuthorizeLocal && !in.AuthorizeExternal
@@ -102,6 +104,9 @@ func TestWorkflowStageParserRefusals(t *testing.T) {
 		"workflow stage status " + executionSelectors + " --preview-digest d",
 		"workflow stage status " + executionSelectors + " --execution e-2",
 		"workflow stage status " + stageSelectors,
+		"workflow delivery packet " + stageSelectors + " --authorize-local",  // read-only readiness
+		"workflow delivery packet " + stageSelectors + " --packet digest",    // no legacy packet read
+		"workflow delivery packet " + stageSelectors + " --preview-digest d", // no packet mutation
 	} {
 		t.Run(args, func(t *testing.T) {
 			service := &stageRecorder{status: completion.Facts{Completed: true}, source: completionProvenance(t)}

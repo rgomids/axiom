@@ -522,3 +522,74 @@ func TestExecutionOutputContractCodecAndBounds(t *testing.T) {
 		})
 	}
 }
+
+func TestExecutionResultBoundReviewAndOptionalOutputs(t *testing.T) {
+	e := twoStageExecution(t, false)
+	e.Workflow.Stages[0].ReviewRequired = true
+	e.Workflow.Stages[0].OptionalOutputs = []string{"notes"}
+	e.Workflow.Digest, _ = workflowDigest(e.Workflow)
+	run(t, &e, TaskRef{"work", "builder"}, "a1", "workspace_write")
+	if err := e.CompleteAttempt("a1", 1, AttemptResult{ExitCode: 0, Artifacts: []ArtifactRef{artifact("result")}, Now: t0}); err != nil {
+		t.Fatal(err)
+	}
+	if e.Status != RunAwaitingGate || len(e.Ready()) != 0 {
+		t.Fatal("review failed to stop successor")
+	}
+	if err := e.ApproveGate("work", "human:operator", t0); err == nil {
+		t.Fatal("gate substituted for result review")
+	}
+	digest, err := e.StageResultDigest("work")
+	if err != nil {
+		t.Fatal(err)
+	}
+	evidence := artifact("human-review")
+	evidence.RetainedID = "review-evidence"
+	for _, tc := range []struct{ actor, digest string }{{"agent:owner", digest}, {"human:operator", DigestText([]byte("stale"))}} {
+		if err := e.ReviewStage("work", tc.actor, tc.digest, evidence, t0); err == nil {
+			t.Fatal("forged/stale review accepted")
+		}
+	}
+	if err := e.ReviewStage("work", "human:operator", digest, evidence, t0); err != nil {
+		t.Fatal(err)
+	}
+	if len(e.Ready()) != 1 || e.Ready()[0].StageID != "review" {
+		t.Fatal("review did not release successor")
+	}
+	if err := e.ReviewStage("work", "human:other", digest, evidence, t0); err == nil {
+		t.Fatal("review overwritten")
+	}
+	wire, err := EncodeExecution(e)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = DecodeExecution(wire); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestExecutionBothGatePositionsRemainIndependent(t *testing.T) {
+	e := twoStageExecution(t, true)
+	e.Workflow.Stages[0].BeforeGate = true
+	e.Workflow.Digest, _ = workflowDigest(e.Workflow)
+	e.refreshStageStatuses()
+	e.Status = e.derivedStatus()
+	if len(e.Ready()) != 0 {
+		t.Fatal("spawn before before-gate")
+	}
+	if err := e.ApproveGate("work", "human:operator", t0); err != nil {
+		t.Fatal(err)
+	}
+	run(t, &e, TaskRef{"work", "builder"}, "a1", "workspace_write")
+	if err := e.CompleteAttempt("a1", 1, AttemptResult{ExitCode: 0, Artifacts: []ArtifactRef{artifact("result")}, Now: t0}); err != nil {
+		t.Fatal(err)
+	}
+	if len(e.Ready()) != 0 || e.Stages[0].Gate != nil {
+		t.Fatal("before approval substituted for after approval")
+	}
+	if err := e.ApproveGate("work", "human:operator", t0); err != nil {
+		t.Fatal(err)
+	}
+	if e.Stages[0].BeforeApproval == nil || e.Stages[0].Gate == nil || len(e.Ready()) != 1 {
+		t.Fatal("independent gate facts missing")
+	}
+}

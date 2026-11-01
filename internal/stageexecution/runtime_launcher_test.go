@@ -5,10 +5,12 @@ package stageexecution
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/rgomids/axiom/internal/executiongraph"
 	"github.com/rgomids/axiom/internal/runtimeadapter"
@@ -280,6 +282,147 @@ func TestRuntimeLauncherResolvesOnlyCompletedUnambiguousStageInputs(t *testing.T
 			}
 			if packet.Inputs["source"].Artifact.Digest != artifact.Digest {
 				t.Fatal("lost input correlation")
+			}
+		})
+	}
+}
+
+func TestRuntimeLauncherAuthorizedCommandArgvAndDenial(t *testing.T) {
+	for _, authorized := range []bool{false, true} {
+		t.Run(map[bool]string{false: "denied", true: "authorized"}[authorized], func(t *testing.T) {
+			l, r := runtimeLauncherFixture(t, "codex", "runtime-default")
+			marker := filepath.Join(l.Workspace, "checked")
+			command := filepath.Join(filepath.Dir(r.Attempt.Invocation.Executable), "local-check")
+			if err := os.WriteFile(command, []byte("#!/bin/sh\nprintf checked > checked\n"), 0700); err != nil {
+				t.Fatal(err)
+			}
+			r.Stage.Commands = []workflow.CommandCheck{{ID: "check", Argv: []string{command, "literal;$argument"}, TimeoutSeconds: 5, Effects: []string{"validation_command", "workspace_write"}}}
+			var record workflow.CommandResult
+			r.PrepareCommand = func(id string) error { record = workflow.CommandResult{ID: id, Status: "prepared"}; return nil }
+			r.StartCommand = func(id string, p workflow.ProcessIdentity) error {
+				record.Process = &p
+				record.Status = "running"
+				return nil
+			}
+			r.FinishCommand = func(id string, code int) (workflow.CommandResult, error) {
+				record.ExitCode = code
+				record.Status = "completed"
+				return record, nil
+			}
+			if authorized {
+				r.Attempt.Authority.Effects = append(r.Attempt.Authority.Effects, "validation_command")
+			}
+			if _, err := l.Build(context.Background(), r); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(l.InboxRoot, r.Attempt.AttemptID, "result"), []byte("result"), 0600); err != nil {
+				t.Fatal(err)
+			}
+			outcome, err := l.Collect(context.Background(), r, executiongraph.ProcessResult{ExitCode: 0})
+			if !authorized {
+				if err == nil {
+					t.Fatal("unauthorized command accepted")
+				}
+				if _, err := os.Stat(marker); !os.IsNotExist(err) {
+					t.Fatal("unauthorized command ran")
+				}
+				return
+			}
+			if err != nil || len(outcome.Commands) != 1 || outcome.Commands[0].ExitCode != 0 {
+				t.Fatalf("authorized command: %+v %v", outcome, err)
+			}
+			if _, err := os.Stat(marker); err != nil {
+				t.Fatal("command did not run")
+			}
+		})
+	}
+}
+
+func TestEngineCommandProcessFactsCancellationAndFailure(t *testing.T) {
+	for _, mode := range []string{"success", "failure", "cancel"} {
+		t.Run(mode, func(t *testing.T) {
+			l, _ := runtimeLauncherFixture(t, "codex", "runtime-default")
+			f, store := startFixture(t, "")
+			command := filepath.Join(filepath.Dir(l.AxiomPath), "check")
+			script := "#!/bin/sh\nprintf checked > checked\nexit 0\n"
+			if mode == "failure" {
+				script = "#!/bin/sh\nexit 7\n"
+			}
+			if mode == "cancel" {
+				script = "#!/bin/sh\nwhile :; do :; done\n"
+			}
+			if err := os.WriteFile(command, []byte(script), 0700); err != nil {
+				t.Fatal(err)
+			}
+			frozen := stubInvocation()
+			frozen.Runtime = "codex"
+			frozen.Executable = filepath.Join(filepath.Dir(l.AxiomPath), "codex")
+			f.engine.Launcher = l
+			f.engine.Resolve = func(context.Context, workflow.Execution, workflow.TaskRef) (workflow.Invocation, workflow.AttemptAuthority, error) {
+				return frozen, workflow.AttemptAuthority{RepositoryKey: "app", Effects: []string{"workspace_write", "validation_command"}, Actor: "user:local"}, nil
+			}
+			f.runner.run = func(_ context.Context, inv executiongraph.Invocation, started func(*executiongraph.ProcessCorrelation) error) executiongraph.ProcessResult {
+				if err := started(&executiongraph.ProcessCorrelation{PID: 777, StartIdentity: "boot:1", GroupIdentity: "777"}); err != nil {
+					t.Fatal(err)
+				}
+				var packet struct{ OutputDirectory string }
+				if err := json.Unmarshal(inv.Stdin, &packet); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(filepath.Join(packet.OutputDirectory, "result"), []byte("validated bytes"), 0600); err != nil {
+					t.Fatal(err)
+				}
+				return executiongraph.ProcessResult{}
+			}
+			req := linkedRequest()
+			req.WorkflowID, req.WorkflowRevision, req.Stages = "command-stub", "r1", twoStages(false)
+			for i := range req.Stages {
+				req.Stages[i].Agents[0].Effects = []string{"workspace_write", "validation_command"}
+			}
+			req.Stages[0].Commands = []workflow.CommandCheck{{ID: "check", Argv: []string{command}, TimeoutSeconds: 10, Effects: []string{"validation_command"}}}
+			cancelResult := make(chan error, 1)
+			if mode == "cancel" {
+				go func() {
+					deadline := time.Now().Add(5 * time.Second)
+					for time.Now().Before(deadline) {
+						x, err := f.engine.Store.Load(context.Background(), req.ProjectID, req.ExecutionID)
+						if err == nil && len(x.Stages[0].Tasks[0].Attempts) > 0 {
+							a := x.Stages[0].Tasks[0].Attempts[0]
+							if len(a.Commands) > 0 && a.Commands[0].Process != nil {
+								_, err = f.engine.Cancel(context.Background(), req.ProjectID, req.ExecutionID, "user:local")
+								cancelResult <- err
+								return
+							}
+						}
+						time.Sleep(5 * time.Millisecond)
+					}
+					cancelResult <- errors.New("command identity never persisted")
+				}()
+			}
+			x, err := f.engine.Start(context.Background(), store, req)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if mode == "cancel" {
+				if err := <-cancelResult; err != nil {
+					t.Fatal(err)
+				}
+				if x.Status != workflow.RunCancelled && x.Status != workflow.RunRecoveryRequired {
+					t.Fatalf("cancel: %s", x.Status)
+				}
+			} else if mode == "failure" {
+				if x.Status != workflow.RunFailed || f.runner.spawns.Load() != 1 {
+					t.Fatalf("failure advanced: %s", x.Status)
+				}
+			} else if x.Status != workflow.RunCompleted {
+				t.Fatalf("success: %s", x.Status)
+			}
+			a := x.Stages[0].Tasks[0].Attempts[0]
+			if len(a.Commands) != 1 || a.Commands[0].Process == nil || a.Commands[0].Process.PID == a.Process.PID || a.Commands[0].StartedAt == nil {
+				t.Fatalf("command identity lost: %+v", a.Commands)
+			}
+			if mode != "cancel" && (a.Commands[0].Status != "completed" || a.Commands[0].EndedAt == nil) {
+				t.Fatal("terminal command evidence missing")
 			}
 		})
 	}

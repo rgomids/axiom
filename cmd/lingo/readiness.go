@@ -31,20 +31,16 @@ func (s lifecycleService) readiness() projectapp.ProjectReadiness {
 
 type runtimeReadiness struct{ service lifecycleService }
 
+// Readiness never predicts a vendor invocation or demands a Profile catalogue.
+// Selection and actual user restrictions are checked on the frozen attempt.
 func (r runtimeReadiness) AvailabilityFor(ctx context.Context, subject projectapp.ReadinessSubject) string {
-	version := subject.Project.State().SchemaVersion
-	if version == 2 || version == 3 {
-		return local.ObservePolicyRuntime(ctx, subject, r.service.stateRoot)
-	}
 	return r.Availability(ctx, subject.Project.State().ID)
 }
-
 func (r runtimeReadiness) Availability(ctx context.Context, projectID string) string {
-	source := r.service.RuntimePolicySource
-	if source == nil {
-		source = runtimePolicySource{installation: r.service.installation, portable: r.service.portable, stateRoot: r.service.stateRoot, runtimes: r.service.runtimeObservationSources()}
+	if ctx.Err() != nil {
+		return "inventory_unavailable"
 	}
-	return runtimeapplication.New(source).Availability(ctx, projectID)
+	return projectapp.RuntimeSelectedAtDispatch
 }
 
 // preflight returns a failure before any effect when a structurally valid

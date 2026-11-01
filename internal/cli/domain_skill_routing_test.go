@@ -383,20 +383,10 @@ func (p *authorityProbe) WorkItemReopen(_ context.Context, input WorkItemInput) 
 // mutatingRequests are the selector-complete requests a Runtime forms for
 // each mutating command after operation resolution, before any authority.
 var mutatingRequests = map[string][]string{
-	"workflow delivery decision":  {"workflow", "delivery", "decision", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--execution", "e-1", "--request", "request.json"},
-	"workflow delivery rework":    {"workflow", "delivery", "rework", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--execution", "e-1", "--request", "request.json"},
-	"workflow delivery prepare":   {"workflow", "delivery", "prepare", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--execution", "e-1", "--request", "request.json"},
-	"workflow delivery apply":     {"workflow", "delivery", "apply", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--execution", "e-1", "--request", "request.json"},
-	"workflow delivery reconcile": {"workflow", "delivery", "reconcile", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--execution", "e-1", "--publication", "digest"},
 	"configure/create":            {"project", "configure", "--slug", "alpha", "--name", "Alpha", "--repository", "main=/work/main", "--work-item-provider", "github"},
 	"configure/edit":              {"project", "configure", "--project", "alpha", "--name", "Renamed"},
 	"work-item create":            {"work-item", "create", "--project", "alpha", "--repository", "main", "--provider-repository", "owner/repo", "--intent", "Fix it"},
 	"work-item select":            {"work-item", "select", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7"},
-	"workflow start":              {"workflow", "start", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--role", "implementation", "--complexity", "high", "--capabilities", "axiom-skills", "--runtime", "claude"},
-	"workflow advance":            {"workflow", "advance", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--execution", "e-1", "--expected-revision", "3", "--gate", "specification", "--outcome", "pass", "--reference", "evidence:spec.md:abc"},
-	"workflow resume":             {"workflow", "resume", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--execution", "e-1", "--expected-revision", "3"},
-	"workflow fact":               {"workflow", "fact", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--execution", "e-1", "--expected-revision", "3", "--fact", "review_started", "--active", "--reference", "evidence:review.md:abc"},
-	"workflow reconcile":          {"workflow", "reconcile", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--execution", "e-1", "--expected-revision", "3"},
 	"project archive":             {"project", "archive", "--project", "alpha"},
 	"project reactivate":          {"project", "reactivate", "--project", "alpha"},
 	"integration disable":         {"integration", "disable", "--project", "alpha", "--integration", "work-items"},

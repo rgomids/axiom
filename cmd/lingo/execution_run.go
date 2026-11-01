@@ -7,10 +7,12 @@ import (
 	"encoding/json"
 	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/rgomids/axiom/internal/cli"
 	"github.com/rgomids/axiom/internal/completion"
@@ -43,8 +45,14 @@ func (s lifecycleService) executionStage(ctx context.Context, in cli.WorkflowSta
 	// A human disposition never records without both its subject and explicit
 	// human authority; only the built-in minimal Workflow can override the
 	// Project selection. Checked before any read or write.
-	if in.Operation == "execution-run" && (in.ApproveGate != "") != in.AuthorizeHuman || in.Operation == "reconcile" && (in.Abandon != "") != in.AuthorizeHuman {
+	if in.Operation == "execution-run" && (in.ApproveGate != "" || in.ReviewStage != "") != in.AuthorizeHuman || in.Operation == "reconcile" && (in.Abandon != "") != in.AuthorizeHuman {
 		return s.stageFailure(completion.DeniedAuthority, "human_authority_required", "A human disposition needs its exact subject and --authorize-human", "Repeat with both --approve-gate/--abandon and --authorize-human after real human review", nil)
+	}
+	if in.AuthorizeHuman && (os.Getenv("AXIOM_ATTEMPT_ID") != "" || os.Getenv("AXIOM_EXECUTION_ID") != "") {
+		return s.stageFailure(completion.DeniedAuthority, "human_authority_required", "A Runtime child cannot record human approval", "Run this operation from the human operator context", nil)
+	}
+	if in.ReviewStage != "" && (in.ResultDigest == "" || in.ReviewEvidence == "" || in.ApproveGate != "") || in.ReviewStage == "" && (in.ResultDigest != "" || in.ReviewEvidence != "") {
+		return s.stageFailure(completion.ValidationFailure, "invalid_review", "Review requires an exact stage, result digest and retained Evidence", "Inspect status and supply --review-stage --result-digest --evidence --authorize-human", nil)
 	}
 	if (in.Operation == "cancel" || in.Operation == "reconcile" && in.Abandon == "") && !in.AuthorizeLocal {
 		return s.stageFailure(completion.DeniedAuthority, "authority_required", "This local Execution mutation needs explicit authority", "Repeat with --authorize-local", nil)
@@ -75,7 +83,7 @@ func (s lifecycleService) executionStage(ctx context.Context, in cli.WorkflowSta
 	if err != nil {
 		return s.stageFailure(completion.ValidationFailure, "invalid_state_root", "Execution state root is unsafe", "Use an absolute, private LINGO_STATE_ROOT", nil)
 	}
-	c := executionComposition{s: s, store: store, project: resolved.Project}
+	c := executionComposition{s: s, store: store, project: resolved.Project, authorizeCommands: in.AuthorizeCommands}
 	switch in.Operation {
 	case "execution-run":
 		return c.run(ctx, in)
@@ -119,9 +127,10 @@ type executionComposition struct {
 	store   local.ExecutionStore
 	project local.ResolvedProject
 	// retrySelections are explicit overrides of one authorized new selection.
-	retrySelections []workflow.Selection
-	retryRef        *workflow.TaskRef
-	ordinaryRetry   bool
+	retrySelections   []workflow.Selection
+	retryRef          *workflow.TaskRef
+	ordinaryRetry     bool
+	authorizeCommands bool
 }
 
 func (c executionComposition) run(ctx context.Context, in cli.WorkflowStageInput) cli.WorkflowStageResponse {
@@ -133,12 +142,17 @@ func (c executionComposition) run(ctx context.Context, in cli.WorkflowStageInput
 		return c.failure(err, nil)
 	}
 	if in.Execution != "" {
-		if len(selections) != 0 || in.Workflow != "" || in.Repository != "" || in.WorkItem != "" {
+		if len(selections) != 0 || len(in.Inputs) != 0 || in.Workflow != "" || in.Repository != "" || in.WorkItem != "" {
 			return c.failure(errSelectionsFrozen, nil)
 		}
 		launcher, x, err := c.existingLauncher(ctx, in.Execution)
 		if err != nil {
 			return c.failure(err, nil)
+		}
+		if in.ReviewStage != "" {
+			if err := c.review(ctx, x, in); err != nil {
+				return c.failure(err, &x)
+			}
 		}
 		if in.ApproveGate != "" {
 			if _, err := c.engine(nil).ApproveGate(ctx, c.project.ID, in.Execution, in.ApproveGate, executionActor("human:")); err != nil {
@@ -151,7 +165,7 @@ func (c executionComposition) run(ctx context.Context, in cli.WorkflowStageInput
 		}
 		return c.outcome("Execution progressed", x, nil, false)
 	}
-	if in.ApproveGate != "" {
+	if in.ApproveGate != "" || in.ReviewStage != "" {
 		return c.failure(errSelectionSyntax, nil)
 	}
 	provider, resource, externalID, _ := cli.ParseWorkItemSelector(in.WorkItem)
@@ -172,6 +186,12 @@ func (c executionComposition) run(ctx context.Context, in cli.WorkflowStageInput
 		if err != nil {
 			return c.failure(err, nil)
 		}
+	}
+	if err = freezeCommands(request.Stages, in.AuthorizeCommands); err != nil {
+		return c.failure(err, nil)
+	}
+	if err = c.freezeInputs(ctx, request.Stages, in.Inputs, target.Repository.Key); err != nil {
+		return c.failure(err, nil)
 	}
 	if request.ExecutionID, err = allocateStageID(); err != nil {
 		return c.failure(err, nil)
@@ -398,6 +418,9 @@ func (c executionComposition) resolve(ctx context.Context, x workflow.Execution,
 		}
 	}
 	effects := append([]string{}, agent.Effects...)
+	if slices.Contains(effects, "validation_command") && !c.authorizeCommands {
+		return workflow.Invocation{}, workflow.AttemptAuthority{}, workflow.ErrUnauthorizedEffect
+	}
 	return invocation, workflow.AttemptAuthority{RepositoryKey: x.WorkItem.RepositoryKey, Effects: effects, Actor: executionActor("user:")}, nil
 }
 
@@ -519,7 +542,31 @@ func (c executionComposition) selectedWorkflow(ctx context.Context) (string, str
 	if category != "" {
 		return "", "", nil, errors.New(category)
 	}
-	return mapWorkflowDefinition(observation.Document.Definition)
+	id, revision, stages, err := mapWorkflowDefinition(observation.Document.Definition)
+	if err != nil {
+		return "", "", nil, err
+	}
+	for i := range stages {
+		for j := range stages[i].FrozenInputs {
+			input := &stages[i].FrozenInputs[j]
+			if input.Kind != "project-context" {
+				continue
+			}
+			context, ok := observation.Contexts[input.Source]
+			if !ok {
+				if input.Required {
+					return "", "", nil, errWorkflowUnmappable
+				}
+				continue
+			}
+			if len(context.Content) > workflow.MaxInstructionBytes {
+				return "", "", nil, errWorkflowUnmappable
+			}
+			input.Content = string(context.Content)
+			input.Digest = "sha256:" + context.Digest
+		}
+	}
+	return id, revision, stages, nil
 }
 
 func mapWorkflowDefinition(d workflowdefinition.Definition) (string, string, []workflow.StageSpec, error) {
@@ -534,12 +581,23 @@ func mapWorkflowDefinition(d workflowdefinition.Definition) (string, string, []w
 	var stages []workflow.StageSpec
 	previous := ""
 	for _, s := range d.Stages {
+		if s.Concurrency != 1 {
+			return "", "", nil, errWorkflowUnmappable
+		}
 		for _, validator := range s.Validators {
-			if validator.PolicyRef != "builtin-sdd-v1" || (validator.Kind != "artifact-schema" && validator.Kind != "evidence-check") {
+			if validator.PolicyRef != "builtin-sdd-v1" || (validator.Kind != "artifact-schema" && validator.Kind != "evidence-check" && validator.Kind != "human-review" && validator.Kind != "command") {
 				return "", "", nil, errWorkflowUnmappable
 			}
 		}
 		spec := workflow.StageSpec{ID: s.ID, TimeoutSeconds: workflow.DefaultStageTimeout}
+		for _, validator := range s.Validators {
+			if validator.Kind == "human-review" {
+				spec.ReviewRequired = true
+			}
+			if validator.Kind == "command" {
+				spec.Commands = append(spec.Commands, workflow.CommandCheck{ID: validator.ID, Argv: append([]string(nil), validator.Argv...), TimeoutSeconds: validator.TimeoutSeconds, Effects: append([]string(nil), validator.EffectCeilings...)})
+			}
+		}
 		for _, input := range s.Inputs {
 			switch input.Kind {
 			case "work-item":
@@ -547,6 +605,11 @@ func mapWorkflowDefinition(d workflowdefinition.Definition) (string, string, []w
 					return "", "", nil, errWorkflowUnmappable
 				}
 				spec.WorkItemInputs = append(spec.WorkItemInputs, input.ID)
+			case "project-context":
+
+				spec.FrozenInputs = append(spec.FrozenInputs, workflow.FrozenInput{Name: input.ID, Kind: input.Kind, Source: input.Source, Required: input.Required})
+			case "artifact":
+				spec.FrozenInputs = append(spec.FrozenInputs, workflow.FrozenInput{Name: input.ID, Kind: input.Kind, Source: input.Source, Required: input.Required})
 			case "stage-output":
 				parts := strings.Split(input.Source, "/")
 				if len(parts) != 2 {
@@ -570,9 +633,6 @@ func mapWorkflowDefinition(d workflowdefinition.Definition) (string, string, []w
 				return "", "", nil, errWorkflowUnmappable
 			}
 		}
-		if spec.BeforeGate && spec.HumanGate {
-			return "", "", nil, errWorkflowUnmappable
-		}
 
 		if previous != "" {
 			spec.DependsOn = []string{previous}
@@ -580,22 +640,20 @@ func mapWorkflowDefinition(d workflowdefinition.Definition) (string, string, []w
 		for _, o := range s.Outputs {
 			if o.Required {
 				spec.Outputs = append(spec.Outputs, o.ID)
-				if len(s.Validators) != 0 {
-					check := workflow.OutputCheck{Name: o.ID, Kind: o.Kind}
-					for _, criterion := range s.CompletionCriteria {
-						for _, validator := range s.Validators {
-							if criterion.OutputRef == o.ID && criterion.ValidatorRef == validator.ID && validator.Kind == "evidence-check" {
-								check.Evidence = true
-							}
+			} else {
+				spec.OptionalOutputs = append(spec.OptionalOutputs, o.ID)
+			}
+			if len(s.Validators) != 0 {
+				check := workflow.OutputCheck{Name: o.ID, Kind: o.Kind}
+				for _, criterion := range s.CompletionCriteria {
+					for _, validator := range s.Validators {
+						if criterion.OutputRef == o.ID && criterion.ValidatorRef == validator.ID && validator.Kind == "evidence-check" {
+							check.Evidence = true
 						}
 					}
-					spec.OutputChecks = append(spec.OutputChecks, check)
-					spec.DefinitionDigest = "sha256:" + document.Digest
 				}
-			} else if len(s.Validators) != 0 {
-				// Optional result/input lowering is not implemented yet. Never silently
-				// omit a configured validation obligation.
-				return "", "", nil, errWorkflowUnmappable
+				spec.OutputChecks = append(spec.OutputChecks, check)
+				spec.DefinitionDigest = "sha256:" + document.Digest
 			}
 		}
 		for _, a := range s.Agents {
@@ -618,8 +676,18 @@ func mapWorkflowDefinition(d workflowdefinition.Definition) (string, string, []w
 			if a.TimeoutSeconds > 0 && int64(a.TimeoutSeconds) > spec.TimeoutSeconds {
 				spec.TimeoutSeconds = int64(a.TimeoutSeconds)
 			}
+			for _, command := range spec.Commands {
+				for _, effect := range command.Effects {
+					if effect == "network" || effect == "workspace_write" && !slices.Contains(a.EffectCeilings, "repository-write") || effect == "validation_command" && !slices.Contains(a.EffectCeilings, "process") {
+						return "", "", nil, errWorkflowUnmappable
+					}
+					if !slices.Contains(agent.Effects, effect) {
+						agent.Effects = append(agent.Effects, effect)
+					}
+				}
+			}
 			agent.Outputs = nil
-			for _, output := range spec.Outputs {
+			for _, output := range append(append([]string(nil), spec.Outputs...), spec.OptionalOutputs...) {
 				if slices.Contains(a.Outputs, output) {
 					agent.Outputs = append(agent.Outputs, output)
 				}
@@ -628,6 +696,9 @@ func mapWorkflowDefinition(d workflowdefinition.Definition) (string, string, []w
 		}
 		stages = append(stages, spec)
 		previous = s.ID
+	}
+	if _, err := workflow.NewExecution(workflow.NewExecutionInput{ExecutionID: "00000000-0000-0000-0000-000000000001", ProjectID: "validation", WorkItem: workflow.WorkItemLink{Provider: "local", ID: "validation", RepositoryKey: "repo"}, Repositories: []workflow.RepositoryBinding{{Key: "repo", Identity: "validation"}}, WorkflowID: d.WorkflowID, Revision: revision, Stages: stages, Now: time.Unix(1, 0)}); err != nil {
+		return "", "", nil, errWorkflowUnmappable
 	}
 	return d.WorkflowID, revision, stages, nil
 }
@@ -686,10 +757,13 @@ type executionTaskView struct {
 }
 
 type executionStageView struct {
-	StageID string                `json:"stageId"`
-	Status  workflow.StageStatus  `json:"status"`
-	Gate    *workflow.Disposition `json:"gate,omitempty"`
-	Tasks   []executionTaskView   `json:"tasks"`
+	StageID        string                 `json:"stageId"`
+	Status         workflow.StageStatus   `json:"status"`
+	Gate           *workflow.Disposition  `json:"gate,omitempty"`
+	BeforeApproval *workflow.Disposition  `json:"beforeApproval,omitempty"`
+	Review         *workflow.ResultReview `json:"review,omitempty"`
+	ResultDigest   string                 `json:"resultDigest,omitempty"`
+	Tasks          []executionTaskView    `json:"tasks"`
 }
 
 // executionView is the safe projection: no executable path, instruction
@@ -714,7 +788,8 @@ func executionPayload(x workflow.Execution, facts []stageexecution.ReconcileFact
 	v := executionView{ExecutionID: x.ExecutionID, ProjectID: x.ProjectID, WorkItem: x.WorkItem, WorkflowID: x.Workflow.ID, WorkflowRevision: x.Workflow.Revision, WorkflowDigest: x.Workflow.Digest,
 		Revision: x.Revision, RunnerGeneration: x.RunnerGeneration, Status: x.Status, Cancel: x.Cancel, Stages: []executionStageView{}, Reconciliation: facts, NextAction: executionNext(x)}
 	for _, s := range x.Stages {
-		stage := executionStageView{StageID: s.StageID, Status: s.Status, Gate: s.Gate, Tasks: []executionTaskView{}}
+		stage := executionStageView{StageID: s.StageID, Status: s.Status, Gate: s.Gate, BeforeApproval: s.BeforeApproval, Review: s.Review, Tasks: []executionTaskView{}}
+		stage.ResultDigest, _ = x.StageResultDigest(s.StageID)
 		for _, t := range s.Tasks {
 			task := executionTaskView{AgentID: t.AgentID, Attempts: []executionAttemptView{}}
 			for _, a := range t.Attempts {
@@ -824,4 +899,136 @@ func (c executionComposition) failure(err error, x *workflow.Execution) cli.Work
 		}
 	}
 	return c.s.stageFailure(completion.Failure, "execution_operation_failed", "Execution operation failed", "Inspect stage status; never repeat an authorized mutation blindly", payload)
+}
+
+// freezeInputs resolves only explicit input sources and records their provenance
+// in the immutable Workflow snapshot before any Execution or process exists.
+func (c executionComposition) freezeInputs(ctx context.Context, stages []workflow.StageSpec, bindings []string, repository string) error {
+	refs := map[string]string{}
+	used := map[string]bool{}
+	for _, binding := range bindings {
+		key, id, ok := strings.Cut(binding, "=")
+		if !ok || key == "" || refs[key] != "" {
+			return errSelectionSyntax
+		}
+		refs[key] = id
+	}
+	artifacts, err := local.NewArtifactStore(c.s.stateRoot)
+	if err != nil {
+		return err
+	}
+	for i := range stages {
+		for j := range stages[i].FrozenInputs {
+			input := &stages[i].FrozenInputs[j]
+			if input.Kind == "project-context" {
+				if input.Source != "project" {
+					if input.Required && input.Content == "" {
+						return errWorkflowUnmappable
+					}
+					continue
+				}
+				revision, valid := c.project.PortableRevision.Digest()
+				if !valid {
+					return errWorkflowUnmappable
+				}
+				p := &workflow.ProjectInput{ID: c.project.ID, Slug: c.project.Slug, PortableRevision: "sha256:" + hex.EncodeToString(revision[:])}
+				for _, r := range c.project.Repositories {
+					p.Repositories = append(p.Repositories, workflow.RepositoryBinding{Key: r.Key, Identity: repositoryIdentity(r)})
+				}
+				input.Project = p
+				continue
+			}
+			id := refs[input.Source]
+			if id == "" {
+				if input.Required {
+					return errWorkflowUnmappable
+				}
+				continue
+			}
+			used[input.Source] = true
+			a, err := artifacts.Read(ctx, id)
+			if err != nil || a.Outcome != "success" {
+				return errWorkflowUnmappable
+			}
+			count := 0
+			for _, ref := range a.References {
+				if ref.Kind == "workflow-repository" {
+					if ref.Value != repository {
+						return errRepositoryBinding
+					}
+					count++
+				}
+			}
+			if count != 1 {
+				return errWorkflowUnmappable
+			}
+			input.Artifact = &workflow.ArtifactRef{Name: input.Name, RetainedID: a.ID, RepositoryKey: repository, Digest: "sha256:" + hex.EncodeToString(a.Digest[:]), Size: int64(a.ContentBytes)}
+		}
+	}
+	for key := range refs {
+		if !used[key] {
+			return errSelectionSyntax
+		}
+	}
+	return nil
+}
+
+func (c executionComposition) review(ctx context.Context, x workflow.Execution, in cli.WorkflowStageInput) error {
+	digest, err := x.StageResultDigest(in.ReviewStage)
+	if err != nil || digest != in.ResultDigest {
+		return workflow.ErrTransition
+	}
+	store, err := local.NewArtifactStore(c.s.stateRoot)
+	if err != nil {
+		return err
+	}
+	a, err := store.Read(ctx, in.ReviewEvidence)
+	if err != nil || a.ExecutionID != x.ExecutionID || a.Category != "evidence" || a.Retention != "evidence" || a.Outcome != "success" {
+		return workflow.ErrTransition
+	}
+	for kind, value := range map[string]string{"workflow-stage": in.ReviewStage, "workflow-definition": x.Workflow.Digest, "workflow-result": digest, "workflow-repository": x.WorkItem.RepositoryKey} {
+		count := 0
+		for _, r := range a.References {
+			if r.Kind == kind {
+				if r.Value != value {
+					return workflow.ErrTransition
+				}
+				count++
+			}
+		}
+		if count != 1 {
+			return workflow.ErrTransition
+		}
+	}
+	evidence := workflow.ArtifactRef{Name: "human-review", RetainedID: a.ID, RepositoryKey: x.WorkItem.RepositoryKey, Digest: "sha256:" + hex.EncodeToString(a.Digest[:]), Size: int64(a.ContentBytes)}
+	_, err = c.store.UpdateFenced(ctx, x.ProjectID, x.ExecutionID, nil, func(current *workflow.Execution) error {
+		return current.ReviewStage(in.ReviewStage, executionActor("human:"), digest, evidence, time.Now())
+	})
+	return err
+}
+
+// Freeze command executable resolution once; ordinary retries never pick a
+// different executable from a changed PATH. The explicit argv stays in state.
+func freezeCommands(stages []workflow.StageSpec, authorized bool) error {
+	for i := range stages {
+		for j := range stages[i].Commands {
+			command := &stages[i].Commands[j]
+			if !authorized {
+				return workflow.ErrUnauthorizedEffect
+			}
+			if len(command.Argv) == 0 {
+				return errWorkflowUnmappable
+			}
+			path, err := exec.LookPath(command.Argv[0])
+			if err != nil {
+				return errWorkflowUnmappable
+			}
+			path, err = filepath.Abs(path)
+			if err != nil {
+				return errWorkflowUnmappable
+			}
+			command.Argv[0] = path
+		}
+	}
+	return nil
 }

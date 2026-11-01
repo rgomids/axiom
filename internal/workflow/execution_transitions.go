@@ -1,6 +1,7 @@
 package workflow
 
 import (
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"slices"
@@ -122,7 +123,7 @@ func (e *Execution) refreshStageStatuses() {
 
 func (e *Execution) derivedStageStatus(i int) StageStatus {
 	run := e.Stages[i]
-	if e.Workflow.Stages[i].BeforeGate && run.Gate == nil {
+	if e.Workflow.Stages[i].BeforeGate && run.BeforeApproval == nil {
 		for _, dep := range e.Workflow.Stages[i].DependsOn {
 			if e.Stages[e.stageIndex(dep)].Status != StageCompleted {
 				return StagePending
@@ -153,7 +154,7 @@ func (e *Execution) derivedStageStatus(i int) StageStatus {
 	case active:
 		return StageRunning
 	case succeeded == len(run.Tasks):
-		if e.Workflow.Stages[i].HumanGate && run.Gate == nil {
+		if e.Workflow.Stages[i].HumanGate && run.Gate == nil || e.Workflow.Stages[i].ReviewRequired && run.Review == nil {
 			return StageAwaitingGate
 		}
 		return StageCompleted
@@ -235,7 +236,7 @@ func (e Execution) Ready() []TaskRef {
 				ready = false
 			}
 		}
-		if spec.BeforeGate && e.Stages[i].Gate == nil {
+		if spec.BeforeGate && e.Stages[i].BeforeApproval == nil {
 			ready = false
 		}
 		if !ready {
@@ -395,6 +396,7 @@ func (e *Execution) MarkSpawnFailed(id string, generation uint64, diagnostic str
 }
 
 type AttemptResult struct {
+	Commands   []CommandResult
 	ExitCode   int
 	Diagnostic string
 	Effects    []EffectFact
@@ -428,16 +430,38 @@ func (e *Execution) CompleteAttempt(id string, generation uint64, r AttemptResul
 	code := r.ExitCode
 	a.EndedAt, a.ExitCode, a.Effects, a.Artifacts = &at, &code, r.Effects, r.Artifacts
 	a.Diagnostic = clip(r.Diagnostic)
+	if !reflect.DeepEqual(a.Commands, r.Commands) {
+		return ErrTransition
+	}
 	a.Status = AttemptFailed
 	if code == 0 {
 		a.Status = AttemptSucceeded
+		if len(a.Commands) != len(spec.Commands) {
+			a.Status = AttemptFailed
+			a.Diagnostic = "missing_command_validation"
+		}
+		for i, result := range a.Commands {
+			if i >= len(spec.Commands) {
+				return ErrTransition
+			}
+			wire, _ := json.Marshal(spec.Commands[i])
+			if result.ID != spec.Commands[i].ID || result.ArgvDigest != DigestText(wire) || (result.ExitCode != 0 || result.Status != "completed") {
+				a.Status = AttemptFailed
+				a.Diagnostic = "command_validation_failed"
+			}
+		}
 		have := map[string]bool{}
 		for _, ref := range r.Artifacts {
 			have[ref.Name] = true
 		}
 		required := spec.Outputs
 		if agent.OutputScope {
-			required = agent.Outputs
+			required = nil
+			for _, name := range agent.Outputs {
+				if slices.Contains(spec.Outputs, name) {
+					required = append(required, name)
+				}
+			}
 		}
 		for _, out := range required {
 			if !have[out] {
@@ -511,7 +535,14 @@ func (e *Execution) ApproveGate(stageID, actor string, now time.Time) error {
 	if e.Cancel != nil || e.Status == RunRecoveryRequired || i < 0 || e.Stages[i].Status != StageAwaitingGate || !ValidToken(actor) || len(actor) < 7 || actor[:6] != "human:" {
 		return ErrTransition
 	}
-	e.Stages[i].Gate = &Disposition{Actor: actor, Decision: DispositionApproved, RecordedAt: now.UTC()}
+	d := &Disposition{Actor: actor, Decision: DispositionApproved, RecordedAt: now.UTC()}
+	if e.Workflow.Stages[i].BeforeGate && e.Stages[i].BeforeApproval == nil {
+		e.Stages[i].BeforeApproval = d
+	} else if e.Workflow.Stages[i].HumanGate && e.Stages[i].Gate == nil {
+		e.Stages[i].Gate = d
+	} else {
+		return ErrTransition
+	}
 	e.touch(now)
 	return e.Validate()
 }
@@ -537,4 +568,128 @@ func clip(s string) string {
 		cut--
 	}
 	return s[:cut]
+}
+
+func humanActor(actor string) bool {
+	return ValidToken(actor) && len(actor) > 6 && actor[:6] == "human:"
+}
+func humanDisposition(d Disposition) bool {
+	return humanActor(d.Actor) && d.Decision == DispositionApproved && !d.RecordedAt.IsZero()
+}
+
+// StageResultDigest binds review to the complete latest successful result set.
+// Gate decisions cannot substitute for this result-bound review.
+func (e Execution) StageResultDigest(stageID string) (string, error) {
+	i := e.stageIndex(stageID)
+	if i < 0 {
+		return "", ErrTransition
+	}
+	type result struct {
+		Agent   string
+		Attempt Attempt
+	}
+	var results []result
+	for _, task := range e.Stages[i].Tasks {
+		a := lastAttempt(task)
+		if a == nil || a.Status != AttemptSucceeded {
+			return "", ErrTransition
+		}
+		results = append(results, result{task.AgentID, *a})
+	}
+	wire, err := json.Marshal(struct {
+		Execution, Definition, Stage string
+		Results                      []result
+	}{e.ExecutionID, e.Workflow.Digest, stageID, results})
+	if err != nil {
+		return "", ErrTransition
+	}
+	return DigestText(wire), nil
+}
+
+// ReviewStage accepts only an explicit human result approval with retained Evidence.
+func (e *Execution) ReviewStage(stageID, actor, resultDigest string, evidence ArtifactRef, now time.Time) error {
+	i := e.stageIndex(stageID)
+	if i < 0 || e.Cancel != nil || e.Status == RunRecoveryRequired || !e.Workflow.Stages[i].ReviewRequired || e.Stages[i].Review != nil || !humanActor(actor) {
+		return ErrTransition
+	}
+	digest, err := e.StageResultDigest(stageID)
+	if err != nil || digest != resultDigest || evidence.RetainedID == "" || evidence.RepositoryKey != e.WorkItem.RepositoryKey || !validPrefixedDigest(evidence.Digest) {
+		return ErrTransition
+	}
+	e.Stages[i].Review = &ResultReview{Actor: actor, ResultDigest: digest, Evidence: evidence, RecordedAt: now.UTC()}
+	e.touch(now)
+	return e.Validate()
+}
+
+// PrepareCommand records intent before the command subprocess can exist.
+func (e *Execution) PrepareCommand(attemptID string, generation uint64, id string, now time.Time) error {
+	a, err := e.fencedAttempt(attemptID, generation, AttemptRunning)
+	if err != nil {
+		return err
+	}
+	if e.Cancel != nil {
+		return ErrCancelled
+	}
+	_, ref, _ := e.FindAttempt(attemptID)
+	_, _, spec, _ := e.task(ref)
+	index := len(a.Commands)
+	if index >= len(spec.Commands) || spec.Commands[index].ID != id {
+		return ErrTransition
+	}
+	for _, effect := range spec.Commands[index].Effects {
+		if !slices.Contains(a.Authority.Effects, effect) {
+			return ErrUnauthorizedEffect
+		}
+	}
+	if index > 0 && (a.Commands[index-1].Status != "completed" || a.Commands[index-1].ExitCode != 0) {
+		return ErrTransition
+	}
+	wire, _ := json.Marshal(spec.Commands[index])
+	a.Commands = append(a.Commands, CommandResult{ID: id, ArgvDigest: DigestText(wire), Status: "prepared", PreparedAt: now.UTC()})
+	e.touch(now)
+	return e.Validate()
+}
+func (e *Execution) StartCommand(attemptID string, generation uint64, id string, process ProcessIdentity, now time.Time) error {
+	a, err := e.fencedAttempt(attemptID, generation, AttemptRunning)
+	if err != nil {
+		return err
+	}
+	if e.Cancel != nil {
+		return ErrCancelled
+	}
+	if len(a.Commands) == 0 {
+		return ErrTransition
+	}
+	c := &a.Commands[len(a.Commands)-1]
+	if c.ID != id || c.Status != "prepared" {
+		return ErrTransition
+	}
+	at := now.UTC()
+	c.Process = &process
+	c.StartedAt = &at
+	c.Status = "running"
+	e.touch(now)
+	return e.Validate()
+}
+func (e *Execution) FinishCommand(attemptID string, generation uint64, id string, code int, now time.Time) error {
+	a, err := e.fencedAttempt(attemptID, generation, AttemptRunning)
+	if err != nil {
+		return err
+	}
+	if e.Cancel != nil {
+		return ErrCancelled
+	}
+	if len(a.Commands) == 0 {
+		return ErrTransition
+	}
+	c := &a.Commands[len(a.Commands)-1]
+	if c.ID != id || c.Status != "running" {
+		return ErrTransition
+	}
+	at := now.UTC()
+	c.EndedAt = &at
+	c.ExitCode = code
+	c.Status = "completed"
+	e.touch(now)
+	return e.Validate()
 }

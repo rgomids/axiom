@@ -108,7 +108,10 @@ func TestProjectContextFailsOnStalePortableRevision(t *testing.T) {
 	if result := service.WorkItemCreate(context.Background(), cli.WorkItemInput{Repository: "main"}); result.Category != "stale_project_context" {
 		t.Fatal(result)
 	}
-	if result := service.WorkflowStart(context.Background(), cli.WorkflowInput{Repository: "main"}); result.Category != "stale_project_context" {
+	if result := service.WorkflowList(context.Background(), cli.ExecutionListInput{Repository: "main"}); result.Result.Category != "stale_project_context" {
+		t.Fatal(result)
+	}
+	if result := service.WorkflowStage(context.Background(), cli.WorkflowStageInput{Operation: "execution-run", Repository: "main", WorkItem: "github:owner/repo#7"}); result.Result.Category != "stale_project_context" {
 		t.Fatal(result)
 	}
 	if after := snapshotTrees(t, env.root, env.state, env.elsewhere); !bytes.Equal(before, after) {

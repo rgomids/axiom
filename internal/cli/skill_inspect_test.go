@@ -80,7 +80,7 @@ func TestSkillDiscoveryExactCommands(t *testing.T) {
 		"axiom-workflow":  {},
 		"axiom-runtime":   {},
 		"axiom-project":   {"axiom project configure", "axiom project list", "axiom project show", "axiom project validate", "axiom project archive", "axiom project reactivate", "axiom integration list", "axiom integration show", "axiom integration validate", "axiom integration disable", "axiom integration enable", "axiom integration remove"},
-		"axiom-work-item": {"axiom work-item create", "axiom work-item select", "axiom workflow start", "axiom workflow advance", "axiom workflow fact", "axiom workflow resume", "axiom workflow reconcile", "axiom workflow status", "axiom workflow evidence", "axiom workflow list", "axiom work-item list", "axiom work-item show", "axiom work-item update", "axiom work-item comment", "axiom work-item close", "axiom work-item reopen", "axiom workflow run", "axiom workflow delivery packet", "axiom workflow delivery decision", "axiom workflow delivery rework", "axiom workflow delivery prepare", "axiom workflow delivery preview", "axiom workflow delivery apply", "axiom workflow delivery inspect", "axiom workflow delivery reconcile", "axiom workflow stage status", "axiom workflow stage cancel", "axiom workflow stage retry", "axiom workflow stage reconcile", "axiom workflow coordination list", "axiom workflow coordination show"},
+		"axiom-work-item": {"axiom work-item create", "axiom work-item select", "axiom workflow run", "axiom workflow status", "axiom workflow evidence", "axiom workflow list", "axiom work-item list", "axiom work-item show", "axiom work-item update", "axiom work-item comment", "axiom work-item close", "axiom work-item reopen", "axiom workflow delivery packet", "axiom workflow stage status", "axiom workflow stage cancel", "axiom workflow stage retry", "axiom workflow stage reconcile", "axiom workflow coordination list", "axiom workflow coordination show"},
 	}
 	for _, op := range []string{"list", "show", "create", "edit", "validate", "remove", "recover", "migrate"} {
 		expected["axiom-workflow"] = append(expected["axiom-workflow"], "axiom project workflow "+op)
@@ -107,7 +107,7 @@ func TestSkillDiscoveryExactCommands(t *testing.T) {
 		t.Fatal("catalog inventory changed; reconcile exact command expectations")
 	}
 	expected["axiom-project"] = append(expected["axiom-project"], "axiom project workflow select")
-	expected["axiom-workflow"] = append(expected["axiom-workflow"], "axiom runtime profile validate", "axiom runtime profile preview", "axiom runtime codex status", "axiom runtime claude status", "axiom runtime codex auth", "axiom runtime claude auth")
+	expected["axiom-workflow"] = append(expected["axiom-workflow"], "axiom runtime profile validate", "axiom runtime codex status", "axiom runtime claude status", "axiom runtime codex auth", "axiom runtime claude auth")
 	for _, name := range canonicalDomainSkills {
 		t.Run(name, func(t *testing.T) {
 			want, exists := expected[name]
@@ -144,16 +144,16 @@ func TestSkillDiscoveryRequiredOptionalDescriptionForms(t *testing.T) {
 	if !reflect.DeepEqual(boolean.AcceptedForms, []string{"--authorize-local", "--authorize-local=<boolean>"}) {
 		t.Fatalf("boolean=%+v", boolean)
 	}
-	start := discoveryCommand(t, "axiom-work-item", "axiom workflow start")
-	for _, name := range []string{"role", "complexity", "capabilities"} {
-		arg := findArgument(t, start, "--"+name)
-		if !arg.Required || arg.RequiredWhen != "" {
-			t.Fatalf("policy requirement=%+v", arg)
+	run := discoveryCommand(t, "axiom-work-item", "axiom workflow run")
+	for _, name := range []string{"--select", "--authorize-external", "--approve-gate", "--authorize-human"} {
+		if arg := findArgument(t, run, name); arg.Description == "" {
+			t.Fatalf("missing canonical run metadata: %+v", arg)
 		}
 	}
-	reviewed := findArgument(t, start, "--runtime-preview")
-	if reviewed.Required || reviewed.RequiredWhen != "creating Execution after review" {
-		t.Fatalf("reviewed preview requirement=%+v", reviewed)
+	for _, arg := range run.Arguments {
+		if arg.Name == "--runtime-preview" || arg.Name == "--validator-policy" || arg.Name == "--plan" {
+			t.Fatalf("retired admission input advertised: %+v", arg)
+		}
 	}
 	list := discoveryCommand(t, "axiom-project", "axiom project list")
 	if archived := findArgument(t, list, "--include-archived"); len(list.Arguments) != 1 || archived.Required || archived.RequiredWhen != "" {
@@ -320,23 +320,37 @@ func TestSkillDiscoveryMatchesParserAndAcceptedForms(t *testing.T) {
 
 func TestSkillDiscoveryRequirementsMatchRequests(t *testing.T) {
 	cases := []struct {
-		skill string
-		index int
-		args  []string
+		skill   string
+		command string
+		args    []string
 	}{
-		{"axiom-project", 2, []string{"--selector", "alpha"}},
-		{"axiom-project", 0, []string{"--slug", "alpha", "--name", "Alpha", "--repository", "main=/tmp/alpha"}},
-		{"axiom-work-item", 0, []string{"--project", "alpha", "--repository", "main", "--provider-repository", "owner/repo"}},
-		{"axiom-work-item", 2, []string{"--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--role", "implementation", "--complexity", "high", "--capabilities", "code"}},
-		{"axiom-work-item", 3, []string{"--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--execution", "execution", "--expected-revision", "1", "--gate", "review", "--outcome", "passed"}},
-		{"axiom-work-item", 1, []string{"--project", "alpha", "--repository", "main", "--number", "7", "--provider-repository", "owner/repo"}},
-		{"axiom-work-item", 4, []string{"--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--execution", "execution", "--expected-revision", "1", "--fact", "review_started", "--reference", "docs/review.md"}},
-		{"axiom-work-item", 5, []string{"--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--execution", "execution", "--expected-revision", "1"}},
-		{"axiom-work-item", 7, []string{"--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--execution", "execution"}},
+		{"axiom-project", "axiom project show", []string{"--selector", "alpha"}},
+		{"axiom-project", "axiom project configure", []string{"--slug", "alpha", "--name", "Alpha", "--repository", "main=/tmp/alpha"}},
+		{"axiom-work-item", "axiom work-item create", []string{"--project", "alpha", "--repository", "main", "--provider-repository", "owner/repo"}},
+		{"axiom-work-item", "axiom workflow run", []string{"--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7"}},
+		{"axiom-work-item", "axiom work-item select", []string{"--project", "alpha", "--repository", "main", "--number", "7", "--provider-repository", "owner/repo"}},
+		{"axiom-work-item", "axiom workflow status", []string{"--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--execution", "execution"}},
 	}
 	for _, tc := range cases {
-		cmd := discoverForTest(t, tc.skill).Commands[tc.index]
+		cmd := discoveryCommand(t, tc.skill, tc.command)
 		prefix := strings.Fields(strings.TrimPrefix(cmd.Command, "axiom "))
+		if cmd.Command == "axiom workflow run" {
+			if _, ok := workflowStageFlags(workflowRunAction, tc.args, true); !ok {
+				t.Fatal("canonical run requirements rejected complete selectors")
+			}
+			for _, required := range []string{"--repository", "--work-item"} {
+				for i := 0; i < len(tc.args); i += 2 {
+					if tc.args[i] != required {
+						continue
+					}
+					without := append(append([]string{}, tc.args[:i]...), tc.args[i+2:]...)
+					if _, ok := workflowStageFlags(workflowRunAction, without, true); ok {
+						t.Fatalf("run accepted missing %s", required)
+					}
+				}
+			}
+			continue
+		}
 		if _, _, issue := request(append(append([]string{}, prefix...), tc.args...), &recordingService{}); issue != nil {
 			t.Fatalf("baseline %s: %s", cmd.Command, *issue)
 		}
@@ -353,7 +367,7 @@ func TestSkillDiscoveryRequirementsMatchRequests(t *testing.T) {
 		}
 	}
 	// Edit has no CREATE requirements, and legacy numeric workflow calls remain valid.
-	for _, args := range [][]string{{"project", "configure", "--project", "alpha"}, {"workflow", "status", "--project", "alpha", "--repository", "main", "--number", "7"}} {
+	for _, args := range [][]string{{"project", "configure", "--project", "alpha"}, {"workflow", "status", "--project", "alpha", "--execution", "exec-1"}} {
 		if _, _, issue := request(args, &recordingService{}); issue != nil {
 			t.Fatalf("optional inputs became required: %v: %s", args, *issue)
 		}
@@ -373,8 +387,10 @@ func TestSkillDiscoveryRejectsInvalidRequestsAndWorkflowConflicts(t *testing.T) 
 		}
 	}
 	discoverForTest(t, "axiom-work-item")
+	if _, ok := workflowStageFlags(workflowRunAction, []string{"--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--work-item", "github:owner/repo#8"}, true); ok {
+		t.Fatal("canonical run accepted contradictory duplicate Work Item selectors")
+	}
 	for _, args := range [][]string{
-		{"workflow", "start", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--number", "7"},
 		{"work-item", "select", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--provider-repository", "owner/repo"},
 		{"project", "configure", "--project", "alpha", "--work-item-provider", "github", "--remove-work-item-provider"},
 		{"project", "show", "--unknown", "example"},

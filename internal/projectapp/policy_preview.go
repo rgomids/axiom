@@ -123,15 +123,14 @@ func PreviewPolicyEdit(ctx context.Context, ports PolicyEditPorts, intent EditIn
 		return PolicyEditProposal{}, EditStateUnsafe
 	}
 	admission := AdmissionDecision{Operation: AdmitProjectEdit, Class: AdmissionAdministrative, Allowed: true, ProjectID: state.ID}
-	input := ReadinessInput{Project: proposal.project, Local: proposal.local, Repositories: map[string]bool{}, RuntimeCode: PolicyRuntimeCode(facts.Runtime), Catalog: SupportedProviders}
+	// Per-agent policy coverage rows are authoring guidance only. Execution
+	// readiness uses the same non-predictive basis as project validate: the
+	// canonical run selects and observes Runtime/model/effort on the attempt.
+	input := ReadinessInput{Project: proposal.project, Local: proposal.local, Repositories: map[string]bool{}, RuntimeCode: RuntimeSelectedAtDispatch, Catalog: SupportedProviders}
 	input.Repositories = facts.Repositories
 	input.Documentation = facts.Documentation
 	for i := range facts.Runtime {
 		facts.Runtime[i].Next = PolicyRuntimeGuidance(facts.Runtime[i].Code)
-		facts.Runtime[i].Blocker = BlockerRuntimeResolution
-		if facts.Runtime[i].Code == "policy_unconfigured" {
-			facts.Runtime[i].Blocker = BlockerRuntimePolicyUnavailable
-		}
 	}
 	readiness := EvaluateReadiness(input)
 	preview := PolicyEditPreview{

@@ -42,7 +42,8 @@ func TestDocumentationRenderingDeterministicAndComplete(t *testing.T) {
 			}
 		})
 	})
-	if leaves != 104 || flags != 515 {
+	// Spec 015 S1.7 retired 12 legacy lifecycle/delivery leaves.
+	if leaves != 92 || flags != 408 {
 		t.Fatalf("public tree drifted from the accepted coverage map: leaves=%d flags=%d", leaves, flags)
 	}
 	if leaves == 0 || flags == 0 {

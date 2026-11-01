@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"github.com/rgomids/axiom/internal/cli"
 	"github.com/rgomids/axiom/internal/completion"
@@ -110,7 +111,7 @@ func (a workflowAuthoringAdapter) ObserveWorkflows(ctx context.Context, selector
 		// unknown recovery/reference records deny retirement rather than guessing.
 	}
 	if observation.ReferencesChecked {
-		store, err := local.NewWorkflowStore(s.stateRoot)
+		store, err := local.NewExecutionStore(s.stateRoot)
 		if err != nil {
 			observation.ReferencesChecked = false
 		} else {
@@ -119,9 +120,12 @@ func (a workflowAuthoringAdapter) ObserveWorkflows(ctx context.Context, selector
 				observation.ReferencesChecked = false
 			} else {
 				for _, execution := range states {
-					if execution.Binding != nil {
-						observation.Referenced = append(observation.Referenced, execution.Binding.Definition)
+					revision, err := strconv.Atoi(strings.TrimPrefix(execution.Workflow.Revision, "r"))
+					if err != nil {
+						observation.ReferencesChecked = false
+						continue
 					}
+					observation.Referenced = append(observation.Referenced, workflowdefinition.Ref{WorkflowID: execution.Workflow.ID, Revision: revision, Digest: execution.Workflow.Stages[0].DefinitionDigest})
 				}
 			}
 		}

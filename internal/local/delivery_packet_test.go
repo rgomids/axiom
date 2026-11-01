@@ -36,9 +36,6 @@ func TestDeliveryPacketStoreCASReadbackTamperAndInventory(t *testing.T) {
 	if _, err := store.LoadDeliveryPacket(ctx, state.ProjectID, ref); err != nil {
 		t.Fatal(err)
 	}
-	if list, err := store.List(ctx, state.ProjectID); err != nil || len(list) != 1 {
-		t.Fatal("packet breaks execution list", err)
-	}
 	after, _ := os.ReadFile(executionPath(t, root, state))
 	if string(before) != string(after) {
 		t.Fatal("ledger mutated")

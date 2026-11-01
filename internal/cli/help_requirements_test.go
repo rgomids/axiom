@@ -44,7 +44,7 @@ func TestCommandRequirementsMatchMaintenanceParserPresence(t *testing.T) {
 }
 
 func TestCommandRequirementsPreserveSkillRequirements(t *testing.T) {
-	for _, operation := range []action{showAction, resolveAction, workItemCreateAction, workItemSelectAction, workItemCommentAction, workflowStartAction, workflowAdvanceAction, workflowFactAction, integrationShowAction, projectArchiveAction} {
+	for _, operation := range []action{showAction, resolveAction, workItemCreateAction, workItemSelectAction, workItemCommentAction, workflowStatusAction, workflowEvidenceAction, integrationShowAction, projectArchiveAction} {
 		if !slices.Equal(commandRequirements(operation), skillRequirements(operation, requestInput{})) {
 			t.Errorf("%s changed shared skill requirements", operation)
 		}

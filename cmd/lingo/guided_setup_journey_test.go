@@ -219,8 +219,10 @@ func TestGuidedSetupGovsmFromScratchWithCodexAndClaude(t *testing.T) {
 	if got := mustJSON(t, shown["project"]); !strings.Contains(got, `"key":"api"`) || !strings.Contains(got, `"key":"web"`) {
 		t.Fatal("repository read-back", got)
 	}
-	if !strings.Contains(mustJSON(t, e.run("", "project", "validate", "--project", "govsm")), "runtime_policy_unavailable") {
-		t.Fatal("bootstrap Project claimed Runtime readiness")
+	// Readiness neither predicts nor claims Runtime readiness; selection and
+	// actual vendor failures belong to the attempt.
+	if got := mustJSON(t, e.run("", "project", "validate", "--project", "govsm")); !strings.Contains(got, "selected_at_dispatch") || strings.Contains(got, `"status":"ready","next"`) {
+		t.Fatal("bootstrap Project claimed Runtime readiness", got)
 	}
 
 	// Step 3: the operator chooses one listed definition explicitly; the
@@ -285,7 +287,7 @@ func TestGuidedSetupGovsmFromScratchWithCodexAndClaude(t *testing.T) {
 	// results separate; authentication is not observed by this journey.
 	validated := e.run("", "project", "validate", "--project", "govsm")
 	readiness := mustJSON(t, validated["readiness"])
-	if text(validated, "readiness", "structure") != "valid" || text(validated, "readiness", "runtime", "status") != "ready" ||
+	if text(validated, "readiness", "structure") != "valid" || text(validated, "readiness", "runtime", "status") != "selected_at_dispatch" ||
 		!strings.Contains(readiness, `{"blockers":[],"operation":"execution","status":"ready"}`) || !strings.Contains(readiness, `{"blockers":[],"operation":"work-item","status":"ready"}`) {
 		t.Fatal(readiness)
 	}
@@ -317,8 +319,9 @@ func TestGuidedSetupCompletesExistingIncompleteProject(t *testing.T) {
 	// An existing Project published before any Runtime/Profile existed.
 	e.configureProject("project", "configure", "--slug", "partial", "--name", "Partial", "--repository", "core="+repo, "--repository-remote", "core=none", "--work-item-provider", "none")
 	before := e.run("", "project", "validate", "--project", "partial")
-	if !strings.Contains(mustJSON(t, before["readiness"]), "runtime_policy_unavailable") {
-		t.Fatal("missing policy not reported", before["readiness"])
+	// Missing Runtime policy is optional intent, not a predictive blocker.
+	if got := mustJSON(t, before["readiness"]); !strings.Contains(got, "selected_at_dispatch") || strings.Contains(got, "runtime_policy_unavailable") {
+		t.Fatal("missing policy treated as readiness gate", before["readiness"])
 	}
 	// An absent Runtime is an environment gap, not an authentication one.
 	absent := e.run("runtime_absent", "runtime", "binding", "create", "--runtime", "claude", "--profile", "claude-default", "--model", "operator-model", "--effort-mode", "runtime-default", "--effort", "default", "--capabilities", "read")
@@ -333,9 +336,9 @@ func TestGuidedSetupCompletesExistingIncompleteProject(t *testing.T) {
 	}
 	e.run("profile_exists", "runtime", "profile", "create", "--runtime", "codex", "--profile", "worker", "--model", "operator-model", "--effort-mode", "explicit", "--effort", "low", "--capabilities", "read")
 	applyPolicy(t, e, "partial", `{"runtimes":{"mode":"replace","values":[{"id":"codex"}]},"modelProfiles":{"mode":"replace","values":[{"key":"worker","runtimeRef":"codex","model":"operator-model"}]}}`)
-	// Without a selected Workflow, readiness stays metadata-only: Runtime
-	// resolution is explicitly unobserved, never ready.
-	if got := e.run("", "project", "validate", "--project", "partial"); strings.Contains(mustJSON(t, got), "runtime_policy_unavailable") || text(got, "readiness", "runtime", "detail") != "inventory_unavailable" {
+	// Readiness stays metadata-only: Runtime resolution is never predicted
+	// and is selected on the actual attempt.
+	if got := e.run("", "project", "validate", "--project", "partial"); strings.Contains(mustJSON(t, got), "runtime_policy_unavailable") || text(got, "readiness", "runtime", "status") != "selected_at_dispatch" {
 		t.Fatal("readiness after policy", mustJSON(t, got["readiness"]))
 	}
 	listed, _ := field(e.run("", "project", "workflow", "list", "--project", "partial"), "workflowAuthoring", "revisions").([]any)
@@ -343,11 +346,11 @@ func TestGuidedSetupCompletesExistingIncompleteProject(t *testing.T) {
 	selectArgs := []string{"project", "workflow", "select", "--project", "partial", "--workflow", text(last, "workflowId"), "--revision", strconv.Itoa(int(last["revision"].(float64))), "--digest", text(last, "digest"), "--source", text(last, "source")}
 	preview := e.run("", selectArgs...)
 	e.run("", append(selectArgs, "--expected-revision", text(preview, "workflowAuthoring", "projectRevision"), "--preview-digest", text(preview, "workflowAuthoring", "previewDigest"), "--authorize-local")...)
-	// Selection makes Runtime readiness observable. Execution remains blocked
-	// only by the Provider gap, which is reported with its own cause; the
-	// policy is no longer editable by G-1.
+	// Runtime remains selected at dispatch. Execution remains blocked only by
+	// the Provider gap, which is reported with its own cause; the policy is no
+	// longer editable by G-1.
 	after := e.run("", "project", "validate", "--project", "partial")
-	if got := mustJSON(t, after["readiness"]); text(after, "readiness", "runtime", "status") != "ready" || !strings.Contains(got, `{"blockers":[{"code":"capability_mapping_missing","subject":"work-item"}],"operation":"execution","status":"blocked"}`) || strings.Contains(got, "runtime_") {
+	if got := mustJSON(t, after["readiness"]); text(after, "readiness", "runtime", "status") != "selected_at_dispatch" || !strings.Contains(got, `{"blockers":[{"code":"capability_mapping_missing","subject":"work-item"}],"operation":"execution","status":"blocked"}`) || strings.Contains(got, "runtime_") {
 		t.Fatal("readiness after selection", got)
 	}
 	if !strings.Contains(mustJSON(t, e.run("", "project", "configure", "--project", "partial", "--policy-draft", "{}")), "requires schema 2 or 3") {

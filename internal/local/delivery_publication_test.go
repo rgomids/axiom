@@ -39,9 +39,6 @@ func TestDeliveryPublicationStoreFenceCASReadbackAndTamper(t *testing.T) {
 	if err = store.SaveDeliveryPublication(ctx, state, next, &r); err == nil {
 		t.Fatal("stale CAS accepted")
 	}
-	if list, err := store.List(ctx, state.ProjectID); err != nil || len(list) != 1 {
-		t.Fatal(list, err)
-	}
 	path := filepath.Join(root, "executions", "v1", state.ProjectID, publicationName(r.Preview.Digest()))
 	if err = os.WriteFile(path, []byte(`{}`), 0600); err != nil {
 		t.Fatal(err)

@@ -327,7 +327,7 @@ func workflowProjectDiagnostics(p project.State, d workflowdefinition.Definition
 		field := fmt.Sprintf("stages[%d]", i)
 		for _, input := range s.Inputs {
 			if input.Kind == "project-context" {
-				found := input.Source == "business-context"
+				found := input.Source == "business-context" || input.Source == "project"
 				for _, doc := range docs {
 					found = found || doc.Key == input.Source
 				}

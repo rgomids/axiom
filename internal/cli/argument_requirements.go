@@ -64,6 +64,9 @@ func skillRequirements(operation action, v requestInput) []inputRequirement {
 	if !knownWorkItem(operation) && !knownWorkflow(operation) {
 		return nil
 	}
+	if knownWorkflow(operation) {
+		return []inputRequirement{{name: "project", when: "no effective Project context is available", applies: true, missing: v.project == ""}, {name: "execution", required: true, missing: v.execution == ""}}
+	}
 	if operation == workItemListAction {
 		return []inputRequirement{{name: "project", required: true, missing: v.project == ""}}
 	}
@@ -81,28 +84,7 @@ func skillRequirements(operation action, v requestInput) []inputRequirement {
 	if operation == workItemCommentAction {
 		rules = append(rules, inputRequirement{name: "message", required: true, missing: v.message == ""})
 	}
-	if operation == workflowStartAction {
-		rules = append(rules,
-			inputRequirement{name: "role", required: true, missing: v.role == ""},
-			inputRequirement{name: "complexity", required: true, missing: v.complexity == ""},
-			inputRequirement{name: "capabilities", required: true, missing: v.capabilities == ""},
-			inputRequirement{name: "runtime-preview", when: "creating Execution after review", missing: v.runtimePreview == ""},
-		)
-	}
-	if knownWorkflow(operation) && operation != workflowStartAction {
-		rules = append(rules, inputRequirement{"execution", false, "using --work-item", v.workItem != "", v.execution == ""})
-	}
-	if operation == workflowAdvanceAction || operation == workflowFactAction || operation == workflowResumeAction || operation == workflowReconcileAction {
-		rules = append(rules, inputRequirement{name: "expected-revision", required: true, missing: v.expectedRevision == 0})
-	}
-	if operation == workflowAdvanceAction {
-		rules = append(rules,
-			inputRequirement{"gate", false, "--automatic is false or absent", !v.automatic, v.gate == ""},
-			inputRequirement{"outcome", false, "--automatic is false or absent", !v.automatic, v.outcome == ""})
-	}
-	if operation == workflowFactAction {
-		rules = append(rules, inputRequirement{name: "fact", required: true, missing: v.fact == ""}, inputRequirement{name: "reference", required: true, missing: v.reference == ""})
-	}
+
 	return rules
 }
 

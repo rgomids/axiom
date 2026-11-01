@@ -127,7 +127,7 @@ func TestHelpRejectsProvidedInvalidLeafSyntaxWithoutServices(t *testing.T) {
 }
 
 func TestHelpDirectMutationExamplesStateRequiredAuthority(t *testing.T) {
-	for _, operation := range []action{"context_default-set", "context_default-clear", "context_session-set", "context_session-clear", "context_session-end", workflowFactAction} {
+	for _, operation := range []action{"context_default-set", "context_default-clear", "context_session-set", "context_session-clear", "context_session-end"} {
 		_, path := commandByAction(operation)
 		example := commandExample(operation, path)
 		if !strings.Contains(example, "--authorize-local") {

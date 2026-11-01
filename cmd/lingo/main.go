@@ -159,20 +159,11 @@ func composeWithProvenance(source provenance.Value) cli.Service {
 		lifecycle = github
 	}
 	workItemService := workitem.New(workItemResolver{installation: installation, portable: store}, capability, lifecycle, workItems, source)
-	workflows, err := local.NewWorkflowStore(state)
-	if err != nil {
-		return cli.NewUnavailableService(source)
-	}
-	artifacts, err := local.NewArtifactStore(state)
-	if err != nil {
-		return cli.NewUnavailableService(source)
-	}
-	references := local.NewWorkflowReferenceValidator(artifacts)
 	operational, err := local.NewOperationalStore(state)
 	if err != nil {
 		return cli.NewUnavailableService(source)
 	}
-	workflowService := workflow.New(workflowResolver{installation}, workflowWorkItems{workItemService}, workflows, github, references, source, nil, nil).WithDefinitions(workflowDefinitions{installation, store}, references).WithProfileContract()
+	workflowService := workflow.New(workflowResolver{installation}, workflowWorkItems{workItemService}, nil, nil, nil, source, nil, nil)
 	return lifecycleService{lifecycle: projectapp.NewLifecycle(store, manifest.Codec{}, local.IdentityAllocator{}), portable: store, installation: installation, operational: operational, projectCatalog: projectapp.NewProjectCatalog(installation, installation).WithOperationalState(operational), codex: codex, workItems: workItemService, workflows: workflowService, projectsRoot: root, stateRoot: state, skillsRoot: codexSkillsRoot(), runtimes: discoverRuntimeRoots(), provenance: source}
 }
 
@@ -941,149 +932,28 @@ func workflowTarget(input cli.WorkflowInput) workflow.Target {
 	return workflow.Target{ProjectSelector: input.Project, RepositoryKey: input.Repository, WorkItemProvider: input.Provider, WorkItemResource: input.ProviderRepository, WorkItem: externalID, ExecutionID: input.Execution, RuntimeID: input.Runtime}
 }
 
+// Legacy lifecycle writers are deliberately inert. Canonical attempts alone
+// establish progress; caller-supplied transitions cannot manufacture results.
+func (s lifecycleService) retiredWorkflowMutation() cli.Result {
+	return s.stageFailure(completion.ValidationFailure, "workflow_legacy_operation_retired", "The legacy lifecycle operation is retired", "Use workflow run and workflow stage status/cancel/retry/reconcile on the canonical Execution", nil).Result
+}
 func (s lifecycleService) WorkflowAdvance(ctx context.Context, input cli.WorkflowInput) cli.Result {
-	if input.Project == "" {
-		id, failure := s.EffectiveProject(ctx, "")
-		if id == "" {
-			return failure
-		}
-		input.Project = id
-	}
-
-	if blocked := s.gate(ctx, input.Project, projectapp.AdmitExecutionAdvance); blocked != nil {
-		return *blocked
-	}
-	if input.Automatic {
-		if input.Gate != "" || input.Outcome != "" || input.Reference != "" || input.Next != "" || input.StageResultFile != "" {
-			return workflowResult(workflow.Result{Status: workflow.ValidationFailed, Category: "invalid_workflow_transition"}, s.provenance)
-		}
-		return workflowResult(s.workflows.AdvanceAutomatic(ctx, workflowTarget(input), input.ExpectedRevision), s.provenance)
-	}
-	references, ok := workflowReferences(input.Reference)
-	if !ok {
-		return workflowResult(workflow.Result{Status: workflow.ValidationFailed, Category: "invalid_workflow_reference"}, s.provenance)
-	}
-	var stageResult *workflow.StageResult
-	if input.StageResultFile != "" {
-		var value workflow.StageResult
-		if readStageResult(input.StageResultFile, &value) != nil {
-			return workflowResult(workflow.Result{Status: workflow.ValidationFailed, Category: "invalid_stage_result"}, s.provenance)
-		}
-		stageResult = &value
-	}
-	return workflowResult(s.workflows.Transition(ctx, workflowTarget(input), workflow.TransitionInput{ExpectedRevision: input.ExpectedRevision, Stage: workflow.Stage(input.Gate), Outcome: workflow.Outcome(input.Outcome), References: references, Next: input.Next, StageResult: stageResult}), s.provenance)
+	return s.retiredWorkflowMutation()
 }
 func (s lifecycleService) WorkflowFact(ctx context.Context, input cli.WorkflowInput) cli.Result {
-	if input.Project == "" {
-		id, failure := s.EffectiveProject(ctx, "")
-		if id == "" {
-			return failure
-		}
-		input.Project = id
-	}
-
-	if blocked := s.gate(ctx, input.Project, projectapp.AdmitExecutionFact); blocked != nil {
-		return *blocked
-	}
-	references, ok := workflowReferences(input.Reference)
-	if !ok || len(references) != 1 {
-		return workflowResult(workflow.Result{Status: workflow.ValidationFailed, Category: "invalid_workflow_reference"}, s.provenance)
-	}
-	kinds := map[string]workflow.LifecycleFactKind{
-		"stage-review":             workflow.FactStageReview,
-		"planning-authority":       workflow.FactPlanningAuthority,
-		"implementation-authority": workflow.FactImplementationAuthority,
-		"review-started":           workflow.FactReviewStarted,
-		"human-acceptance":         workflow.FactHumanAcceptance,
-		"blocked":                  workflow.FactBlocked,
-		"needs-decision":           workflow.FactNeedsDecision,
-		"needs-approval":           workflow.FactNeedsApproval,
-	}
-	kind := kinds[input.Fact]
-	if kind == "" {
-		return workflowResult(workflow.Result{Status: workflow.ValidationFailed, Category: "invalid_lifecycle_fact"}, s.provenance)
-	}
-	var stageResult *workflow.StageResult
-	if input.StageResultFile != "" {
-		var value workflow.StageResult
-		if readStageResult(input.StageResultFile, &value) != nil {
-			return workflowResult(workflow.Result{Status: workflow.ValidationFailed, Category: "invalid_stage_result"}, s.provenance)
-		}
-		stageResult = &value
-	}
-	return workflowResult(s.workflows.RecordLifecycleFact(ctx, workflowTarget(input), workflow.LifecycleFactInput{ExpectedRevision: input.ExpectedRevision, Kind: kind, Active: input.Active, Reference: references[0], Actor: input.Actor, StageResult: stageResult}, input.AuthorizeLocal), s.provenance)
+	return s.retiredWorkflowMutation()
 }
 func (s lifecycleService) WorkflowResume(ctx context.Context, input cli.WorkflowInput) cli.Result {
-	if input.Project == "" {
-		id, failure := s.EffectiveProject(ctx, "")
-		if id == "" {
-			return failure
-		}
-		input.Project = id
-	}
-	decision := s.admission().Admit(ctx, input.Project, projectapp.AdmitExecutionResume)
-	if !decision.Allowed {
-		return s.admissionDenied(decision)
-	}
-	retained := s.workflows.Status(ctx, workflowTarget(input))
-	if retained.Status == workflow.Succeeded && retained.State.FormatVersion != workflow.OperationalConfiguredFormatVersion {
-		return workflowResult(workflow.Result{Status: workflow.ValidationFailed, Category: "legacy_execution_contract", State: retained.State}, s.provenance)
-	}
-
-	if blocked := s.gate(ctx, input.Project, projectapp.AdmitExecutionResume); blocked != nil {
-		return *blocked
-	}
-	return workflowResult(s.workflows.Resume(ctx, workflowTarget(input), input.ExpectedRevision), s.provenance)
+	return s.retiredWorkflowMutation()
 }
 func (s lifecycleService) WorkflowStatus(ctx context.Context, input cli.WorkflowInput) cli.Result {
-	if input.Project == "" {
-		id, failure := s.EffectiveProject(ctx, "")
-		if id == "" {
-			return failure
-		}
-		input.Project = id
-	}
-
-	if blocked := s.gate(ctx, input.Project, projectapp.AdmitExecutionStatus); blocked != nil {
-		return *blocked
-	}
-	return workflowResult(s.workflows.Status(ctx, workflowTarget(input)), s.provenance)
+	return s.canonicalWorkflowInspection(ctx, input, false)
 }
 func (s lifecycleService) WorkflowEvidence(ctx context.Context, input cli.WorkflowInput) cli.Result {
-	if input.Project == "" {
-		id, failure := s.EffectiveProject(ctx, "")
-		if id == "" {
-			return failure
-		}
-		input.Project = id
-	}
-
-	if blocked := s.gate(ctx, input.Project, projectapp.AdmitExecutionEvidence); blocked != nil {
-		return *blocked
-	}
-	result := s.workflows.Status(ctx, workflowTarget(input))
-	if result.Status == workflow.Succeeded {
-		result.Category = "workflow_evidence_ready"
-	}
-	return workflowResult(result, s.provenance)
+	return s.canonicalWorkflowInspection(ctx, input, true)
 }
-
 func (s lifecycleService) WorkflowReconcile(ctx context.Context, input cli.WorkflowInput) cli.Result {
-	if input.Project == "" {
-		id, failure := s.EffectiveProject(ctx, "")
-		if id == "" {
-			return failure
-		}
-		input.Project = id
-	}
-
-	if blocked := s.gate(ctx, input.Project, projectapp.AdmitExecutionReconcile); blocked != nil {
-		return *blocked
-	}
-	if !input.AuthorizeExternal {
-		return workflowResult(s.workflows.PrepareProjection(ctx, workflowTarget(input), input.ExpectedRevision), s.provenance)
-	}
-	return workflowResult(s.workflows.Project(ctx, workflowTarget(input), input.ExpectedRevision, input.PreviewDigest, true), s.provenance)
+	return s.retiredWorkflowMutation()
 }
 
 func workflowReferences(value string) ([]workflow.Reference, bool) {

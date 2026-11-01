@@ -817,34 +817,22 @@ func TestClaudeIntegrationUpgradesOnlyRegisteredClaudeHistory(t *testing.T) {
 	}
 }
 
-// Issue #140 replaced the selector-only start: the skill must teach the
-// reviewed preview, forward every policy input and never default a Runtime.
-func TestWorkItemRunSkillTeachesReviewedRuntimePreview(t *testing.T) {
-	for _, name := range []string{"axiom-work-item"} {
-		content, err := fs.ReadFile(skillFiles, "skills/"+name+"/SKILL.md")
-		if err != nil {
-			t.Fatal(err)
-		}
-		assertReviewedRuntimePreview(t, name, string(content))
+// Canonical S1 run needs explicit invocation/effect authority, without the
+// retired policy preview ceremony or a second lifecycle writer.
+func TestWorkItemRunSkillTeachesCanonicalExecution(t *testing.T) {
+	content, err := fs.ReadFile(skillFiles, "skills/axiom-work-item/SKILL.md")
+	if err != nil {
+		t.Fatal(err)
 	}
-}
-
-func assertReviewedRuntimePreview(t *testing.T, name, text string) {
-	t.Helper()
-	for _, required := range []string{
-		"axiom --json workflow start <selectors> --role <role> --complexity <complexity> --capabilities <capabilities> --runtime <runtime>\n",
-		"--runtime <runtime> --runtime-preview <previewDigest>\n",
-		"axiom --json workflow status <selectors> --execution <executionId>\n",
-		"`runtimeResolution`", "`previewDigest`", "`stale_preview`", "runtimeResolution.choice.runtimeId",
-		"Never default to Codex", "never supply, invent, or claim an observation",
-	} {
+	text := string(content)
+	for _, required := range []string{"axiom --json workflow run", "--authorize-external", "--authorize-human", "--select", "frozen", "unknown", "no Stage Plan, Validator Policy, preview digest"} {
 		if !strings.Contains(text, required) {
-			t.Fatalf("%s missing %q", name, required)
+			t.Fatalf("canonical work-item skill missing %q", required)
 		}
 	}
-	for _, forbidden := range []string{"--observations", "default codex", "historical Codex default", "passes `--runtime codex` or `--runtime claude`"} {
-		if strings.Contains(text, forbidden) {
-			t.Fatalf("%s still teaches %q", name, forbidden)
+	for _, retired := range []string{"axiom --json workflow start", "axiom --json workflow advance", "axiom --json workflow fact", "axiom --json workflow resume", "--runtime-preview <previewDigest>"} {
+		if strings.Contains(text, retired) {
+			t.Fatalf("work-item skill teaches retired command %q", retired)
 		}
 	}
 }
