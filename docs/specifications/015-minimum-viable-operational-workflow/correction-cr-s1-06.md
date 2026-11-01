@@ -67,7 +67,7 @@ public cutover or migration command.
 | `go test ./internal/local -count=1` | PASS |
 | `go build ./...`, `go vet ./...` | PASS |
 | `go test ./... -count=1 -timeout=30m` | PASS (exit 0; 32 packages `ok`, 0 `FAIL`) on the corrected tree |
-| `go run cmd/gofmt -l cmd internal scripts`, `git diff --check` | PASS (no output) |
+| `go run cmd/gofmt -l cmd internal scripts`, `git diff --check` | PASS (no output); the `git diff --check` scope was the unstaged worktree only. **Corrected by CR-S1-07 (IR-07):** `git diff --check 440e44a...78d99f8` FAILED (`linear-comment-ready.md:19-22`); see [`correction-cr-s1-07.md`](correction-cr-s1-07.md) |
 | `scripts/check-go-quality.sh`, `check-sensitive-files.sh`, `validate-repository.sh`, `test-docs-offline.sh`, staticcheck | NOT_RUN locally (shell approval unavailable); CI on the pushed SHA is authoritative |
 | Vendor/E2E, real installed-state cutover | NOT_RUN, not authorized |
 

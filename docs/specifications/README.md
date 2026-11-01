@@ -17,6 +17,9 @@ records the approved architecture with prospective notes on Spec 007, amendments
 REVIEW_INCOMPLETE with corrections applied; independent review pending.
 [CR-S1-06 correction](015-minimum-viable-operational-workflow/correction-cr-s1-06.md):
 the cutover inventory catalog now covers capability evidence, probe envelopes and Project context.
+[CR-S1-07 correction](015-minimum-viable-operational-workflow/correction-cr-s1-07.md):
+fixes IR-01..IR-09 of the independent full S1 review (orphan liveness before abandonment,
+operator-signal ownership, late cancel, command markers, symlinked command freeze); re-review pending.
 
 ## 014 — CLI operability for smaller models
 

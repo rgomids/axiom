@@ -146,7 +146,7 @@ No Blocker found. No finding required an architecture, product or design change.
 | `go run ./scripts/check-architecture.go domain` / `application` | PASS (12 / 46 files) |
 | Focused negatives: the F-01–F-05 tests above, the `stageexecution`, `local`, `workflow` and `projectapp` packages | PASS after the fixes; each new negative FAILED with its fix disabled |
 | `go test ./... -count=1 -timeout=30m` | PASS at `045a97e` (exit 0; 32 packages `ok`, 0 `FAIL`). It also passed on the intermediate tree with F-01–F-03 applied |
-| `git diff --check` | PASS |
+| `git diff --check` | PASS for the unstaged worktree only. **Corrected by CR-S1-07 (IR-07):** `git diff --check 440e44a...045a97e` FAILED (trailing whitespace, `linear-comment-ready.md:19-22`, introduced at `74b6684`/`b50ccca`); fixed and re-verified in [`correction-cr-s1-07.md`](correction-cr-s1-07.md) |
 | Curated staticcheck 0.8.1 | NOT_RUN locally: the tool cannot read go1.27.3 export data ("export data version 5"); CI is authoritative |
 | `scripts/check-go-quality.sh`, `check-sensitive-files.sh`, `validate-repository.sh`, `test-docs-offline.sh` | NOT_RUN locally: shell approval unavailable in this session; CI PR checks on the pushed SHA are authoritative |
 | Race detector | NOT_RUN |

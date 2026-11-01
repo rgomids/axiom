@@ -95,8 +95,17 @@ axiom workflow stage reconcile --project my-project --execution <execution-id> -
 
 Reconcile observes lost-runner attempts; it never signals or replays them. An
 unknown attempt requires an explicit human disposition (`--abandon <attempt-id>
---authorize-human`) before any eligible retry. Cancellation records intent;
+--authorize-human`) before any eligible retry. Abandonment re-observes every
+recorded process of the Execution first and is refused
+(`stop_orphan_then_abandon`, nothing written) while a runner is active or any
+recorded process is alive or unobservable: stop it outside Axiom, then repeat.
+A gone process, a reused PID or no recorded identity is reported, never
+signalled. Cancellation records intent;
 status distinguishes that request from the runner's observed process stop.
+`workflow run` and `stage retry` run in the foreground: an interrupt (Ctrl-C,
+SIGTERM, hang-up) stops the agent's own process group and records the observed
+stop as a cancel (`runner:interrupted`), or as unknown when the stop is not
+confirmed; the Execution then accepts no further scheduling.
 Exit zero without every declared output is failure. Neither technical completion,
 a process stop nor abandonment proves human acceptance or reversal of effects.
 

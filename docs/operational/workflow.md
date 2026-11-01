@@ -72,8 +72,11 @@ collaboration remain S2. Cancellation, failed required validation and unknown
 effects stop successors. See the [command reference](cli.md) for installed flags.
 
 Inspect `workflow stage status --execution <id>` after an attempt. Cancel records
-intent and reports the observed stop separately. Reconcile never blindly replays
-unknown effects. `workflow status`, `evidence` and `list` read the same canonical aggregate. Old
+intent and reports the observed stop separately; interrupting the foreground
+runner (Ctrl-C, SIGTERM, hang-up) stops the agent's own process group and
+records that stop. Reconcile never blindly replays unknown effects, and
+abandoning an unknown attempt is refused while any recorded process is alive or
+unobservable (stop it first). `workflow status`, `evidence` and `list` read the same canonical aggregate. Old
 lifecycle gate/fact/Provider projection writers and Graph/Single dispatch are
 retired. Old bytes are inert: there is no legacy resume or conversion. Public
 child publication remains unavailable; S1 private ingress belongs to the engine.

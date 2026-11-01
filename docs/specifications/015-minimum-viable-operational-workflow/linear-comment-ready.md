@@ -16,10 +16,10 @@
 
 ## AXM-42 Specify — investigation + Proposed Spec 015 (attempt-01)
 
-**Outcome:** COMPLETED (research + Proposed Specification delivered locally).  
-**HEAD (investigation baseline):** `440e44a68638e08e901fd3f87f5b15cd395a6365`  
-**Artifacts (paths; GitHub blob at 440e44a was invalid — use 74b6684+ after PR):**  
-- `docs/research/axm-42-minimum-viable-workflow-investigation.md`  
+**Outcome:** COMPLETED (research + Proposed Specification delivered locally).\
+**HEAD (investigation baseline):** `440e44a68638e08e901fd3f87f5b15cd395a6365`\
+**Artifacts (paths; GitHub blob at 440e44a was invalid — use 74b6684+ after PR):**
+- `docs/research/axm-42-minimum-viable-workflow-investigation.md`
 - `docs/specifications/015-minimum-viable-operational-workflow/spec.md`
 
 First real dispatch blocked primarily by Axiom product ceremony (Plan + validator digest without public publisher; SDD ritual; manual advance), not by ADR-0032 certification. Live Codex/Claude E2E **NOT_RUN**. Linear publish from that session was **REPORT_PENDING** at snapshot time; later published as comment `4ee399c9`.
