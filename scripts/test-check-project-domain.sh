@@ -42,6 +42,7 @@ check_usage() {
 }
 
 check_case pass 'package project_test; import "strings"; func pure() { _ = strings.TrimSpace("text") }'
+check_case pass 'package project; import "unicode/utf8"; var _ = utf8.ValidString("text")' fixture.go
 check_case fail 'package project_test; import "os"; func impure() { _ = os.Getenv("SYNTHETIC") }'
 check_case fail 'package project_test; import "net/http"; func impure() { _, _ = http.Get("https://example.invalid") }'
 check_case fail 'package project_test; import "os/exec"; func impure() { _ = exec.Command("synthetic") }'
@@ -56,7 +57,7 @@ check_case pass 'package project; import "fmt"; var _ = fmt.Sprintf("%d", 1)' fi
 check_case pass 'package project; import "reflect"; var _ = reflect.DeepEqual(1, 1)' fixture.go
 check_case fail 'package project; import "testing"; var _ *testing.T' fixture.go
 check_case fail 'package project; import "github.com/rgomids/axiom/internal/project"; var _ project.Project' fixture.go
-check_application_rejects 'package projectapp_test; import "fmt"; var _ = fmt.Sprintf("%d", 1)' 'non-allowlisted application import: fmt'
+check_application_rejects 'package projectapp_test; import "unicode"; var _ = unicode.IsSpace' 'non-allowlisted application symbol: unicode.IsSpace'
 check_application_rejects 'package projectapp; import "reflect"; var _ = reflect.DeepEqual(1, 1)' 'test-only helper imported by production application' fixture.go
 check_usage
 check_usage projectapp

@@ -10,7 +10,7 @@ import (
 	"github.com/rgomids/axiom/internal/project"
 	"github.com/rgomids/axiom/internal/projectapp"
 	"github.com/rgomids/axiom/internal/runtimeprofile"
-	fx "github.com/rgomids/axiom/internal/runtimeprofile/runtimeprofiletest"
+	"github.com/rgomids/axiom/internal/runtimeprofile/runtimeprofiletest"
 	"github.com/rgomids/axiom/internal/workflowdefinition"
 )
 
@@ -25,7 +25,7 @@ type migrationPort struct {
 var _ projectapp.WorkflowProfilePort = (*migrationPort)(nil)
 
 func (p *migrationPort) ObserveWorkflowProfiles(context.Context, string) (runtimeprofile.ConsumerV4, string, string) {
-	consumer, err := runtimeprofile.NewConsumerV4(fx.Current(p.cfg))
+	consumer, err := runtimeprofile.NewConsumerV4(runtimeprofiletest.Current(p.cfg))
 	if err != nil {
 		return runtimeprofile.ConsumerV4{}, "", "profile_effort_unconfigured"
 	}
