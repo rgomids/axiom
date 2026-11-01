@@ -3,6 +3,7 @@ package stageexecution
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/rgomids/axiom/internal/executiongraph"
@@ -77,6 +78,20 @@ type Outcome struct {
 }
 
 var ErrRunnerActive = workflow.ErrRunnerHeld
+
+// ErrOrphanLiveness refuses an abandonment while a recorded process of the
+// Execution is alive or its liveness cannot be observed; the operator must
+// stop it outside Axiom first. Nothing is written or signalled.
+var ErrOrphanLiveness = errors.New("stop_orphan_then_abandon")
+
+// terminalCommitBound bounds the fenced commits of an attempt. They run
+// detached from the caller's cancellation so an interrupted runner still
+// records its observed stop instead of leaving a phantom running attempt.
+const terminalCommitBound = 10 * time.Second
+
+// interruptActor records a runner interrupted by its operator (SIGINT,
+// SIGTERM, SIGHUP) as the cancel intent it observed and acted on.
+const interruptActor = "runner:interrupted"
 
 // RunOptions selects an explicit retry of one task; zero means "progress
 // eligible work".
@@ -208,8 +223,12 @@ func (e Engine) attempt(ctx context.Context, lease workflow.RunnerFence, current
 	if err != nil {
 		return current, err
 	}
+	// Commits keep the caller's values (correlation) and the runner fence but
+	// not its cancellation: an interrupt must not lose an observed fact.
 	update := func(mutate func(*workflow.Execution) error) (workflow.Execution, error) {
-		return e.Store.UpdateFenced(ctx, projectID, executionID, lease, mutate)
+		commitCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), terminalCommitBound)
+		defer cancel()
+		return e.Store.UpdateFenced(commitCtx, projectID, executionID, lease, mutate)
 	}
 	prepared, err := update(func(x *workflow.Execution) error {
 		return x.PrepareAttempt(workflow.PrepareInput{Ref: ref, AttemptID: attemptID, Generation: gen, Invocation: invocation, Authority: authority, Now: e.now(), Retry: isRetry, NewSelection: newSelection, WorkspaceDisposition: disposition})
@@ -218,25 +237,29 @@ func (e Engine) attempt(ctx context.Context, lease workflow.RunnerFence, current
 		return current, err
 	}
 	request := e.request(prepared, ref, attemptID)
-	// Only the runner knows nothing was spawned yet; a cancel arriving after
-	// this check is caught by the watcher and stops the owned group.
-	if e.cancelPersisted(ctx, projectID, executionID) {
+	cancelBeforeSpawn := func() (workflow.Execution, error) {
 		return update(func(x *workflow.Execution) error {
+			if err := recordInterrupt(ctx, x, e.now()); err != nil {
+				return err
+			}
 			return x.MarkCancelled(attemptID, gen, "cancelled_before_spawn", e.now())
 		})
 	}
+	// Only the runner knows nothing was spawned yet; a cancel arriving after
+	// this check is caught by the watcher and stops the owned group.
+	if ctx.Err() != nil || e.cancelPersisted(ctx, projectID, executionID) {
+		return cancelBeforeSpawn()
+	}
 	built, err := e.Launcher.Build(ctx, request)
-	if err != nil {
+	if err != nil && ctx.Err() == nil {
 		return update(func(x *workflow.Execution) error {
 			return x.MarkSpawnFailed(attemptID, gen, "launch_refused: check Runtime configuration and frozen selectors", e.now())
 		})
 	}
 	// Build may read configuration or prepare local output paths. Cancel intent
 	// arriving during that work still prevents any process from being spawned.
-	if e.cancelPersisted(ctx, projectID, executionID) {
-		return update(func(x *workflow.Execution) error {
-			return x.MarkCancelled(attemptID, gen, "cancelled_before_spawn", e.now())
-		})
+	if ctx.Err() != nil || e.cancelPersisted(ctx, projectID, executionID) {
+		return cancelBeforeSpawn()
 	}
 	stage := request.Stage
 	timeout := stage.TimeoutSeconds
@@ -256,7 +279,9 @@ func (e Engine) attempt(ctx context.Context, lease workflow.RunnerFence, current
 	})
 	stop()
 	now := e.now()
-	cancelRequested := cancelled() || e.cancelPersisted(ctx, projectID, executionID)
+	// An operator interrupt cancels ctx; the runner already stopped its own
+	// group through RunObserved and records that stop like a cancel.
+	cancelRequested := cancelled() || ctx.Err() != nil || e.cancelPersisted(ctx, projectID, executionID)
 	// Collection may run explicitly authorized checks. Keep it outside the
 	// aggregate lock so cancellation can be persisted while a check runs.
 	var outcome Outcome
@@ -285,16 +310,28 @@ func (e Engine) attempt(ctx context.Context, lease workflow.RunnerFence, current
 		}
 		outcome, collectErr = e.Launcher.Collect(collectCtx, request, result)
 		done()
-		cancelRequested = checkCancelled() || e.cancelPersisted(ctx, projectID, executionID)
+		cancelRequested = checkCancelled() || ctx.Err() != nil || e.cancelPersisted(ctx, projectID, executionID)
 	}
 	return update(func(x *workflow.Execution) error {
 		switch {
 		case result.SpawnFailed && !startedCommitted:
+			if result.FailureCode == "attempt_cancelled" && (cancelRequested || x.Cancel != nil) {
+				// Interrupted before the start: nothing ran.
+				if err := recordInterrupt(ctx, x, now); err != nil {
+					return err
+				}
+				return x.MarkCancelled(attemptID, gen, "cancelled_before_spawn", now)
+			}
 			return x.MarkSpawnFailed(attemptID, gen, "spawn_failed: "+result.FailureCode, now)
 		case !startedCommitted:
 			// Spawned but identity was never durably published; effects unknown.
 			return x.MarkUnknown(attemptID, gen, "process_identity_not_committed", now)
-		case cancelRequested:
+		// The reloaded aggregate is authoritative: a cancel persisted after the
+		// last poll still refuses the result instead of leaving it running.
+		case cancelRequested || x.Cancel != nil:
+			if err := recordInterrupt(ctx, x, now); err != nil {
+				return err
+			}
 			// The agent result says nothing about a validation command that was
 			// started during collection; its stop must be confirmed separately.
 			if commandEndUnconfirmed(*x, attemptID, collectErr) {
@@ -323,6 +360,16 @@ func (e Engine) attempt(ctx context.Context, lease workflow.RunnerFence, current
 		}
 		return err
 	})
+}
+
+// recordInterrupt persists the runner's own cancel intent when the operator
+// interrupted it and no intent exists yet, so the observed stop is recorded
+// as cancelled (or unknown when unconfirmed) and nothing is scheduled after it.
+func recordInterrupt(ctx context.Context, x *workflow.Execution, now time.Time) error {
+	if ctx.Err() == nil || x.Cancel != nil {
+		return nil
+	}
+	return x.RequestCancel(interruptActor, now)
 }
 
 // commandEndUnconfirmed reports a started validation command without a
@@ -412,9 +459,8 @@ func (e Engine) Cancel(ctx context.Context, projectID, executionID, actor string
 	})
 }
 
-// ApproveGate records a real human gate decision; Abandon records the human
-// abandonment of an unknown attempt. Neither spawns, signals or replays
-// anything, and neither needs a runner lease.
+// ApproveGate records a real human gate decision; it spawns, signals or
+// replays nothing and needs no runner lease.
 func (e Engine) ApproveGate(ctx context.Context, projectID, executionID, stageID, actor string) (workflow.Execution, error) {
 	now := e.now()
 	return e.Store.UpdateFenced(ctx, projectID, executionID, nil, func(x *workflow.Execution) error {
@@ -422,11 +468,66 @@ func (e Engine) ApproveGate(ctx context.Context, projectID, executionID, stageID
 	})
 }
 
-func (e Engine) Abandon(ctx context.Context, projectID, executionID, attemptID, actor string) (workflow.Execution, error) {
+// Abandon records the human abandonment of an unknown attempt, which is what
+// permits an explicit retry. Abandonment must never let a retry run beside a
+// surviving writer: it is refused while any runner lease is held, and every
+// recorded attempt and unfinished command identity of the Execution is
+// re-observed first. A live process or a failed observation refuses with
+// ErrOrphanLiveness and writes nothing; a gone process, a reused PID or no
+// recorded identity is reported and allowed. Nothing is ever signalled.
+func (e Engine) Abandon(ctx context.Context, projectID, executionID, attemptID, actor string) (workflow.Execution, []ReconcileFact, error) {
+	// The lease is only held, never claimed: no generation is recorded, and no
+	// runner can start between the observation and the disposition.
+	lease, err := e.Store.AcquireFence(ctx, projectID, executionID)
+	if err != nil {
+		return workflow.Execution{}, nil, err
+	}
+	defer lease.Close()
+	current, err := e.Store.Load(ctx, projectID, executionID)
+	if err != nil {
+		return current, nil, err
+	}
+	if a, _, ok := current.FindAttempt(attemptID); !ok || a.Status != workflow.AttemptUnknown || a.Resolution != nil {
+		return current, nil, workflow.ErrTransition
+	}
+	facts := observeLiveness(current)
+	for _, f := range facts {
+		// Command facts carry a "command:<id>:" prefix.
+		if strings.HasSuffix(f.Observation, "process_alive_effects_unknown") || strings.HasSuffix(f.Observation, "observation_failed") {
+			return current, facts, ErrOrphanLiveness
+		}
+	}
 	now := e.now()
-	return e.Store.UpdateFenced(ctx, projectID, executionID, nil, func(x *workflow.Execution) error {
+	// Lease-free CAS on the observed revision: any concurrent change refuses.
+	next, err := e.Store.UpdateFenced(ctx, projectID, executionID, nil, func(x *workflow.Execution) error {
+		if x.Revision != current.Revision {
+			return workflow.ErrTransition
+		}
 		return x.ResolveUnknown(attemptID, actor, now)
 	})
+	return next, facts, err
+}
+
+// observeLiveness re-observes every attempt whose process may still exist
+// (prepared, running or unknown) and every unfinished command of each.
+func observeLiveness(x workflow.Execution) []ReconcileFact {
+	var facts []ReconcileFact
+	for _, s := range x.Stages {
+		for _, t := range s.Tasks {
+			for _, a := range t.Attempts {
+				if a.Status != workflow.AttemptPrepared && a.Status != workflow.AttemptRunning && a.Status != workflow.AttemptUnknown {
+					continue
+				}
+				facts = append(facts, ReconcileFact{AttemptID: a.AttemptID, Observation: observeRecorded(a.Process)})
+				for _, command := range a.Commands {
+					if command.Status != "completed" {
+						facts = append(facts, ReconcileFact{AttemptID: a.AttemptID, Observation: "command:" + command.ID + ":" + observeRecorded(command.Process)})
+					}
+				}
+			}
+		}
+	}
+	return facts
 }
 
 // Ingest accepts one candidate message for a running attempt through its
@@ -471,11 +572,15 @@ func (e Engine) Reconcile(ctx context.Context, projectID, executionID string) (w
 	return after, facts, nil
 }
 
+// observeRecordedProcess is the read-only platform observation; tests replace
+// it only to inject an observation failure.
+var observeRecordedProcess = executiongraph.ObserveRecordedProcess
+
 func observeRecorded(p *workflow.ProcessIdentity) string {
 	if p == nil {
 		return "no_process_identity_recorded"
 	}
-	current, err := executiongraph.ObserveRecordedProcess(executiongraph.ProcessCorrelation{PID: p.PID, StartIdentity: p.StartIdentity, GroupIdentity: p.GroupIdentity})
+	current, err := observeRecordedProcess(executiongraph.ProcessCorrelation{PID: p.PID, StartIdentity: p.StartIdentity, GroupIdentity: p.GroupIdentity})
 	switch {
 	case err != nil:
 		return "observation_failed"

@@ -537,3 +537,99 @@ func TestEngineCancelDuringValidationCommandNeverHidesUnconfirmedStop(t *testing
 		})
 	}
 }
+
+// lateCancelStore persists a cancel intent immediately before the n-th fenced
+// update, after the runner's last cancel poll.
+type lateCancelStore struct {
+	ExecutionStore
+	calls  atomic.Int32
+	before int32
+}
+
+func (s *lateCancelStore) UpdateFenced(ctx context.Context, projectID, executionID string, fence workflow.RunnerFence, mutate func(*workflow.Execution) error) (workflow.Execution, error) {
+	if fence != nil && s.calls.Add(1) == s.before {
+		if _, err := s.ExecutionStore.UpdateFenced(ctx, projectID, executionID, nil, func(x *workflow.Execution) error {
+			return x.RequestCancel("user:local", time.Now())
+		}); err != nil {
+			return workflow.Execution{}, err
+		}
+	}
+	return s.ExecutionStore.UpdateFenced(ctx, projectID, executionID, fence, mutate)
+}
+
+// IR-03: the terminal commit uses the reloaded cancel intent, never the stale
+// pre-collection snapshot, so the observed exit is not left running.
+func TestEngineCancelPersistedBeforeTerminalCommitIsRecorded(t *testing.T) {
+	f := newEngineFixture(t, twoStages(false), succeed("OUTPUT result\n"))
+	// Fenced updates: claim, prepare, started, terminal.
+	store := &lateCancelStore{ExecutionStore: f.engine.Store, before: 4}
+	f.engine.Store = store
+	x, err := f.run(t)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a, _, _ := x.FindAttempt("att-1")
+	if a.Status != workflow.AttemptCancelled || a.Diagnostic != "exited_after_cancel_result_refused" || x.Status != workflow.RunCancelled || store.calls.Load() != 4 {
+		t.Fatalf("late cancel: %s %q %s calls=%d", a.Status, a.Diagnostic, x.Status, store.calls.Load())
+	}
+	// A later runner finds nothing orphaned.
+	if x, err = f.run(t); err != nil || x.Status != workflow.RunCancelled || f.runner.spawns.Load() != 1 {
+		t.Fatalf("after late cancel: %v %s", err, x.Status)
+	}
+}
+
+// IR-02: an interrupted runner (cancelled caller context) still commits its
+// observed stop under a detached bounded context; nothing is left running.
+func TestEngineInterruptedRunnerCommitsObservedStop(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		stopped   bool
+		want      workflow.AttemptStatus
+		diagnosis string
+	}{
+		{"stop confirmed", true, workflow.AttemptCancelled, "group_stop_confirmed"},
+		{"stop unconfirmed", false, workflow.AttemptUnknown, "cancel_stop_unconfirmed"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx, interrupt := context.WithCancel(context.Background())
+			defer interrupt()
+			f := newEngineFixture(t, twoStages(false), func(runCtx context.Context, _ executiongraph.Invocation, started func(*executiongraph.ProcessCorrelation) error) executiongraph.ProcessResult {
+				if err := started(&executiongraph.ProcessCorrelation{PID: 777, StartIdentity: "boot:1", GroupIdentity: "777"}); err != nil {
+					t.Fatal(err)
+				}
+				interrupt()
+				<-runCtx.Done()
+				return executiongraph.ProcessResult{ExitCode: -1, Stopped: tc.stopped, OutcomeUnknown: !tc.stopped}
+			})
+			x, err := f.engine.Run(ctx, "proj", engineExecutionID, RunOptions{})
+			if !errors.Is(err, context.Canceled) {
+				t.Fatalf("interrupted run: %v", err)
+			}
+			stored, loadErr := f.engine.Store.Load(context.Background(), "proj", engineExecutionID)
+			if loadErr != nil {
+				t.Fatal(loadErr)
+			}
+			a, _, _ := stored.FindAttempt("att-1")
+			if a.Status != tc.want || a.Diagnostic != tc.diagnosis || stored.Revision != x.Revision || f.runner.spawns.Load() != 1 {
+				t.Fatalf("interrupted attempt: %s %q", a.Status, a.Diagnostic)
+			}
+			if stored.Cancel == nil || stored.Cancel.Actor != interruptActor || len(stored.Ready()) != 0 {
+				t.Fatalf("interrupt intent: %+v", stored.Cancel)
+			}
+		})
+	}
+}
+
+func TestEngineInterruptBeforeSpawnRecordsCancelledWithoutSpawning(t *testing.T) {
+	ctx, interrupt := context.WithCancel(context.Background())
+	f := newEngineFixture(t, twoStages(false), succeed("OUTPUT result\n"))
+	f.engine.Launcher = buildHookLauncher{hook: interrupt}
+	if _, err := f.engine.Run(ctx, "proj", engineExecutionID, RunOptions{}); !errors.Is(err, context.Canceled) {
+		t.Fatalf("interrupted build: %v", err)
+	}
+	x, _ := f.engine.Store.Load(context.Background(), "proj", engineExecutionID)
+	a, _, _ := x.FindAttempt("att-1")
+	if a.Status != workflow.AttemptCancelled || a.Diagnostic != "cancelled_before_spawn" || f.runner.spawns.Load() != 0 {
+		t.Fatalf("interrupt before spawn: %s %q spawns=%d", a.Status, a.Diagnostic, f.runner.spawns.Load())
+	}
+}

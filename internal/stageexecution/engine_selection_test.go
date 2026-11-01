@@ -69,7 +69,7 @@ func TestEngineGateApprovalAndUnknownAbandonNeedHumanActor(t *testing.T) {
 	if x, err = f.run(t); err != nil || x.Status != workflow.RunCompleted || f.runner.spawns.Load() != 2 {
 		t.Fatalf("approved gate did not progress: %v %s", err, x.Status)
 	}
-	if _, err := f.engine.Abandon(context.Background(), "proj", engineExecutionID, x.Stages[0].Tasks[0].Attempts[0].AttemptID, "human:operator"); !errors.Is(err, workflow.ErrTransition) {
+	if _, _, err := f.engine.Abandon(context.Background(), "proj", engineExecutionID, x.Stages[0].Tasks[0].Attempts[0].AttemptID, "human:operator"); !errors.Is(err, workflow.ErrTransition) {
 		t.Fatalf("abandoned a non-unknown attempt: %v", err)
 	}
 }

@@ -32,7 +32,7 @@ func stageDiagnostic(category string, status completion.Status) *cli.Diagnostic 
 	case "runtime_unresolvable":
 		d.Hypotheses = []string{"Project Runtime policy, Profile intent or current executable/source observation may be unresolved; inspect the actual blocker"}
 		d.Options = []cli.DiagnosticOption{d.Options[0], {ID: "inspect-profiles", Availability: "available", Prerequisites: []string{}, Effects: []string{"read-only"}, RequiredAuthority: []string{}, Operation: "runtime profile list", Arguments: map[string]string{}, MissingArguments: []string{}, Purpose: "Inspect configured Profile intent; scoped operational preview needs its own inspection consent", Verification: cli.DiagnosticVerification{Operation: "runtime profile list", ExpectedFact: "Observe configured Profiles without inferring authentication or compatibility"}}, d.Options[1]}
-	case "stop_orphan_then_reconcile", "reconcile_lease_held":
+	case "stop_orphan_then_reconcile", "stop_orphan_then_abandon", "reconcile_lease_held":
 		d.MissingPrerequisites = []string{"Recorded process identity, observed liveness and lease ownership", "Separate stop authority where a supported stop is available"}
 		d.Options[1].Purpose = "Wait or hand off process inspection and a separately authorized stop; uncertain liveness never authorizes signaling"
 	case "confirmed_effect_reconciliation_required":

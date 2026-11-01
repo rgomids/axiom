@@ -8,10 +8,12 @@ import (
 	"errors"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/rgomids/axiom/internal/cli"
@@ -86,6 +88,8 @@ func (s lifecycleService) executionStage(ctx context.Context, in cli.WorkflowSta
 	c := executionComposition{s: s, store: store, project: resolved.Project, authorizeCommands: in.AuthorizeCommands}
 	switch in.Operation {
 	case "execution-run":
+		ctx, stop := interruptibleRun(ctx)
+		defer stop()
 		return c.run(ctx, in)
 	case "status":
 		x, err := store.Load(ctx, resolved.Project.ID, in.Execution)
@@ -100,10 +104,15 @@ func (s lifecycleService) executionStage(ctx context.Context, in cli.WorkflowSta
 		}
 		return s.stageSuccess("cancel_requested", "Cancel intent recorded; the runner reports the observed stop", []string{"execution:" + x.ExecutionID}, "Inspect stage status for requested versus observed stop", executionPayload(x, nil))
 	case "retry":
+		ctx, stop := interruptibleRun(ctx)
+		defer stop()
 		return c.retry(ctx, in)
 	case "reconcile":
 		if in.Abandon != "" {
-			x, err := c.engine(nil).Abandon(ctx, resolved.Project.ID, in.Execution, in.Abandon, executionActor("human:"))
+			x, facts, err := c.engine(nil).Abandon(ctx, resolved.Project.ID, in.Execution, in.Abandon, executionActor("human:"))
+			if errors.Is(err, stageexecution.ErrOrphanLiveness) {
+				return s.stageFailure(completion.Failure, "stop_orphan_then_abandon", "A recorded process of this Execution is alive or could not be observed; nothing was written or signalled", "Stop the process reported in reconciliation outside Axiom (confirm its PID and start identity), then repeat reconcile --abandon with --authorize-human", executionPayload(x, facts))
+			}
 			if err != nil {
 				return c.failure(err, nil)
 			}
@@ -120,6 +129,15 @@ func (s lifecycleService) executionStage(ctx context.Context, in cli.WorkflowSta
 		return c.outcome("Execution reconciled without signalling or replay", x, facts, true)
 	}
 	return s.stageFailure(completion.ValidationFailure, "invalid_command", "Unsupported Execution operation", "Run axiom workflow --help", nil)
+}
+
+// interruptibleRun binds the one foreground engine (ADR-0037) to the
+// operator's interrupt. The agent runs in its own process group, so a terminal
+// Ctrl-C, SIGTERM or hang-up reaches only this runner: cancelling the run
+// context makes OSProcessRunner stop and confirm its own verified group, and
+// the engine commits the observed stop before exiting.
+func interruptibleRun(ctx context.Context) (context.Context, context.CancelFunc) {
+	return signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM, syscall.SIGHUP)
 }
 
 type executionComposition struct {
@@ -829,7 +847,7 @@ func executionNext(x workflow.Execution) string {
 			}
 		}
 	case workflow.RunRecoveryRequired:
-		return "Effects are unknown and are never replayed: inspect the attempt, then axiom workflow stage reconcile" + selector + " --abandon <attempt-id> --authorize-human before any explicit retry"
+		return "Effects are unknown and are never replayed: run axiom workflow stage reconcile" + selector + " --authorize-local, stop any process it reports alive, then axiom workflow stage reconcile" + selector + " --abandon <attempt-id> --authorize-human before any explicit retry"
 	case workflow.RunFailed:
 		return "Inspect the attempt diagnostic; then axiom workflow stage retry" + selector + " --stage <stage-id> --agent <agent-id> --authorize-external"
 	case workflow.RunCancelled:

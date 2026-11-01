@@ -548,7 +548,11 @@ func (e *Execution) ApproveGate(stageID, actor string, now time.Time) error {
 }
 
 // ResolveUnknown records the explicit human abandonment of an unknown
-// attempt. Its uncertain effects remain recorded; nothing is replayed.
+// attempt. Its uncertain effects remain recorded; nothing is replayed. This
+// pure transition cannot observe processes: the caller (stageexecution
+// Engine.Abandon) must first hold the runner lease and establish that no
+// recorded process is alive or unobservable, because abandonment permits a
+// retry that would otherwise run beside a surviving writer.
 func (e *Execution) ResolveUnknown(id, actor string, now time.Time) error {
 	a, _, ok := e.FindAttempt(id)
 	if !ok || !unresolvedUnknown(*a) || !ValidToken(actor) || len(actor) < 7 || actor[:6] != "human:" {
