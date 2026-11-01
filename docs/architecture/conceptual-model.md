@@ -375,9 +375,11 @@ local-file documentation bindings kept in the installation record. Read-only
 discovery (`projectdiscovery`) proposes Repository remotes and technology facts
 from explicit locations only. `projectapp` owns the single operation-scoped
 readiness evaluator (`ProjectReadiness`, capability → Integration → Provider via
-`ResolveCapability`, Runtime availability via `runtimeapplication`); `project
-validate`, Work Item operations and workflow start/resume consume it. Readiness
-is not authority.
+`ResolveCapability`); `project validate`, Work Item operations and the canonical
+`workflow run` admission consume it. Since Spec 015 S1, readiness never predicts
+Runtime availability: Runtime/model/effort are selected on the attempt
+(`selected_at_dispatch`) and actual spawn/vendor failures are recorded there.
+Readiness is not authority.
 
 ## Strategic upstream boundary
 

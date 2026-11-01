@@ -77,7 +77,7 @@ instale um separadamente e repita quando necessário.
 
 ### 4. Primeiro fluxo
 
-Configure um Project, inspecione-o, crie um Work Item e inicie seu workflow:
+Configure um Project, inspecione-o, crie um Work Item e execute seu workflow:
 
 ```bash
 axiom project configure
@@ -85,12 +85,15 @@ axiom project list
 axiom project show --selector my-project
 axiom work-item create --project my-project --repository main \
   --provider-repository owner/repository
-axiom workflow start --project my-project --repository main --number 123
-axiom workflow status --project my-project --repository main --number 123
+axiom workflow run --project my-project --repository main \
+  --work-item github:owner/repository#123 --workflow minimal \
+  --select agent.runtime=codex --select agent.model=<chosen-model> \
+  --select agent.effort=runtime-default --authorize-external
+axiom workflow stage status --project my-project --execution <execution-id>
 ```
 
-Substitua `my-project`, `main`, `owner/repository` e `123` pelos valores
-configurados e pelo número da Issue criada. Configure o provider GitHub no
+Substitua `my-project`, `main`, `owner/repository`, `123` e `<chosen-model>`
+pelos valores configurados, pelo número da Issue criada e pelo modelo escolhido. Configure o provider GitHub no
 Project; operações de Work Item exigem [GitHub CLI](https://cli.github.com/)
 autenticado. Os comandos guiados de configuração e criação mostram um preview
 e pedem confirmação antes de gravar.

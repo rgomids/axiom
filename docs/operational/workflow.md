@@ -37,30 +37,52 @@ that tuple, even if local defaults change; a fresh selection needs
 `stage retry --new-selection`. Writable retries also require an inspected workspace
 and `--disposition preserve`; no automatic reset is supported.
 
-Supported before-gates require actual human approval before any attempt starts;
-after-gates require successful outputs first. Use the returned next action for
-that stage. Configured `artifact-schema` and `evidence-check` under
-`builtin-sdd-v1` validate retained typed artifacts with exact attempt/repository
-and definition/stage/output correlation. They accept bounded JSON artifact
-references, not plain output files. The supported subset has required outputs
-and Work Item inputs from `target`, plus completed earlier-stage output references
-from the same repository. Unresolved project context/artifact inputs, optional validated outputs,
-unknown policies and result-bound `human-review` refuse before creation. See
-[command reference](cli.md) for installed flags. Full input/context
-lowering and authorized validation commands remain incomplete. Parallel scheduling, collaboration
-and integration are not delivered by this serial path.
+Required outputs must be present; declared optional outputs are validated when
+present and may be absent. Work Item inputs come from `target`; earlier-stage
+outputs require a completed successful predecessor in the same Repository.
+`project-context` with source `project` freezes portable Project identity,
+revision and Repository identities, without local paths. Artifact inputs freeze
+retained successful artifacts with matching Repository correlation, selected by
+`--input <declared-source>=<retained-artifact-id>`. Undeclared bindings, missing
+required inputs and unsupported policies refuse rather than disappearing.
+
+A `human-review` validator waits for the exact successful stage result. Inspect
+`resultDigest`, then after actual human review continue with
+`workflow run --execution <id> --review-stage <stage> --result-digest
+<sha256:...> --evidence <retained-id> --authorize-human --authorize-external`.
+The retained Evidence must be successful, category/retention `evidence`, belong
+to this Execution and correlate exactly once with `workflow-stage`,
+`workflow-definition` (prefixed definition digest), `workflow-result` (the exact
+result digest) and `workflow-repository`. Agent messages cannot grant approval.
+Result review is distinct from before/after human gates: gates use
+`--approve-gate <stage> --authorize-human`, and a before-gate starts no attempt.
+
+Schema-2 `command` validators under `builtin-sdd-v1` declare bounded `argv`,
+`timeoutSeconds` and `effectCeilings`. Running them additionally requires
+`--authorize-commands` on run or retry, authorizing those exact configured
+arguments and effects. No shell expansion, fallback command or implicit authority
+is supplied. The frozen attempt retains selections and authority; ordinary
+retries preserve the invocation and require current effect authorization.
+Eligible work progresses serially; parallel scheduling and cross-Runtime
+collaboration remain S2. Cancellation, failed required validation and unknown
+effects stop successors. See the [command reference](cli.md) for installed flags.
 
 Inspect `workflow stage status --execution <id>` after an attempt. Cancel records
 intent and reports the observed stop separately. Reconcile never blindly replays
-unknown effects. Pre-cutover lifecycle, coordination and delivery commands still
-remain in this partial implementation and do not operate on the new aggregate.
+unknown effects. `workflow status`, `evidence` and `list` read the same canonical aggregate. Old
+lifecycle gate/fact/Provider projection writers and Graph/Single dispatch are
+retired. Old bytes are inert: there is no legacy resume or conversion. Public
+child publication remains unavailable; S1 private ingress belongs to the engine.
+`workflow delivery packet` reports canonical readiness read-only. Delivery
+publication, acceptance and linked rework effects remain S3 work.
 
 ## Breaking cutover: stop or block
 
-Do not switch an installed state root using this partial implementation. The
-read-only inventory/backup helpers are internal and tested only with isolated
-fixtures; no public cutover or migration command exists. At a separately
-authorized deployment boundary:
+S1.8 certification depends on completing the S1.7 structural retirement and
+required checks. No real installed-state switch is authorized by these fixtures.
+The inventory/backup helpers are internal and tested only with isolated state;
+no public cutover or migration command exists. At a separately authorized
+deployment boundary:
 
 1. Stop new writers and identify the exact binary/source, Project and state
    roots from deployment records. Establish all owned processes, leases,
@@ -69,8 +91,12 @@ authorized deployment boundary:
    and BLOCKS switching. An absent lease does not prove an attempt stopped.
 2. Preserve raw legacy bytes privately outside the state root, with permissions,
    sizes and hashes. Re-read every backup byte and compare it to the manifest;
-   a manifest alone is insufficient. Changed source bytes, linked/unreadable
-   backups or interrupted publication BLOCK. Never commit private state or
+   a manifest alone is insufficient. Helpers compare the complete source inventory
+   before and after copying and verify the complete backup inventory. Omitted or
+   added files, changed source bytes, linked/unreadable backups or interrupted
+   publication BLOCK. A failed copy can leave a partial backup; preserve it as
+   unverified and choose a separate empty destination for another authorized copy.
+   Never commit private state or
    interpret a backup as permission to execute it.
 3. Stop only positively identified owned processes under actual authority,
    preserving PID/start/group correlation and escape limits. Confirm stopped
