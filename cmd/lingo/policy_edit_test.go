@@ -16,7 +16,6 @@ import (
 	"github.com/rgomids/axiom/internal/cli"
 	"github.com/rgomids/axiom/internal/local"
 	"github.com/rgomids/axiom/internal/projectapp"
-	"github.com/rgomids/axiom/internal/runtimeapplication"
 )
 
 type policyEvent struct {
@@ -52,7 +51,7 @@ func TestPolicyCLIJourneyGuidedParityReadbackAndValidate(t *testing.T) {
 	args := []string{"project", "configure", "--project", "sample", "--policy-draft", policyCLIDraft}
 	before := snapshotTrees(t, env.root, env.state)
 	preview, _ := runPolicyCLI(t, env, cli.ExitSuccess, args...)
-	if preview.Policy.Outcome != projectapp.EditPreviewed || preview.Policy.Preview.Runtime[0].Code != "configuration_missing" {
+	if preview.Policy.Outcome != projectapp.EditPreviewed || preview.Policy.Preview.Runtime[0].Code != projectapp.RuntimeSelectedAtDispatch {
 		t.Fatal(preview)
 	}
 	var guided bytes.Buffer
@@ -230,19 +229,11 @@ func TestPolicyCLIReadinessDoesNotAcquireRuntimeProof(t *testing.T) {
 		t.Fatal("policy readiness attempted executable discovery")
 		return "", os.ErrPermission
 	}
-	service.RuntimePolicySource = forbiddenPolicySource{test: t}
 	env.service = service
 	args := []string{"project", "configure", "--project", env.projectID, "--policy-draft", policyCLIDraft}
 	preview, _ := runPolicyCLI(t, env, cli.ExitSuccess, args...)
 	runPolicyCLI(t, env, cli.ExitSuccess, append(args, "--project-id", env.projectID, "--preview-digest", preview.Policy.Preview.Digest, "--authorize-local")...)
 	runPolicyCLI(t, env, cli.ExitSuccess, "project", "validate", "--project", env.projectID)
-}
-
-type forbiddenPolicySource struct{ test *testing.T }
-
-func (s forbiddenPolicySource) Load(context.Context, string) (runtimeapplication.Snapshot, error) {
-	s.test.Fatal("policy readiness attempted live Runtime policy observation")
-	return runtimeapplication.Snapshot{}, os.ErrPermission
 }
 
 func TestPolicyCLIInstalledSchemaGateHasMigrationGuidance(t *testing.T) {

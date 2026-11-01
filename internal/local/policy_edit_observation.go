@@ -101,7 +101,7 @@ func (o PolicyEditObserver) ObservePolicyEdit(ctx context.Context, selection pro
 	}
 	facts.Repositories, facts.Documentation = metadata.Repositories, metadata.Documentation
 	facts.Dependencies.Readiness = token
-	facts.Runtime = policyRuntimeReadiness(candidate, workflow, runtime)
+	facts.Runtime = policyRuntimeReadiness(workflow)
 	return facts, projectapp.EditOK
 }
 

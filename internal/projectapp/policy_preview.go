@@ -155,26 +155,20 @@ func PreviewPolicyEdit(ctx context.Context, ports PolicyEditPorts, intent EditIn
 
 func validPolicyRuntimeReadiness(rows []PolicyRuntimeReadiness, workflow PolicyWorkflowReport) bool {
 	if len(rows) == 1 && rows[0].Stage == "" && rows[0].Agent == "" {
-		return policyRuntimeCode(rows[0].Code)
+		return policyRuntimeCode(rows[0].Code) && rows[0].Blocker == ""
 	}
 	if len(rows) != len(workflow.Impact) || len(rows) == 0 {
 		return false
 	}
 	for i, row := range rows {
-		if !policyRuntimeCode(row.Code) || row.Stage != workflow.Impact[i].Stage || row.Agent != workflow.Impact[i].Agent {
+		if !policyRuntimeCode(row.Code) || row.Blocker != "" || row.Stage != workflow.Impact[i].Stage || row.Agent != workflow.Impact[i].Agent {
 			return false
 		}
 	}
 	return true
 }
 
-func policyRuntimeCode(code string) bool {
-	switch code {
-	case "configuration_missing", "configuration_retired", "unsupported_configuration_format", "policy_unconfigured", "no_allowed_match", "runtime_unavailable", "inventory_unavailable", "ambiguous_match":
-		return true
-	}
-	return false
-}
+func policyRuntimeCode(code string) bool { return code == RuntimeSelectedAtDispatch }
 
 func validPolicyDependencies(d PolicyEditDependencies) bool {
 	for _, token := range []string{d.Installation, d.Source, d.Workflow, d.Operational, d.Runtime, d.Readiness, d.Locations} {
@@ -186,24 +180,9 @@ func validPolicyDependencies(d PolicyEditDependencies) bool {
 	return true
 }
 
-func PolicyRuntimeCode(rows []PolicyRuntimeReadiness) string {
-	for _, row := range rows {
-		if row.Code != "inventory_unavailable" {
-			return row.Code
-		}
-	}
-	return "inventory_unavailable"
-}
-
 func PolicyRuntimeGuidance(code string) string {
-	switch code {
-	case "policy_unconfigured":
-		return "Use axiom-project to declare portable Runtime and Model Profile policy, then run project validate"
-	case "configuration_missing", "configuration_retired", "no_allowed_match", "runtime_unavailable", "unsupported_configuration_format":
-		return "Use axiom-runtime to inspect local Runtime and Model Profile configuration; preserve portable declarations and request a fresh preview"
-	case "ambiguous_match":
-		return "Use axiom-project to review exact Profile references and preferences; do not choose a fallback"
-	default:
-		return "Runtime executable, authentication and capability proofs are uninspected; inspect them through axiom-runtime before Execution"
+	if code == RuntimeSelectedAtDispatch {
+		return "Select Runtime/model/effort at workflow run; actual failures are recorded on the attempt"
 	}
+	return "Inspect the reported policy facts; no Runtime eligibility prediction is available"
 }

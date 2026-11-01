@@ -775,9 +775,10 @@ login method, executable identity and explicit non-environment configuration
 checks determine the result. Only `subscription_observed` succeeds; API-key or
 missing login, ambiguous status and observation failures remain failures.
 Success is not proof of effective routing, billing, usability or Project readiness.
-No login, refresh, inference or global environment change is performed. Stage
-dispatch retains its existing environment isolation and repeats the same check
-on each child's effective invocation.
+No login, refresh, inference or global environment change is performed. This
+optional diagnostic never admits or blocks canonical workflow run. Execution
+preserves environment isolation and records actual vendor authentication or
+option errors on the attempt without repeating this preflight.
 
 Codex standalone skill names accept lowercase letters, digits and hyphens, so
 the requested semantic `axiom:<skill>` names are invoked as:
@@ -810,7 +811,7 @@ CLAUDE_CONFIG_DIR=/absolute/test/claude axiom runtime claude install
 ./scripts/test-codex-skills.sh
 ```
 
-## Preview Project Runtime/Profile selection
+## Retired Project Runtime/Profile preview
 
 Predictive Runtime/Profile selection preview is retired. Configure optional
 Profiles with `runtime binding` / `runtime profile`, or provide explicit per-agent

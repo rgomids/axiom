@@ -113,10 +113,10 @@ func bootstrapView(report runtimebootstrap.Report) cli.BootstrapView {
 	return view
 }
 
-// RuntimeAuth runs the read-only subscription authentication preflight for
+// RuntimeAuth runs an optional read-only subscription authentication diagnostic for
 // the Runtime executable on PATH, with this shell's environment and working
 // directory: what a child without an explicit environment would inherit.
-// Child dispatch repeats it against the exact effective invocation.
+// Canonical workflow run does not call this diagnostic or use it as admission.
 func (s lifecycleService) RuntimeAuth(ctx context.Context, runtimeID string) cli.Result {
 	label := map[string]string{"codex": "Codex", "claude": "Claude"}[runtimeID]
 	report := runtimeadapter.AuthReport{RuntimeID: runtimeID, Status: runtimeadapter.AuthUnavailable, Reason: "executable_unavailable", Method: "unknown", Version: "unknown", EvidenceKind: runtimeadapter.EvidenceLocalObservation, Usability: runtimeadapter.UsabilityUnproven, Revalidation: runtimeadapter.RevalidateBeforeDispatch}
@@ -131,17 +131,19 @@ func (s lifecycleService) RuntimeAuth(ctx context.Context, runtimeID string) cli
 }
 
 func runtimeAuthResult(report runtimeadapter.AuthReport, label string, source provenance.Value) cli.Result {
+	// A point-in-time diagnostic is never Execution admission.
+	report.Revalidation = "diagnostic_only"
 	references := []string{"runtime-auth:" + report.RuntimeID + ":" + string(report.Status)}
 	var response cli.Result
 	switch report.Status {
 	case runtimeadapter.AuthSubscriptionObserved:
-		response = canonicalCompletion(completion.Facts{Completed: true}, label+" subscription login observed; usability stays unproven until a real dispatch", references, "Child dispatch repeats this preflight on its exact invocation; execution needs separate Runtime authorization", source)
+		response = canonicalCompletion(completion.Facts{Completed: true}, label+" subscription login observed; usability stays unproven until a real dispatch", references, "This diagnostic does not admit or block an Execution; workflow run observes actual vendor errors under separate Runtime authorization", source)
 	case runtimeadapter.AuthIncompatible:
 		response = canonicalCompletion(completion.Facts{ValidationFailed: true}, label+" authentication does not satisfy the local subscription contract", references, "Inspect the reported vendor authentication method or explicit configuration override; environment variable names do not determine compatibility", source)
 	case runtimeadapter.AuthUnavailable:
 		response = canonicalCompletion(completion.Facts{ValidationFailed: true}, label+" subscription login is unavailable", references, "Log in to "+label+" with its subscription yourself, then repeat runtime auth", source)
 	default:
-		response = canonicalCompletion(completion.Facts{ValidationFailed: true}, label+" subscription authentication path is unproven", references, "Inspect the reported limitation; dispatch stays blocked until the intended path is observable", source)
+		response = canonicalCompletion(completion.Facts{ValidationFailed: true}, label+" subscription authentication path is unproven", references, "Inspect the reported diagnostic limitation; workflow run records actual vendor errors without authentication preflight", source)
 	}
 	response.RuntimeAuth = &report
 	return response

@@ -48,8 +48,8 @@ func CheckPolicyWorkflow(before, after project.Project, catalog workflowdefiniti
 		category = "workflow_unresolvable"
 	}
 	out := PolicyWorkflowReport{Workflow: ResolveActiveWorkflow(beforeState, catalog, category), Impact: []PolicyWorkflowImpact{}, Inventory: "unknown_uninspected", Scopes: []string{
-		"future_admission_requires_current_policy_workflow_readiness_authority",
-		"existing_execution_stage_plan_bindings_immutable_resume_dispatch_recheck_permission_freshness",
+		"canonical_run_resolves_explicit_agent_inputs_and_current_authority",
+		"existing_attempts_immutable_ordinary_retry_preserves_frozen_invocation",
 		"work_items_no_effects",
 		"other_projects_local_configuration_unchanged",
 	}}

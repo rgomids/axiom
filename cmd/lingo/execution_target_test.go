@@ -8,12 +8,9 @@ import (
 	"github.com/rgomids/axiom/internal/workitem"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/rgomids/axiom/internal/cli"
-	"github.com/rgomids/axiom/internal/runtimeapplication"
-	"github.com/rgomids/axiom/internal/runtimeprofile"
 	"github.com/rgomids/axiom/internal/workflowdefinition"
 )
 
@@ -64,34 +61,6 @@ func saveTargetLink(t *testing.T, root, projectID, id, resource string) {
 	}
 }
 
-type currentFixtureSource struct{ base runtimeapplication.Source }
-
-func (s currentFixtureSource) Load(ctx context.Context, id string) (runtimeapplication.Snapshot, error) {
-	snapshot, err := s.base.Load(ctx, id)
-	if err != nil {
-		return snapshot, err
-	}
-	snapshot.Observer = currentFixtureObserver{base: snapshot.Observer, configuration: snapshot.Consumer.Configuration()}
-	return snapshot, nil
-}
-
-type currentFixtureObserver struct {
-	base          runtimeprofile.OperationalObserver
-	configuration runtimeprofile.ConfigurationV4
-}
-
-func (o currentFixtureObserver) ObserveExecutable(ctx context.Context, id string) (runtimeprofile.OperationalObservation, error) {
-	return o.base.ObserveExecutable(ctx, id)
-}
-func (o currentFixtureObserver) ObserveOperational(ctx context.Context, id, profile string) (runtimeprofile.OperationalObservation, error) {
-	observed, err := o.base.ObserveExecutable(ctx, id)
-	if err != nil {
-		return observed, err
-	}
-	observed.Revision = o.configuration.Revision
-	observed.EffortSourceDigest = strings.Repeat("a", 64)
-	return observed, nil
-}
 func currentProfileStartFixture(t *testing.T, service lifecycleService, root string) lifecycleService {
 	t.Helper()
 	store, err := local.NewRuntimeProfileStore(root)
@@ -104,10 +73,5 @@ func currentProfileStartFixture(t *testing.T, service lifecycleService, root str
 	if record, category := service.installation.Inspect(context.Background(), workItemSourceProjectID); category == "" && record.Record.State().ProjectID == workItemSourceProjectID {
 		selectProfileBuiltinForTest(t, service, workItemSourceProjectID)
 	}
-	return withOperationalObservations(service, root)
-}
-
-func withOperationalObservations(service lifecycleService, root string) lifecycleService {
-	service.RuntimePolicySource = currentFixtureSource{base: runtimePolicySource{installation: service.installation, portable: service.portable, stateRoot: root, runtimes: service.runtimeObservationSources()}}
 	return service
 }

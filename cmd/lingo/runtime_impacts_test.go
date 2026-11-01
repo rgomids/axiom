@@ -138,15 +138,6 @@ func TestRuntimeImpactsSharedProjectsPreservedAfterRemoval(t *testing.T) {
 	if after := snapshotTrees(t, env.root, filepath.Join(env.state, "projects")); !bytes.Equal(before, after) {
 		t.Fatal("local Profile removal modified Project bytes/records/status")
 	}
-	// Resolution checks the real Project/local intersection before any executable
-	// observation. Neither Project is patched to substitute the surviving Profile.
-	source := runtimePolicySource{installation: service.installation, portable: service.portable, stateRoot: env.state, runtimes: runtimeObservationSources{lookPath: func(string) (string, error) { return "", exec.ErrNotFound }}}
-	policy := runtimeapplication.New(source)
-	for _, id := range []string{env.projectID, secondID} {
-		if code := policy.Availability(ctx, id); code != "no_allowed_match" {
-			t.Fatalf("removed profile for %s blocker %s", id, code)
-		}
-	}
 	output, err := json.Marshal(applied)
 	if err != nil {
 		t.Fatal(err)

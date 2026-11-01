@@ -24,7 +24,6 @@ import (
 	"github.com/rgomids/axiom/internal/project"
 	"github.com/rgomids/axiom/internal/projectapp"
 	"github.com/rgomids/axiom/internal/provenance"
-	"github.com/rgomids/axiom/internal/runtimeapplication"
 	"github.com/rgomids/axiom/internal/workflow"
 	"github.com/rgomids/axiom/internal/workitem"
 )
@@ -206,8 +205,6 @@ func stateRoot() (string, error) {
 }
 
 type lifecycleService struct {
-	// RuntimePolicySource allows composition tests to inject fresh snapshots.
-	RuntimePolicySource    runtimeapplication.Source
 	lifecycle              projectapp.Lifecycle
 	portable               local.PortableStore
 	installation           local.InstallationStore

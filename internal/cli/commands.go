@@ -34,7 +34,7 @@ func commandTree() commandDefinition {
 			group("codex", "Codex integration", leaf("install", "Install user-global skills", codexInstallAction), leaf("status", "Inspect integration", codexStatusAction), leaf("auth", "Inspect subscription authentication (read-only)", codexAuthAction)),
 			group("claude", "Claude integration", leaf("install", "Install user-global skills", claudeInstallAction), leaf("status", "Inspect integration", claudeStatusAction), leaf("auth", "Inspect subscription authentication (read-only)", claudeAuthAction)),
 			group("binding", "Author machine-local Runtime bindings", runtimeAuthoringCommands("binding")...),
-			group("profile", "Inspect and author local Profiles", append([]commandDefinition{leaf("validate", "Validate local configuration", runtimeProfileValidateAction), leaf("preview", "Preview Runtime resolution", runtimeProfilePreviewAction)}, runtimeAuthoringCommands("profile")...)...)),
+			group("profile", "Inspect and author local Profiles", append([]commandDefinition{leaf("validate", "Validate local configuration", runtimeProfileValidateAction), leaf("preview", "Explain retired predictive preview", runtimeProfilePreviewAction)}, runtimeAuthoringCommands("profile")...)...)),
 		group("project", "Configure and inspect Projects",
 			workflowAuthoringCommands(),
 			leaf("configure", "Preview CREATE or EDIT; publish with exact authority", configureAction),

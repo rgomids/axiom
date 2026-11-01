@@ -96,7 +96,7 @@ func TestPolicyPreviewDeterministicSafeAndReadOnly(t *testing.T) {
 		t.Fatal("unstable preview", failure)
 	}
 	preview := first.Preview()
-	if preview.Runtime[0].Code != "configuration_missing" || !preview.Workflow.Compatible || !preview.Admission.Allowed || preview.Admission.GrantsAuthority || len(preview.Diff) != 1 || len(preview.Effects) != 2 {
+	if preview.Runtime[0].Code != projectapp.RuntimeSelectedAtDispatch || !preview.Workflow.Compatible || !preview.Admission.Allowed || preview.Admission.GrantsAuthority || len(preview.Diff) != 1 || len(preview.Effects) != 2 {
 		t.Fatalf("incorrect preview: %+v", preview)
 	}
 	// Per-agent policy coverage is authoring guidance, never a predictive gate.
@@ -161,12 +161,12 @@ func TestPolicyPreviewUsesCandidateAndBindsLocalConfiguration(t *testing.T) {
 	ports := f.policyPorts(t)
 	noop := policyIntent(t, `{}`)
 	first, failure := projectapp.PreviewPolicyEdit(ctx, ports, noop)
-	if failure != projectapp.EditOK || first.Preview().Runtime[0].Code != "inventory_unavailable" {
+	if failure != projectapp.EditOK || first.Preview().Runtime[0].Code != projectapp.RuntimeSelectedAtDispatch {
 		t.Fatal("unexpected readiness", failure, first.Preview())
 	}
 	intent := policyIntent(t, `{"modelProfiles":{"mode":"members","replace":[{"key":"`+fx.CodexHighProfileID+`","runtimeRef":"`+fx.CodexRuntimeID+`","model":"different-model"}]}}`)
 	next, failure := projectapp.PreviewPolicyEdit(ctx, ports, intent)
-	if failure != projectapp.EditOK || next.Preview().Runtime[0].Code != "no_allowed_match" {
+	if failure != projectapp.EditOK || next.Preview().Runtime[0].Code != projectapp.RuntimeSelectedAtDispatch {
 		t.Fatal("reloaded installed policy instead of candidate", failure)
 	}
 	if first.Preview().Digest == next.Preview().Digest {
@@ -198,6 +198,8 @@ func TestPolicyPreviewRejectsUnsafeOrUnsealedFacts(t *testing.T) {
 		func(f *projectapp.PolicyEditFacts) { f.Dependencies.Source = strings.Repeat("A", 64) },
 		func(f *projectapp.PolicyEditFacts) { f.Operational.Revision = "" },
 		func(f *projectapp.PolicyEditFacts) { f.Runtime[0].Code = "SENTINEL-ERROR /private/path" },
+		func(f *projectapp.PolicyEditFacts) { f.Runtime[0].Code = "no_allowed_match" },
+		func(f *projectapp.PolicyEditFacts) { f.Runtime[0].Blocker = "runtime_resolution_blocked" },
 		func(f *projectapp.PolicyEditFacts) { f.Runtime[0].Stage = "SENTINEL-STAGE" },
 	} {
 		ports := f.policyPorts(t)
@@ -216,7 +218,7 @@ func TestPolicyPreviewUnconfiguredPolicyIsGuidanceNotBlocker(t *testing.T) {
 		t.Fatal(failure)
 	}
 	row := proposal.Preview().Runtime[0]
-	if row.Code != "policy_unconfigured" || row.Blocker != "" || row.Next != projectapp.PolicyRuntimeGuidance("policy_unconfigured") {
+	if row.Code != projectapp.RuntimeSelectedAtDispatch || row.Blocker != "" || row.Next != projectapp.PolicyRuntimeGuidance(projectapp.RuntimeSelectedAtDispatch) {
 		t.Fatal("unconfigured policy guidance changed or became a gate", row)
 	}
 	for _, operation := range proposal.Preview().Readiness {
@@ -231,10 +233,10 @@ func TestPolicyReadinessSnapshotParityAndGuidance(t *testing.T) {
 		name, code string
 		config     *runtimeprofile.ConfigurationV3
 	}{
-		{"missing", "configuration_missing", nil},
-		{"matching_unproven", "inventory_unavailable", configPointer(fx.CodexOnly())},
-		{"disabled", "runtime_unavailable", configPointer(fx.WithRuntimeDisabled(fx.CodexOnly(), fx.CodexRuntimeID))},
-		{"wrong_runtime", "no_allowed_match", configPointer(fx.ClaudeOnly())},
+		{"missing", projectapp.RuntimeSelectedAtDispatch, nil},
+		{"matching_unproven", projectapp.RuntimeSelectedAtDispatch, configPointer(fx.CodexOnly())},
+		{"disabled", projectapp.RuntimeSelectedAtDispatch, configPointer(fx.WithRuntimeDisabled(fx.CodexOnly(), fx.CodexRuntimeID))},
+		{"wrong_runtime", projectapp.RuntimeSelectedAtDispatch, configPointer(fx.ClaudeOnly())},
 	} {
 		t.Run(scenario.name, func(t *testing.T) {
 			f := newPolicyEditFixture(t)
@@ -262,12 +264,12 @@ func TestPolicyReadinessSnapshotParityAndGuidance(t *testing.T) {
 			}
 			selection, _ := ports.Edit.Source.SelectForEdit(context.Background(), "sample")
 			subject := projectapp.ReadinessSubject{Project: selection.Portable.Project(), Local: selection.Local}
-			code := ObservePolicyRuntime(context.Background(), subject, f.state)
+			code := proposal.Preview().Runtime[0].Code
 			if code != scenario.code || code != proposal.Preview().Runtime[0].Code {
 				t.Fatalf("parity: %s %+v", code, proposal.Preview().Runtime)
 			}
 			// Readiness parity uses the canonical non-predictive basis; the
-			// per-agent code remains guidance with its canonical next step.
+			// per-agent rows share that non-predictive basis and its next step.
 			report := projectapp.EvaluateReadiness(projectapp.ReadinessInput{Project: subject.Project, Local: subject.Local, RuntimeCode: projectapp.RuntimeSelectedAtDispatch, Catalog: projectapp.SupportedProviders})
 			if !reflect.DeepEqual(report.Operations, proposal.Preview().Readiness) || report.Runtime.Status != projectapp.RuntimeSelectedAtDispatch || proposal.Preview().Runtime[0].Next != projectapp.PolicyRuntimeGuidance(code) || proposal.Preview().Runtime[0].Next == "" {
 				t.Fatal("canonical readiness differs", report, proposal.Preview())
