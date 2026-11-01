@@ -292,6 +292,60 @@ func TestExecutionStoreCrashWindowsNeverInventState(t *testing.T) {
 	}
 }
 
+// An interrupted canonical publication must be visible to, and finalized by,
+// the existing reviewed maintenance recovery; otherwise the Execution stays
+// unreadable with no supported repair.
+func TestExecutionStoreInterruptedPublicationIsRecoverable(t *testing.T) {
+	ctx := context.Background()
+	s, root := newTestExecutionStore(t)
+	if err := s.Create(ctx, storeTestExecution(t)); err != nil {
+		t.Fatal(err)
+	}
+	current, _ := s.Load(ctx, "proj", storeTestExecutionID)
+	next := current
+	_ = next.RequestCancel("user:local", storeT0)
+	s.hooks.fault = func(stage FaultStage) error {
+		if stage == FaultF6 {
+			return ErrSimulatedInterruption
+		}
+		return nil
+	}
+	if err := s.Save(ctx, next, current.Revision, nil); err == nil {
+		t.Fatal("interruption ignored")
+	}
+	s.hooks.fault = nil
+	if _, err := s.Load(ctx, "proj", storeTestExecutionID); !errors.Is(err, ErrRecoveryRequired) {
+		t.Fatalf("interrupted publication: %v", err)
+	}
+	report, err := InspectRecovery(ctx, RecoveryRoots{State: root})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var plan *RecoveryPlan
+	for i, p := range report.Plans {
+		if p.Directory == "executions/v2/proj" {
+			plan = &report.Plans[i]
+		}
+	}
+	if plan == nil {
+		t.Fatalf("canonical Execution protocol absent from recovery: %+v", report)
+	}
+	authority, err := AuthorizeRecovery(*plan, plan.Digest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ApplyRecovery(ctx, RecoveryRoots{State: root}, *plan, authority); err != nil {
+		t.Fatal(err)
+	}
+	got, err := s.Load(ctx, "proj", storeTestExecutionID)
+	if err != nil {
+		t.Fatalf("recovered Execution unreadable: %v", err)
+	}
+	if got.Revision != current.Revision && got.Revision != next.Revision {
+		t.Fatalf("recovery invented revision %d", got.Revision)
+	}
+}
+
 func storeInvocation() workflow.Invocation {
 	return workflow.Invocation{Runtime: "stub", Executable: "stub-bin", Model: "m", Effort: "runtime-default", Instructions: "i", InstructionsDigest: workflow.DigestText([]byte("i")),
 		Provenance: []workflow.FieldProvenance{{Field: "runtime", Source: "local_default"}, {Field: "model", Source: "local_default"}, {Field: "effort", Source: "local_default"}, {Field: "instructions", Source: "workflow_agent"}}}
@@ -389,5 +443,55 @@ func TestExecutionStoreUnknownResolutionPreservesObservations(t *testing.T) {
 	a := resolved.Stages[0].Tasks[0].Attempts[0]
 	if a.Status != workflow.AttemptUnknown || a.Diagnostic != "lost terminal observation" || a.Resolution == nil {
 		t.Fatal("resolution rewrote unknown history")
+	}
+}
+
+// Accepted messages are attempt-owned facts; a current writer cannot drop or
+// rewrite them, even with a valid record and the expected revision.
+func TestExecutionStoreRejectsMessageHistoryRewrite(t *testing.T) {
+	for _, mode := range []string{"drop", "rewrite"} {
+		t.Run(mode, func(t *testing.T) {
+			ctx := context.Background()
+			s, _ := newTestExecutionStore(t)
+			original, err := workflow.NewExecution(workflow.NewExecutionInput{
+				ExecutionID: storeTestExecutionID, ProjectID: "proj", WorkItem: workflow.WorkItemLink{Provider: "linear", ID: "AXM-42", RepositoryKey: "app"},
+				Repositories: []workflow.RepositoryBinding{{Key: "app", Identity: "github.com/example/app"}}, WorkflowID: "pair", Revision: "r1", Now: storeT0,
+				Stages: []workflow.StageSpec{{ID: "work", Agents: []workflow.AgentSpec{{ID: "builder"}, {ID: "reviewer"}}, TimeoutSeconds: 60}},
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := s.Create(ctx, original); err != nil {
+				t.Fatal(err)
+			}
+			lease := claim(t, s)
+			defer lease.Close()
+			current, err := s.Update(ctx, "proj", storeTestExecutionID, lease, func(e *workflow.Execution) error {
+				if err := e.PrepareAttempt(workflow.PrepareInput{Ref: workflow.TaskRef{StageID: "work", AgentID: "builder"}, AttemptID: "a1", Generation: lease.Epoch, Invocation: storeInvocation(), Authority: workflow.AttemptAuthority{RepositoryKey: "app", Actor: "user:local"}, Now: storeT0}); err != nil {
+					return err
+				}
+				if err := e.MarkStarted("a1", lease.Epoch, workflow.ProcessIdentity{PID: 100, StartIdentity: "s", GroupIdentity: "100"}, storeT0); err != nil {
+					return err
+				}
+				return e.AcceptMessage(workflow.IngressContext{ExecutionID: storeTestExecutionID, AttemptID: "a1", AgentID: "builder", Generation: lease.Epoch}, workflow.MessageCandidate{ID: "m1", Recipient: "reviewer", Kind: workflow.MessageQuestion, Content: "original"}, storeT0)
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			wire, _ := workflow.EncodeExecution(current)
+			next, _ := workflow.DecodeExecution(wire)
+			if mode == "drop" {
+				next.Messages = nil
+			} else {
+				next.Messages[0].Content = "rewritten"
+			}
+			next.Revision++
+			if err := next.Validate(); err != nil {
+				t.Fatalf("fixture must be internally valid: %v", err)
+			}
+			if err := s.Save(ctx, next, current.Revision, lease); !errors.Is(err, ErrConflict) {
+				t.Fatalf("message history %s accepted: %v", mode, err)
+			}
+		})
 	}
 }

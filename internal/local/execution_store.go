@@ -261,6 +261,20 @@ func preservesExecutionHistory(prior, next workflow.Execution) bool {
 	if prior.Cancel != nil && !reflect.DeepEqual(prior.Cancel, next.Cancel) {
 		return false
 	}
+	// Accepted messages are append-only facts.
+	if len(next.Messages) < len(prior.Messages) {
+		return false
+	}
+	for i, m := range prior.Messages {
+		n := next.Messages[i]
+		if !m.ReceivedAt.Equal(n.ReceivedAt) {
+			return false
+		}
+		n.ReceivedAt = m.ReceivedAt
+		if m != n {
+			return false
+		}
+	}
 	for i, stage := range prior.Stages {
 		if stage.StageID != next.Stages[i].StageID || len(stage.Tasks) != len(next.Stages[i].Tasks) || (stage.Gate != nil && !reflect.DeepEqual(stage.Gate, next.Stages[i].Gate)) || (stage.BeforeApproval != nil && !reflect.DeepEqual(stage.BeforeApproval, next.Stages[i].BeforeApproval)) || (stage.Review != nil && !reflect.DeepEqual(stage.Review, next.Stages[i].Review)) {
 			return false
