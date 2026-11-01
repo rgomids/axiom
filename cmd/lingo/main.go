@@ -956,17 +956,6 @@ func (s lifecycleService) WorkflowReconcile(ctx context.Context, input cli.Workf
 	return s.retiredWorkflowMutation()
 }
 
-func workflowReferences(value string) ([]workflow.Reference, bool) {
-	if value == "" {
-		return nil, true
-	}
-	parts := strings.Split(value, ":")
-	if len(parts) != 3 {
-		return nil, false
-	}
-	return []workflow.Reference{{Kind: parts[0], ID: parts[1], Digest: parts[2]}}, true
-}
-
 func workflowResult(result workflow.Result, source provenance.Value) cli.Result {
 	facts := factsForCompletionStatus(result.Status)
 	response := canonicalCompletion(facts, workflowResultText(result), workflowResultReferences(result), workflowResultNext(result), source)

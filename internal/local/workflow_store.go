@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"github.com/rgomids/axiom/internal/project"
 	"github.com/rgomids/axiom/internal/workflow"
 	"github.com/rgomids/axiom/internal/workflowdefinition"
 	"io"
@@ -195,20 +194,6 @@ func sameExecutionBinding(left, right workflow.State) bool {
 
 func parseExecutionTime(value string) (time.Time, error) {
 	return time.Parse(timeFormat, value)
-}
-
-func validExecutionAddress(projectID, repositoryKey string, item workflow.WorkItem) bool {
-	if len(project.ValidateIdentity(projectID, "execution")) != 0 || !project.ValidSlug(repositoryKey) {
-		return false
-	}
-	probe := workflow.State{
-		ExecutionID: "00000000-0000-4000-8000-000000000000", FormatVersion: workflow.FormatVersion,
-		WorkflowVersion: workflow.WorkflowVersion, ProjectID: projectID, RepositoryKey: repositoryKey,
-		WorkItem: item, RuntimeID: "probe", Stage: workflow.Intake, Revision: 1, Status: workflow.ExecutionActive,
-		CreatedAt: time.Unix(1, 0).UTC(), UpdatedAt: time.Unix(1, 0).UTC(),
-		Provenance: workflow.Identity{Product: "Axiom", Version: "development", Revision: "unavailable", SourceState: "unknown"},
-	}
-	return workflow.ValidState(probe)
 }
 
 func executionName(repositoryKey string, item workflow.WorkItem) string {

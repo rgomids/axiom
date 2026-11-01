@@ -22,19 +22,6 @@ type workflowDefinitions struct {
 	portable     local.PortableStore
 }
 
-func readStageResult(path string, value *workflow.StageResult) error {
-	f, err := os.Open(path)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	b, err := io.ReadAll(io.LimitReader(f, 64<<10+1))
-	if err != nil || len(b) > 64<<10 {
-		return workflowdefinition.ErrInvalid
-	}
-	return workflowdefinition.StrictJSON(b, value)
-}
-
 func (r workflowDefinitions) ResolveDefinition(ctx context.Context, selector string) (workflow.DefinitionObservation, string) {
 	resolved := r.installation.Resolve(ctx, selector)
 	if resolved.Status != local.ResolutionFound {

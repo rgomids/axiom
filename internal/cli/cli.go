@@ -639,9 +639,6 @@ const (
 type requestInput struct {
 	policyDraft                              string
 	policySupplied                           bool
-	actor                                    string
-	stageResultFile                          string
-	automatic                                bool
 	itemType, beneficiary, value             string
 	classification                           repositoryFlags
 	elaboratedSections                       elaboratedSectionFlags
@@ -669,15 +666,9 @@ type requestInput struct {
 	intent, problem, desiredOutcome, context string
 	scope, constraints, nonGoals, acceptance string
 	message, title                           string
-	gate, outcome, reference, next, fact     string
-	runtime                                  string
-	role, complexity, capabilities           string
-	runtimePreview                           string
 	number                                   int
-	expectedRevision                         uint64
 	authorizeExternal                        bool
 	authorizeLocal                           bool
-	active                                   bool
 }
 
 func request(args []string, service Service) (action, requestInput, *string) {

@@ -1,14 +1,10 @@
 package local
 
 import (
-	"bytes"
-	"context"
 	"encoding/json"
-	"errors"
 	"github.com/rgomids/axiom/internal/strictjson"
 	"github.com/rgomids/axiom/internal/workflow"
 	"github.com/rgomids/axiom/internal/workflowdefinition"
-	"os"
 )
 
 type activeExecution struct {
@@ -58,28 +54,6 @@ func encodeExecution(state workflow.State) ([]byte, error) {
 		return nil, err
 	}
 	return wire, nil
-}
-func (s WorkflowStore) retainDeliveryFile(ctx context.Context, project *os.Root, name string, wire []byte) error {
-	prior, err := readExecutionFile(project, name)
-	if err == nil {
-		if bytes.Equal(prior, wire) {
-			return nil
-		}
-		return ErrConflict
-	}
-	if !errors.Is(err, os.ErrNotExist) && !errors.Is(err, ErrNotFound) {
-		return err
-	}
-	hooks := s.hooks
-	hooks.contentLimit = MaxExecutionBytes
-	if err = publishFile(ctx, project, name, nil, wire, true, hooks); err != nil {
-		return err
-	}
-	confirmed, err := readExecutionFile(project, name)
-	if err != nil || !bytes.Equal(wire, confirmed) {
-		return ErrRecoveryRequired
-	}
-	return nil
 }
 func classifyDeliveryRework(projectID, file string, wire []byte) InventoryKind {
 	p, err := workflow.DecodeReworkPreview(wire)

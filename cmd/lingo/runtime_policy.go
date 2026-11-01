@@ -33,11 +33,6 @@ type runtimeObservationSources struct {
 	consented  bool
 }
 
-func (r runtimeObservationSources) scoped(repository string, consented bool) runtimeObservationSources {
-	r.repository, r.consented = repository, consented
-	return r
-}
-
 func (s lifecycleService) runtimeObservationSources() runtimeObservationSources {
 	return runtimeObservationSources{lookPath: s.runtimes.lookPath}
 }
@@ -152,16 +147,12 @@ func (s lifecycleService) runtimeResolutionResult(preview runtimeapplication.Pre
 	return response
 }
 
-func (s lifecycleService) runtimePolicyFailure(code string) cli.Result {
-	return s.runtimeResolutionResult(runtimeapplication.Preview{Blocker: &runtimeprofile.Blocker{Code: code}}, false)
-}
-
 func operationalNext(code string) string {
 	switch code {
 	case "executable_unavailable":
 		return "Install the Runtime CLI or expose it on PATH under its own name, then request a fresh preview"
 	case "inspection_consent_required":
-		return "Use workflow start or workflow stage plan/run with --authorize-local over the registered repository to inspect its Runtime effort sources; runtime profile preview has no inspection scope"
+		return "Runtime effort sources are read only by the canonical workflow run for its frozen attempt; runtime profile preview has no inspection scope"
 	case "effort_override_conflict":
 		return "Remove the competing effort setting (argument, environment or settings file) so the Profile alone owns effort, then request a fresh preview"
 	case "configuration_unsafe", "configuration_invalid":

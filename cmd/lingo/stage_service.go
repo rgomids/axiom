@@ -182,10 +182,6 @@ func stageActor() string {
 	return "local-operator"
 }
 
-func (s lifecycleService) stagePreview(digest, message, next string, payload any) cli.WorkflowStageResponse {
-	return s.stageSuccess("stage_preview_ready", message, []string{"stage-preview:" + digest}, next, map[string]any{"previewDigest": digest, "preview": payload})
-}
-
 // decisionNext describes retained historical delivery facts without loading an
 // old ledger or granting an effect. Delivery mutation is S3-owned.
 func decisionNext(d workflow.DeliveryDecision) string {
