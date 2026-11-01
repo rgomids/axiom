@@ -61,6 +61,9 @@ const maxCutoverFiles = 100_000
 // inventory never authorizes cutover.
 func InspectCutover(ctx context.Context, stateRoot string) (CutoverInventory, error) {
 	var inv CutoverInventory
+	if err := ctx.Err(); err != nil {
+		return inv, err
+	}
 	root, err := trustedCanonical(stateRoot)
 	if err != nil {
 		return inv, err
@@ -257,6 +260,14 @@ func BackupLegacyState(ctx context.Context, stateRoot, backupDir string, inv Cut
 		if !validCutoverPath(f.Path) {
 			return ErrUnsafe
 		}
+	}
+	// A caller's manifest cannot establish completeness. Re-inspect the full
+	// source before and after copying: omitted, added or changed files require
+	// a fresh operator inventory, even when each supplied hash was accurate.
+	if err := compareCutoverInventory(ctx, root, inv); err != nil {
+		return err
+	}
+	for _, f := range inv.Files {
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
@@ -283,10 +294,25 @@ func BackupLegacyState(ctx context.Context, stateRoot, backupDir string, inv Cut
 			return err
 		}
 	}
+	if err := compareCutoverInventory(ctx, root, inv); err != nil {
+		return err
+	}
 	return VerifyLegacyBackup(backupDir, inv)
 }
 
-// VerifyLegacyBackup re-reads every backed-up file and compares its bytes.
+func compareCutoverInventory(ctx context.Context, root string, expected CutoverInventory) error {
+	current, err := InspectCutover(ctx, root)
+	if err != nil {
+		return err
+	}
+	if current.Blocked() || len(current.Files) != len(expected.Files) || current.Digest() != expected.Digest() {
+		return fmt.Errorf("%w: cutover inventory is incomplete or changed", ErrConflict)
+	}
+	return nil
+}
+
+// VerifyLegacyBackup re-reads the complete backed-up inventory and compares its
+// bytes. Unexpected files or unsafe entries cannot be hidden by a subset manifest.
 func VerifyLegacyBackup(backupDir string, inv CutoverInventory) error {
 	for _, f := range inv.Files {
 		if !validCutoverPath(f.Path) {
@@ -297,7 +323,7 @@ func VerifyLegacyBackup(backupDir string, inv CutoverInventory) error {
 			return fmt.Errorf("%w: backup of %s is missing or differs", ErrConflict, f.Path)
 		}
 	}
-	return nil
+	return compareCutoverInventory(context.Background(), backupDir, inv)
 }
 
 // CutoverDisposition is the operator's explicit decision for one exact

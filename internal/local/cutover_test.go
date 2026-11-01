@@ -285,3 +285,61 @@ func TestCutoverUnexpectedKnownRootFileAndEmptyHumanBlock(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestCutoverBackupRequiresCompleteCurrentInventory(t *testing.T) {
+	for _, name := range []string{"omitted source", "added source", "extra backup", "cancelled inventory"} {
+		t.Run(name, func(t *testing.T) {
+			root := legacyFixture(t)
+			inv, err := InspectCutover(context.Background(), root)
+			if err != nil {
+				t.Fatal(err)
+			}
+			backup := privateTestRoot(t)
+			switch name {
+			case "omitted source":
+				inv.Files = inv.Files[:len(inv.Files)-1]
+			case "added source":
+				if err := os.WriteFile(filepath.Join(root, "graphs/v1/proj/new.json"), []byte("new"), 0600); err != nil {
+					t.Fatal(err)
+				}
+			case "extra backup":
+				if err := BackupLegacyState(context.Background(), root, backup, inv); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(filepath.Join(backup, "graphs/v1/proj/new.json"), []byte("new"), 0600); err != nil {
+					t.Fatal(err)
+				}
+				if err := VerifyLegacyBackup(backup, inv); !errors.Is(err, ErrConflict) {
+					t.Fatalf("unexpected backup entry certified: %v", err)
+				}
+				return
+			case "cancelled inventory":
+				ctx, cancel := context.WithCancel(context.Background())
+				cancel()
+				if err := BackupLegacyState(ctx, root, backup, inv); err == nil {
+					t.Fatal("cancelled inventory certified")
+				}
+				return
+			}
+			if err := BackupLegacyState(context.Background(), root, backup, inv); !errors.Is(err, ErrConflict) {
+				t.Fatalf("incomplete inventory certified: %v", err)
+			}
+			entries, err := os.ReadDir(backup)
+			if err != nil || len(entries) != 0 {
+				t.Fatalf("incomplete inventory wrote backup: %v %v", entries, err)
+			}
+		})
+	}
+}
+
+func TestCutoverCancelledEmptyInventoryCannotCertifyBackup(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	root, backup := privateTestRoot(t), privateTestRoot(t)
+	if _, err := InspectCutover(ctx, root); !errors.Is(err, context.Canceled) {
+		t.Fatalf("cancelled inspection: %v", err)
+	}
+	if err := BackupLegacyState(ctx, root, backup, CutoverInventory{}); !errors.Is(err, context.Canceled) {
+		t.Fatalf("cancelled empty backup: %v", err)
+	}
+}
