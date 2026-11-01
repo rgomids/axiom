@@ -268,7 +268,9 @@ func ApplyWorkflow(ctx context.Context, port WorkflowAuthoringPort, r WorkflowRe
 			return fail("reference_inventory_unknown")
 		}
 		for _, used := range observed.Referenced {
-			if used == ref {
+			// Canonical Executions freeze their own snapshot and record only the
+			// Workflow ID and revision; match conservatively on that identity.
+			if used.WorkflowID == ref.WorkflowID && used.Revision == ref.Revision {
 				return fail("revision_in_use")
 			}
 		}
