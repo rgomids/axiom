@@ -1051,6 +1051,10 @@ func (c executionComposition) review(ctx context.Context, x workflow.Execution, 
 
 // Freeze command executable resolution once; ordinary retries never pick a
 // different executable from a changed PATH. The explicit argv stays in state.
+// The frozen path is the symlink-free target (python3, alternatives, merged
+// /usr are commonly links), checked with the launcher's own containment rule
+// before any Execution exists, so a command that could never start is refused
+// here instead of becoming an unknown effect after the agent ran.
 func freezeCommands(stages []workflow.StageSpec, authorized bool) error {
 	for i := range stages {
 		for j := range stages[i].Commands {
@@ -1067,6 +1071,10 @@ func freezeCommands(stages []workflow.StageSpec, authorized bool) error {
 			}
 			path, err = filepath.Abs(path)
 			if err != nil {
+				return errWorkflowUnmappable
+			}
+			path, err = filepath.EvalSymlinks(path)
+			if err != nil || !stageexecution.CleanRuntimePath(path) {
 				return errWorkflowUnmappable
 			}
 			command.Argv[0] = path

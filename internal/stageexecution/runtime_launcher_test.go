@@ -485,3 +485,44 @@ func TestCommandGateEOFDoesNotExecuteConfiguredArgv(t *testing.T) {
 		t.Fatalf("EOF executed command: %v", err)
 	}
 }
+
+// IR-04 (CR-S1-07): workspace code run as a validation command carries the
+// same Runtime-child markers as the agent, so a nested Axiom CLI call cannot
+// record human authority, and still receives no secret-bearing variable.
+func TestRuntimeLauncherCommandCarriesAttemptCorrelation(t *testing.T) {
+	l, r := runtimeLauncherFixture(t, "claude", "runtime-default")
+	command := filepath.Join(filepath.Dir(r.Attempt.Invocation.Executable), "local-check")
+	script := "#!/bin/sh\nprintf '%s|%s|%s|%s' \"$AXIOM_ATTEMPT_ID\" \"$AXIOM_EXECUTION_ID\" \"${PRIVATE_TOKEN-unset}\" \"${CLAUDE_CONFIG_DIR-unset}\" > markers\n"
+	if err := os.WriteFile(command, []byte(script), 0700); err != nil {
+		t.Fatal(err)
+	}
+	l.Environment = append(l.Environment, "AXIOM_ATTEMPT_ID=inherited-forged", "CLAUDE_CONFIG_DIR=/private/claude")
+	r.Stage.Commands = []workflow.CommandCheck{{ID: "check", Argv: []string{command}, TimeoutSeconds: 5, Effects: []string{"validation_command"}}}
+	r.Attempt.Authority.Effects = append(r.Attempt.Authority.Effects, "validation_command")
+	var record workflow.CommandResult
+	r.PrepareCommand = func(id string) error { record = workflow.CommandResult{ID: id, Status: "prepared"}; return nil }
+	r.StartCommand = func(id string, p workflow.ProcessIdentity) error {
+		record.Process, record.Status = &p, "running"
+		return nil
+	}
+	r.FinishCommand = func(id string, code int) (workflow.CommandResult, error) {
+		record.ExitCode, record.Status = code, "completed"
+		return record, nil
+	}
+	if err := os.MkdirAll(filepath.Join(l.InboxRoot, r.Attempt.AttemptID), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(l.InboxRoot, r.Attempt.AttemptID, "result"), []byte("result"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if outcome, err := l.Collect(context.Background(), r, executiongraph.ProcessResult{ExitCode: 0}); err != nil || len(outcome.Commands) != 1 {
+		t.Fatalf("command: %+v %v", outcome, err)
+	}
+	wire, err := os.ReadFile(filepath.Join(l.Workspace, "markers"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := r.Attempt.AttemptID + "|" + r.Execution.ExecutionID + "|unset|unset"; string(wire) != want {
+		t.Fatalf("command environment %q, want %q", wire, want)
+	}
+}

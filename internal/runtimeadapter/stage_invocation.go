@@ -29,7 +29,10 @@ type AttemptCorrelation struct {
 	ProjectID, ParentID, ChildID, AttemptID string
 }
 
-func (c AttemptCorrelation) environment() ([]string, error) {
+// Environment is the closed set of correlation entries for this attempt;
+// processes started on its behalf (agent and validation commands) carry it so
+// the Axiom CLI recognizes them as Runtime children.
+func (c AttemptCorrelation) Environment() ([]string, error) {
 	if c == (AttemptCorrelation{}) {
 		return nil, nil
 	}
@@ -63,7 +66,7 @@ func BuildStageInvocation(request StageInvocationRequest) (executiongraph.Invoca
 	if err != nil {
 		return executiongraph.Invocation{}, err
 	}
-	correlation, err := request.Correlation.environment()
+	correlation, err := request.Correlation.Environment()
 	if err != nil {
 		return executiongraph.Invocation{}, err
 	}

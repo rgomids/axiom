@@ -97,7 +97,7 @@ func (l RuntimeLauncher) Build(ctx context.Context, r LaunchRequest) (executiong
 		Process:         slices.Contains(r.Attempt.Authority.Effects, "process"), ParentEnvironment: l.Environment,
 		// The child's own attempt context marks it as a Runtime child, so it
 		// cannot record human authority through the Axiom CLI it may invoke.
-		Correlation: runtimeadapter.AttemptCorrelation{ProjectID: r.Execution.ProjectID, ParentID: r.Execution.ExecutionID, ChildID: r.Execution.ExecutionID, AttemptID: r.Attempt.AttemptID},
+		Correlation: attemptCorrelation(r),
 	})
 	if err != nil {
 		return fail()
@@ -320,7 +320,14 @@ func (l RuntimeLauncher) Collect(ctx context.Context, r LaunchRequest, p executi
 				safeEnvironment = append(safeEnvironment, entry)
 			}
 		}
-		inv = executiongraph.WithExactEnvironment(inv, safeEnvironment)
+		// Workspace code the agent could edit runs here, so the command carries
+		// the same Runtime-child markers as the agent (advisory guard, D-01).
+		correlation, err := attemptCorrelation(r).Environment()
+		if err != nil {
+			cancel()
+			return Outcome{}, ErrRuntimeOutput
+		}
+		inv = executiongraph.WithExactEnvironment(inv, append(safeEnvironment, correlation...))
 		result := (executiongraph.OSProcessRunner{}).RunObserved(commandCtx, inv, func(p *executiongraph.ProcessCorrelation) error {
 			return r.StartCommand(check.ID, workflow.ProcessIdentity{PID: p.PID, StartIdentity: p.StartIdentity, GroupIdentity: p.GroupIdentity})
 		})
@@ -344,6 +351,14 @@ func (l RuntimeLauncher) Collect(ctx context.Context, r LaunchRequest, p executi
 	}
 	return out, nil
 }
+
+func attemptCorrelation(r LaunchRequest) runtimeadapter.AttemptCorrelation {
+	return runtimeadapter.AttemptCorrelation{ProjectID: r.Execution.ProjectID, ParentID: r.Execution.ExecutionID, ChildID: r.Execution.ExecutionID, AttemptID: r.Attempt.AttemptID}
+}
+
+// CleanRuntimePath reports an absolute, clean path with no symlinked
+// component, the containment every machine-local launcher path must meet.
+func CleanRuntimePath(path string) bool { return cleanRuntimePath(path) }
 
 func cleanRuntimePath(path string) bool {
 	if !filepath.IsAbs(path) || filepath.Clean(path) != path {
