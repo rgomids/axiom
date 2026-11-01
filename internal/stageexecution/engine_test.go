@@ -484,3 +484,56 @@ func TestEnginePerAgentTimeoutOverridesStageDefault(t *testing.T) {
 		t.Fatal("timed out process remains observable")
 	}
 }
+
+// commandCancelLauncher starts the configured validation command, persists a
+// cancel intent while it runs and returns the launcher's stop observation.
+type commandCancelLauncher struct {
+	stubLauncher
+	cancel     func()
+	collectErr error
+}
+
+func (l commandCancelLauncher) Collect(ctx context.Context, r LaunchRequest, p executiongraph.ProcessResult) (Outcome, error) {
+	if err := r.PrepareCommand("check"); err != nil {
+		return Outcome{}, err
+	}
+	if err := r.StartCommand("check", workflow.ProcessIdentity{PID: 778, StartIdentity: "boot:2", GroupIdentity: "778"}); err != nil {
+		return Outcome{}, err
+	}
+	l.cancel()
+	return Outcome{}, l.collectErr
+}
+
+func TestEngineCancelDuringValidationCommandNeverHidesUnconfirmedStop(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		collectErr error
+		want       workflow.AttemptStatus
+	}{
+		{"stop unconfirmed", ErrCommandOutcomeUnknown, workflow.AttemptUnknown},
+		{"opaque launcher error", ErrRuntimeOutput, workflow.AttemptUnknown},
+		{"termination confirmed", ErrCommandTerminated, workflow.AttemptCancelled},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			check := workflow.CommandCheck{ID: "check", Argv: []string{"/bin/true"}, TimeoutSeconds: 5, Effects: []string{"validation_command"}}
+			stages := []workflow.StageSpec{{ID: "work", Commands: []workflow.CommandCheck{check}, Agents: []workflow.AgentSpec{{ID: "builder", Effects: []string{"validation_command"}}}, Outputs: []string{"result"}, TimeoutSeconds: 5}}
+			f := newEngineFixture(t, stages, succeed("OUTPUT result\n"))
+			f.engine.Launcher = commandCancelLauncher{collectErr: tc.collectErr, cancel: func() {
+				if _, err := f.engine.Cancel(context.Background(), "proj", engineExecutionID, "user:local"); err != nil {
+					t.Fatal(err)
+				}
+			}}
+			x, err := f.run(t)
+			if err != nil {
+				t.Fatal(err)
+			}
+			a, _, _ := x.FindAttempt("att-1")
+			if a.Status != tc.want || len(a.Commands) != 1 || a.Commands[0].Status != "running" {
+				t.Fatalf("cancel during command: %s %q %+v", a.Status, a.Diagnostic, a.Commands)
+			}
+			if tc.want == workflow.AttemptUnknown && x.Status != workflow.RunRecoveryRequired {
+				t.Fatalf("unconfirmed command stop must require recovery: %s", x.Status)
+			}
+		})
+	}
+}

@@ -20,6 +20,14 @@ import (
 var ErrRuntimeLaunch = errors.New("runtime_launch_refused: check configured executable, frozen selectors and local paths")
 var ErrRuntimeOutput = errors.New("runtime_output_unsafe: declared output could not be read safely")
 
+// A started validation command whose terminal result was not committed reports
+// either a confirmed end (exit observed or group stop confirmed) or an
+// unconfirmed stop. The engine treats anything else as unconfirmed.
+var (
+	ErrCommandTerminated     = errors.New("validation_command_terminated_uncommitted")
+	ErrCommandOutcomeUnknown = errors.New("validation_command_stop_unconfirmed")
+)
+
 const maxRuntimeArtifactBytes = 1 << 20
 
 // Fixed identity gate for configured validation commands; see Collect.
@@ -87,6 +95,9 @@ func (l RuntimeLauncher) Build(ctx context.Context, r LaunchRequest) (executiong
 		Workspace: l.Workspace, Inbox: inbox, AxiomPath: l.AxiomPath,
 		RepositoryWrite: slices.Contains(r.Attempt.Authority.Effects, "workspace_write"),
 		Process:         slices.Contains(r.Attempt.Authority.Effects, "process"), ParentEnvironment: l.Environment,
+		// The child's own attempt context marks it as a Runtime child, so it
+		// cannot record human authority through the Axiom CLI it may invoke.
+		Correlation: runtimeadapter.AttemptCorrelation{ProjectID: r.Execution.ProjectID, ParentID: r.Execution.ExecutionID, ChildID: r.Execution.ExecutionID, AttemptID: r.Attempt.AttemptID},
 	})
 	if err != nil {
 		return fail()
@@ -314,12 +325,16 @@ func (l RuntimeLauncher) Collect(ctx context.Context, r LaunchRequest, p executi
 			return r.StartCommand(check.ID, workflow.ProcessIdentity{PID: p.PID, StartIdentity: p.StartIdentity, GroupIdentity: p.GroupIdentity})
 		})
 		cancel()
-		if result.SpawnFailed || result.OutcomeUnknown || result.EffectAmbiguous || result.TimedOut || ctx.Err() != nil {
-			return Outcome{}, ErrRuntimeOutput
+		if result.OutcomeUnknown || result.EffectAmbiguous {
+			return Outcome{}, ErrCommandOutcomeUnknown
+		}
+		if result.SpawnFailed || result.TimedOut || ctx.Err() != nil {
+			return Outcome{}, errors.Join(ErrCommandTerminated, ErrRuntimeOutput)
 		}
 		record, err := r.FinishCommand(check.ID, result.ExitCode)
 		if err != nil {
-			return Outcome{}, err
+			// The process ended observably; only its terminal record is missing.
+			return Outcome{}, errors.Join(ErrCommandTerminated, err)
 		}
 		out.Commands = append(out.Commands, record)
 		if result.ExitCode != 0 {

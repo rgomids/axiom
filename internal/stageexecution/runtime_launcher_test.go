@@ -8,6 +8,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -41,7 +42,7 @@ func runtimeLauncherFixture(t *testing.T, runtimeID, effort string) (RuntimeLaun
 	}
 	inv := workflow.Invocation{Runtime: runtimeID, Executable: executable, Model: "stub-model", Effort: effort, Instructions: "do scoped work"}
 	inv.InstructionsDigest = workflow.DigestText([]byte(inv.Instructions))
-	r := LaunchRequest{Execution: workflow.Execution{ExecutionID: engineExecutionID}, Ref: workflow.TaskRef{StageID: "work", AgentID: "builder"}, Stage: workflow.StageSpec{Outputs: []string{"result"}}, Attempt: workflow.Attempt{AttemptID: "att-1", RunnerGeneration: 1, Invocation: inv, Authority: workflow.AttemptAuthority{RepositoryKey: "app", Effects: []string{"workspace_write"}}}}
+	r := LaunchRequest{Execution: workflow.Execution{ExecutionID: engineExecutionID, ProjectID: "proj"}, Ref: workflow.TaskRef{StageID: "work", AgentID: "builder"}, Stage: workflow.StageSpec{Outputs: []string{"result"}}, Attempt: workflow.Attempt{AttemptID: "att-1", RunnerGeneration: 1, Invocation: inv, Authority: workflow.AttemptAuthority{RepositoryKey: "app", Effects: []string{"workspace_write"}}}}
 	return l, r
 }
 
@@ -57,9 +58,16 @@ func TestRuntimeLauncherBuildsFrozenSelectorsWithoutVendorCalls(t *testing.T) {
 				if inv.Argv[0] != r.Attempt.Invocation.Executable || inv.Argv[3] != "stub-model" || !strings.Contains(string(inv.Stdin), r.Attempt.AttemptID) {
 					t.Fatalf("wrong frozen tuple: %#v", inv.Argv)
 				}
-				for _, env := range executiongraph.EffectiveInvocationEnvironment(inv) {
+				environment := executiongraph.EffectiveInvocationEnvironment(inv)
+				for _, env := range environment {
 					if strings.Contains(env, "canary") {
 						t.Fatal("credential inherited")
+					}
+				}
+				// The child-context markers deny CLI human authority to the child.
+				for _, want := range []string{"AXIOM_ATTEMPT_ID=att-1", "AXIOM_EXECUTION_ID=" + engineExecutionID} {
+					if !slices.Contains(environment, want) {
+						t.Fatalf("child context %q missing from %v", want, environment)
 					}
 				}
 				if _, err := l.Build(context.Background(), r); err == nil {

@@ -295,6 +295,11 @@ func (e Engine) attempt(ctx context.Context, lease workflow.RunnerFence, current
 			// Spawned but identity was never durably published; effects unknown.
 			return x.MarkUnknown(attemptID, gen, "process_identity_not_committed", now)
 		case cancelRequested:
+			// The agent result says nothing about a validation command that was
+			// started during collection; its stop must be confirmed separately.
+			if commandEndUnconfirmed(*x, attemptID, collectErr) {
+				return x.MarkUnknown(attemptID, gen, "cancel_command_stop_unconfirmed", now)
+			}
 			if result.Stopped && !result.OutcomeUnknown && !result.EffectAmbiguous {
 				return x.MarkCancelled(attemptID, gen, "group_stop_confirmed", now)
 			}
@@ -318,6 +323,21 @@ func (e Engine) attempt(ctx context.Context, lease workflow.RunnerFence, current
 		}
 		return err
 	})
+}
+
+// commandEndUnconfirmed reports a started validation command without a
+// committed terminal result whose end the launcher did not confirm.
+func commandEndUnconfirmed(x workflow.Execution, attemptID string, collectErr error) bool {
+	a, _, ok := x.FindAttempt(attemptID)
+	if !ok {
+		return true
+	}
+	for _, c := range a.Commands {
+		if c.Status == "running" && !errors.Is(collectErr, ErrCommandTerminated) {
+			return true
+		}
+	}
+	return false
 }
 
 func (e Engine) request(x workflow.Execution, ref workflow.TaskRef, attemptID string) LaunchRequest {
