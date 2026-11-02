@@ -12,41 +12,34 @@ import (
 	"github.com/rgomids/axiom/internal/coordination"
 )
 
+// The retired format-1 stream is read only for cutover inventory. Its reader
+// still returns detached canonical records and refuses tampered bytes.
 func TestCoordinationReadStreamCanonicalOnlyAndTamper(t *testing.T) {
-	_, binding, publisher := inboxFixture(t)
-	store, err := NewCoordinationStore(filepath.Join(filepath.Dir(binding.Inbox), "state"), "project-1")
-	if err != nil {
-		t.Fatal(err)
-	}
-	candidate, err := publisher.Publish(context.Background(), binding.Workspace, coordination.Progress, inboxFields(coordination.Progress), nil, inboxProvenance())
-	if err != nil {
-		t.Fatal(err)
-	}
 	graph := localGraphFixture(t)
+	parentID, childID := graph.Parent.ExecutionID, graph.Children[0].ExecutionID
+	store, err := NewCoordinationStore(filepath.Join(privateTestRoot(t), "state"), "project-1")
+	if err != nil {
+		t.Fatal(err)
+	}
 	service := coordination.New(store, nil, nil)
-	first, err := service.Publish(context.Background(), graph, coordination.Input{Kind: coordination.Progress, ParentID: binding.ParentID, ChildID: binding.ChildID, GraphRevision: 1, Fields: inboxFields(coordination.Progress), Provenance: inboxProvenance()})
+	first, err := service.Publish(context.Background(), graph, coordination.Input{Kind: coordination.Progress, ParentID: parentID, ChildID: childID, GraphRevision: 1, Fields: []coordination.Field{{Name: "phase", Value: "testing"}}, Provenance: inboxProvenance()})
 	if err != nil {
 		t.Fatal(err)
 	}
-	second, err := service.Publish(context.Background(), graph, coordination.Input{Kind: coordination.Blocker, ParentID: binding.ParentID, ChildID: binding.ChildID, GraphRevision: 1, ExpectedRevision: 1, PreviousDigest: first.Digest, Fields: inboxFields(coordination.Blocker), Provenance: inboxProvenance()})
+	second, err := service.Publish(context.Background(), graph, coordination.Input{Kind: coordination.Blocker, ParentID: parentID, ChildID: childID, GraphRevision: 1, ExpectedRevision: 1, PreviousDigest: first.Digest, Fields: []coordination.Field{{Name: "code", Value: "missing_input"}}, Provenance: inboxProvenance()})
 	if err != nil {
 		t.Fatal(err)
 	}
-	stream, found, err := store.ReadStream(context.Background(), binding.ParentID, binding.ChildID)
+	stream, found, err := store.ReadStream(context.Background(), parentID, childID)
 	if err != nil || !found || len(stream.Records) != 2 || stream.Records[1].Digest != second.Digest {
 		t.Fatalf("stream=%+v found=%t err=%v", stream, found, err)
 	}
-	reader := coordination.Reader{Store: store}
-	filter := coordination.Filter{ParentID: binding.ParentID, ChildID: binding.ChildID}
-	if _, err := reader.Show(context.Background(), filter, candidate.Record.RecordID); !errors.Is(err, coordination.ErrRecordNotFound) {
-		t.Fatalf("candidate visible: %v", err)
-	}
 	stream.Records[0].Fields[0].Value = "caller mutation"
-	shown, err := reader.Show(context.Background(), filter, first.RecordID)
-	if err != nil || shown.Digest != first.Digest {
-		t.Fatalf("mutated stored stream=%+v %v", shown, err)
+	again, _, err := store.ReadStream(context.Background(), parentID, childID)
+	if err != nil || again.Records[0].Digest != first.Digest || again.Records[0].Fields[0].Value != "testing" {
+		t.Fatalf("mutated stored stream=%+v %v", again, err)
 	}
-	path := filepath.Join(store.root, "coordination", "v1", "project-1", coordinationName(binding.ParentID, binding.ChildID))
+	path := filepath.Join(store.root, "coordination", "v1", "project-1", coordinationName(parentID, childID))
 	wire, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
@@ -55,12 +48,13 @@ func TestCoordinationReadStreamCanonicalOnlyAndTamper(t *testing.T) {
 	if err := os.WriteFile(path, wire, 0600); err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := store.ReadStream(context.Background(), binding.ParentID, binding.ChildID); !errors.Is(err, ErrUnsafe) {
+	if _, _, err := store.ReadStream(context.Background(), parentID, childID); !errors.Is(err, ErrUnsafe) {
 		t.Fatalf("tamper read=%v", err)
 	}
-	if _, err := reader.List(context.Background(), filter); !errors.Is(err, ErrUnsafe) {
-		t.Fatalf("tamper list=%v", err)
-	}
+}
+
+func inboxProvenance() coordination.Provenance {
+	return coordination.Provenance{Product: "fake-child", Version: "dev", Revision: "test", SourceState: "clean"}
 }
 
 // canonicalHistory lets Service assign chain fields without changing the local

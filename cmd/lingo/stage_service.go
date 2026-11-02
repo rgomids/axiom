@@ -10,7 +10,6 @@ import (
 
 	"github.com/rgomids/axiom/internal/cli"
 	"github.com/rgomids/axiom/internal/completion"
-	"github.com/rgomids/axiom/internal/coordination"
 	"github.com/rgomids/axiom/internal/local"
 	"github.com/rgomids/axiom/internal/projectapp"
 	"github.com/rgomids/axiom/internal/workflow"
@@ -115,7 +114,7 @@ func (s lifecycleService) executionRead(ctx context.Context, in cli.WorkflowStag
 		records = append(records, m)
 	}
 	if in.Operation == "coordination-show" && len(records) != 1 {
-		return s.stageError(coordination.ErrRecordNotFound, nil)
+		return s.stageError(errRecordNotFound, nil)
 	}
 	if in.Wait != 0 || in.After != 0 {
 		return s.stageFailure(completion.ValidationFailure, "unsupported_execution_operation", "Legacy stream cursors are not Execution message selectors", "Inspect canonical messages without --wait/--after", nil)
@@ -151,9 +150,8 @@ func (s lifecycleService) stageError(err error, payload any) cli.WorkflowStageRe
 		next     string
 	}
 	rules := []rule{
-		{coordination.ErrChildContext, completion.DeniedAuthority, "child_context_required", "Publish only from a running stage child's own task context"},
-		{coordination.ErrRecordNotFound, completion.ValidationFailure, "record_not_found", "List the child's canonical records first"},
-		{coordination.ErrInvalidWait, completion.ValidationFailure, "invalid_wait", "Use a positive --wait no longer than 30s"},
+		{errChildContext, completion.DeniedAuthority, "child_context_required", "Publish only from a running stage child's own task context"},
+		{errRecordNotFound, completion.ValidationFailure, "record_not_found", "List the child's canonical records first"},
 		{local.ErrConflict, completion.RetryableFailure, "temporarily_unavailable", "A concurrent operation holds the lease; retry the read first"},
 		{local.ErrRecoveryRequired, completion.Failure, "recovery_required", "Run recovery inspect and apply the reviewed plan"},
 	}

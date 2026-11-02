@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"github.com/rgomids/axiom/internal/completion"
-	"github.com/rgomids/axiom/internal/coordination"
 	"github.com/rgomids/axiom/internal/local"
 	"github.com/rgomids/axiom/internal/projectapp"
 	"github.com/rgomids/axiom/internal/workflowdefinition"
@@ -24,7 +23,8 @@ func TestOperatorStageDiagnosticTypedRefusals(t *testing.T) {
 		status   completion.Status
 	}{
 
-		{coordination.ErrChildContext, "child_context_required", completion.DeniedAuthority},
+		{errChildContext, "child_context_required", completion.DeniedAuthority},
+		{errRecordNotFound, "record_not_found", completion.ValidationFailure},
 		{local.ErrConflict, "temporarily_unavailable", completion.RetryableFailure},
 		{local.ErrRecoveryRequired, "recovery_required", completion.Failure},
 	} {

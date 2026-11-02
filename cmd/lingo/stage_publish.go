@@ -2,13 +2,20 @@ package main
 
 import (
 	"context"
+	"errors"
+
 	"github.com/rgomids/axiom/internal/cli"
-	"github.com/rgomids/axiom/internal/coordination"
+)
+
+var (
+	errChildContext   = errors.New("running child context required")
+	errRecordNotFound = errors.New("execution message not found")
 )
 
 // No environment-provided Graph/Single identity can publish after cutover.
-// S1's private ingress is validated by Engine.Ingest against the running
-// attempt/fence; the public child transport is part of S2.
+// A running Codex or Claude child publishes only into its own attempt's
+// message area; the engine binds it to the attempt and fence (S2.2). This CLI
+// leaf has no attempt context and therefore always refuses.
 func (s lifecycleService) stagePublish(ctx context.Context, in cli.WorkflowStageInput) cli.WorkflowStageResponse {
-	return s.stageError(coordination.ErrChildContext, nil)
+	return s.stageError(errChildContext, nil)
 }
