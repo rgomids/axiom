@@ -25,7 +25,7 @@
     },
     "tests": {
       "files": 350,
-      "physical_lines": 73517,
+      "physical_lines": 73438,
       "exported_types_lexical": 0,
       "exported_functions_lexical": 1854
     }
@@ -39,7 +39,7 @@
     },
     "tests": {
       "files": -5,
-      "physical_lines": -1189,
+      "physical_lines": -1268,
       "exported_types_lexical": 0,
       "exported_functions_lexical": -29
     }

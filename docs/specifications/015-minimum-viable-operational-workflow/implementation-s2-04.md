@@ -82,7 +82,7 @@ All tests use isolated stubs/local temporary repositories, never live vendor inf
 | `./scripts/validate-repository.sh .` | PASS exit 0, including ADR/automation/sensitive-file checks; optional Runtime behavioral scenarios NOT_RUN |
 | `./scripts/check-go-quality.sh format` and `tidy` | PASS; final changed Go files gofmt clean |
 | Initial full-suite `TestEveryPublishedSharedRevisionStaysOwned` | FAIL: changed installed skill lacked replaced revision registration; corrected using existing sharedSkillHistory and manifest pin; `go test ./internal/codexruntime -count=1` PASS (18.091s) |
-| Local Staticcheck | NOT_RUN: executable unavailable; exact-SHA CI runs its pinned version |
+| Local Staticcheck | Initially unavailable; installed v0.8.1 into a task-local temporary directory after the CI finding; corrected run reported below |
 | `go vet ./...`, `go build ./...` | PASS |
 | `go run ./scripts/check-architecture.go domain` and `application` | PASS |
 | gofmt on changed Go files; `git diff --check` | PASS |
@@ -147,3 +147,28 @@ integrated reconciliation. S3.1–S3.5, public integration composition decisions
 human pre-merge review, actual cutover and manual product acceptance remain.
 No callback/continuation integration was established; handoff is
 `AWAITING_EXECUTION_REPORT`, next gate `INDEPENDENT_REVIEW_S2_4`.
+
+## CI correction on the same branch
+
+Initial pushed SHA `4fbede0dc310890de24e5196c54b2370fac0aa45`:
+[CI 41536438481](https://github.com/rgomids/axiom/actions/runs/41536438481)
+FAIL in curated Staticcheck U1000. Four local test helpers (`localGraphFixture`,
+`fixtureGraph`, `sortedEffects`, `effectsDigest`) had no remaining consumer after
+coordination store tests were removed. Their complete caller inventory was
+confined to `s8_stores_test.go`; the helpers and newly unused imports are deleted.
+No production behavior, authority or test assertion changes. Delivery metadata
+[41536438478](https://github.com/rgomids/axiom/actions/runs/41536438478) PASS at that SHA.
+This is a bounded correction inside TD-S24-01, not a deferred optional finding.
+The initial local full suite completed with exactly the installed skill-history
+failure described above; all other packages passed. The corrected skill package
+passed independently. Final exact-SHA full-suite/installed-docs/Staticcheck CI
+is recorded in the completion receipt; the initial failure is not relabeled PASS.
+
+Correction validation: `go test ./internal/local -count=1` PASS (66.441s),
+and pinned `./scripts/check-go-quality.sh staticcheck` PASS with Go 1.26.0
+binary and GOROOT matching CI. Three earlier local analysis attempts FAIL from
+environment mismatch: host Go 1.27 export data was unsupported (including a
+GOTOOLCHAIN-only attempt overridden by the script), then a Go 1.26 binary with
+host Go 1.27 GOROOT. No project/tool version or source policy was changed to
+hide those failures. The final version is Staticcheck 2026.2.1 (v0.8.1), checks
+SA1*/SA2*/SA3*/SA4*/SA5*/SA9*/U1000 excluding SA1019, over `./...` including tests.
