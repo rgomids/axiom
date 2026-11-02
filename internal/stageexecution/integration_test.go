@@ -822,3 +822,54 @@ func TestIntegrateCheckTimeoutStopsOwnedProcess(t *testing.T) {
 		t.Fatalf("timed-out check process survives: %+v %v", current, err)
 	}
 }
+
+// S23-CR-01: an unconfirmed check effect must block another integration.
+func TestIntegrateUnknownCheckBlocksReplay(t *testing.T) {
+	for _, ambiguous := range []bool{false, true} {
+		t.Run(fmt.Sprint(ambiguous), func(t *testing.T) {
+			f := newIntegrationFixture(t, map[string]edit{"a": commitFile("a.txt", "changed\n")})
+			x := f.start(engineExecutionID, "a")
+			r := &fakeRunner{run: func(context.Context, executiongraph.Invocation, func(*executiongraph.ProcessCorrelation) error) executiongraph.ProcessResult {
+				return executiongraph.ProcessResult{ExitCode: -1, OutcomeUnknown: true, EffectAmbiguous: ambiguous}
+			}}
+			f.engine.Runner = r
+			got, err := f.integrate(engineExecutionID, f.git, f.request(x, "a", "unknown-check", f.base))
+			if !errors.Is(err, ErrIntegrationUnknown) || got.Status != workflow.RunRecoveryRequired {
+				t.Fatalf("unknown effect downgraded: status=%s integrations=%+v err=%v", got.Status, got.Integrations, err)
+			}
+			before := f.load(engineExecutionID)
+			_, err = f.integrate(engineExecutionID, f.git, f.request(x, "a", "second-check", f.base))
+			if err == nil || r.spawns.Load() != 1 || f.target() != f.base {
+				t.Fatalf("replayed unknown check: calls=%d err=%v", r.spawns.Load(), err)
+			}
+			after := f.load(engineExecutionID)
+			if len(after.Integrations) != 1 || after.Integrations[0].Status != workflow.IntegrationUnknown || after.Integrations[0].Diagnostic != before.Integrations[0].Diagnostic || after.Integrations[0].Checks[0].Status != "unknown" || after.Integrations[0].Checks[0].ExitCode != -1 {
+				t.Fatalf("lost unknown evidence: %+v", after.Integrations)
+			}
+		})
+	}
+}
+
+func TestIntegrationCheckObservationSemantics(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		result executiongraph.ProcessResult
+		want   string
+	}{
+		{"unknown", executiongraph.ProcessResult{ExitCode: -1, OutcomeUnknown: true}, "unknown"},
+		{"ambiguous-zero-exit", executiongraph.ProcessResult{EffectAmbiguous: true}, "unknown"},
+		{"unknown-even-if-stopped", executiongraph.ProcessResult{ExitCode: -1, OutcomeUnknown: true, Stopped: true}, "unknown"},
+		{"confirmed-timeout", executiongraph.ProcessResult{ExitCode: -1, TimedOut: true, Stopped: true}, workflow.CheckTerminated},
+		{"spawn-refusal", executiongraph.ProcessResult{ExitCode: -1, SpawnFailed: true}, workflow.CheckTerminated},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			e := Engine{Runner: &fakeRunner{run: func(context.Context, executiongraph.Invocation, func(*executiongraph.ProcessCorrelation) error) executiongraph.ProcessResult {
+				return tc.result
+			}}}
+			got := e.runIntegrationCheck(context.Background(), t.TempDir(), checkCommand("exit 0", 10)[0])
+			if got.Status != tc.want {
+				t.Fatalf("got %+v, want %s", got, tc.want)
+			}
+		})
+	}
+}

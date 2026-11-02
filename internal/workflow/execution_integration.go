@@ -66,6 +66,7 @@ const (
 	CheckPassed     = "passed"
 	CheckFailed     = "failed"
 	CheckTerminated = "terminated"
+	CheckUnknown    = "unknown"
 )
 
 const MaxIntegrations = 32
@@ -337,8 +338,11 @@ func validateIntegrations(e Execution) error {
 		}
 		passed := len(i.Checks) == len(spec.Commands)
 		for k, c := range i.Checks {
-			if c.ID != spec.Commands[k].ID || (c.Status != CheckPassed && c.Status != CheckFailed && c.Status != CheckTerminated) || (c.Status == CheckPassed) != (c.ExitCode == 0) {
+			if c.ID != spec.Commands[k].ID || (c.Status != CheckPassed && c.Status != CheckFailed && c.Status != CheckTerminated && c.Status != CheckUnknown) || (c.Status != CheckUnknown && (c.Status == CheckPassed) != (c.ExitCode == 0)) {
 				return invalid("integration %q check", i.IntegrationID)
+			}
+			if c.Status == CheckUnknown && i.Status != IntegrationUnknown {
+				return invalid("integration %q unknown check effect", i.IntegrationID)
 			}
 			passed = passed && c.Status == CheckPassed
 		}

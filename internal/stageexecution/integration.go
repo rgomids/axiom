@@ -140,6 +140,9 @@ func (e Engine) Integrate(ctx context.Context, projectID, executionID string, gi
 	for _, check := range stage.Commands {
 		result := e.runIntegrationCheck(ctx, path, check)
 		record.Checks = append(record.Checks, result)
+		if result.Status == workflow.CheckUnknown {
+			return finish(workflow.IntegrationUnknown, "post_merge_check_unknown")
+		}
 		if result.Status != workflow.CheckPassed {
 			return finish(workflow.IntegrationNotIntegrated, "post_merge_check_"+result.Status)
 		}
@@ -174,7 +177,7 @@ func (e Engine) Integrate(ctx context.Context, projectID, executionID string, gi
 
 // runIntegrationCheck re-runs one authorized stage command on the merged tree
 // through the ADR-0028 observed process boundary with an exact minimal
-// environment. Timeout or an unobservable outcome is terminated, never passed.
+// environment. Unconfirmed process/effect outcomes remain unknown.
 func (e Engine) runIntegrationCheck(ctx context.Context, cwd string, check workflow.CommandCheck) workflow.IntegrationCheck {
 	terminated := workflow.IntegrationCheck{ID: check.ID, Status: workflow.CheckTerminated, ExitCode: -1}
 	if len(check.Argv) == 0 || !filepath.IsAbs(check.Argv[0]) || !cleanRuntimePath(check.Argv[0]) || !cleanRuntimePath(cwd) {
@@ -186,7 +189,10 @@ func (e Engine) runIntegrationCheck(ctx context.Context, cwd string, check workf
 	inv := executiongraph.Invocation{Argv: append(gate, check.Argv[1:]...), CWD: cwd, Stdin: []byte("axiom-command-start\n"), OutputMax: 4096}
 	inv = executiongraph.WithExactEnvironment(inv, []string{"PATH=/usr/bin:/bin", "LC_ALL=C"})
 	result := e.Runner.RunObserved(checkCtx, inv, func(*executiongraph.ProcessCorrelation) error { return nil })
-	if result.OutcomeUnknown || result.EffectAmbiguous || result.SpawnFailed || result.TimedOut || checkCtx.Err() != nil {
+	if result.OutcomeUnknown || result.EffectAmbiguous {
+		return workflow.IntegrationCheck{ID: check.ID, Status: workflow.CheckUnknown, ExitCode: result.ExitCode}
+	}
+	if result.SpawnFailed || result.Stopped || result.TimedOut || checkCtx.Err() != nil {
 		return terminated
 	}
 	if result.ExitCode != 0 {
