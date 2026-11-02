@@ -351,6 +351,56 @@ func storeInvocation() workflow.Invocation {
 		Provenance: []workflow.FieldProvenance{{Field: "runtime", Source: "local_default"}, {Field: "model", Source: "local_default"}, {Field: "effort", Source: "local_default"}, {Field: "instructions", Source: "workflow_agent"}}}
 }
 
+// TestExecutionStoreRefusedCompletionReturnsPersistedState is the IF-02
+// probe (PR #366 review 5732338943): CompleteAttempt writes result fields
+// before refusing mismatched command results, but Update discards that
+// working copy and returns the persisted aggregate unchanged.
+func TestExecutionStoreRefusedCompletionReturnsPersistedState(t *testing.T) {
+	ctx := context.Background()
+	s, _ := newTestExecutionStore(t)
+	if err := s.Create(ctx, storeTestExecution(t)); err != nil {
+		t.Fatal(err)
+	}
+	lease := claim(t, s)
+	defer lease.Close()
+	running, err := s.Update(ctx, "proj", storeTestExecutionID, lease, func(e *workflow.Execution) error {
+		if err := e.PrepareAttempt(workflow.PrepareInput{Ref: workflow.TaskRef{StageID: "work", AgentID: "builder"}, AttemptID: "a1", Generation: lease.Epoch, Invocation: storeInvocation(), Authority: workflow.AttemptAuthority{RepositoryKey: "app", Actor: "user:local"}, Now: storeT0}); err != nil {
+			return err
+		}
+		return e.MarkStarted("a1", lease.Epoch, workflow.ProcessIdentity{PID: 100, StartIdentity: "s", GroupIdentity: "100"}, storeT0)
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	persisted, _ := workflow.EncodeExecution(running)
+	refused := workflow.AttemptResult{ExitCode: 0, Diagnostic: "not persisted", Commands: []workflow.CommandResult{{ID: "unexpected", Status: "completed"}}, Now: storeT0.Add(time.Minute)}
+	// The refusal happens after the result fields were written to the working
+	// copy, so the store's discard is what keeps them out of the result.
+	working, _ := workflow.DecodeExecution(persisted)
+	if err := working.CompleteAttempt("a1", lease.Epoch, refused); !errors.Is(err, workflow.ErrTransition) {
+		t.Fatalf("working copy: %v", err)
+	}
+	if a, _, _ := working.FindAttempt("a1"); a.EndedAt == nil || a.Diagnostic != "not persisted" {
+		t.Fatal("probe did not reach the command-result refusal")
+	}
+	returned, err := s.Update(ctx, "proj", storeTestExecutionID, lease, func(e *workflow.Execution) error {
+		return e.CompleteAttempt("a1", lease.Epoch, refused)
+	})
+	if !errors.Is(err, workflow.ErrTransition) {
+		t.Fatalf("mismatched command results: %v", err)
+	}
+	reloaded, err := s.Load(ctx, "proj", storeTestExecutionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, x := range map[string]workflow.Execution{"returned": returned, "reloaded": reloaded} {
+		wire, _ := workflow.EncodeExecution(x)
+		if string(wire) != string(persisted) {
+			t.Fatalf("%s aggregate shows non-persisted completion values", name)
+		}
+	}
+}
+
 // A valid record and current revision do not authorize rewriting provenance.
 func TestExecutionStoreRejectsHistoryRewrite(t *testing.T) {
 	for _, mode := range []string{"definition", "invocation", "authority", "identity", "terminal-result", "remove-attempt"} {

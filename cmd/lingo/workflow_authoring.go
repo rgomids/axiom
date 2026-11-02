@@ -104,11 +104,12 @@ func (a workflowAuthoringAdapter) ObserveWorkflows(ctx context.Context, selector
 	inventory, e := local.InspectStateInventory(ctx, s.stateRoot)
 	observation.ReferencesChecked = e == nil
 	for _, entry := range inventory.Entries {
-		if !entry.Kind.Supported() {
+		if !entry.Kind.Supported() && !local.ExecutionReferenceNamespace(s.stateRoot, entry) {
 			observation.ReferencesChecked = false
 		}
 		// Legacy v1 executions have no configurable binding. Future formats or
 		// unknown recovery/reference records deny retirement rather than guessing.
+		// Canonical Executions are checked by the strict List scan below.
 	}
 	if observation.ReferencesChecked {
 		store, err := local.NewExecutionStore(s.stateRoot)
