@@ -41,10 +41,13 @@ type Message struct {
 
 // IngressContext is issued by the launcher for one running attempt. A child
 // can present only its own private ingress, so it cannot choose its sender.
+// Runtime must equal the attempt's frozen Runtime: a Codex attempt cannot
+// speak as a Claude attempt of the same agent or vice versa.
 type IngressContext struct {
 	ExecutionID string
 	AttemptID   string
 	AgentID     string
+	Runtime     string
 	Generation  uint64
 }
 
@@ -86,7 +89,7 @@ func (e *Execution) AcceptMessage(ctx IngressContext, c MessageCandidate, now ti
 		return ErrMessageRejected
 	}
 	sender, ref, ok := e.FindAttempt(ctx.AttemptID)
-	if !ok || ref.AgentID != ctx.AgentID || sender.RunnerGeneration != ctx.Generation {
+	if !ok || ref.AgentID != ctx.AgentID || sender.Invocation.Runtime != ctx.Runtime || sender.RunnerGeneration != ctx.Generation {
 		return ErrMessageRejected
 	}
 	if e.Cancel != nil || sender.Status != AttemptRunning {
@@ -105,6 +108,16 @@ func (e *Execution) AcceptMessage(ctx IngressContext, c MessageCandidate, now ti
 			return ErrMessageDuplicate
 		}
 		return ErrMessageRejected
+	}
+	// A late answer whose asking attempt already ended cannot be delivered or
+	// acted upon; refusing it keeps the stored conversation attributable. An
+	// exact redelivery of an accepted answer stays idempotent above.
+	if c.Kind == MessageAnswer {
+		if q, found := e.message(c.ReplyTo); found {
+			if asker, _, ok := e.FindAttempt(q.SenderAttempt); !ok || asker.Status != AttemptRunning {
+				return ErrMessageRejected
+			}
+		}
 	}
 	if len(e.Messages) >= MaxExecutionMessages {
 		return ErrMessageRejected

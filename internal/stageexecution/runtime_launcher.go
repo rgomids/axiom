@@ -90,6 +90,11 @@ func (l RuntimeLauncher) Build(ctx context.Context, r LaunchRequest) (executiong
 	if err := root.Mkdir(r.Attempt.AttemptID, 0o700); err != nil {
 		return fail()
 	}
+	for _, area := range []string{sendArea, receiveArea} {
+		if err := root.Mkdir(filepath.Join(r.Attempt.AttemptID, area), 0o700); err != nil {
+			return fail()
+		}
+	}
 	inv, err := runtimeadapter.BuildStageInvocation(runtimeadapter.StageInvocationRequest{
 		Profile:   runtimeadapter.CommandProfile{RuntimeID: frozen.Runtime, Executable: frozen.Executable, Model: frozen.Model},
 		Workspace: l.Workspace, Inbox: inbox, AxiomPath: l.AxiomPath,
@@ -208,14 +213,17 @@ func (l RuntimeLauncher) Build(ctx context.Context, r LaunchRequest) (executiong
 			return fail()
 		}
 	}
+	// Message areas are the same for both Runtimes. Their contents are data:
+	// a message never completes a task, satisfies a gate or grants authority.
 	packet := struct {
 		ExecutionID, AttemptID, StageID, AgentID, Instructions, OutputDirectory string
+		MessageSendDirectory, MessageReceiveDirectory                           string
 		RunnerGeneration                                                        uint64
 		Outputs                                                                 []string
 		DefinitionDigest                                                        string
 		OutputChecks                                                            []workflow.OutputCheck
 		Inputs                                                                  map[string]inputValue
-	}{r.Execution.ExecutionID, r.Attempt.AttemptID, r.Ref.StageID, r.Ref.AgentID, frozen.Instructions, inbox, r.Attempt.RunnerGeneration, attemptOutputs(r), r.Stage.DefinitionDigest, r.Stage.OutputChecks, inputs}
+	}{r.Execution.ExecutionID, r.Attempt.AttemptID, r.Ref.StageID, r.Ref.AgentID, frozen.Instructions, inbox, filepath.Join(inbox, sendArea), filepath.Join(inbox, receiveArea), r.Attempt.RunnerGeneration, attemptOutputs(r), r.Stage.DefinitionDigest, r.Stage.OutputChecks, inputs}
 	inv.Stdin, err = json.Marshal(packet)
 	if err != nil || len(inv.Stdin) > executiongraph.MaxStdinBytes {
 		return fail()

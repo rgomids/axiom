@@ -600,7 +600,7 @@ func TestExecutionStoreRejectsMessageHistoryRewrite(t *testing.T) {
 				if err := e.MarkStarted("a1", lease.Epoch, workflow.ProcessIdentity{PID: 100, StartIdentity: "s", GroupIdentity: "100"}, storeT0); err != nil {
 					return err
 				}
-				return e.AcceptMessage(workflow.IngressContext{ExecutionID: storeTestExecutionID, AttemptID: "a1", AgentID: "builder", Generation: lease.Epoch}, workflow.MessageCandidate{ID: "m1", Recipient: "reviewer", Kind: workflow.MessageQuestion, Content: "original"}, storeT0)
+				return e.AcceptMessage(workflow.IngressContext{ExecutionID: storeTestExecutionID, AttemptID: "a1", AgentID: "builder", Runtime: "stub", Generation: lease.Epoch}, workflow.MessageCandidate{ID: "m1", Recipient: "reviewer", Kind: workflow.MessageQuestion, Content: "original"}, storeT0)
 			})
 			if err != nil {
 				t.Fatal(err)

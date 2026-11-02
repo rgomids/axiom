@@ -279,11 +279,15 @@ func (e Engine) runAttempt(ctx context.Context, lease workflow.RunnerFence, requ
 	defer stop()
 	cancelled := e.watchCancel(runCtx, stop, projectID, executionID)
 	startedCommitted := false
+	stopMessages := func(bool) {}
 	result := e.Runner.RunObserved(runCtx, built, func(pc *executiongraph.ProcessCorrelation) error {
 		_, err := update(func(x *workflow.Execution) error {
 			return x.MarkStarted(attemptID, gen, workflow.ProcessIdentity{PID: pc.PID, StartIdentity: pc.StartIdentity, GroupIdentity: pc.GroupIdentity}, e.now())
 		})
 		startedCommitted = err == nil
+		if startedCommitted {
+			stopMessages = e.startMessages(runCtx, request, update)
+		}
 		return err
 	})
 	stop()
@@ -291,6 +295,9 @@ func (e Engine) runAttempt(ctx context.Context, lease workflow.RunnerFence, requ
 	// An operator interrupt cancels ctx; the runner already stopped its own
 	// group through RunObserved and records that stop like a cancel.
 	cancelRequested := cancelled() || ctx.Err() != nil || e.cancelPersisted(ctx, projectID, executionID)
+	// Messages are routed only while the attempt runs; a cancelled, timed-out
+	// or uncertain attempt gets no final drain.
+	stopMessages(!cancelRequested && !result.OutcomeUnknown && !result.EffectAmbiguous && !result.TimedOut && !result.SpawnFailed)
 	// Collection may run explicitly authorized checks. Keep it outside the
 	// aggregate lock so cancellation can be persisted while a check runs.
 	var outcome Outcome

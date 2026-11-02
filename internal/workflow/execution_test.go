@@ -325,8 +325,8 @@ func messagingExecution(t *testing.T) Execution {
 
 func TestTwoStubQuestionAnswerIngress(t *testing.T) {
 	e := messagingExecution(t)
-	codex := IngressContext{testExecutionID, "att-codex", "codex", 1}
-	claude := IngressContext{testExecutionID, "att-claude", "claude", 1}
+	codex := IngressContext{testExecutionID, "att-codex", "codex", "stub", 1}
+	claude := IngressContext{testExecutionID, "att-claude", "claude", "stub", 1}
 	q := MessageCandidate{ID: "q1", Recipient: "claude", Kind: MessageQuestion, Content: "which file?"}
 	if err := e.AcceptMessage(codex, q, t0); err != nil {
 		t.Fatal(err)
@@ -347,9 +347,10 @@ func TestTwoStubQuestionAnswerIngress(t *testing.T) {
 		ctx IngressContext
 		c   MessageCandidate
 	}{
-		"forged sender":       {IngressContext{testExecutionID, "att-codex", "claude", 1}, MessageCandidate{ID: "f1", Recipient: "codex", Kind: MessageResult, Content: "done"}},
-		"wrong execution":     {IngressContext{"00000000-0000-4000-8000-000000000099", "att-codex", "codex", 1}, MessageCandidate{ID: "f2", Recipient: "claude", Kind: MessageBlocker}},
-		"stale generation":    {IngressContext{testExecutionID, "att-codex", "codex", 0}, MessageCandidate{ID: "f3", Recipient: "claude", Kind: MessageBlocker}},
+		"forged sender":       {IngressContext{testExecutionID, "att-codex", "claude", "stub", 1}, MessageCandidate{ID: "f1", Recipient: "codex", Kind: MessageResult, Content: "done"}},
+		"crossed runtime":     {IngressContext{testExecutionID, "att-codex", "codex", "claude", 1}, MessageCandidate{ID: "f8", Recipient: "claude", Kind: MessageResult, Content: "done"}},
+		"wrong execution":     {IngressContext{"00000000-0000-4000-8000-000000000099", "att-codex", "codex", "stub", 1}, MessageCandidate{ID: "f2", Recipient: "claude", Kind: MessageBlocker}},
+		"stale generation":    {IngressContext{testExecutionID, "att-codex", "codex", "stub", 0}, MessageCandidate{ID: "f3", Recipient: "claude", Kind: MessageBlocker}},
 		"unknown recipient":   {codex, MessageCandidate{ID: "f4", Recipient: "nobody", Kind: MessageQuestion}},
 		"self address":        {codex, MessageCandidate{ID: "f5", Recipient: "codex", Kind: MessageQuestion}},
 		"oversize":            {codex, MessageCandidate{ID: "f6", Recipient: "claude", Kind: MessageQuestion, Content: strings.Repeat("x", MaxMessageBytes+1)}},
@@ -387,6 +388,31 @@ func TestTwoStubQuestionAnswerIngress(t *testing.T) {
 	}
 	if _, err := DecodeExecution(wire); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestLateOrUnmatchedAnswerIsRejected(t *testing.T) {
+	e := messagingExecution(t)
+	codex := IngressContext{testExecutionID, "att-codex", "codex", "stub", 1}
+	claude := IngressContext{testExecutionID, "att-claude", "claude", "stub", 1}
+	if err := e.AcceptMessage(codex, MessageCandidate{ID: "q1", Recipient: "claude", Kind: MessageQuestion, Content: "?"}, t0); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.AcceptMessage(claude, MessageCandidate{ID: "a0", Recipient: "codex", Kind: MessageAnswer, ReplyTo: "missing", Content: "x"}, t0); !errors.Is(err, ErrMessageRejected) {
+		t.Fatalf("unmatched answer accepted: %v", err)
+	}
+	if err := e.CompleteAttempt("att-codex", 1, AttemptResult{ExitCode: 0, Now: t0}); err != nil {
+		t.Fatal(err)
+	}
+	revision := e.Revision
+	if err := e.AcceptMessage(claude, MessageCandidate{ID: "a1", Recipient: "codex", Kind: MessageAnswer, ReplyTo: "q1", Content: "late"}, t0); !errors.Is(err, ErrMessageRejected) {
+		t.Fatalf("answer after the asker ended accepted: %v", err)
+	}
+	if err := e.AcceptMessage(codex, MessageCandidate{ID: "r1", Recipient: "claude", Kind: MessageResult, Content: "done"}, t0); !errors.Is(err, ErrMessageRejected) {
+		t.Fatalf("message from an ended attempt accepted: %v", err)
+	}
+	if e.Revision != revision || len(e.Messages) != 1 {
+		t.Fatalf("rejected late messages changed the Execution: %+v", e.Messages)
 	}
 }
 

@@ -150,7 +150,9 @@ func (e Engine) runReady(ctx context.Context, lease workflow.RunnerFence, curren
 		select {
 		case c := <-commits:
 			x, err := e.Store.UpdateFenced(c.ctx, c.project, c.execution, c.fence, c.mutate)
-			if err != nil && firstErr == nil {
+			// A refused or duplicate message changed nothing; it is the child's
+			// disposition, never a reason to stop scheduling independent work.
+			if err != nil && firstErr == nil && !messageRefusal(err) {
 				firstErr = err
 			}
 			c.reply <- attemptCommitResult{x, err}

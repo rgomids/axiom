@@ -404,7 +404,7 @@ func TestEngineReconcileNeverSignalsAReusedPID(t *testing.T) {
 
 func TestEngineIngestRejectsMessagesForNonRunningAttempts(t *testing.T) {
 	f := newEngineFixture(t, []workflow.StageSpec{{ID: "work", Agents: []workflow.AgentSpec{{ID: "codex"}, {ID: "claude"}}, TimeoutSeconds: 5}}, succeed(""))
-	_, err := f.engine.Ingest(context.Background(), "proj", workflow.IngressContext{ExecutionID: engineExecutionID, AttemptID: "att-1", AgentID: "codex", Generation: 1}, workflow.MessageCandidate{ID: "m", Recipient: "claude", Kind: workflow.MessageQuestion})
+	_, err := f.engine.Ingest(context.Background(), "proj", workflow.IngressContext{ExecutionID: engineExecutionID, AttemptID: "att-1", AgentID: "codex", Runtime: "stub", Generation: 1}, workflow.MessageCandidate{ID: "m", Recipient: "claude", Kind: workflow.MessageQuestion})
 	if !errors.Is(err, workflow.ErrMessageRejected) {
 		t.Fatalf("message for a non-existent attempt: %v", err)
 	}
