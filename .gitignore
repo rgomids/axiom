@@ -41,3 +41,6 @@ vendor/
 node_modules/
 __pycache__/
 *.pyc
+
+# Graphify knowledge graph (generated out-of-repo)
+graphify-out/
