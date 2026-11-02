@@ -21,6 +21,9 @@ and [S1 thread reconciliation](https://linear.app/rgomids/issue/AXM-42#comment-8
 close the eight DMH findings technically; human pre-merge review remains distinct.
 [S2.1 Evidence](015-minimum-viable-operational-workflow/implementation-s2-01.md)
 records the authorized parallel-scheduler checkpoint and remaining S2 work.
+[S2.2 Evidence](015-minimum-viable-operational-workflow/implementation-s2-02.md)
+records cross-Runtime messages through the canonical attempt ingress and the
+retired independent inbox/ingest/stream reader.
 [CR-S1-06 correction](015-minimum-viable-operational-workflow/correction-cr-s1-06.md):
 the cutover inventory catalog now covers capability evidence, probe envelopes and Project context.
 [CR-S1-07 correction](015-minimum-viable-operational-workflow/correction-cr-s1-07.md):

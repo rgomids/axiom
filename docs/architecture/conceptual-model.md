@@ -438,7 +438,12 @@ Supported configured stages preserve before/after human gates, agent dependencie
 assigned required outputs, timeouts and attempt limits. Independent ready tasks
 run concurrently on the same loop and codec; the principal serializes all
 attempt state commits. Failed tasks, cancellation, unknown effects and configured
-human gates prevent dependent dispatch. Cross-Runtime message transport and
-managed worktree integration remain pending S2 work. See the
-[S2.1 Evidence](../specifications/015-minimum-viable-operational-workflow/implementation-s2-01.md)
-for verification and remaining limits.
+human gates prevent dependent dispatch. Codex and Claude children exchange
+question, answer, blocker and result messages through private per-attempt areas
+of the common launcher; the engine binds each to the running attempt's identity,
+Runtime and fence and commits it through the same principal writer. Messages
+never complete a task, satisfy a gate or grant authority. Managed worktree
+integration remains pending S2 work. See the
+[S2.1](../specifications/015-minimum-viable-operational-workflow/implementation-s2-01.md)
+and [S2.2](../specifications/015-minimum-viable-operational-workflow/implementation-s2-02.md)
+Evidence for verification and remaining limits.
