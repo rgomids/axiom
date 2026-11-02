@@ -3,6 +3,7 @@ package workflowdefinition
 import (
 	"fmt"
 	"github.com/rgomids/axiom/internal/portableconfig"
+	"slices"
 	"sort"
 	"strings"
 )
@@ -135,6 +136,21 @@ func validate(d Definition) []Diagnostic {
 			unique(a.EffectCeilings, af+".effectCeilings")
 			if d.SchemaVersion == 1 && (a.Effort.Mode == "runtime-default") != (a.Effort.Value == "default") {
 				add(af, "invalid_effort")
+			}
+			// Every Workflow-agent selector is validated even when a run override
+			// would shadow it; historical schema-1 effort semantics stay separate.
+			if inv := a.Invocation; inv != nil {
+				if d.SchemaVersion != 2 || *inv == (AgentInvocation{}) {
+					add(af+".invocation", "invalid_invocation")
+				}
+				for _, value := range []string{inv.Model, inv.Effort} {
+					if value != "" && (!portableconfig.SafeValue(value, "logical") || portableconfig.ContainsSecretBearingValue(value)) {
+						add(af+".invocation", "unsafe_selector")
+					}
+				}
+				if inv.Runtime != "" && len(a.RuntimeConstraints) != 0 && !slices.Contains(a.RuntimeConstraints, inv.Runtime) {
+					add(af+".invocation", "runtime_not_permitted")
+				}
 			}
 			if s.Mode == "sequential" && j > 0 {
 				found := false

@@ -348,7 +348,7 @@ func workflowProjectDiagnostics(p project.State, d workflowdefinition.Definition
 			}
 		}
 		for _, agent := range s.Agents {
-			if agent.ProfileRef != "policy-default" {
+			if agent.ProfileRef != "policy-default" && !(d.SchemaVersion == 2 && agent.ProfileRef == "") {
 				found := false
 				for _, profile := range profiles {
 					found = found || profile.Key == agent.ProfileRef

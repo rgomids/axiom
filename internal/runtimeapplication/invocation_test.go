@@ -148,3 +148,44 @@ func TestResolveInvocationRejectsShadowedLocalConflict(t *testing.T) {
 		t.Fatalf("shadowed conflict: %v", err)
 	}
 }
+
+func TestResolveInvocationRejectsEveryShadowedInvalidSelector(t *testing.T) {
+	for _, field := range []string{FieldRuntime, FieldModel, FieldEffort, FieldInstructions} {
+		for _, profile := range []bool{false, true} {
+			r := baseRequest()
+			r.RunOverride.Assignments = []Assignment{{FieldRuntime, "codex"}, {FieldModel, "chosen"}, {FieldEffort, "high"}, {FieldInstructions, "work"}}
+			bad := "bad;selector"
+			if field == FieldInstructions {
+				bad = "bad\x00instructions"
+			}
+			if profile {
+				p := *profileA
+				switch field {
+				case FieldRuntime:
+					p.Runtime = bad
+				case FieldModel:
+					p.Model = bad
+				case FieldEffort:
+					p.Effort = bad
+				case FieldInstructions:
+					p.Instructions = bad
+				}
+				r.LocalDefault.Profile = &p
+			} else {
+				r.WorkflowAgent.Assignments = []Assignment{{field, bad}}
+			}
+			if _, err := ResolveInvocation(r); !errors.Is(err, ErrInvocationConflict) {
+				t.Fatalf("shadowed %s profile=%v: %v", field, profile, err)
+			}
+		}
+	}
+	r := baseRequest()
+	r.RunOverride.Assignments = []Assignment{{FieldEffort, "high"}}
+	r.LocalDefault.Assignments = append(r.LocalDefault.Assignments, Assignment{FieldModel, ""})
+	if _, err := ResolveInvocation(r); err == nil {
+		t.Fatal("shadowed empty/conflicting selection accepted")
+	}
+	if _, err := ResolveInvocation(baseRequest()); err != nil {
+		t.Fatalf("valid unchanged defaults refused: %v", err)
+	}
+}

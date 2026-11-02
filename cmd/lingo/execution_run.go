@@ -696,6 +696,14 @@ func mapWorkflowDefinition(d workflowdefinition.Definition) (string, string, []w
 			case runtimeprofile.EffortExplicit:
 				agent.Effort = a.Effort.Value
 			}
+			// Schema-2 explicit Workflow-agent values (never combined with the
+			// historical schema-1 effort above, which schema 2 refuses).
+			if a.Invocation != nil {
+				agent.Runtime, agent.Model = a.Invocation.Runtime, a.Invocation.Model
+				if a.Invocation.Effort != "" {
+					agent.Effort = a.Invocation.Effort
+				}
+			}
 			if slices.Contains(a.EffectCeilings, "repository-write") {
 				agent.Effects = []string{"workspace_write"}
 			}

@@ -122,20 +122,34 @@ type Agent struct {
 	Outputs            []string `json:"outputs"`
 	Capabilities       []string `json:"capabilities"`
 	RuntimeConstraints []string `json:"runtimeConstraints"`
-	ProfileRef         string   `json:"profileRef"`
+	ProfileRef         string   `json:"profileRef,omitempty"`
 	Effort             Effort   `json:"effort"`
 	TimeoutSeconds     int      `json:"timeoutSeconds"`
 	MaximumAttempts    int      `json:"maximumAttempts"`
 	EffectCeilings     []string `json:"effectCeilings"`
 	IntegrationOwner   bool     `json:"integrationOwner"`
 	ValidationOwner    bool     `json:"validationOwner"`
+	// Invocation is the optional schema-2 Workflow-agent invocation input
+	// (ADR-0037 decision 4): explicit Runtime/model/effort at the Workflow
+	// level, ranked between run overrides and machine-local defaults. With
+	// profileRef it replaces only the named fields of that Profile. Absent, the
+	// canonical encoding (and digest) of existing documents is unchanged.
+	Invocation *AgentInvocation `json:"invocation,omitempty"`
+}
+
+// AgentInvocation fields are opaque explicit selectors; effort is an adapter
+// token or the explicit "runtime-default", never derived from complexity.
+type AgentInvocation struct {
+	Runtime string `json:"runtime,omitempty"`
+	Model   string `json:"model,omitempty"`
+	Effort  string `json:"effort,omitempty"`
 }
 type Diagnostic struct {
 	Field string `json:"field"`
 	Code  string `json:"code"`
 }
 
-// Schema-2 agents carry effort exclusively through their resolved Profile.
+// Schema-2 agents accept direct invocation fields and optional Profile defaults.
 // Preserve the historical nonzero schema-1 encoding while omitting zero effort.
 func (a Agent) MarshalJSON() ([]byte, error) {
 	type plain Agent

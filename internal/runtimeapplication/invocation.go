@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
+	"unicode/utf8"
 
 	"github.com/rgomids/axiom/internal/workflow"
 )
@@ -94,6 +96,20 @@ func ResolveInvocation(r InvocationRequest) (workflow.Invocation, error) {
 	// Validate every configured level even when a higher level supplies a field.
 	// Shadowing must never hide an ambiguous or malformed source.
 	for _, level := range levels {
+		for _, a := range level.layer.Assignments {
+			if err := validateSelector(a.Field, a.Value); err != nil {
+				return workflow.Invocation{}, err
+			}
+		}
+		if p := level.layer.Profile; p != nil {
+			for _, field := range invocationFieldOrder {
+				if value := p.value(field); value != "" {
+					if err := validateSelector(field, value); err != nil {
+						return workflow.Invocation{}, err
+					}
+				}
+			}
+		}
 		for _, field := range invocationFieldOrder {
 			if _, _, err := level.layer.explicit(field); err != nil {
 				return workflow.Invocation{}, err
@@ -159,4 +175,30 @@ func ResolveInvocation(r InvocationRequest) (workflow.Invocation, error) {
 		return workflow.Invocation{}, fmt.Errorf("%w: unsafe selector value", ErrInvocationConflict)
 	}
 	return inv, nil
+}
+
+// Validate every source before precedence can shadow it. Empty explicit values
+// are missing selections, never instructions to inherit a lower-level value.
+func validateSelector(field, value string) error {
+	if value == "" {
+		return fmt.Errorf("%w: %s is empty", ErrInvocationMissing, field)
+	}
+	valid := utf8.ValidString(value) && !strings.ContainsRune(value, 0)
+	switch field {
+	case FieldRuntime, FieldEffort:
+		valid = valid && workflow.ValidToken(value)
+	case FieldModel:
+		valid = valid && len(value) <= 256
+		for _, c := range value {
+			valid = valid && (c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || strings.ContainsRune("._:/-", c))
+		}
+	case FieldInstructions:
+		valid = valid && len(value) <= workflow.MaxInstructionBytes
+	default:
+		valid = false
+	}
+	if !valid {
+		return fmt.Errorf("%w: unsafe %s selector", ErrInvocationConflict, field)
+	}
+	return nil
 }

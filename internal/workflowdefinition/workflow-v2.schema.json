@@ -336,7 +336,6 @@
                 "outputs",
                 "capabilities",
                 "runtimeConstraints",
-                "profileRef",
                 "timeoutSeconds",
                 "maximumAttempts",
                 "effectCeilings",
@@ -450,6 +449,28 @@
                     "medium",
                     "high"
                   ]
+                },
+                "invocation": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "minProperties": 1,
+                  "properties": {
+                    "runtime": {
+                      "type": "string",
+                      "enum": [
+                        "codex",
+                        "claude"
+                      ]
+                    },
+                    "model": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$"
+                    },
+                    "effort": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$"
+                    }
+                  }
                 }
               }
             }
