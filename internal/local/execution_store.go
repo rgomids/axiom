@@ -264,6 +264,24 @@ func preservesExecutionHistory(prior, next workflow.Execution) bool {
 	if prior.Cancel != nil && !reflect.DeepEqual(prior.Cancel, next.Cancel) {
 		return false
 	}
+	if len(next.Integrations) < len(prior.Integrations) {
+		return false
+	}
+	for k, integration := range prior.Integrations {
+		changed := next.Integrations[k]
+		if integration.Status == workflow.IntegrationPrepared && changed.Status != workflow.IntegrationPrepared {
+			// Only the observed outcome may be filled in; intent stays immutable.
+			changed.Status = integration.Status
+			changed.MergeSHA, changed.FinalSHA, changed.ObservedTargetHead = integration.MergeSHA, integration.FinalSHA, integration.ObservedTargetHead
+			changed.Checks, changed.Diagnostic, changed.EndedAt = integration.Checks, integration.Diagnostic, integration.EndedAt
+		} else if integration.Status == workflow.IntegrationUnknown && integration.Resolution == nil {
+			// Validate permits only an explicit human abandonment here.
+			changed.Resolution = nil
+		}
+		if !reflect.DeepEqual(integration, changed) {
+			return false
+		}
+	}
 	// Accepted messages are append-only facts.
 	if len(next.Messages) < len(prior.Messages) {
 		return false
@@ -331,6 +349,19 @@ func (s ExecutionStore) Update(ctx context.Context, projectID, executionID strin
 		next := current
 		next.Stages = cloneExecutionStages(current.Stages)
 		next.Messages = append([]workflow.Message(nil), current.Messages...)
+		next.Integrations = append([]workflow.Integration(nil), current.Integrations...)
+		for i := range next.Integrations {
+			integration := &next.Integrations[i]
+			integration.Checks = append([]workflow.IntegrationCheck(nil), integration.Checks...)
+			if integration.EndedAt != nil {
+				at := *integration.EndedAt
+				integration.EndedAt = &at
+			}
+			if integration.Resolution != nil {
+				resolution := *integration.Resolution
+				integration.Resolution = &resolution
+			}
+		}
 		if err := mutate(&next); err != nil {
 			return current, err
 		}

@@ -340,7 +340,8 @@ type Execution struct {
 	Stages           []StageRun          `json:"stages"`
 	Messages         []Message           `json:"messages,omitempty"`
 	// Integrations are principal-controlled Git integrations of attempt
-	// branches (S2.3); absent for runs that integrate nothing.
+	// branches (S2.3); append-only intent and immutable terminal observations.
+	// Absent for runs that integrate nothing.
 	Integrations []Integration `json:"integrations,omitempty"`
 	// Selections are the explicit run overrides given by the start action.
 	// They are immutable inputs of every later attempt's resolution; changing

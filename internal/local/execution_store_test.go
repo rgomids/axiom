@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -620,5 +621,205 @@ func TestExecutionStoreRejectsMessageHistoryRewrite(t *testing.T) {
 				t.Fatalf("message history %s accepted: %v", mode, err)
 			}
 		})
+	}
+}
+
+// S23-CR-03 fixtures use real store transitions with a current lease/revision.
+func storeIntegratedExecution(t *testing.T) (ExecutionStore, *RunLease, workflow.Execution) {
+	t.Helper()
+	ctx := context.Background()
+	s, _ := newTestExecutionStore(t)
+	effects := []string{"workspace_write", "validation_command"}
+	x, err := workflow.NewExecution(workflow.NewExecutionInput{
+		ExecutionID: storeTestExecutionID, ProjectID: "proj", WorkItem: workflow.WorkItemLink{Provider: "linear", ID: "AXM-42", RepositoryKey: "app"},
+		Repositories: []workflow.RepositoryBinding{{Key: "app", Identity: "github.com/example/app"}}, WorkflowID: "minimal", Revision: "r1", Now: storeT0,
+		Stages: []workflow.StageSpec{{ID: "work", Agents: []workflow.AgentSpec{{ID: "builder", Effects: effects}}, TimeoutSeconds: 60,
+			Commands: []workflow.CommandCheck{{ID: "check", Argv: []string{"/bin/true"}, TimeoutSeconds: 10, Effects: []string{"validation_command"}}}}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Create(ctx, x); err != nil {
+		t.Fatal(err)
+	}
+	lease := claim(t, s)
+	t.Cleanup(func() { lease.Close() })
+	x, err = s.Update(ctx, "proj", storeTestExecutionID, lease, func(e *workflow.Execution) error {
+		if err := e.PrepareAttempt(workflow.PrepareInput{Ref: workflow.TaskRef{StageID: "work", AgentID: "builder"}, AttemptID: "a1", Generation: lease.Epoch, Invocation: storeInvocation(), Authority: workflow.AttemptAuthority{RepositoryKey: "app", Effects: effects, Actor: "user:local"}, Now: storeT0}); err != nil {
+			return err
+		}
+		if err := e.MarkStarted("a1", lease.Epoch, workflow.ProcessIdentity{PID: 100, StartIdentity: "s", GroupIdentity: "100"}, storeT0); err != nil {
+			return err
+		}
+		if err := e.PrepareCommand("a1", lease.Epoch, "check", storeT0); err != nil {
+			return err
+		}
+		if err := e.StartCommand("a1", lease.Epoch, "check", workflow.ProcessIdentity{PID: 101, StartIdentity: "s", GroupIdentity: "101"}, storeT0); err != nil {
+			return err
+		}
+		if err := e.FinishCommand("a1", lease.Epoch, "check", 0, storeT0); err != nil {
+			return err
+		}
+		a, _, _ := e.FindAttempt("a1")
+		return e.CompleteAttempt("a1", lease.Epoch, workflow.AttemptResult{Commands: append([]workflow.CommandResult(nil), a.Commands...), Now: storeT0})
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for n, id := range []string{"int-one", "int-two"} {
+		head, candidate, merge := strings.Repeat("b", 40), strings.Repeat("c", 40), strings.Repeat("d", 40)
+		if n == 1 {
+			head, candidate, merge = merge, strings.Repeat("e", 40), strings.Repeat("f", 40)
+		}
+		_, err = s.Update(ctx, "proj", storeTestExecutionID, lease, func(e *workflow.Execution) error {
+			return e.PrepareIntegration(workflow.IntegrationInput{IntegrationID: id, Generation: lease.Epoch, SourceAttemptID: "a1", RepositoryKey: "app", RepositoryIdentity: "github.com/example/app", SourceBranch: "refs/heads/agent", Worktree: "agent", BaseSHA: strings.Repeat("b", 40), TargetRef: "refs/heads/integration", ExpectedTargetHead: head, CandidateSHA: candidate, Now: storeT0})
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		x, err = s.Update(ctx, "proj", storeTestExecutionID, lease, func(e *workflow.Execution) error {
+			return e.FinishIntegration(id, lease.Epoch, workflow.IntegrationResult{Status: workflow.IntegrationIntegrated, MergeSHA: merge, FinalSHA: merge, ObservedTargetHead: merge, Checks: []workflow.IntegrationCheck{{ID: "check", Status: workflow.CheckPassed}}, Now: storeT0})
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	return s, lease, x
+}
+
+func TestExecutionStoreRejectsIntegrationHistoryRewrite(t *testing.T) {
+	for _, mode := range []string{"delete", "target", "final-sha", "diagnostic", "checks", "reorder", "identity"} {
+		t.Run(mode, func(t *testing.T) {
+			s, lease, current := storeIntegratedExecution(t)
+			before, _ := workflow.EncodeExecution(current)
+			next, _ := workflow.DecodeExecution(before)
+			i := &next.Integrations[0]
+			switch mode {
+			case "delete":
+				next.Integrations = nil
+			case "target":
+				i.TargetRef = "refs/heads/other"
+			case "final-sha":
+				i.FinalSHA = strings.Repeat("a", 40)
+				i.MergeSHA = i.FinalSHA
+				i.ObservedTargetHead = i.FinalSHA
+			case "diagnostic":
+				i.Diagnostic = "rewritten"
+			case "checks":
+				i.Checks = nil
+				i.Status = workflow.IntegrationNotIntegrated
+				i.FinalSHA = ""
+				i.Diagnostic = "rewritten"
+			case "reorder":
+				next.Integrations[0], next.Integrations[1] = next.Integrations[1], next.Integrations[0]
+			case "identity":
+				i.IntegrationID = "other-id"
+			}
+			next.Revision++
+			if err := next.Validate(); err != nil {
+				t.Fatalf("fixture must be valid: %v", err)
+			}
+			if err := s.Save(context.Background(), next, current.Revision, lease); !errors.Is(err, ErrConflict) {
+				t.Fatalf("accepted %s rewrite: %v", mode, err)
+			}
+			got, err := s.Load(context.Background(), "proj", storeTestExecutionID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			after, _ := workflow.EncodeExecution(got)
+			if string(before) != string(after) {
+				t.Fatal("refused save changed history/revision")
+			}
+		})
+	}
+}
+
+func TestExecutionStoreUpdateIntegrationSnapshotIsolation(t *testing.T) {
+	for _, mode := range []string{"integration", "checks", "ended-at"} {
+		t.Run(mode, func(t *testing.T) {
+			s, lease, current := storeIntegratedExecution(t)
+			before, _ := workflow.EncodeExecution(current)
+			refusal := errors.New("callback refused")
+			got, err := s.Update(context.Background(), "proj", storeTestExecutionID, lease, func(e *workflow.Execution) error {
+				switch mode {
+				case "integration":
+					e.Integrations[0].Diagnostic = "mutated"
+				case "checks":
+					e.Integrations[0].Checks[0].Status = workflow.CheckFailed
+				case "ended-at":
+					*e.Integrations[0].EndedAt = storeT0.Add(time.Hour)
+				}
+				return refusal
+			})
+			if !errors.Is(err, refusal) {
+				t.Fatal(err)
+			}
+			after, _ := workflow.EncodeExecution(got)
+			if string(before) != string(after) {
+				t.Fatal("callback mutation aliased prior snapshot")
+			}
+		})
+	}
+}
+
+func TestExecutionStoreIntegrationPreparedAndHumanDisposition(t *testing.T) {
+	s, lease, _ := storeIntegratedExecution(t)
+	ctx := context.Background()
+	prepared, err := s.Update(ctx, "proj", storeTestExecutionID, lease, func(e *workflow.Execution) error {
+		return e.PrepareIntegration(workflow.IntegrationInput{IntegrationID: "third", Generation: lease.Epoch, SourceAttemptID: "a1", RepositoryKey: "app", RepositoryIdentity: "github.com/example/app", SourceBranch: "refs/heads/agent", Worktree: "agent", BaseSHA: strings.Repeat("b", 40), TargetRef: "refs/heads/integration", ExpectedTargetHead: strings.Repeat("f", 40), CandidateSHA: strings.Repeat("a", 40), Now: storeT0})
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	before, _ := workflow.EncodeExecution(prepared)
+	next, _ := workflow.DecodeExecution(before)
+	next.Integrations[2].TargetRef = "refs/heads/rewritten"
+	next.Revision++
+	if err := s.Save(ctx, next, prepared.Revision, lease); !errors.Is(err, ErrConflict) {
+		t.Fatalf("prepared intent rewrite: %v", err)
+	}
+	_, err = s.Update(ctx, "proj", storeTestExecutionID, lease, func(e *workflow.Execution) error {
+		return e.MarkIntegrationUnknown("third", lease.Epoch, "lost observation", storeT0)
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	resolved, err := s.Update(ctx, "proj", storeTestExecutionID, nil, func(e *workflow.Execution) error {
+		return e.ResolveIntegration("third", "human:maintainer", storeT0)
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resolved.Integrations[2].Status != workflow.IntegrationUnknown || resolved.Integrations[2].Diagnostic != "lost observation" || resolved.Integrations[2].Resolution == nil {
+		t.Fatal("human disposition lost observations")
+	}
+	before, _ = workflow.EncodeExecution(resolved)
+	refusal := errors.New("callback refused")
+	got, err := s.Update(ctx, "proj", storeTestExecutionID, lease, func(e *workflow.Execution) error {
+		e.Integrations[2].Resolution.Actor = "human:other"
+		return refusal
+	})
+	if !errors.Is(err, refusal) {
+		t.Fatal(err)
+	}
+	after, _ := workflow.EncodeExecution(got)
+	if string(before) != string(after) {
+		t.Fatal("resolution pointer aliased prior snapshot")
+	}
+	_, err = s.Update(ctx, "proj", storeTestExecutionID, lease, func(e *workflow.Execution) error {
+		e.Integrations[2].Resolution.Actor = "human:other"
+		e.Revision++
+		return nil
+	})
+	if !errors.Is(err, ErrConflict) {
+		t.Fatalf("terminal resolution rewrite accepted: %v", err)
+	}
+	got, err = s.Load(ctx, "proj", storeTestExecutionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	after, _ = workflow.EncodeExecution(got)
+	if string(before) != string(after) {
+		t.Fatal("refused update changed current history/revision")
 	}
 }
