@@ -673,7 +673,8 @@ func (m *Manager) rejectExecutableConfiguration(ctx context.Context, cwd string)
 }
 
 // executableConfigurationKey matches filter.<driver>.{clean,smudge,process},
-// diff.external and diff.<driver>.{command,textconv}. Section and variable
+// diff.external, diff.<driver>.{command,textconv} and merge.<driver>.driver
+// (consulted by the S2.3 merge-tree integration). Section and variable
 // names are case-insensitive; the driver subsection may contain dots.
 func executableConfigurationKey(key string) bool {
 	first := strings.Index(key, ".")
@@ -689,6 +690,8 @@ func executableConfigurationKey(key string) bool {
 		return variable == "external"
 	case section == "diff":
 		return variable == "command" || variable == "textconv"
+	case section == "merge" && first != last:
+		return variable == "driver"
 	}
 	return false
 }

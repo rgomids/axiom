@@ -138,6 +138,15 @@ func (e Engine) Claim(ctx context.Context, projectID, executionID string) (workf
 				return err
 			}
 		}
+		// A prepared integration of an older runner has no correlated target
+		// observation; it is never re-run.
+		for _, i := range x.Integrations {
+			if i.Status == workflow.IntegrationPrepared && i.RunnerGeneration < gen {
+				if err := x.MarkIntegrationUnknown(i.IntegrationID, gen, "runner_lost_before_integration_outcome", now); err != nil {
+					return err
+				}
+			}
+		}
 		return nil
 	})
 	if err != nil {
