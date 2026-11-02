@@ -233,7 +233,10 @@ func (s ExecutionStore) Save(ctx context.Context, next workflow.Execution, expec
 			return ErrConflict
 		}
 	} else {
-		if lease.Epoch != next.RunnerGeneration || lease.projectID != next.ProjectID || lease.parentID != next.ExecutionID {
+		// The fence belongs to the state root that issued it. Both roots are the
+		// trustedCanonical form, so exact equality (never a prefix) binds the lease
+		// to this store; a same-epoch lease from another root owns nothing here.
+		if lease.stateRoot != s.root || lease.Epoch != next.RunnerGeneration || lease.projectID != next.ProjectID || lease.parentID != next.ExecutionID {
 			return workflow.ErrStaleRunner
 		}
 		// Pin the lease through the commit point so it cannot be released

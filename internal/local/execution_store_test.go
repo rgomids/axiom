@@ -187,6 +187,83 @@ func TestExecutionStoreReleasedOrSupersededLeaseCannotCommit(t *testing.T) {
 	}
 }
 
+// DMH-02: a runner fence is bound to the state root that issued it. Two
+// private roots holding independently valid same-generation leases for the
+// same logical Execution must never let B's lease commit A's record, whether or
+// not A's own runner lease is held. Refusal writes nothing.
+func TestExecutionStoreRejectsForeignStateRootLease(t *testing.T) {
+	ctx := context.Background()
+	a, rootA := newTestExecutionStore(t)
+	b, _ := newTestExecutionStore(t)
+	for _, s := range []ExecutionStore{a, b} {
+		if err := s.Create(ctx, storeTestExecution(t)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	record := filepath.Join(rootA, "executions", "v2", "proj", storeTestExecutionID+".json")
+	attempt := func(e *workflow.Execution, gen uint64) error {
+		return e.PrepareAttempt(workflow.PrepareInput{Ref: workflow.TaskRef{StageID: "work", AgentID: "builder"}, AttemptID: "foreign", Generation: gen,
+			Invocation: storeInvocation(), Authority: workflow.AttemptAuthority{RepositoryKey: "app", Effects: []string{}, Actor: "user:local"}, Now: storeT0})
+	}
+	refuses := func(name string, foreign *RunLease) {
+		t.Helper()
+		before, err := os.ReadFile(record)
+		if err != nil {
+			t.Fatal(err)
+		}
+		current, _ := a.Load(ctx, "proj", storeTestExecutionID)
+		next := current
+		next.Stages = cloneExecutionStages(current.Stages)
+		if err := attempt(&next, foreign.Epoch); err != nil {
+			t.Fatal(err)
+		}
+		if err := a.Save(ctx, next, current.Revision, foreign); !errors.Is(err, workflow.ErrStaleRunner) {
+			t.Fatalf("%s: foreign-root lease admitted by Save: %v", name, err)
+		}
+		if _, err := a.Update(ctx, "proj", storeTestExecutionID, foreign, func(e *workflow.Execution) error { return attempt(e, foreign.Epoch) }); !errors.Is(err, workflow.ErrStaleRunner) {
+			t.Fatalf("%s: foreign-root lease admitted by Update: %v", name, err)
+		}
+		after, err := os.ReadFile(record)
+		if err != nil || string(before) != string(after) {
+			t.Fatalf("%s: refused foreign lease mutated A: %v", name, err)
+		}
+	}
+	// A's runner holds its own lease at generation 1; B's lease has the same epoch.
+	leaseA := claim(t, a)
+	leaseB := claim(t, b)
+	if leaseA.Epoch != leaseB.Epoch {
+		t.Fatalf("fixture needs equal generations: %d vs %d", leaseA.Epoch, leaseB.Epoch)
+	}
+	refuses("A lease held", leaseB)
+	// A released: B's still-valid lease must not take over A either.
+	leaseA.Close()
+	refuses("A lease released", leaseB)
+	leaseB.Close()
+	// A deleted/never-issued foreign root lease from a third root is refused too.
+	foreignStore, err := NewRunLeaseStore(privateTestRoot(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	foreign, err := foreignStore.Acquire(ctx, "proj", storeTestExecutionID, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer foreign.Close()
+	current, _ := a.Load(ctx, "proj", storeTestExecutionID)
+	if foreign.Epoch != current.RunnerGeneration+1 {
+		t.Fatalf("third-root epoch %d", foreign.Epoch)
+	}
+	if _, err := a.Update(ctx, "proj", storeTestExecutionID, foreign, func(e *workflow.Execution) error { return e.ClaimRunner(foreign.Epoch, storeT0) }); !errors.Is(err, workflow.ErrStaleRunner) {
+		t.Fatalf("third-root lease claimed A: %v", err)
+	}
+	// Positive: A's own lease commits.
+	own := claim(t, a)
+	defer own.Close()
+	if _, err := a.Update(ctx, "proj", storeTestExecutionID, own, func(e *workflow.Execution) error { return attempt(e, own.Epoch) }); err != nil {
+		t.Fatalf("own-root lease refused: %v", err)
+	}
+}
+
 func TestExecutionStoreConcurrentWritersSerializeWithoutLoss(t *testing.T) {
 	s, _ := newTestExecutionStore(t)
 	ctx := context.Background()
