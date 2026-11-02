@@ -171,6 +171,11 @@ func (e *Execution) derivedStageStatus(i int) StageStatus {
 func (e Execution) derivedStatus() RunStatus {
 	all := true
 	var running, failed, cancelled, gate bool
+	for _, i := range e.Integrations {
+		if unresolvedUnknownIntegration(i) {
+			return RunRecoveryRequired
+		}
+	}
 	for i, s := range e.Stages {
 		for _, t := range s.Tasks {
 			for _, a := range t.Attempts {

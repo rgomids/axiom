@@ -339,6 +339,9 @@ type Execution struct {
 	Cancel           *CancelIntent       `json:"cancel,omitempty"`
 	Stages           []StageRun          `json:"stages"`
 	Messages         []Message           `json:"messages,omitempty"`
+	// Integrations are principal-controlled Git integrations of attempt
+	// branches (S2.3); absent for runs that integrate nothing.
+	Integrations []Integration `json:"integrations,omitempty"`
 	// Selections are the explicit run overrides given by the start action.
 	// They are immutable inputs of every later attempt's resolution; changing
 	// them needs an explicitly authorized new selection on a retry.
@@ -658,6 +661,9 @@ func (e Execution) Validate() error {
 		return err
 	}
 	if err := validateSelections(e); err != nil {
+		return err
+	}
+	if err := validateIntegrations(e); err != nil {
 		return err
 	}
 	if !validRunStatus(e.Status) || e.Status != e.derivedStatus() {
