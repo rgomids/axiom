@@ -22,10 +22,21 @@ import (
 	"github.com/rgomids/axiom/internal/workflowdefinition"
 )
 
+// boundedHang waits without spinning while the shell keeps the parent it
+// started with, for at most ~120s. The stub runs in its own process group, out
+// of reach of anything that kills the test binary, so it must end by itself
+// once its runner or test binary is gone, even by SIGKILL with no cleanup: the
+// kernel re-parents the shell and the loop exits. On Linux the current parent
+// is read from /proc, which is immune to PID reuse; elsewhere kill -0 on the
+// original parent PID applies.
+const boundedHang = `alive() { if [ -r /proc/$$/stat ]; then read -r s < /proc/$$/stat; set -- ${s##*") "}; [ "$2" = "$PPID" ]; else kill -0 "$PPID" 2>/dev/null; fi; }
+n=0; while [ "$n" -lt 600 ] && alive; do /bin/sleep 0.2; n=$((n+1)); done; exit 9`
+
 // stubRuntimeScript is a local stand-in for the codex executable. It uses only
-// shell builtins, reads the frozen task packet on stdin and writes the declared
-// output into its private attempt directory. Instructions select failure modes;
-// it never contacts a vendor and has no credentials.
+// shell builtins (and /bin/sleep while hanging), reads the frozen task packet
+// on stdin and writes the declared output into its private attempt directory.
+// Instructions select failure modes; it never contacts a vendor and has no
+// credentials.
 const stubRuntimeScript = `#!/bin/sh
 IFS= read -r packet
 dir=${packet#*\"OutputDirectory\":\"}
@@ -35,7 +46,7 @@ stage=${stage%%\"*}
 case "$packet" in
 *mode:fail*) exit 3 ;;
 *mode:missing*) exit 0 ;;
-*mode:hang*) while :; do :; done ;;
+*mode:hang*) ` + boundedHang + ` ;;
 esac
 printf 'result of %s\n' "$stage" > "$dir/result"
 exit 0

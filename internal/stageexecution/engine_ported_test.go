@@ -19,7 +19,7 @@ import (
 // (ErrReconcileOrphanAlive, ErrReconcileLeaseHeld) onto the one engine.
 
 func TestEngineReconcileReportsLiveOrphanWithoutSignalling(t *testing.T) {
-	child := exec.Command("/bin/sh", "-c", "while :; do sleep 1; done")
+	child := exec.Command("/bin/sh", "-c", boundedHang)
 	child.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	if err := child.Start(); err != nil {
 		t.Fatal(err)
@@ -64,7 +64,7 @@ func TestEngineReconcileReportsLiveOrphanWithoutSignalling(t *testing.T) {
 // recorded identity and a function that kills and reaps the whole group.
 func liveGroup(t *testing.T) (workflow.ProcessIdentity, func()) {
 	t.Helper()
-	child := exec.Command("/bin/sh", "-c", "while :; do sleep 1; done")
+	child := exec.Command("/bin/sh", "-c", boundedHang)
 	child.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	if err := child.Start(); err != nil {
 		t.Fatal(err)

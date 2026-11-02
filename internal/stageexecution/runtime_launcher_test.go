@@ -18,6 +18,13 @@ import (
 	"github.com/rgomids/axiom/internal/workflow"
 )
 
+// boundedHang (the cmd/lingo stub's hang) waits without spinning while the
+// shell keeps the parent it started with, for at most ~120s, so a stand-in
+// process in its own group ends by itself once the test binary is gone, even
+// by SIGKILL with no cleanup.
+const boundedHang = `alive() { if [ -r /proc/$$/stat ]; then read -r s < /proc/$$/stat; set -- ${s##*") "}; [ "$2" = "$PPID" ]; else kill -0 "$PPID" 2>/dev/null; fi; }
+n=0; while [ "$n" -lt 600 ] && alive; do /bin/sleep 0.2; n=$((n+1)); done; exit 9`
+
 func runtimeLauncherFixture(t *testing.T, runtimeID, effort string) (RuntimeLauncher, LaunchRequest) {
 	t.Helper()
 	root := t.TempDir()
@@ -360,7 +367,7 @@ func TestEngineCommandProcessFactsCancellationAndFailure(t *testing.T) {
 				script = "#!/bin/sh\nexit 7\n"
 			}
 			if mode == "cancel" {
-				script = "#!/bin/sh\nwhile :; do :; done\n"
+				script = "#!/bin/sh\n" + boundedHang + "\n"
 			}
 			if err := os.WriteFile(command, []byte(script), 0700); err != nil {
 				t.Fatal(err)

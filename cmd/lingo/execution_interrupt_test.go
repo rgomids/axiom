@@ -28,7 +28,7 @@ func TestPublicReconcileAbandonRefusesLiveOrphanWithoutWriting(t *testing.T) {
 	f := newExecutionRunFixture(t)
 	failed := f.run(t, cli.ExitFailure, minimalRun("--select", "agent.instructions=mode:fail", "--authorize-external")...)
 	id := failed.Stage.ExecutionID
-	orphan := exec.Command("/bin/sh", "-c", "while :; do read -t 1 x; done")
+	orphan := exec.Command("/bin/sh", "-c", boundedHang)
 	orphan.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	if err := orphan.Start(); err != nil {
 		t.Fatal(err)
@@ -114,36 +114,11 @@ func TestPublicReconcileAbandonRefusesLiveOrphanWithoutWriting(t *testing.T) {
 // is a local /bin/sh stub; no vendor CLI runs, so vendor SIGPIPE behavior is
 // not exercised here.
 func TestPublicWorkflowRunSignalStopsOwnedGroupAndCommitsStop(t *testing.T) {
-	binary := filepath.Join(t.TempDir(), "lingo")
-	if output, err := exec.Command("go", "build", "-o", binary, ".").CombinedOutput(); err != nil {
-		t.Fatalf("build executable: %v: %s", err, output)
-	}
+	binary := buildLingoBinary(t)
 	for _, signal := range []syscall.Signal{syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP} {
 		t.Run(signal.String(), func(t *testing.T) {
 			f := newExecutionRunFixture(t)
-			var stdout bytes.Buffer
-			runner := exec.Command(binary, append([]string{"--json"}, minimalRun("--select", "agent.instructions=mode:hang", "--authorize-external")...)...)
-			runner.Env = os.Environ()
-			runner.Stdout = &stdout
-			if err := runner.Start(); err != nil {
-				t.Fatal(err)
-			}
-			t.Cleanup(func() { _ = runner.Process.Kill(); _, _ = runner.Process.Wait() })
-			id, pid := "", int64(0)
-			for deadline := time.Now().Add(20 * time.Second); pid == 0; time.Sleep(20 * time.Millisecond) {
-				if time.Now().After(deadline) {
-					t.Fatal("no running attempt observed")
-				}
-				files := f.executions(t)
-				if len(files) != 1 {
-					continue
-				}
-				id = strings.TrimSuffix(filepath.Base(files[0]), ".json")
-				status := f.run(t, cli.ExitSuccess, "workflow", "stage", "status", "--project", "external", "--execution", id)
-				if a := status.Stage.Stages[0].Tasks[0].Attempts; len(a) == 1 && a[0].Status == workflow.AttemptRunning && a[0].Process != nil {
-					pid = a[0].Process.PID
-				}
-			}
+			runner, stdout, id, pid := startHangingRunner(t, binary, f)
 			// Even when the assertion below fails, never leak the stub group:
 			// stop it only if the leader identity is still the recorded one.
 			leader, err := executiongraph.ObserveProcessCorrelation(pid)
@@ -183,4 +158,47 @@ func TestPublicWorkflowRunSignalStopsOwnedGroupAndCommitsStop(t *testing.T) {
 			}
 		})
 	}
+}
+
+func buildLingoBinary(t *testing.T) string {
+	t.Helper()
+	binary := filepath.Join(t.TempDir(), "lingo")
+	if output, err := exec.Command("go", "build", "-o", binary, ".").CombinedOutput(); err != nil {
+		t.Fatalf("build executable: %v: %s", err, output)
+	}
+	return binary
+}
+
+// startHangingRunner starts the built runner on a hanging stub agent and
+// returns once the running attempt has published the agent's process identity.
+func startHangingRunner(t *testing.T, binary string, f *executionRunFixture) (*exec.Cmd, *bytes.Buffer, string, int64) {
+	t.Helper()
+	stdout := &bytes.Buffer{}
+	runner := exec.Command(binary, append([]string{"--json"}, minimalRun("--select", "agent.instructions=mode:hang", "--authorize-external")...)...)
+	runner.Env = os.Environ()
+	runner.Stdout = stdout
+	// The runner dies with this test binary even when no cleanup can run
+	// (SIGKILL, -test.timeout); its stub agent then loses its parent and
+	// leaves boundedHang. Go re-checks the parent after PR_SET_PDEATHSIG.
+	runner.SysProcAttr = &syscall.SysProcAttr{Pdeathsig: syscall.SIGKILL}
+	if err := runner.Start(); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = runner.Process.Kill(); _, _ = runner.Process.Wait() })
+	id, pid := "", int64(0)
+	for deadline := time.Now().Add(20 * time.Second); pid == 0; time.Sleep(20 * time.Millisecond) {
+		if time.Now().After(deadline) {
+			t.Fatal("no running attempt observed")
+		}
+		files := f.executions(t)
+		if len(files) != 1 {
+			continue
+		}
+		id = strings.TrimSuffix(filepath.Base(files[0]), ".json")
+		status := f.run(t, cli.ExitSuccess, "workflow", "stage", "status", "--project", "external", "--execution", id)
+		if a := status.Stage.Stages[0].Tasks[0].Attempts; len(a) == 1 && a[0].Status == workflow.AttemptRunning && a[0].Process != nil {
+			pid = a[0].Process.PID
+		}
+	}
+	return runner, stdout, id, pid
 }
