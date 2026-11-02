@@ -67,8 +67,10 @@ Schema-2 `command` validators under `builtin-sdd-v1` declare bounded `argv`,
 arguments and effects. No shell expansion, fallback command or implicit authority
 is supplied. The frozen attempt retains selections and authority; ordinary
 retries preserve the invocation and require current effect authorization.
-Eligible work progresses serially; parallel scheduling and cross-Runtime
-collaboration remain S2. Cancellation, failed required validation and unknown
+Independent ready tasks run concurrently; the principal serializes their
+Execution state commits. Dependencies and configured human gates still control
+eligibility. Cross-Runtime collaboration transport and managed worktree
+integration remain pending S2 work. Cancellation, failed required validation and unknown
 effects stop successors. See the [command reference](cli.md) for installed flags.
 
 Inspect `workflow stage status --execution <id>` after an attempt. Cancel records

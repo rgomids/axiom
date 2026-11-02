@@ -479,6 +479,40 @@ func TestExecutionInvalidAgentControlsRefuseBeforeAttempts(t *testing.T) {
 	}
 }
 
+func TestExecutionParallelFailureStopsReadyWhilePeerStillRunning(t *testing.T) {
+	e, err := NewExecution(NewExecutionInput{
+		ExecutionID: testExecutionID, ProjectID: "proj", WorkItem: WorkItemLink{"linear", "AXM-42", "app"},
+		Repositories: []RepositoryBinding{{"app", "example/app"}}, WorkflowID: "parallel", Revision: "r1", Now: t0,
+		Stages: []StageSpec{{ID: "work", TimeoutSeconds: 60, Agents: []AgentSpec{
+			{ID: "producer"}, {ID: "failed"}, {ID: "running"}, {ID: "consumer", DependsOn: []string{"producer"}},
+		}}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = e.ClaimRunner(1, t0); err != nil {
+		t.Fatal(err)
+	}
+	for _, id := range []string{"producer", "failed", "running"} {
+		run(t, &e, TaskRef{"work", id}, id)
+	}
+	if err = e.CompleteAttempt("failed", 1, AttemptResult{ExitCode: 1, Now: t0}); err != nil {
+		t.Fatal(err)
+	}
+	if err = e.CompleteAttempt("producer", 1, AttemptResult{ExitCode: 0, Now: t0}); err != nil {
+		t.Fatal(err)
+	}
+	if e.Status != RunRunning || len(e.Ready()) != 0 {
+		t.Fatalf("failed peer was masked by a running task: %s ready=%v", e.Status, e.Ready())
+	}
+	if err = e.PrepareAttempt(PrepareInput{Ref: TaskRef{"work", "consumer"}, AttemptID: "forbidden", Generation: 1, Invocation: testInvocation("do"), Authority: AttemptAuthority{"app", []string{}, "user:local"}, Now: t0}); !errors.Is(err, ErrTransition) {
+		t.Fatalf("prepared successor after failure: %v", err)
+	}
+	if err = e.CompleteAttempt("running", 1, AttemptResult{ExitCode: 0, Now: t0}); err != nil || e.Status != RunFailed {
+		t.Fatalf("independent running peer lost its result: %v %s", err, e.Status)
+	}
+}
+
 func TestExecutionOutputContractCodecAndBounds(t *testing.T) {
 	for _, mode := range []string{"valid", "duplicate", "dangling", "empty-kind", "missing-digest", "bad-digest", "dangling-input", "duplicate-input"} {
 		t.Run(mode, func(t *testing.T) {

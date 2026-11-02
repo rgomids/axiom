@@ -13,13 +13,20 @@ No implementation, merge, live validation or Product Accepted authority is impli
 S1 contract reconciliation: [ADR-0037](../decisions/0037-one-canonical-execution-for-new-runs.md)
 records the approved architecture with prospective notes on Spec 007, amendments #276/#306 and Spec 004 #272.
 [S1 full review](015-minimum-viable-operational-workflow/review-s1-full.md) and its
-[coverage ledger](015-minimum-viable-operational-workflow/review-s1-full-coverage.json):
-REVIEW_INCOMPLETE with corrections applied; independent review pending.
+[coverage ledger](015-minimum-viable-operational-workflow/review-s1-full-coverage.json)
+record the earlier incomplete self-review. Subsequent
+[full independent review](https://github.com/rgomids/axiom/pull/366#pullrequestreview-5732644991),
+[targeted re-review](https://github.com/rgomids/axiom/pull/366#pullrequestreview-5737621372)
+and [S1 thread reconciliation](https://linear.app/rgomids/issue/AXM-42#comment-8bf68cab)
+close the eight DMH findings technically; human pre-merge review remains distinct.
+[S2.1 Evidence](015-minimum-viable-operational-workflow/implementation-s2-01.md)
+records the authorized parallel-scheduler checkpoint and remaining S2 work.
 [CR-S1-06 correction](015-minimum-viable-operational-workflow/correction-cr-s1-06.md):
 the cutover inventory catalog now covers capability evidence, probe envelopes and Project context.
 [CR-S1-07 correction](015-minimum-viable-operational-workflow/correction-cr-s1-07.md):
 fixes IR-01..IR-09 of the independent full S1 review (orphan liveness before abandonment,
-operator-signal ownership, late cancel, command markers, symlinked command freeze); re-review pending.
+operator-signal ownership, late cancel, command markers, symlinked command freeze);
+the subsequent reviews above supersede its pending-review checkpoint.
 
 ## 014 — CLI operability for smaller models
 

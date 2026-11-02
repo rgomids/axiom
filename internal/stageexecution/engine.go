@@ -70,6 +70,9 @@ type LaunchRequest struct {
 // declared outputs. Real Runtime adapters must apply
 // runtimeadapter.CheckFrozenSelectors in Build; Build errors are observed
 // spawn failures, not eligibility predictions.
+// Build and Collect may run concurrently for distinct attempts; implementations
+// must scope mutable state by attempt. Command callbacks return their mutations
+// to the principal writer.
 type Launcher interface {
 	Build(context.Context, LaunchRequest) (executiongraph.Invocation, error)
 	Collect(context.Context, LaunchRequest, executiongraph.ProcessResult) (Outcome, error)
@@ -158,47 +161,26 @@ func orphanedAttempts(x workflow.Execution, generation uint64) []string {
 	return ids
 }
 
-// Run progresses eligible sequential work until nothing is eligible: done,
-// failed, cancelled, awaiting a real human gate or blocked by an unknown
-// effect. It returns the last committed state.
+// Run progresses eligible work through one principal writer. Independent ready
+// tasks share the same attempt lifecycle and codec; only process observation and
+// output collection run concurrently. Every worker commit returns to this loop.
 func (e Engine) Run(ctx context.Context, projectID, executionID string, opts RunOptions) (workflow.Execution, error) {
 	lease, current, err := e.Claim(ctx, projectID, executionID)
 	if err != nil {
 		return current, err
 	}
 	defer lease.Close()
-	retry := opts.Retry
-	for {
-		if err := ctx.Err(); err != nil {
-			return current, err
-		}
-		var ref workflow.TaskRef
-		if retry != nil {
-			ref = *retry
-		} else {
-			ready := current.Ready()
-			if len(ready) == 0 {
-				return current, nil
-			}
-			ref = ready[0]
-		}
-		next, err := e.attempt(ctx, lease, current, ref, retry != nil, retry != nil && opts.NewSelection, opts.WorkspaceDisposition)
-		retry = nil
-		if err != nil {
-			return next, err
-		}
-		current = next
-	}
+	return e.runReady(ctx, lease, current, opts)
 }
 
-func (e Engine) attempt(ctx context.Context, lease workflow.RunnerFence, current workflow.Execution, ref workflow.TaskRef, isRetry, newSelection bool, disposition string) (workflow.Execution, error) {
+func (e Engine) prepareAttempt(ctx context.Context, lease workflow.RunnerFence, current workflow.Execution, ref workflow.TaskRef, isRetry, newSelection bool, disposition string) (LaunchRequest, error) {
 	if !isRetry {
 		disposition = ""
 	}
 	projectID, executionID, gen := current.ProjectID, current.ExecutionID, lease.Generation()
 	invocation, authority, err := e.Resolve(ctx, current, ref)
 	if err != nil {
-		return current, err
+		return LaunchRequest{}, err
 	}
 	if isRetry {
 		// Resolve still rechecks current target/effect restrictions. An ordinary
@@ -211,13 +193,13 @@ func (e Engine) attempt(ctx context.Context, lease workflow.RunnerFence, current
 				if stage.StageID == ref.StageID && task.AgentID == ref.AgentID && len(task.Attempts) != 0 {
 					previous := task.Attempts[len(task.Attempts)-1]
 					if authority.RepositoryKey != previous.Authority.RepositoryKey {
-						return current, workflow.ErrTransition
+						return LaunchRequest{}, workflow.ErrTransition
 					}
 					if newSelection {
 						continue
 					}
 					if invocation.Runtime != previous.Invocation.Runtime || invocation.Executable != previous.Invocation.Executable {
-						return current, workflow.ErrTransition
+						return LaunchRequest{}, workflow.ErrTransition
 					}
 					invocation = previous.Invocation
 				}
@@ -226,22 +208,33 @@ func (e Engine) attempt(ctx context.Context, lease workflow.RunnerFence, current
 	}
 	attemptID, err := e.NewID()
 	if err != nil {
-		return current, err
+		return LaunchRequest{}, err
 	}
-	// Commits keep the caller's values (correlation) and the runner fence but
-	// not its cancellation: an interrupt must not lose an observed fact.
-	update := func(mutate func(*workflow.Execution) error) (workflow.Execution, error) {
-		commitCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), terminalCommitBound)
-		defer cancel()
-		return e.Store.UpdateFenced(commitCtx, projectID, executionID, lease, mutate)
-	}
+	update := e.commit(ctx, projectID, executionID, lease)
 	prepared, err := update(func(x *workflow.Execution) error {
 		return x.PrepareAttempt(workflow.PrepareInput{Ref: ref, AttemptID: attemptID, Generation: gen, Invocation: invocation, Authority: authority, Now: e.now(), Retry: isRetry, NewSelection: newSelection, WorkspaceDisposition: disposition})
 	})
 	if err != nil {
-		return current, err
+		return LaunchRequest{}, err
 	}
-	request := e.request(prepared, ref, attemptID)
+	return e.request(prepared, ref, attemptID), nil
+}
+
+// commit keeps caller correlation and the fence, but detaches cancellation so
+// an interrupted runner can still retain its observed terminal facts.
+func (e Engine) commit(ctx context.Context, projectID, executionID string, lease workflow.RunnerFence) func(func(*workflow.Execution) error) (workflow.Execution, error) {
+	return func(mutate func(*workflow.Execution) error) (workflow.Execution, error) {
+		commitCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), terminalCommitBound)
+		defer cancel()
+		return e.Store.UpdateFenced(commitCtx, projectID, executionID, lease, mutate)
+	}
+}
+
+func (e Engine) runAttempt(ctx context.Context, lease workflow.RunnerFence, request LaunchRequest) (workflow.Execution, error) {
+	prepared, attemptID := request.Execution, request.Attempt.AttemptID
+	projectID, executionID, gen := prepared.ProjectID, prepared.ExecutionID, lease.Generation()
+	update := e.commit(ctx, projectID, executionID, lease)
+
 	cancelBeforeSpawn := func() (workflow.Execution, error) {
 		return update(func(x *workflow.Execution) error {
 			if err := recordInterrupt(ctx, x, e.now()); err != nil {

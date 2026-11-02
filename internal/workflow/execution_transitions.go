@@ -228,6 +228,19 @@ func (e Execution) Ready() []TaskRef {
 	if e.Cancel != nil || e.Status == RunRecoveryRequired || e.Status == RunFailed || e.Status == RunCancelled {
 		return nil
 	}
+	// A running independent peer can keep the derived run status Running after
+	// another task failed. Failure still fences further scheduling immediately;
+	// already-running peers may finish and retain their own results.
+	for _, stage := range e.Stages {
+		for _, task := range stage.Tasks {
+			if last := lastAttempt(task); last != nil {
+				switch effectiveStatus(*last) {
+				case AttemptFailed, AttemptCancelled:
+					return nil
+				}
+			}
+		}
+	}
 	var refs []TaskRef
 	for i, spec := range e.Workflow.Stages {
 		ready := true

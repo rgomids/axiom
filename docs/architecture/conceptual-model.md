@@ -435,6 +435,10 @@ New invocations compose explicit per-agent overrides, Workflow inputs and bounde
 machine-local `LINGO_INVOCATION_DEFAULTS` in that order. Profiles supply optional
 inputs; the attempt snapshot retains the effective tuple and safe provenance.
 Supported configured stages preserve before/after human gates, agent dependencies,
-assigned required outputs, timeouts and attempt limits. The S1 loop remains
-serial. Configured validators remain fail-closed pending their exact port;
-this is a partial implementation boundary, not an alternative human gate.
+assigned required outputs, timeouts and attempt limits. Independent ready tasks
+run concurrently on the same loop and codec; the principal serializes all
+attempt state commits. Failed tasks, cancellation, unknown effects and configured
+human gates prevent dependent dispatch. Cross-Runtime message transport and
+managed worktree integration remain pending S2 work. See the
+[S2.1 Evidence](../specifications/015-minimum-viable-operational-workflow/implementation-s2-01.md)
+for verification and remaining limits.
