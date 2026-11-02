@@ -80,10 +80,13 @@ func (s lifecycleService) WorkflowList(ctx context.Context, input cli.ExecutionL
 	return cli.ExecutionListResponse{Result: result, Executions: views, Listed: true}
 }
 
+// executionWorkItemIdentity inverts workItemToken. Owner and repository never
+// contain ':', so a GitHub token splits into exactly three parts; the result
+// must still be a canonical selector. Anything else is never guessed into an
+// identity and therefore fails any Work Item selector comparison.
 func executionWorkItemIdentity(link workflow.WorkItemLink) (string, string) {
-	if link.Provider == "github" {
-		resource, id, ok := strings.Cut(link.ID, "#")
-		if ok {
+	if parts := strings.Split(link.ID, ":"); link.Provider == "github" && len(parts) == 3 {
+		if _, resource, id, ok := cli.ParseWorkItemSelector("github:" + parts[0] + "/" + parts[1] + "#" + parts[2]); ok {
 			return resource, id
 		}
 	}

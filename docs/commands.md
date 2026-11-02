@@ -4,7 +4,9 @@
 
 `workflow run` resolves an already-linked Work Item and its Project Repository,
 then starts or continues one format-4 Execution. With `--workflow minimal`, it
-uses one work stage and a required `result` output. Without that override it
+uses one work stage and a required `result` output; its agent's task packet
+carries the linked Work Item (Provider, ID and Repository key) as the
+`work-item` input, read from the Execution without any Provider fetch. Without that override it
 uses the selected Project Workflow, or the minimal default if none is selected.
 
 ```bash
@@ -34,6 +36,15 @@ Workflow agent values, which win over local defaults. No candidate is ranked;
 conflicting entries, malformed JSON and missing selectors refuse. The array is
 limited to 16 entries and 64 KiB. Keep secrets out of these inputs.
 
+Schema-2 Workflow agents may include `"invocation":{"runtime":"codex",
+"model":"my-model","effort":"runtime-default"}`. Each field is optional at
+that level, but the resolved invocation requires all selectors, including effort.
+An optional `profileRef` supplies Workflow-level defaults; direct `invocation`
+fields replace only those defaults. Instructions still come from the stage and
+agent responsibilities. Every source is validated even when a higher level
+shadows it. Schema-1 effort objects retain their historical meaning; schema 2
+refuses that legacy effort member.
+
 Configured `artifact-schema` and `evidence-check` validators using
 `builtin-sdd-v1` accept bounded JSON output references (`kind`, `id`, `digest`)
 to retained typed artifacts. Validation checks schema, category, successful
@@ -46,13 +57,16 @@ and prefixed content digest. Required metadata references are `workflow-stage`,
 and `workflow-repository`, each exactly once.
 
 Required outputs must be present; declared optional outputs are validated when
-present and may be absent. Work Item inputs come from `target`; earlier-stage
+present and may be absent unless a completion criterion references them. A
+criterion-referenced output must be present and pass its configured checks before
+a successor can dispatch. Work Item inputs come from `target`; earlier-stage
 outputs require a completed successful predecessor in the same Repository.
 `project-context` with source `project` freezes portable Project identity,
 revision and Repository identities, without local paths. Artifact inputs freeze
 retained successful artifacts with exactly one matching Repository, source stage
 and source attempt reference, plus the source Execution identity, selected by
-`--input <declared-source>=<retained-artifact-id>`. Source stage and attempt use
+`--input <declared-source>=<retained-artifact-id>`, repeated once per declared
+source; a repeated source key or empty binding refuses. Source stage and attempt use
 `workflow-stage` and `workflow-attempt`; missing or duplicate provenance refuses.
 Earlier-stage input packets retain their producing Execution/stage/attempt IDs.
 Undeclared bindings, missing

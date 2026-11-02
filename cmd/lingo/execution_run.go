@@ -41,6 +41,7 @@ var (
 	errWorkflowUnmappable      = errors.New("workflow_unmappable")
 	errRepositoryBinding       = errors.New("repository_binding_changed")
 	errExecutionProjectMissing = errors.New("execution_not_found")
+	errProjectAdmission        = errors.New("project_admission_revoked")
 )
 
 func (s lifecycleService) executionStage(ctx context.Context, in cli.WorkflowStageInput) cli.WorkflowStageResponse {
@@ -256,7 +257,41 @@ func (c executionComposition) retry(ctx context.Context, in cli.WorkflowStageInp
 }
 
 func (c executionComposition) engine(launcher stageexecution.Launcher) stageexecution.Engine {
-	return stageexecution.Engine{Store: c.store, Runner: executiongraph.OSProcessRunner{}, Launcher: launcher, Resolve: c.resolve, NewID: allocateStageID}
+	return stageexecution.Engine{Store: c.store, Runner: executiongraph.OSProcessRunner{}, Launcher: launcher, Resolve: c.resolve, Admit: c.admit, NewID: allocateStageID}
+}
+
+// admit re-reads the actual Project operational state and Repository binding
+// before each dispatch; the composition's Project snapshot is never treated as
+// current. The Project must still be admitted for Execution work and bind the
+// Execution's repository with the same identity at the same local path the
+// launcher froze, so a rebind can never silently retarget the workspace.
+func (c executionComposition) admit(ctx context.Context, x workflow.Execution) error {
+	if blocked := c.s.gate(ctx, c.project.ID, projectapp.AdmitExecutionAdvance); blocked != nil {
+		return errProjectAdmission
+	}
+	resolved := c.s.installation.Resolve(ctx, c.project.ID)
+	if resolved.Status != local.ResolutionFound || resolved.Project.ID != x.ProjectID {
+		return errProjectAdmission
+	}
+	bound, frozen := "", ""
+	for _, r := range x.Repositories {
+		if r.Key == x.WorkItem.RepositoryKey {
+			bound = r.Identity
+		}
+	}
+	for _, r := range c.project.Repositories {
+		if r.Key == x.WorkItem.RepositoryKey {
+			frozen = r.Path
+		}
+	}
+	for _, r := range resolved.Project.Repositories {
+		if r.Key == x.WorkItem.RepositoryKey {
+			if bound != "" && repositoryIdentity(r) == bound && frozen != "" && r.Path == frozen {
+				return nil
+			}
+		}
+	}
+	return errRepositoryBinding
 }
 
 // launcher binds the machine-local workspace, private output root and Axiom
@@ -323,8 +358,8 @@ func workItemToken(item workflow.WorkItem) string {
 
 // resolve freezes one attempt's invocation and current authority. Run-level
 // overrides are the Execution's immutable start selections, or the explicit
-// new selection of one authorized retry. The current Project must still bind
-// the Execution's repository with the same identity.
+// new selection of one authorized retry. The reloaded Project must still be
+// admitted and bind the Execution's repository with the same identity.
 func (c executionComposition) resolve(ctx context.Context, x workflow.Execution, ref workflow.TaskRef) (workflow.Invocation, workflow.AttemptAuthority, error) {
 	var agent workflow.AgentSpec
 	found := false
@@ -338,20 +373,8 @@ func (c executionComposition) resolve(ctx context.Context, x workflow.Execution,
 	if !found {
 		return workflow.Invocation{}, workflow.AttemptAuthority{}, workflow.ErrTransition
 	}
-	bound := ""
-	for _, r := range x.Repositories {
-		if r.Key == x.WorkItem.RepositoryKey {
-			bound = r.Identity
-		}
-	}
-	current := ""
-	for _, r := range c.project.Repositories {
-		if r.Key == x.WorkItem.RepositoryKey {
-			current = repositoryIdentity(r)
-		}
-	}
-	if current == "" || current != bound {
-		return workflow.Invocation{}, workflow.AttemptAuthority{}, errRepositoryBinding
+	if err := c.admit(ctx, x); err != nil {
+		return workflow.Invocation{}, workflow.AttemptAuthority{}, err
 	}
 	config, err := c.runtimeConfiguration(ctx)
 	if err != nil {
@@ -663,8 +686,15 @@ func mapWorkflowDefinition(d workflowdefinition.Definition) (string, string, []w
 		if previous != "" {
 			spec.DependsOn = []string{previous}
 		}
+		// Every completion criterion requires its referenced output to be present
+		// (as the historical configured executor did), even when the output
+		// declaration alone is optional. Unreferenced optional outputs stay optional.
+		criterionOutputs := map[string]bool{}
+		for _, criterion := range s.CompletionCriteria {
+			criterionOutputs[criterion.OutputRef] = true
+		}
 		for _, o := range s.Outputs {
-			if o.Required {
+			if o.Required || criterionOutputs[o.ID] {
 				spec.Outputs = append(spec.Outputs, o.ID)
 			} else {
 				spec.OptionalOutputs = append(spec.OptionalOutputs, o.ID)
@@ -727,6 +757,16 @@ func mapWorkflowDefinition(d workflowdefinition.Definition) (string, string, []w
 				}
 			}
 			spec.Agents = append(spec.Agents, agent)
+		}
+		// A criterion output that no agent produces can never be satisfied.
+		for output := range criterionOutputs {
+			produced := false
+			for _, agent := range spec.Agents {
+				produced = produced || slices.Contains(agent.Outputs, output)
+			}
+			if !produced {
+				return "", "", nil, errWorkflowUnmappable
+			}
 		}
 		stages = append(stages, spec)
 		previous = s.ID
@@ -913,6 +953,7 @@ func (c executionComposition) failure(err error, x *workflow.Execution) cli.Work
 		{runtimeapplication.ErrRuntimeNotConfigured, completion.ValidationFailure, "runtime_not_configured", "Create and enable the machine-local Runtime binding (axiom runtime binding create) with its executable on PATH"},
 		{errWorkflowUnmappable, completion.ValidationFailure, "workflow_unmappable", "Select a Workflow with supported identifiers and controls; configured validators need exact implementation before dispatch"},
 		{errRepositoryBinding, completion.DeniedAuthority, "repository_binding_changed", "The Project no longer binds this Execution's repository identity; start a new Execution"},
+		{errProjectAdmission, completion.DeniedAuthority, "project_admission_revoked", "The Project is no longer admitted for Execution work (archived, removed or invalid); nothing further was spawned. Inspect the Project and continue only after it is admitted again"},
 		{errExecutionProjectMissing, completion.ValidationFailure, "execution_not_found", "Use the exact Execution identity returned by workflow run"},
 		{stageexecution.ErrWorkItemLinkMismatch, completion.ValidationFailure, "work_item_link_mismatch", "Link the Work Item to this Project Repository; nothing was written"},
 		{workflow.ErrLegacyExecution, completion.ValidationFailure, "execution_legacy_format_refused", "Old Executions cannot resume after the breaking cutover; start a new Execution with workflow run"},
@@ -949,7 +990,7 @@ func (c executionComposition) freezeInputs(ctx context.Context, stages []workflo
 	used := map[string]bool{}
 	for _, binding := range bindings {
 		key, id, ok := strings.Cut(binding, "=")
-		if !ok || key == "" || refs[key] != "" {
+		if _, duplicate := refs[key]; !ok || key == "" || id == "" || duplicate {
 			return errSelectionSyntax
 		}
 		refs[key] = id

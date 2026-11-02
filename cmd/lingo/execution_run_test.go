@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -655,6 +656,181 @@ func TestMapWorkflowDefinitionFreezesExactOutputChecks(t *testing.T) {
 	}
 }
 
+// DMH-04: the minimal default agent receives the selected Work Item from the
+// canonical Execution through its declared input, so two runs for distinct
+// Work Items get distinguishable packets. Nothing is fetched from a Provider
+// and no machine-local secret reaches the packet.
+func TestPublicWorkflowRunMinimalDefaultReceivesSelectedWorkItem(t *testing.T) {
+	f := newExecutionRunFixture(t)
+	capture := filepath.Join(t.TempDir(), "packets")
+	bin := os.Getenv("PATH")
+	script := "#!/bin/sh\nIFS= read -r packet\ndir=${packet#*\\\"OutputDirectory\\\":\\\"}\ndir=${dir%%\\\"*}\nprintf '%s\\n' \"$packet\" >> '" + capture + "'\nprintf 'done\\n' > \"$dir/result\"\nexit 0\n"
+	if err := os.WriteFile(filepath.Join(bin, "codex"), []byte(script), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	const secret = "dmh04-confidential-marker"
+	t.Setenv("AXIOM_TEST_SECRET_TOKEN", secret)
+	for _, number := range []string{"7", "8"} {
+		args := append([]string{"workflow", "run", "--project", "external", "--repository", "main", "--work-item", "github:owner/repo#" + number}, minimalSelections...)
+		if got := f.run(t, cli.ExitSuccess, append(args, "--authorize-external")...); got.Stage.Status != workflow.RunCompleted || got.Stage.WorkflowID != workflow.DefaultWorkflowID {
+			t.Fatal(got.Raw)
+		}
+	}
+	wire, err := os.ReadFile(capture)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(strings.TrimSpace(string(wire)), "\n")
+	if len(lines) != 2 {
+		t.Fatalf("want two packets, got %d", len(lines))
+	}
+	if strings.Contains(string(wire), secret) {
+		t.Fatal("confidential environment value reached the packet")
+	}
+	for i, number := range []string{"7", "8"} {
+		var packet struct {
+			Inputs map[string]struct {
+				WorkItem *workflow.WorkItemLink `json:"workItem"`
+			}
+		}
+		if err := json.Unmarshal([]byte(lines[i]), &packet); err != nil {
+			t.Fatal(err)
+		}
+		if len(packet.Inputs) != 1 {
+			t.Fatalf("packet %s has no distinguishing Work Item input: %s", number, lines[i])
+		}
+		got := packet.Inputs["work-item"].WorkItem
+		if got == nil || *got != (workflow.WorkItemLink{Provider: "github", ID: "owner:repo:" + number, RepositoryKey: "main"}) {
+			t.Fatalf("packet %s Work Item = %+v", number, got)
+		}
+		if resource, id := executionWorkItemIdentity(*got); resource != "owner/repo" || id != number {
+			t.Fatalf("packet %s identity does not decode: %q %q", number, resource, id)
+		}
+	}
+	if lines[0] == lines[1] {
+		t.Fatal("distinct Work Items produced indistinguishable packets")
+	}
+}
+
+// criterionWorkflow is a two-stage Workflow whose first stage declares a
+// required result and an optional evidence output. With criterion set, a
+// completion criterion references the optional evidence through an
+// evidence-check validator.
+func criterionWorkflow(criterion bool) workflowdefinition.Definition {
+	builtin, _ := workflowdefinition.BuiltinRevision(2)
+	d := builtin.Definition
+	d.WorkflowID, d.Name, d.Revision = "criterion-outputs", "Criterion outputs", 1
+	d.Stages = d.Stages[:2]
+	for i := range d.Stages {
+		s := &d.Stages[i]
+		s.Checkpoint = true
+		s.Validators, s.CompletionCriteria, s.HumanGates = []workflowdefinition.Validator{}, []workflowdefinition.Criterion{}, []workflowdefinition.Gate{}
+	}
+	first := &d.Stages[0]
+	first.Outputs = []workflowdefinition.Output{{ID: "result", Kind: "result", Required: true}, {ID: "evidence", Kind: "evidence", Required: false}}
+	first.Agents[0].Outputs = []string{"result", "evidence"}
+	if criterion {
+		first.Validators = []workflowdefinition.Validator{{ID: "check-evidence", Kind: "evidence-check", PolicyRef: "builtin-sdd-v1"}}
+		first.CompletionCriteria = []workflowdefinition.Criterion{{ID: "evidence-present", Description: "Evidence must be retained", OutputRef: "evidence", ValidatorRef: "check-evidence"}}
+	}
+	return d
+}
+
+// completeFirstStage drives the lowered Workflow through the domain transitions
+// a runner commits and reports the attempt and whether the successor is ready.
+func completeFirstStage(t *testing.T, stages []workflow.StageSpec, outputs ...string) (workflow.Attempt, bool) {
+	t.Helper()
+	t0 := time.Unix(10, 0)
+	x, err := workflow.NewExecution(workflow.NewExecutionInput{ExecutionID: "00000000-0000-4000-8000-000000000003", ProjectID: "p", WorkItem: workflow.WorkItemLink{Provider: "github", ID: "owner:repo:7", RepositoryKey: "repo"}, Repositories: []workflow.RepositoryBinding{{Key: "repo", Identity: "repo"}}, WorkflowID: "criterion-outputs", Revision: "r1", Stages: stages, Now: t0})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := x.ClaimRunner(1, t0); err != nil {
+		t.Fatal(err)
+	}
+	ready := x.Ready()
+	if len(ready) != 1 || ready[0].StageID != stages[0].ID {
+		t.Fatalf("ready %+v", ready)
+	}
+	invocation := workflow.Invocation{Runtime: "codex", Executable: "/bin/true", Model: "m", Effort: "runtime-default", Instructions: "i", InstructionsDigest: workflow.DigestText([]byte("i"))}
+	for _, field := range []string{"runtime", "model", "effort", "instructions"} {
+		invocation.Provenance = append(invocation.Provenance, workflow.FieldProvenance{Field: field, Source: "run_override"})
+	}
+	if err := x.PrepareAttempt(workflow.PrepareInput{Ref: ready[0], AttemptID: "a1", Generation: 1, Invocation: invocation, Authority: workflow.AttemptAuthority{RepositoryKey: "repo", Effects: []string{}, Actor: "user:t"}, Now: t0}); err != nil {
+		t.Fatal(err)
+	}
+	if err := x.MarkStarted("a1", 1, workflow.ProcessIdentity{PID: 4242, StartIdentity: "s", GroupIdentity: "4242"}, t0); err != nil {
+		t.Fatal(err)
+	}
+	var artifacts []workflow.ArtifactRef
+	for _, name := range outputs {
+		artifacts = append(artifacts, workflow.ArtifactRef{Name: name, RetainedID: "retained-" + name, RepositoryKey: "repo", Digest: workflow.DigestText([]byte(name)), Size: 1})
+	}
+	if err := x.CompleteAttempt("a1", 1, workflow.AttemptResult{ExitCode: 0, Artifacts: artifacts, Now: t0}); err != nil {
+		t.Fatal(err)
+	}
+	a, _, _ := x.FindAttempt("a1")
+	next := x.Ready()
+	return *a, len(next) == 1 && next[0].StageID == stages[1].ID
+}
+
+// DMH-03: a completion criterion keeps its presence obligation even when the
+// referenced output is declared optional; an independent optional output
+// without a criterion stays optional. Present outputs keep their exact check.
+func TestMapWorkflowDefinitionPreservesCriterionOutputObligation(t *testing.T) {
+	_, _, stages, err := mapWorkflowDefinition(criterionWorkflow(true))
+	if err != nil {
+		t.Fatal(err)
+	}
+	first := stages[0]
+	if !slices.Contains(first.Outputs, "evidence") || slices.Contains(first.OptionalOutputs, "evidence") {
+		t.Fatalf("criterion output lowered as optional: outputs=%v optional=%v", first.Outputs, first.OptionalOutputs)
+	}
+	evidenceChecked := false
+	for _, check := range first.OutputChecks {
+		evidenceChecked = evidenceChecked || check.Name == "evidence" && check.Evidence && check.Kind == "evidence"
+	}
+	if !evidenceChecked {
+		t.Fatalf("evidence-check lost: %+v", first.OutputChecks)
+	}
+	if a, successor := completeFirstStage(t, stages, "result"); a.Status == workflow.AttemptSucceeded || successor || a.Diagnostic != "missing_output: evidence" {
+		t.Fatalf("criterion output absent but stage succeeded: %+v successor=%v", a, successor)
+	}
+	if a, successor := completeFirstStage(t, stages, "result", "evidence"); a.Status != workflow.AttemptSucceeded || !successor {
+		t.Fatalf("criterion satisfied but refused: %+v successor=%v", a, successor)
+	}
+	// No criterion: the optional output remains optional (no blanket requirement).
+	_, _, plain, err := mapWorkflowDefinition(criterionWorkflow(false))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if slices.Contains(plain[0].Outputs, "evidence") || !slices.Contains(plain[0].OptionalOutputs, "evidence") {
+		t.Fatalf("independent optional output became required: %+v", plain[0])
+	}
+	if a, successor := completeFirstStage(t, plain, "result"); a.Status != workflow.AttemptSucceeded || !successor {
+		t.Fatalf("independent optional output blocked completion: %+v", a)
+	}
+	// A criterion output no agent produces could never be satisfied: refuse.
+	orphan := criterionWorkflow(true)
+	orphan.Stages[0].Agents[0].Outputs = []string{"result"}
+	if _, issues := workflowdefinition.Encode(orphan); len(issues) == 0 {
+		if _, _, _, err := mapWorkflowDefinition(orphan); err == nil {
+			t.Fatal("criterion output without a producing agent mapped")
+		}
+	}
+}
+
+// DMH-03 public path: the optional-output Workflow without a criterion runs
+// to completion with only the required result, through both stages.
+func TestPublicWorkflowRunIndependentOptionalOutputStaysOptional(t *testing.T) {
+	f := newExecutionRunFixture(t)
+	f.installWorkflowDefinition(t, criterionWorkflow(false))
+	got := f.run(t, cli.ExitSuccess, "workflow", "run", "--project", "external", "--repository", "main", "--work-item", "github:owner/repo#7", "--select", "owner.runtime=codex", "--select", "owner.model=stub-model", "--select", "owner.effort=runtime-default", "--authorize-external")
+	if got.Stage.Status != workflow.RunCompleted || len(got.Stage.Stages) != 2 || got.Stage.Stages[1].Status != workflow.StageCompleted {
+		t.Fatal(got.Raw)
+	}
+}
+
 func TestMapWorkflowDefinitionNeverDropsUnsupportedInputs(t *testing.T) {
 	for _, validators := range []bool{false, true} {
 		doc, _ := workflowdefinition.BuiltinRevision(2)
@@ -826,5 +1002,69 @@ func TestPublicWorkflowRunFreezesProjectContextAndArtifactInputs(t *testing.T) {
 	inputs := x.Workflow.Stages[0].FrozenInputs
 	if len(inputs) != 2 || inputs[0].Project == nil || inputs[0].Project.ID != x.ProjectID || !strings.HasPrefix(inputs[0].Project.PortableRevision, "sha256:") || inputs[1].Artifact == nil || inputs[1].Artifact.RetainedID != a.ID || inputs[1].Provenance == nil || *inputs[1].Provenance != (workflow.InputProvenance{ExecutionID: draft.ExecutionID, StageID: "producer", AttemptID: "producer-attempt"}) {
 		t.Fatalf("input provenance missing: %+v", inputs)
+	}
+}
+
+// DMH-08: two independent required artifact sources need two --input flags.
+// Both parser duplicate guards admit the repetition; a repeated source key,
+// an empty binding or an unused source refuses before any Execution exists.
+func TestPublicWorkflowRunAcceptsRepeatedInputBindings(t *testing.T) {
+	f := newExecutionRunFixture(t)
+	builtin, _ := workflowdefinition.BuiltinRevision(2)
+	d := builtin.Definition
+	d.Stages = d.Stages[:1]
+	stage := &d.Stages[0]
+	stage.Validators, stage.CompletionCriteria, stage.HumanGates = []workflowdefinition.Validator{}, []workflowdefinition.Criterion{}, []workflowdefinition.Gate{}
+	stage.Inputs = []workflowdefinition.Input{{ID: "first", Kind: "artifact", Source: "source-a", Required: true}, {ID: "second", Kind: "artifact", Source: "source-b", Required: true}}
+	stage.Agents[0].Inputs = []string{"first", "second"}
+	f.installWorkflowDefinition(t, d)
+	artifacts, err := local.NewArtifactStore(f.env.state)
+	if err != nil {
+		t.Fatal(err)
+	}
+	retained := func(attempt string) string {
+		t.Helper()
+		a, err := artifacts.Create(context.Background(), detailartifact.Draft{ExecutionID: "018f4a44-7c31-4dd4-9d00-333333333333", Category: "artifact", Outcome: "success", Retention: detailartifact.Evidence, Markdown: []byte("Prior " + attempt), Provenance: currentProvenance(), References: []detailartifact.Reference{{Kind: "workflow-repository", Value: "main"}, {Kind: "workflow-stage", Value: "producer"}, {Kind: "workflow-attempt", Value: attempt}}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return a.ID
+	}
+	idA, idB := retained("attempt-a"), retained("attempt-b")
+	args := []string{"workflow", "run", "--project", "external", "--repository", "main", "--work-item", "github:owner/repo#7", "--select", "owner.runtime=codex", "--select", "owner.model=stub-model", "--select", "owner.effort=runtime-default", "--authorize-external"}
+	for _, tc := range []struct {
+		name, category string
+		bindings       []string
+	}{
+		{"duplicate key", "invalid_selection", []string{"source-a=" + idA, "source-a=" + idB, "source-b=" + idB}},
+		{"duplicate identical binding", "invalid_selection", []string{"source-a=" + idA, "source-a=" + idA, "source-b=" + idB}},
+		{"empty then conflicting source", "invalid_selection", []string{"source-a=", "source-a=" + idA, "source-b=" + idB}},
+		{"unused source", "invalid_selection", []string{"source-a=" + idA, "source-b=" + idB, "source-c=" + idB}},
+		{"one of two required", "workflow_unmappable", []string{"source-a=" + idA}},
+	} {
+		run := append([]string(nil), args...)
+		for _, b := range tc.bindings {
+			run = append(run, "--input", b)
+		}
+		if got := f.run(t, cli.ExitFailure, run...); got.Category != tc.category || len(f.executions(t)) != 0 {
+			t.Fatalf("%s: %s", tc.name, got.Raw)
+		}
+	}
+	got := f.run(t, cli.ExitSuccess, append(args, "--input", "source-a="+idA, "--input", "source-b="+idB)...)
+	store, err := local.NewExecutionStore(f.env.state)
+	if err != nil {
+		t.Fatal(err)
+	}
+	x, err := store.Load(context.Background(), got.Stage.ProjectID, got.Stage.ExecutionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	inputs := x.Workflow.Stages[0].FrozenInputs
+	if len(inputs) != 2 || inputs[0].Artifact == nil || inputs[0].Artifact.RetainedID != idA || inputs[1].Artifact == nil || inputs[1].Artifact.RetainedID != idB {
+		t.Fatalf("two bindings not frozen independently: %+v", inputs)
+	}
+	// Field/select repetition semantics are unchanged; other flags stay single.
+	if got := f.run(t, cli.ExitFailure, append(args, "--repository", "main")...); got.Status != "validation_failure" || got.Category != "" || got.Stage.ExecutionID != "" {
+		t.Fatalf("duplicate single-valued flag accepted: %s", got.Raw)
 	}
 }

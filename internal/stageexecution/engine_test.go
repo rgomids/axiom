@@ -231,6 +231,29 @@ func TestEngineResolveRefusalRecordsNothing(t *testing.T) {
 	}
 }
 
+// DMH-01: the pre-spawn admission recheck stops a prepared attempt before any
+// process exists, records that nothing ran and stops successors.
+func TestEngineAdmitRefusalBeforeSpawnRecordsNothingRan(t *testing.T) {
+	f := newEngineFixture(t, twoStages(false), succeed("OUTPUT result\n"))
+	revoked := errors.New("project_admission_revoked")
+	calls := 0
+	f.engine.Admit = func(_ context.Context, x workflow.Execution) error {
+		calls++
+		if calls == 2 {
+			return revoked
+		}
+		return nil
+	}
+	x, err := f.run(t)
+	if !errors.Is(err, revoked) || f.runner.spawns.Load() != 1 {
+		t.Fatalf("admission refusal spawned: %v spawns=%d", err, f.runner.spawns.Load())
+	}
+	a := x.Stages[1].Tasks[0].Attempts
+	if len(a) != 1 || a[0].Status != workflow.AttemptFailed || a[0].Diagnostic != "admission_revoked_before_spawn" || a[0].Process != nil || x.Status != workflow.RunFailed {
+		t.Fatalf("refused attempt facts: %s %+v", x.Status, a)
+	}
+}
+
 func TestEngineCrashWindowsBecomeUnknownAndNeverRespawn(t *testing.T) {
 	for _, started := range []bool{false, true} {
 		f := newEngineFixture(t, twoStages(false), succeed("OUTPUT result\n"))

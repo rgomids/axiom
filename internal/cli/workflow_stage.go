@@ -137,7 +137,7 @@ func workflowStageFlagSet(operation action, in *WorkflowStageInput) *flag.FlagSe
 			set.StringVar(&in.WorkItem, "work-item", "", "Exact existing linked Work Item; `github:<owner>/<repository>#<number>`.")
 			set.StringVar(&in.Workflow, "workflow", "", "Run the built-in minimal Workflow instead of the Project selection; `minimal`.")
 			selections()
-			set.Func("input", "Bind a logical artifact input source to a retained artifact ID; <source>=<artifact-id>.", func(v string) error { in.Inputs = append(in.Inputs, v); return nil })
+			set.Func("input", "Bind a logical artifact input source to a retained artifact ID; repeat once per source `<source>=<artifact-id>`.", func(v string) error { in.Inputs = append(in.Inputs, v); return nil })
 			set.StringVar(&in.ReviewStage, "review-stage", "", "Stage whose exact successful results the human approves.")
 			set.StringVar(&in.ResultDigest, "result-digest", "", "Exact stage result digest displayed by status.")
 			set.StringVar(&in.ReviewEvidence, "evidence", "", "Retained Evidence artifact ID for this result review.")
@@ -191,7 +191,9 @@ func workflowStageFlagSet(operation action, in *WorkflowStageInput) *flag.FlagSe
 	return set
 }
 
-var workflowStageRepeatable = map[string]bool{"field": true, "select": true}
+// --input repeats once per logical source; the application refuses a repeated
+// source key when it freezes the bindings.
+var workflowStageRepeatable = map[string]bool{"field": true, "select": true, "input": true}
 
 func workflowStageFlags(operation action, args []string, require bool) (WorkflowStageInput, bool) {
 	var in WorkflowStageInput
@@ -259,7 +261,7 @@ func runWorkflowStage(ctx context.Context, mode outputMode, args []string, servi
 		return false, 0
 	}
 	in, ok := workflowStageFlags(command.operation, rest, true)
-	if !ok || duplicateFlag(filterRepeatable(rest, "field", "select")) {
+	if !ok || duplicateFlag(filterRepeatable(rest, "field", "select", "input")) {
 		return true, emitParserFailure(out, mode, command.operation, "invalid_input", source)
 	}
 	stages, ok := service.(WorkflowStageService)

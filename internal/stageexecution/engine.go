@@ -28,8 +28,13 @@ type Engine struct {
 	// Its refusal (missing/conflicting selection, denied Runtime) prevents
 	// preparation; nothing is recorded or spawned.
 	Resolve func(context.Context, workflow.Execution, workflow.TaskRef) (workflow.Invocation, workflow.AttemptAuthority, error)
-	NewID   func() (string, error)
-	Now     func() time.Time
+	// Admit, when set, rechecks the current Project operational admission and
+	// Repository binding immediately before the spawn of a prepared attempt, so
+	// revocation after Resolve still prevents the process. Its refusal records
+	// the prepared attempt as spawn-failed (nothing ran) and stops the run.
+	Admit func(context.Context, workflow.Execution) error
+	NewID func() (string, error)
+	Now   func() time.Time
 	// CancelPoll bounds how quickly a persisted cancel intent reaches a
 	// running attempt; zero uses 50ms.
 	CancelPoll time.Duration
@@ -260,6 +265,17 @@ func (e Engine) attempt(ctx context.Context, lease workflow.RunnerFence, current
 	// arriving during that work still prevents any process from being spawned.
 	if ctx.Err() != nil || e.cancelPersisted(ctx, projectID, executionID) {
 		return cancelBeforeSpawn()
+	}
+	if e.Admit != nil {
+		if err := e.Admit(ctx, prepared); err != nil {
+			refused, commitErr := update(func(x *workflow.Execution) error {
+				return x.MarkSpawnFailed(attemptID, gen, "admission_revoked_before_spawn", e.now())
+			})
+			if commitErr != nil {
+				return refused, commitErr
+			}
+			return refused, err
+		}
 	}
 	stage := request.Stage
 	timeout := stage.TimeoutSeconds
