@@ -286,3 +286,40 @@ func TestIntegrationMessagesGrantNothing(t *testing.T) {
 		t.Fatal("message created integration state")
 	}
 }
+
+func TestIntegrationUnknownCheckCodecAndDisposition(t *testing.T) {
+	for _, code := range []int{-1, 0} {
+		e := integrationExecution(t, false)
+		succeedWithCheck(t, &e, "a", "att-a", "workspace_write", "validation_command")
+		if err := e.PrepareIntegration(intent(e, "int-a", "att-a")); err != nil {
+			t.Fatal(err)
+		}
+		if err := e.FinishIntegration("int-a", e.RunnerGeneration, IntegrationResult{Status: IntegrationUnknown, MergeSHA: sha("e"), Checks: []IntegrationCheck{{ID: "check", Status: CheckUnknown, ExitCode: code}}, Diagnostic: "post_merge_check_unknown", Now: t0}); err != nil {
+			t.Fatal(err)
+		}
+		wire, err := EncodeExecution(e)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got, err := DecodeExecution(wire)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got.Status != RunRecoveryRequired || got.Integrations[0].Checks[0].ExitCode != code {
+			t.Fatal("unknown check evidence lost")
+		}
+		if err := got.PrepareIntegration(intent(got, "int-b", "att-a")); !errors.Is(err, ErrUnknownOutstanding) {
+			t.Fatalf("unknown did not block: %v", err)
+		}
+		if err := got.ResolveIntegration("int-a", "human:maintainer", t0); err != nil {
+			t.Fatal(err)
+		}
+		if got.Integrations[0].Status != IntegrationUnknown || got.Integrations[0].Checks[0].Status != CheckUnknown {
+			t.Fatal("disposition rewrote evidence")
+		}
+		got.Integrations[0].Status = IntegrationNotIntegrated
+		if err := got.Validate(); err == nil {
+			t.Fatal("unknown check downgraded to known refusal")
+		}
+	}
+}

@@ -55,7 +55,7 @@ const (
 	IntegrationPrepared      IntegrationStatus = "prepared"
 	IntegrationIntegrated    IntegrationStatus = "integrated"
 	IntegrationNotIntegrated IntegrationStatus = "not_integrated"
-	// IntegrationUnknown means the target ref effect cannot be established; it
+	// IntegrationUnknown means a check process/effect or target effect is unknown; it
 	// is never retried automatically and blocks further work like an unknown
 	// attempt.
 	IntegrationUnknown IntegrationStatus = "unknown"

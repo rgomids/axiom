@@ -834,13 +834,11 @@ func TestIntegrateUnknownCheckBlocksReplay(t *testing.T) {
 			}}
 			f.engine.Runner = r
 			got, err := f.integrate(engineExecutionID, f.git, f.request(x, "a", "unknown-check", f.base))
-			if !errors.Is(err, ErrIntegrationUnknown) || got.Status != workflow.RunRecoveryRequired {
-				t.Fatalf("unknown effect downgraded: status=%s integrations=%+v err=%v", got.Status, got.Integrations, err)
-			}
+			firstErr := err
 			before := f.load(engineExecutionID)
 			_, err = f.integrate(engineExecutionID, f.git, f.request(x, "a", "second-check", f.base))
-			if err == nil || r.spawns.Load() != 1 || f.target() != f.base {
-				t.Fatalf("replayed unknown check: calls=%d err=%v", r.spawns.Load(), err)
+			if !errors.Is(firstErr, ErrIntegrationUnknown) || got.Status != workflow.RunRecoveryRequired || err == nil || r.spawns.Load() != 1 || f.target() != f.base {
+				t.Fatalf("unknown check replay: first status=%s first err=%v second err=%v calls=%d", got.Status, firstErr, err, r.spawns.Load())
 			}
 			after := f.load(engineExecutionID)
 			if len(after.Integrations) != 1 || after.Integrations[0].Status != workflow.IntegrationUnknown || after.Integrations[0].Diagnostic != before.Integrations[0].Diagnostic || after.Integrations[0].Checks[0].Status != "unknown" || after.Integrations[0].Checks[0].ExitCode != -1 {
@@ -959,6 +957,11 @@ func TestIntegratePersistedCancelChecks(t *testing.T) {
 			}
 			if wantErr == ErrIntegrationUnknown && got.x.Status != workflow.RunRecoveryRequired {
 				t.Fatalf("uncertain stop lost: %+v", got.x.Integrations)
+			}
+			if mode == "start-race" {
+				if _, err := os.Stat(marker); !os.IsNotExist(err) {
+					t.Fatalf("command escaped start gate: %v", err)
+				}
 			}
 			if p := f.lastCheck.Load(); p != nil {
 				if current, err := executiongraph.ObserveRecordedProcess(*p); err != nil || current != nil && current.StartIdentity == p.StartIdentity {

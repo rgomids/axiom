@@ -43,7 +43,7 @@ var (
 	// ErrNotIntegrated: the intent and its outcome are recorded; the target was
 	// not advanced by this integration.
 	ErrNotIntegrated = errors.New("not_integrated")
-	// ErrIntegrationUnknown: the target effect cannot be established. It is
+	// ErrIntegrationUnknown: a check process/effect or target effect is unknown. It is
 	// recorded unknown and never retried automatically.
 	ErrIntegrationUnknown = errors.New("integration_outcome_unknown")
 )
