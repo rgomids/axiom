@@ -1,6 +1,8 @@
 # S1-08 correction and recovery — AXM-42
 
-Status: see [Claude recovery (final)](#claude-recovery-s1-08-claude-recovery);
+Current correction: [DMH recovery attempt 2](#dmh-reconciliation-codex-attempt-2) is **PARTIAL / HUMAN_DECISION_REQUIRED:ARCHITECTURE**.
+
+Historical status: see [Claude recovery (final)](#claude-recovery-s1-08-claude-recovery);
 it supersedes the Codex status, matrix and measurements below, which are kept
 as history. No acceptance, merge, release or cutover is claimed.
 Existing [PR #366](https://github.com/rgomids/axiom/pull/366), branch
@@ -297,3 +299,258 @@ deferrals above, and the separately authorized real cutover (inventory,
 backup, stop). Rollback boundary: revert `1dba19e` and the Evidence commit
 (source only; no state, process or remote effects were produced). Review
 readiness: ready for human review of S1; not accepted, merged or released.
+
+
+## DMH reconciliation — Codex attempt 2
+
+2026-11-02, same AXM-42 / PR #366 / existing branch. This section supersedes
+only the correction disposition above. Overall **PARTIAL**: DMH-06 requires
+Rafael's architecture decision; independent re-review is pending. This is not
+S1 approval, Product Accepted, merge, release or installed-state cutover.
+Authority: [recovery prompt](https://linear.app/rgomids/issue/AXM-42#comment-6329b1ba),
+[original DMH review](https://github.com/rgomids/axiom/pull/366#pullrequestreview-5732644991).
+Implementation: requested Codex gpt-6.1-sol, medium; no Claude invocation,
+subagent, vendor E2E or real installed-state mutation.
+
+### Recovery and partial-work accounting
+
+Host `ubuntu-arm-01`, real worktree `/home/grokbot/axiom-wt/axm-42`, owner
+grokbot/mode 0700; origin `https://github.com/rgomids/axiom.git`; branch
+`spec/axm-42-minimum-viable-workflow`. Local HEAD, remote branch and PR ref
+all equalled `387b5130f3f108aae1e2b13bb735c9f1cb1ec193`; merge-base with
+`origin/main` was `440e44a68638e08e901fd3f87f5b15cd395a6365`.
+Index was clean, 15 tracked files modified and one untracked admission test.
+No index lock or second visible agent/Git writer; visible Codex/tmux processes
+were this attempt's ancestors. `rg` was unavailable; subsequent searches used
+available tools. Initial search command exited 127 for that reason, with no edit.
+
+Before edits, private snapshot `/home/grokbot/axm42-recovery-uhlwndnl`
+(mode 0700, private files) preserved porcelain-v2 status, separate staged and
+unstaged binary patches, the original index and all 42 relevant dirty/untracked/
+ignored files. Manifest SHA-256:
+`98f73677b0819aa15284b929da85ceb86ca0361d8d8554f64862a5b327f3221d`.
+No symlinks among those 42; approved tracked Claude skill symlinks were retained.
+The file archive was extracted privately and every content hash/type/mode
+verified. Applying the unstaged binary patch to a private copy of the index
+also reproduced all 15 tracked content hashes. Original staged patch was empty.
+Raw files, test logs and private provider payloads are not published.
+
+All inherited source was retained: **30 KEEP, 6 REPAIR, 0 DISCARD** at
+zero-context hunk granularity (including the new test as one unit). REPAIR
+means completion of valid partial work, never wholesale replacement. Every
+hunk was compared with Spec015 normal operation/F5, ADR-0037 decisions 2–5
+and Tasks S1.2–S1.5. The table records old-file hunk anchors from the snapshot;
+test additions spanning two findings retain both mappings.
+
+| Snapshot path | Old hunk start(s) | Finding | Disposition / reason |
+| --- | --- | --- | --- |
+| `cmd/lingo/canonical_lifecycle_test.go` | 47 | DMH-07 | KEEP: accepted scoped correction retained |
+| `cmd/lingo/execution_lifecycle.go` | 82 | DMH-07 | KEEP: accepted scoped correction retained |
+| `cmd/lingo/execution_lifecycle.go` | 84 | DMH-07 | KEEP: accepted scoped correction retained |
+| `cmd/lingo/execution_run.go` | 43 | DMH-01 | KEEP: accepted scoped correction retained |
+| `cmd/lingo/execution_run.go` | 259 | DMH-01 | KEEP: accepted scoped correction retained |
+| `cmd/lingo/execution_run.go` | 326 | DMH-01 | KEEP: accepted scoped correction retained |
+| `cmd/lingo/execution_run.go` | 341 | DMH-01 | KEEP: accepted scoped correction retained |
+| `cmd/lingo/execution_run.go` | 665 | DMH-03 | KEEP: accepted scoped correction retained |
+| `cmd/lingo/execution_run.go` | 667 | DMH-03 | KEEP: accepted scoped correction retained |
+| `cmd/lingo/execution_run.go` | 698 | DMH-05 | REPAIR: valid partial path retained; complete validation/fixtures |
+| `cmd/lingo/execution_run.go` | 722 | DMH-03 | KEEP: accepted scoped correction retained |
+| `cmd/lingo/execution_run.go` | 907 | DMH-01 | KEEP: accepted scoped correction retained |
+| `cmd/lingo/execution_run.go` | 944 | DMH-08 | KEEP: accepted scoped correction retained |
+| `cmd/lingo/execution_run_test.go` | 10 | DMH-03 | KEEP: accepted scoped correction retained |
+| `cmd/lingo/execution_run_test.go` | 657 | DMH-03/04 | KEEP: accepted scoped correction retained |
+| `cmd/lingo/execution_run_test.go` | 830 | DMH-08 | KEEP: accepted scoped correction retained |
+| `docs/commands.md` | 7 | DMH-04 | KEEP: accepted scoped correction retained |
+| `docs/commands.md` | 55 | DMH-08 | KEEP: accepted scoped correction retained |
+| `internal/cli/argument_requirements.go` | 106 | DMH-08 | KEEP: accepted scoped correction retained |
+| `internal/cli/workflow_stage.go` | 140 | DMH-08 | KEEP: accepted scoped correction retained |
+| `internal/cli/workflow_stage.go` | 194 | DMH-08 | KEEP: accepted scoped correction retained |
+| `internal/cli/workflow_stage.go` | 262 | DMH-08 | KEEP: accepted scoped correction retained |
+| `internal/local/execution_store.go` | 236 | DMH-02 | KEEP: accepted scoped correction retained |
+| `internal/local/execution_store_test.go` | 189 | DMH-02 | KEEP: accepted scoped correction retained |
+| `internal/stageexecution/engine.go` | 31 | DMH-01 | KEEP: accepted scoped correction retained |
+| `internal/stageexecution/engine.go` | 263 | DMH-01 | KEEP: accepted scoped correction retained |
+| `internal/stageexecution/engine_test.go` | 233 | DMH-01 | KEEP: accepted scoped correction retained |
+| `internal/workflow/execution_default.go` | 6 | DMH-04 | KEEP: accepted scoped correction retained |
+| `internal/workflow/execution_default.go` | 9 | DMH-04 | KEEP: accepted scoped correction retained |
+| `internal/workflow/execution_default.go` | 13 | DMH-04 | KEEP: accepted scoped correction retained |
+| `internal/workflow/execution_default.go` | 21 | DMH-04 | KEEP: accepted scoped correction retained |
+| `internal/workflowdefinition/definition.go` | 131 | DMH-05 | REPAIR: valid partial path retained; complete validation/fixtures |
+| `internal/workflowdefinition/validation.go` | 5 | DMH-05 | REPAIR: valid partial path retained; complete validation/fixtures |
+| `internal/workflowdefinition/validation.go` | 138 | DMH-05 | REPAIR: valid partial path retained; complete validation/fixtures |
+| `internal/workflowdefinition/workflow-v2.schema.json` | 452 | DMH-05 | REPAIR: valid partial path retained; complete validation/fixtures |
+| `cmd/lingo/execution_admission_test.go` | entire new file | DMH-01 | REPAIR: valid partial path retained; complete validation/fixtures |
+
+Additional repairs: schema-2 Profile omission must pass Workflow authoring;
+shadowed selectors must be validated before precedence; direct fields and
+historical schemas require round-trip proof. Added invocation tests, a real
+persisted installation rebind between stages and retained-artifact collector
+cases. No accepted ADR, ADR index, architecture policy, validator or prior
+signal/orphan test was changed.
+
+The reported `c.failure(nil)` panic was **not reproduced in the inherited
+snapshot**: its test-only `refusal` helper already returns an empty category
+for nil. The production mapper is an error-only API. That guard was retained;
+archival tests now explicitly require a non-nil error. Replacing only
+`execution_run.go` with baseline bytes produces a normal assertion failure
+(`err=nil`, completed, two spawns), not a panic or false PASS. Current tests
+prove archival prevents stage-two spawn, pre-spawn archival records a failed
+prepared attempt with no process, and unchanged/reactivated Project proceeds.
+
+### Finding-to-proof matrix
+
+Baseline reproductions use `go test -overlay <private-json> <package> -run
+<test-regex> -count=1 -timeout=90s`, with only the finding's production file(s)
+restored from `387b513` and current regression tests. They never mutate the
+worktree. Expected-red runs all exited 1. Targeted current tests exited 0.
+
+| Finding | Old / retained Claude work | Baseline proof → current negative and positive proof | Status | Code commit |
+| --- | --- | --- | --- | --- |
+| DMH-01 Major | KEEP admission refresh and engine hook; REPAIR test assertions/actual persisted rebind | Baseline archived Project completed with two spawns. `TestExecutionDispatchRechecksProjectAdmissionBetweenStages`, `TestExecutionDispatchRechecksProjectAdmissionBeforeSpawn`, `TestExecutionDispatchRefusesRebindRetarget`, `TestExecutionDispatchRefusesPersistedRebindBetweenStages`, `TestEngineAdmitRefusalBeforeSpawnRecordsNothingRan`: revoked/rebound next dispatch has zero spawns; bounded category; unchanged/reactivated positive runs | CORRECTED; independent review pending | `825554ed284e686bf82aaa14412116e43a73602a` |
+| DMH-02 Major | KEEP rooted lease fence and same-epoch two-store regression | Baseline foreign lease Save admitted while A held its lease. `TestExecutionStoreRejectsForeignStateRootLease`: Save and Update refuse foreign B/third-root fences, byte/revision unchanged; A-owned lease succeeds | CORRECTED; independent review pending | `ad86601c5f960488e231f01f0d8fa65c394d25af` |
+| DMH-03 Major | KEEP criterion obligation/orphan-producer check and tests; add actual collector proof | Baseline lowered Evidence as optional. `TestMapWorkflowDefinitionPreservesCriterionOutputObligation`, `TestCriterionReferencedOptionalArtifactRequiresValidatedPresence` (absent/invalid/present), `TestPublicWorkflowRunIndependentOptionalOutputStaysOptional`: absent or wrong-attempt retained Evidence blocks successor; exact validated Evidence permits both stages; unrelated optional remains optional | CORRECTED; independent review pending | `825554ed284e686bf82aaa14412116e43a73602a` |
+| DMH-04 Major | KEEP mapped Work Item input, default revision r2 and public packet test | Baseline packet Inputs empty. `TestPublicWorkflowRunMinimalDefaultReceivesSelectedWorkItem`: two public stub packets have distinct exact Provider/canonical resource-ID/Repository links; confidential environment marker absent; nonexistent Provider executable ensures no fetch; custom input paths retained | CORRECTED; independent review pending | `825554ed284e686bf82aaa14412116e43a73602a` |
+| DMH-05 Major | REPAIR in-progress invocation definition/schema/validation/lowering; complete optional Profile authoring and all-source validation | Baseline mapper fails direct-only and run-over-Workflow cases. `TestPublicWorkflowAgentInvocationPrecedence` (7 cases), `TestPublicWorkflowAgentInvocationRequiresEffort`, `TestSchema2InvocationRoundTripAndInvalidSelectors`, `TestResolveInvocationRejectsEveryShadowedInvalidSelector`, existing `TestPublicWorkflowRunInvalidLocalDefaultsHaveNoExecution`: per-level Profile defaults, direct replacement, run > Workflow > local; missing effort/invalid/shadowed selectors refuse; schema1 digest unchanged and legacy effort refused by schema2 | CORRECTED; independent review pending | `72cf04f557b6bf6e5debecaa2fe78c87996e81e0` |
+| DMH-06 Major | No inherited normative hunk | Reproducible documentary assertion below exits 1. ADR governance structural checker passes but cannot prove semantic reconciliation. Accepted ADRs untouched | HUMAN_DECISION_REQUIRED:ARCHITECTURE | NONE; proposal only outside repository |
+| DMH-07 Minor | KEEP canonical token inverse and run/list/status/evidence tests | Baseline list loses resource and reports `owner:repo:7` as external ID. `TestCanonicalLifecycleWorkItemSelectorRoundTrip`: original selector succeeds; changed and malformed identities fail exact comparison | CORRECTED; independent review pending | `825554ed284e686bf82aaa14412116e43a73602a` |
+| DMH-08 Minor | KEEP both duplicate guards and key-presence rejection | Baseline parser refuses repeated inputs; baseline application also accepts empty-then-conflicting key. `TestPublicWorkflowRunAcceptsRepeatedInputBindings`: two independent sources succeed; duplicate/conflicting/empty/unused source refuses before Execution create; ordinary duplicate flags still refuse; existing field/select parser cases retained | CORRECTED; independent review pending | `825554ed284e686bf82aaa14412116e43a73602a` |
+
+### DMH-06 authority gate
+
+[ADR-0009 decision 8](../../decisions/0009-parent-child-execution-graph.md#child-scope-authority-and-resolution)
+requires capability/complexity requirements. [ADR-0037 decisions 4–5](../../decisions/0037-one-canonical-execution-for-new-runs.md#decision)
+require explicit invocation and no predictive selection, but its ADR-0009
+supersession entry says **only durable child Executions and separate graph
+lifecycle**. The [accepted research map](../../research/axm-42-minimum-viable-workflow-investigation.md#exact-amendment-implications-proposed-history-preserved)
+explicitly maps predictive selection removal too. Under [ADR-0018](../../decisions/0018-adr-evolution-and-supersession-governance.md#decision),
+structure passing does not resolve this missing fragment annotation/backlink.
+No acceptance is inferred from that research link or CI.
+
+Two bounded options for Rafael:
+
+1. **Recommended:** explicitly authorize the exact research-map reconciliation:
+   preserve decision 8 historically, add its scoped ADR-0037 supersession
+   annotation, expand ADR-0037's backlink; confirm the index already names the
+   same partial superseder. No selection behavior change. Lowest artifact cost;
+   explicit acceptance history must identify the scope.
+2. Require a separate focused ADR acceptance for the same new-run explicit
+   invocation rule, followed by exact decision-8 annotation, reciprocal link
+   and index entry. More durable artifacts, but a distinct acceptance record.
+   Identifier/date remain unallocated until human decision.
+
+Specific proposed text/diffs (unapplied, uncommitted) are private files
+`/home/grokbot/axm42-recovery-uhlwndnl/dmh06-options.md`,
+`dmh06-option-a.patch`, `dmh06-option-b.patch`. Neither option changes code
+here. The authority/supersession history becomes harder to reverse; all
+independent corrections continue. No normative ADR/index/policy edit is part
+of these commits.
+
+Reproduce the pending documentary gate (exit 1 expected):
+
+```python
+from pathlib import Path
+old = Path('docs/decisions/0009-parent-child-execution-graph.md').read_text()
+new = Path('docs/decisions/0037-one-canonical-execution-for-new-runs.md').read_text()
+clause = old.split('8. Runtime/Model Profile resolution', 1)[1].split('9. Credentials', 1)[0]
+backlink = new.split('## Supersedes', 1)[1].split('- [ADR-0020', 1)[0]
+assert 'capability and complexity requirements' in clause
+assert 'capability/complexity' in backlink or 'Superseded by' in clause
+```
+
+### Ignored test artifacts and validation
+
+Before cleanup, repository validator exited 1 for exactly
+`tmp/cr-s1-07/{mutant-b,after,before,mutant-a}.log`. Each was a regular
+mode-0600 grokbot-owned test-generated log, no symlink, matching the snapshot
+SHA-256. Contents were classified privately as CR-S1-07 mutation/process test
+output. No visible open handles; other-user `/proc` directories were
+inaccessible, so no machine-wide absence claim. Only those four files were
+unlinked after verified backup; no other data deleted.
+
+Initial build/vet exited 1 because inherited ignored `tmp/dmh-baseline`
+contained `engine.go` (stageexecution) and `execution_run.go` (main).
+After checksum/handle checks, the entire directory was renamed intact to
+`tmp/_dmh-baseline`, excluded by Go's standard underscore rule. Its three
+files remain byte-identical and recoverable; `overlay.json` is inert history.
+No source was discarded or validator relaxed. Rollback: rename it back; that
+also restores the known build obstruction.
+
+Validation source is the complete code tree delivered by
+`825554ed284e686bf82aaa14412116e43a73602a`; earlier invocation HEAD was dirty
+with these same source bytes. The containing Evidence commit changes only
+this document. Exact final delivery SHA, final-head CI run URLs/conclusions
+and publication read-back are recorded in the consolidated top-level PR
+reply and the single AXM-42 receipt; they are not inferred from earlier CI.
+
+| Exact command / observation | Result / exit |
+| --- | --- |
+| Initial `timeout 120s go test ./cmd/lingo ./internal/local ./internal/stageexecution ./internal/workflowdefinition ./internal/cli -count=1 -timeout=90s` | TIMEOUT / 124; no diagnostic output, not PASS |
+| Initial narrow inherited DMH regression selection, `go test ./cmd/lingo -run 'TestExecutionDispatch|TestPublicWorkflowRunMinimalDefaultReceivesSelectedWorkItem|TestMapWorkflowDefinitionPreservesCriterion|TestCanonicalLifecycleWorkItemSelectorRoundTrip|TestPublicWorkflowRunAcceptsRepeatedInput' -count=1 -timeout=45s` (outer timeout 60s) | PASS / 0, 9.023s; no panic |
+| Final targeted DMH selection across cmd/lingo, local, stageexecution, workflowdefinition, runtimeapplication, cli, projectapp (`-count=1 -timeout=90s`, outer timeout 120s) | PASS / 0; named tests above (cli/projectapp had no matching tests in this selection) |
+| `go test ./cmd/lingo -run 'TestCriterionReferencedOptionalArtifactRequiresValidatedPresence|TestExecutionDispatch' -count=1 -timeout=60s` (outer timeout 90s) | PASS / 0, 5.198s |
+| `go build ./...` | PASS / 0 after fixture preservation; initial FAIL / 1 separately above |
+| `go vet ./...` | PASS / 0 after fixture preservation; initial FAIL / 1 separately above |
+| `go test ./... -count=1 -timeout=30m` | PASS / 0, 323.49s including process audit; cmd/lingo 198.810s |
+| `gofmt -l cmd internal scripts` | PASS / 0, empty output; formatting touched changed files only |
+| `go run ./scripts/check-architecture.go domain` | PASS / 0, 12 files |
+| `go run ./scripts/check-architecture.go application` | PASS / 0, 46 files |
+| `PYTHONDONTWRITEBYTECODE=1 bash scripts/validate-repository.sh .` | PASS / 0 after four-log cleanup; initial FAIL / 1; includes ADR, bootstrap/skills, automation and sensitive-file checks |
+| `./scripts/check-sensitive-files.sh --staged .` | PASS / 0 before each code commit; staged paths/content reviewed |
+| `git diff --check 440e44a68638e08e901fd3f87f5b15cd395a6365...HEAD` | PASS / 0, empty output on code delivery; repeat on final publication |
+| `git diff 387b5130f3f108aae1e2b13bb735c9f1cb1ec193 -- docs/decisions .agents/policies` | PASS / 0, empty; no normative changes |
+| DMH-06 documentary assertion | FAIL / 1, expected unresolved authority gap; never treated as green |
+| gitleaks / staticcheck / race / vendor E2E / native Darwin | NOT_RUN: optional binaries absent / race not required / vendor E2E prohibited / unavailable platform |
+
+The full-suite observer sampled only descendants of its own `go test` process,
+recording PID/start/group identity before termination and checking the same
+identities afterward: **523 observed, zero non-zombie survivors**, no cleanup.
+The retained seven-mode orphan test independently checks its own process families
+(including SIGKILL, forced failure and test timeout), fails if emergency cleanup
+is needed, and passed in this full suite. No process belonging to another run
+was signalled. Sampling does not claim exhaustive machine-wide observation.
+Prior CR-S1-06/07, IF-01, IR-01..09 and F-01..05 source/tests remain;
+regression preservation is established by the full suite, not claimed as
+independent re-review. No broad process kill or independent-process cleanup.
+The pre-spawn check is a fresh bounded observation, not an atomic filesystem/
+process transaction or a guarantee against concurrent same-UID mutation.
+
+Exact final targeted selection (exit 0; only deterministic temporary fixtures):
+
+```bash
+timeout 120s go test ./cmd/lingo ./internal/local ./internal/stageexecution ./internal/workflowdefinition ./internal/runtimeapplication ./internal/cli ./internal/projectapp -run 'TestExecutionDispatch|TestPublicWorkflowAgentInvocation|TestSchema2Invocation|TestResolveInvocation|TestExecutionStoreRejectsForeignStateRootLease|TestEngineAdmit|TestMapWorkflowDefinitionPreservesCriterion|TestPublicWorkflowRunIndependentOptional|TestPublicWorkflowRunMinimalDefaultReceives|TestCanonicalLifecycleWorkItemSelectorRoundTrip|TestPublicWorkflowRunAcceptsRepeatedInput' -count=1 -timeout=90s
+```
+
+### Technical decisions and remaining work
+
+`technical_decisions[]`:
+
+- TD-DMH-RECOVERY: snapshot every relevant path and copied index before edits;
+  retain partial source even when tests fail. Alternative blind replacement
+  rejected. Restore exact archive/index/patches only after coordinating writers.
+- TD-DMH-ADMISSION: fresh resolve/admission before preparation plus a final
+  engine hook after Build; retain frozen workspace/invocation. Alternative
+  silent retarget rejected. Rollback only via reviewed code revert.
+- TD-DMH-INPUTS: require only criterion-referenced optional outputs; map the
+  selected Work Item explicitly, bump minimal revision r2, preserve r1 snapshots;
+  repeat existing input flag while rejecting duplicate keys. No new public flag.
+- TD-DMH-INVOCATION: finish the inherited schema-2 invocation object and optional
+  Profile path; validate every source before precedence. Preserve old document
+  digests and schema1 effort semantics. No model capability catalogue or S2/S3.
+- TD-DMH-FIXTURES: preserve obstructing ignored overlay directory by reversible
+  rename; delete only the four explicitly authorized checksum-backed log copies.
+
+`deferred_findings[]`: DMH-06 is blocking HUMAN_DECISION_REQUIRED:ARCHITECTURE,
+not an optional deferred fix. Previously unproven/out-of-scope IF-02 remains
+DEFERRED_NOT_IMPLEMENTED at pre-merge (see historical Evidence); no new work
+was introduced for it.
+
+`remaining_work`: Rafael's DMH-06 decision and authorized documentary follow-up;
+fresh context-independent Claude Opus 5.5 review of **all changed hunks**, the
+DMH regression matrix and authority gate, after the reported 05:10 BRT quota
+reset and verified availability. Codex authored the original review and these
+corrections and **cannot certify independent review**. No review is dispatched
+inside this implementation run. No third attempt or automatic next-stage
+callback is launched.
+
+`next_gate`: **HUMAN_DECISION_REQUIRED:DMH-06**, then
+**INDEPENDENT_CLAUDE_OPUS_5_5_TARGETED_RE_REVIEW** on the exact final HEAD.
