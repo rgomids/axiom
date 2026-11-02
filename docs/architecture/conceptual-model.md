@@ -442,8 +442,18 @@ human gates prevent dependent dispatch. Codex and Claude children exchange
 question, answer, blocker and result messages through private per-attempt areas
 of the common launcher; the engine binds each to the running attempt's identity,
 Runtime and fence and commits it through the same principal writer. Messages
-never complete a task, satisfy a gate or grant authority. Managed worktree
-integration remains pending S2 work. See the
-[S2.1](../specifications/015-minimum-viable-operational-workflow/implementation-s2-01.md)
-and [S2.2](../specifications/015-minimum-viable-operational-workflow/implementation-s2-02.md)
+never complete a task, satisfy a gate or grant authority. Agents editing one
+Repository are recommended an isolated worktree and branch each; only the
+principal, holding the runner lease, integrates a succeeded attempt's branch
+into its integration ref. The Execution records the intent before any Git
+effect and then the observed base, expected and observed target head,
+candidate, intermediate merge, post-merge check results and final SHA.
+Integration happens only after every stage check passed on the merged tree and
+the target compare-and-swap was observed; conflicts, drift, dirty or
+checked-out destinations and failed checks stay `not_integrated`, and an
+unestablished effect is `unknown`, never retried. This is a library operation,
+not yet a public command. See the
+[S2.1](../specifications/015-minimum-viable-operational-workflow/implementation-s2-01.md),
+[S2.2](../specifications/015-minimum-viable-operational-workflow/implementation-s2-02.md)
+and [S2.3](../specifications/015-minimum-viable-operational-workflow/implementation-s2-03.md)
 Evidence for verification and remaining limits.
