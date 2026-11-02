@@ -55,7 +55,8 @@ after a clean exit and before the terminal commit; cancelled, timed-out,
 uncertain or spawn-failed attempts get none. Accepted messages addressed to the
 attempt's agent are delivered into its `@recv`. Per-candidate refusals and
 exact duplicates change nothing and do not stop scheduling (`scheduler.go`);
-a lost fence or store failure stops routing and is recorded by the principal.
+a lost fence or store failure is recorded by the principal, and a messaging
+failure left at the final drain fails the attempt (correction S22-CR-01 below).
 
 **Ingress rules added.** `IngressContext.Runtime` must equal the attempt's
 frozen Runtime (a Codex attempt cannot speak as a Claude attempt and vice
@@ -194,6 +195,100 @@ Not run locally, with reason:
   NOT_RUN, unavailable on S2.1's identical host; not re-probed.
 - Live Codex/Claude, paid E2E, real cutover: outside authority.
 
+## Correction S22-CR-01 (attempt CORRECT-S22-CR-01-01)
+
+Finding ([review](https://github.com/rgomids/axiom/pull/366#pullrequestreview-5741505243),
+Major): the message pump silently disabled or ignored messaging failures, and
+a child that then exited zero with valid outputs was still recorded
+`succeeded`. **Reproduced** at `defbac43ac0efcf779c2964439e4841a632fb06a` by
+`TestExchangeFailureIsSurfacedOnTheAttempt` before any production edit:
+
+| Case | Observed at `defbac4` (red) |
+| --- | --- |
+| poisoned send area (Claude child floods `@send`, >256 entries) | Claude `succeeded`, diagnostic empty; reviewer spawned |
+| conflicting delivery (Claude child plants a different `@recv/q1.json`) | Claude `succeeded`; reviewer spawned |
+| persistent ingress failure (every message commit refused by the store) | Codex `succeeded`; `r1` lost; only the run returned the store error |
+| transient ingress failure (first message commit refused once) | `r1` never retried, lost for good |
+
+Causes in `exchange.go`: a `Poll` refusal set `stopped` with no result; a
+failed commit had already marked the candidate submitted, so it was never
+retried, and then stopped routing; `load` and `Deliver` failures returned
+silently; `startMessages` returned nothing to `runAttempt`.
+
+**Fix (smallest in-scope).** `messagePump.step` returns a fixed engine code
+for work it left undone; `startMessages`' stop function returns the code of the
+final drain; `runAttempt` passes it to `CompleteAttempt` as the new in-memory
+`AttemptResult.Fault`, which marks the attempt `failed` with that code as the
+diagnostic whatever the exit code (unknown effects still override to
+`unknown`). The observed exit code, artifacts and effects stay recorded. No
+coordinator, queue, store, CLI, schema or codec change; `Fault` is not
+persisted on its own (only the existing `diagnostic`).
+
+Classification (only the final drain decides the attempt; earlier faults are
+retried by the next tick):
+
+| Code | Source | Class | Handling |
+| --- | --- | --- | --- |
+| `message_send_area_refused` | `Poll` refusal (unsafe area, entry flood) with a live context | persistent, child-induced | sticky: routing stops for the attempt, nothing in the area is accepted |
+| `message_ingress_failed` | non-refusal commit error (store failure, lost fence) | transient (retried) | candidate not marked submitted, retried next tick; the principal still records the store error and stops new scheduling (unchanged `scheduler.go`) |
+| `message_delivery_unconfirmed` | `load` of canonical messages failed | transient (retried) | retried next tick |
+| `message_delivery_failed` | `Deliver` error with a live context (conflicting file, unsafe `@recv`) | transient (retried); a conflict persists until the drain | other messages still delivered; retried next tick |
+
+Not faults: a `Poll`/`Deliver` interrupted by the pump's own stop (the drain
+retries with a detached context), and per-candidate refusals/duplicates.
+Cancelled, timed-out, unknown or spawn-failed attempts still get no drain and
+keep their exact cancel/stop/unknown outcome; the fault only reaches the
+clean-exit `CompleteAttempt` branch, after `output_collection_failed` and
+before `unauthorized_effect_reported`, so it cannot mask either.
+
+Provenance: the four codes are engine constants; no candidate or delivery byte
+reaches them, the gate, readiness or authority. A child can only fail its own
+attempt (which it can already do by exiting non-zero); a fault never succeeds
+or unblocks anything. The faulty attempt's independent peer still succeeds;
+the dependent stays pending and is never spawned.
+
+Regression (green after the fix):
+
+- `TestExchangeFailureIsSurfacedOnTheAttempt` (real `RuntimeLauncher`, real
+  local store wrapped by `messageFaultStore`, fake runner): the three faulty
+  cases record the faulty attempt `failed` with the exact code and exit 0, the
+  peer `succeeded`, run `failed`, reviewer spawned 0 times, dependent stage
+  unchanged; ingress cases return the injected store error from `Run`. The
+  transient case stores the retried `r1`, Codex `succeeded`, reviewer not
+  spawned in the stopped run; a second `Run` completes and the reviewer
+  receives `r1` (spawned once). Zero test-owned child processes after each case.
+- `TestMessagePumpFaults` (fake `Exchange`, no filesystem/process): sticky send
+  area refusal; cancelled poll/delivery not a fault; failed commit, read and
+  delivery reported then retried (exact commit/delivery counts, misaddressed
+  message never delivered); persistent ones still reported at the drain.
+- `TestMissingOutputHumanGateAndFailureStopSuccessors`: exit 0 with every
+  output plus a fault → `failed`, run failed, nothing ready.
+
+Correction validation (same host and toolchain as above):
+
+| Command | Result |
+| --- | --- |
+| `go test ./internal/stageexecution -run TestExchangeFailureIsSurfacedOnTheAttempt -count=1` on `defbac4` production code | FAIL as expected (red, table above) |
+| `go test ./internal/stageexecution -run TestExchange -count=1 -v` after the fix | PASS, exit 0 |
+| `go test ./internal/stageexecution -run 'TestExchange\|TestRuntimeExchange\|TestMessagePump' -count=40 -timeout=900s` | PASS, exit 0, 142.7s (after the test-ordering fix below) |
+| `go test ./internal/stageexecution ./internal/workflow -count=1` | PASS, exit 0 (includes S2.1 scheduler/fence/cancel and S1 regressions) |
+| `go test ./... -count=1 -timeout=30m` | PASS, exit 0, 32 packages ok (cmd/lingo 157.3s, local 78.5s, workflow 69.4s, install 54.1s, stageexecution 24.4s); run before the test-only ordering fix, production code identical |
+| `go build ./...` / `go vet ./...` / `git diff --check` | PASS, exit 0 |
+| `go run ./scripts/check-architecture.go domain` / `application` | PASS, exit 0; 12 / 46 files |
+| `go fmt ./internal/stageexecution ./internal/workflow` | applied (whitespace in the new test only) |
+| `gofmt -l`, `./scripts/check-go-quality.sh format\|staticcheck`, `validate-repository.sh`, sensitive-file/ADR/automation/bootstrap scripts | AUTHORIZATION_REQUIRED (runner permission policy, as before); evidenced only by exact-SHA PR CI |
+| `-race`, `gitleaks` | NOT_RUN (no `gcc`; unavailable), as before |
+
+Retained unsuccessful observation: the first 20× repetition failed 1/20 in
+`conflicting delivery` (Claude `succeeded`). Cause: test ordering, not the
+fix. When Codex's `q1` was accepted before the Claude stub planted its file,
+the pump delivered `q1` successfully and the stub then overwrote its own
+received copy, so there really was no delivery failure. The test now makes
+Codex send only after the plant; the 40× run above is after that change. No
+assertion was weakened and production code did not change.
+
+No live Codex/Claude inference ran; no vendor CLI was invoked.
+
 ## technical_decisions[]
 
 | ID | Question → choice | Alternatives / trade-off | Risk / rollback |
@@ -205,6 +300,10 @@ Not run locally, with reason:
 | TD-S22-05 | Refuse answers to ended askers | Store undeliverable answers | Stricter than S1.6; exact replays stay idempotent |
 | TD-S22-06 | Delivery is pull-per-recipient from canonical state | Principal-side routing table across workers | Each pump reads the store each tick (lease-free read, like the cancel watcher) |
 | TD-S22-07 | Retire inbox/ingest/reader now, keep format-1 codec/store | Delete the whole `coordination` package (breaks S1.8 cutover inventory and `executiongraph` acceptance verifier) | Remaining duplicate representations go to S2.4/S3.4 |
+
+| TD-S22-08 | Exchange fault → fail the attempt (`AttemptResult.Fault`) | `MarkUnknown` (effects are observed, so unknown would be dishonest and block retry); fake non-zero exit (falsifies the observed code); run-level error only (canonical attempt stays `succeeded`) | One in-memory field; revert the correction commit |
+| TD-S22-09 | Transient vs persistent → retry every fault each tick, decide at the final drain; only send-area refusal is sticky | Stop on first fault (loses retriable work); retry the drain N times (latency, no evidence it is needed) | A drain-time transient fault fails the attempt; explicit retry recovers |
+| TD-S22-10 | Keep the principal's stop-scheduling on any store error | Exempt message commits (hides a correlated store failure) | A transient store blip stops the run; a re-run resumes with nothing lost |
 
 All are reversible local choices inside Plan TD-03 and ADR-0037 §6.
 
@@ -227,7 +326,8 @@ All are reversible local choices inside Plan TD-03 and ADR-0037 §6.
 
 S2.3 (isolated worktree integration) and S2.4 (L/E duplicate representation,
 CLI/message docs reconciliation) remain unimplemented. Next gate:
-**INDEPENDENT_REVIEW_S2_2**, then S2.3 only once that checkpoint is confirmed.
+**INDEPENDENT_RE_REVIEW_S2_2** of the S22-CR-01 correction (fresh, not
+self-reported), then S2.3 only once that checkpoint is confirmed.
 Human pre-merge review, merge, release and Product Accepted remain separate
 human gates. No background continuation exists; checkpoint
 `AWAITING_EXECUTION_REPORT`.

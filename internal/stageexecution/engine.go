@@ -279,7 +279,7 @@ func (e Engine) runAttempt(ctx context.Context, lease workflow.RunnerFence, requ
 	defer stop()
 	cancelled := e.watchCancel(runCtx, stop, projectID, executionID)
 	startedCommitted := false
-	stopMessages := func(bool) {}
+	stopMessages := func(bool) string { return "" }
 	result := e.Runner.RunObserved(runCtx, built, func(pc *executiongraph.ProcessCorrelation) error {
 		_, err := update(func(x *workflow.Execution) error {
 			return x.MarkStarted(attemptID, gen, workflow.ProcessIdentity{PID: pc.PID, StartIdentity: pc.StartIdentity, GroupIdentity: pc.GroupIdentity}, e.now())
@@ -296,8 +296,10 @@ func (e Engine) runAttempt(ctx context.Context, lease workflow.RunnerFence, requ
 	// group through RunObserved and records that stop like a cancel.
 	cancelRequested := cancelled() || ctx.Err() != nil || e.cancelPersisted(ctx, projectID, executionID)
 	// Messages are routed only while the attempt runs; a cancelled, timed-out
-	// or uncertain attempt gets no final drain.
-	stopMessages(!cancelRequested && !result.OutcomeUnknown && !result.EffectAmbiguous && !result.TimedOut && !result.SpawnFailed)
+	// or uncertain attempt gets no final drain. A fault left by the drain
+	// refuses success: the child's result may rest on collaboration that did
+	// not happen.
+	exchangeFault := stopMessages(!cancelRequested && !result.OutcomeUnknown && !result.EffectAmbiguous && !result.TimedOut && !result.SpawnFailed)
 	// Collection may run explicitly authorized checks. Keep it outside the
 	// aggregate lock so cancellation can be persisted while a check runs.
 	var outcome Outcome
@@ -370,7 +372,7 @@ func (e Engine) runAttempt(ctx context.Context, lease workflow.RunnerFence, requ
 		if collectErr != nil {
 			return x.MarkUnknown(attemptID, gen, "output_collection_failed", now)
 		}
-		err = x.CompleteAttempt(attemptID, gen, workflow.AttemptResult{ExitCode: result.ExitCode, Diagnostic: outcome.Diagnostic, Effects: outcome.Effects, Artifacts: outcome.Artifacts, Commands: outcome.Commands, Now: now})
+		err = x.CompleteAttempt(attemptID, gen, workflow.AttemptResult{ExitCode: result.ExitCode, Diagnostic: outcome.Diagnostic, Effects: outcome.Effects, Artifacts: outcome.Artifacts, Commands: outcome.Commands, Fault: exchangeFault, Now: now})
 		if errors.Is(err, workflow.ErrUnauthorizedEffect) {
 			return x.MarkUnknown(attemptID, gen, "unauthorized_effect_reported", now)
 		}

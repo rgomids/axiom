@@ -170,6 +170,16 @@ func TestMissingOutputHumanGateAndFailureStopSuccessors(t *testing.T) {
 		t.Fatalf("exit zero without output: %s %q %s", a.Status, a.Diagnostic, e.Status)
 	}
 
+	// A runner fault refuses success even with exit zero and every output.
+	f := twoStageExecution(t, false)
+	run(t, &f, TaskRef{"work", "builder"}, "f1")
+	if err := f.CompleteAttempt("f1", 1, AttemptResult{ExitCode: 0, Artifacts: []ArtifactRef{artifact("result")}, Fault: "message_delivery_failed", Now: t0}); err != nil {
+		t.Fatal(err)
+	}
+	if a, _, _ := f.FindAttempt("f1"); a.Status != AttemptFailed || a.Diagnostic != "message_delivery_failed" || *a.ExitCode != 0 || f.Status != RunFailed || len(f.Ready()) != 0 {
+		t.Fatalf("exit zero with runner fault: %s %q %s", a.Status, a.Diagnostic, f.Status)
+	}
+
 	g := twoStageExecution(t, true)
 	run(t, &g, TaskRef{"work", "builder"}, "b1")
 	if err := g.CompleteAttempt("b1", 1, AttemptResult{ExitCode: 0, Artifacts: []ArtifactRef{artifact("result")}, Now: t0}); err != nil {

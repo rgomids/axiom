@@ -12,6 +12,7 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -501,6 +502,247 @@ func TestRuntimeExchangeAreaSafety(t *testing.T) {
 			if err := l.Deliver(context.Background(), r, workflow.Message{ID: "m2", Recipient: r.Ref.AgentID, Kind: workflow.MessageQuestion}); err == nil {
 				t.Fatal("non-private receive area accepted")
 			}
+		})
+	}
+}
+
+// fakeExchange fails each Poll, commit, load and Deliver while its counter
+// is positive, then succeeds; it never touches a filesystem or process.
+type fakeExchange struct {
+	pollFails, updateFails, loadFails, deliverFails int
+	updates, deliveries                             map[string]int
+	refuse                                          bool
+}
+
+func (f *fakeExchange) Poll(ctx context.Context, _ LaunchRequest) ([]workflow.MessageCandidate, error) {
+	if f.pollFails > 0 {
+		f.pollFails--
+		return nil, ErrRuntimeOutput
+	}
+	return []workflow.MessageCandidate{{ID: "c1", Recipient: "peer", Kind: workflow.MessageQuestion, Content: "q"}}, nil
+}
+
+func (f *fakeExchange) Deliver(ctx context.Context, _ LaunchRequest, m workflow.Message) error {
+	if f.deliverFails > 0 || ctx.Err() != nil {
+		f.deliverFails--
+		return ErrRuntimeOutput
+	}
+	f.deliveries[m.ID]++
+	return nil
+}
+
+func newFakePump(f *fakeExchange) *messagePump {
+	f.updates, f.deliveries = map[string]int{}, map[string]int{}
+	return &messagePump{exchange: f, request: LaunchRequest{Ref: workflow.TaskRef{StageID: "s", AgentID: "me"}}, now: time.Now, submitted: map[string]string{}, delivered: map[string]bool{},
+		update: func(func(*workflow.Execution) error) (workflow.Execution, error) {
+			f.updates["c1"]++
+			if f.updateFails > 0 {
+				f.updateFails--
+				return workflow.Execution{}, errInjectedStore
+			}
+			if f.refuse {
+				return workflow.Execution{}, workflow.ErrMessageRejected
+			}
+			return workflow.Execution{}, nil
+		},
+		load: func() (workflow.Execution, error) {
+			if f.loadFails > 0 {
+				f.loadFails--
+				return workflow.Execution{}, errInjectedStore
+			}
+			return workflow.Execution{Messages: []workflow.Message{{ID: "m1", Recipient: "me"}, {ID: "m2", Recipient: "other"}}}, nil
+		}}
+}
+
+// Transient commit, read and delivery failures are reported by the step that
+// met them and retried by the next one; a refused send area is persistent;
+// stopping the periodic poll and a refused candidate are not faults.
+func TestMessagePumpFaults(t *testing.T) {
+	cancelled, cancel := context.WithCancel(context.Background())
+	cancel()
+	bg := context.Background()
+	cases := map[string]struct {
+		fake      fakeExchange
+		steps     []context.Context
+		faults    []string
+		updates   int
+		delivered int
+	}{
+		"send area refused is sticky":        {fake: fakeExchange{pollFails: 1}, steps: []context.Context{bg, bg}, faults: []string{faultSendArea, faultSendArea}},
+		"stopped poll is not a fault":        {fake: fakeExchange{pollFails: 1}, steps: []context.Context{cancelled, bg}, faults: []string{"", ""}, updates: 1, delivered: 1},
+		"failed commit is retried":           {fake: fakeExchange{updateFails: 1}, steps: []context.Context{bg, bg, bg}, faults: []string{faultIngress, "", ""}, updates: 2, delivered: 1},
+		"persistent commit failure":          {fake: fakeExchange{updateFails: 3}, steps: []context.Context{bg, bg, bg}, faults: []string{faultIngress, faultIngress, faultIngress}, updates: 3},
+		"refused candidate is not a fault":   {fake: fakeExchange{refuse: true}, steps: []context.Context{bg, bg}, faults: []string{"", ""}, updates: 1, delivered: 1},
+		"failed read is retried":             {fake: fakeExchange{loadFails: 1}, steps: []context.Context{bg, bg}, faults: []string{faultDeliveryUnconfirmed, ""}, updates: 1, delivered: 1},
+		"failed read at drain":               {fake: fakeExchange{loadFails: 2}, steps: []context.Context{bg, bg}, faults: []string{faultDeliveryUnconfirmed, faultDeliveryUnconfirmed}, updates: 1},
+		"failed delivery is retried":         {fake: fakeExchange{deliverFails: 1}, steps: []context.Context{bg, bg, bg}, faults: []string{faultDelivery, "", ""}, updates: 1, delivered: 1},
+		"persistent delivery failure":        {fake: fakeExchange{deliverFails: 3}, steps: []context.Context{bg, bg, bg}, faults: []string{faultDelivery, faultDelivery, faultDelivery}, updates: 1},
+		"delivery stopped by its own cancel": {steps: []context.Context{cancelled, bg}, faults: []string{"", ""}, updates: 1, delivered: 1},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			p := newFakePump(&tc.fake)
+			for i, ctx := range tc.steps {
+				if got := p.step(ctx); got != tc.faults[i] {
+					t.Fatalf("step %d fault %q, want %q", i, got, tc.faults[i])
+				}
+			}
+			if tc.fake.updates["c1"] != tc.updates || tc.fake.deliveries["m1"] != tc.delivered || tc.fake.deliveries["m2"] != 0 {
+				t.Fatalf("commits %d deliveries %v", tc.fake.updates["c1"], tc.fake.deliveries)
+			}
+		})
+	}
+}
+
+// errInjectedStore is a store failure the aggregate never produces itself.
+var errInjectedStore = errors.New("injected_store_failure")
+
+// messageFaultStore refuses fenced commits that would add a message, before
+// they are written. A positive remaining count refuses that many commits; a
+// negative one refuses every message commit. Other commits pass through.
+type messageFaultStore struct {
+	ExecutionStore
+	remaining, refused atomic.Int32
+}
+
+func (s *messageFaultStore) UpdateFenced(ctx context.Context, project, execution string, fence workflow.RunnerFence, mutate func(*workflow.Execution) error) (workflow.Execution, error) {
+	return s.ExecutionStore.UpdateFenced(ctx, project, execution, fence, func(x *workflow.Execution) error {
+		before := len(x.Messages)
+		if err := mutate(x); err != nil {
+			return err
+		}
+		if len(x.Messages) > before && s.remaining.Load() != 0 {
+			if s.remaining.Load() > 0 {
+				s.remaining.Add(-1)
+			}
+			s.refused.Add(1)
+			return errInjectedStore
+		}
+		return nil
+	})
+}
+
+// awaitStored reports whether message id becomes canonical within a bound.
+func (x *exchangeFixture) awaitStored(id string) bool {
+	for deadline := time.Now().Add(3 * time.Second); time.Now().Before(deadline); time.Sleep(5 * time.Millisecond) {
+		s, err := x.engine.Store.Load(context.Background(), "proj", engineExecutionID)
+		for _, m := range s.Messages {
+			if err == nil && m.ID == id {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func awaitCount(n *atomic.Int32, want int32) bool {
+	for deadline := time.Now().Add(3 * time.Second); time.Now().Before(deadline); time.Sleep(5 * time.Millisecond) {
+		if n.Load() >= want {
+			return true
+		}
+	}
+	return false
+}
+
+// A messaging failure of a child that then exits zero with valid outputs
+// fails that attempt with a bounded engine diagnostic: its collaboration is
+// not reported as successful and no dependent is spawned. The independent
+// peer still completes, and a transient store failure is retried instead of
+// silently dropping the candidate.
+func TestExchangeFailureIsSurfacedOnTheAttempt(t *testing.T) {
+	cases := map[string]struct {
+		refuse     int32
+		faulty     string // empty: the run completes
+		diagnostic string
+	}{
+		"poisoned send area":         {faulty: "claude", diagnostic: "message_send_area_refused"},
+		"conflicting delivery":       {faulty: "claude", diagnostic: "message_delivery_failed"},
+		"persistent ingress failure": {refuse: -1, faulty: "codex", diagnostic: "message_ingress_failed"},
+		"transient ingress failure":  {refuse: 1},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			store := &messageFaultStore{}
+			planted := make(chan struct{})
+			x := newExchangeFixture(t, collaborationStages(false), func(x *exchangeFixture, c *stubChild) executiongraph.ProcessResult {
+				switch name + "/" + c.packet.AgentID {
+				case "poisoned send area/claude":
+					for i := 0; i <= workflow.MaxExecutionMessages; i++ {
+						os.WriteFile(filepath.Join(c.packet.MessageSendDirectory, fmt.Sprintf("flood-%d.tmp", i)), nil, 0o600)
+					}
+				case "conflicting delivery/claude":
+					// The child plants a different file where q1 must be delivered.
+					os.WriteFile(filepath.Join(c.packet.MessageReceiveDirectory, "q1.json"), []byte(`{"id":"q1","sender":"forged"}`), 0o600)
+					close(planted)
+					if !x.awaitStored("q1") {
+						c.fail("q1 never stored")
+					}
+				case "conflicting delivery/codex":
+					// Sent only after the plant, so q1 is never delivered first.
+					select {
+					case <-planted:
+					case <-time.After(5 * time.Second):
+						c.fail("conflict never planted")
+					}
+					c.send("q1", "claude", workflow.MessageQuestion, "", "ready?")
+				case "persistent ingress failure/codex":
+					c.send("r1", "reviewer", workflow.MessageResult, "", "codex done")
+					if !awaitCount(&store.refused, 1) {
+						c.fail("ingress never attempted")
+					}
+				case "transient ingress failure/codex":
+					c.send("r1", "reviewer", workflow.MessageResult, "", "codex done")
+					if !awaitCount(&store.refused, 1) || !x.awaitStored("r1") {
+						c.fail("refused candidate was not retried")
+					}
+				case "transient ingress failure/reviewer":
+					if m := c.await("r1"); m.Content != "codex done" {
+						c.fail("r1: %+v", m)
+					}
+					return executiongraph.ProcessResult{}
+				}
+				if c.packet.AgentID == "reviewer" {
+					t.Error("dependent spawned after a messaging failure")
+					return executiongraph.ProcessResult{}
+				}
+				c.output(c.packet.AgentID + "-result")
+				return executiongraph.ProcessResult{}
+			})
+			store.ExecutionStore = x.engine.Store
+			store.remaining.Store(tc.refuse)
+			x.engine.Store = store
+			before := mustLoad(t, x)
+			final, err := x.engine.Run(context.Background(), "proj", engineExecutionID, RunOptions{})
+			// The principal stops scheduling on any store failure; that is the
+			// run's error, never a hidden one.
+			if (tc.refuse != 0) != errors.Is(err, errInjectedStore) || (tc.refuse == 0 && err != nil) {
+				t.Fatalf("run: %v", err)
+			}
+			stored := mustLoad(t, x)
+			if tc.faulty == "" {
+				// The retried candidate is canonical and the attempt succeeded; the
+				// next run delivers it to the dependent, which spawns exactly once.
+				if a := x.attemptOf(t, stored, "codex"); a.Status != workflow.AttemptSucceeded || len(stored.Messages) != 1 || x.spawnsOf("reviewer") != 0 {
+					t.Fatalf("after transient failure: %s %+v reviewer %d", a.Status, stored.Messages, x.spawnsOf("reviewer"))
+				}
+				if final, err = x.engine.Run(context.Background(), "proj", engineExecutionID, RunOptions{}); err != nil || final.Status != workflow.RunCompleted || x.spawnsOf("reviewer") != 1 {
+					t.Fatalf("resume: %v %s reviewer %d", err, final.Status, x.spawnsOf("reviewer"))
+				}
+				assertNoChildProcesses(t)
+				return
+			}
+			a := x.attemptOf(t, stored, tc.faulty)
+			if a.Status != workflow.AttemptFailed || a.Diagnostic != tc.diagnostic || a.ExitCode == nil || *a.ExitCode != 0 {
+				t.Fatalf("%s attempt: %s %q exit %v", tc.faulty, a.Status, a.Diagnostic, a.ExitCode)
+			}
+			peer := map[string]string{"claude": "codex", "codex": "claude"}[tc.faulty]
+			if p := x.attemptOf(t, stored, peer); p.Status != workflow.AttemptSucceeded {
+				t.Fatalf("independent peer %s: %s %q", peer, p.Status, p.Diagnostic)
+			}
+			if final.Status != workflow.RunFailed || x.spawnsOf("reviewer") != 0 || stored.Stages[1].Status != before.Stages[1].Status {
+				t.Fatalf("run %s reviewer spawns %d dependent %s", final.Status, x.spawnsOf("reviewer"), stored.Stages[1].Status)
+			}
+			assertNoChildProcesses(t)
 		})
 	}
 }

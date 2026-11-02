@@ -414,12 +414,15 @@ type AttemptResult struct {
 	Diagnostic string
 	Effects    []EffectFact
 	Artifacts  []ArtifactRef
-	Now        time.Time
+	// Fault is a runner-observed fixed code (never child-supplied) that refuses
+	// success whatever the exit code; it becomes the diagnostic.
+	Fault string
+	Now   time.Time
 }
 
 // CompleteAttempt commits an observed terminal result. A post-cancel result
 // is refused; an effect outside authority is refused; exit zero without every
-// declared output is a failure, never success.
+// declared output, or with a runner fault, is a failure, never success.
 func (e *Execution) CompleteAttempt(id string, generation uint64, r AttemptResult) error {
 	a, err := e.fencedAttempt(id, generation, AttemptRunning)
 	if err != nil {
@@ -482,6 +485,9 @@ func (e *Execution) CompleteAttempt(id string, generation uint64, r AttemptResul
 				break
 			}
 		}
+	}
+	if r.Fault != "" {
+		a.Status, a.Diagnostic = AttemptFailed, clip(r.Fault)
 	}
 	for _, f := range r.Effects {
 		if f.State == EffectUnknown {
