@@ -267,6 +267,12 @@ func preservesExecutionHistory(prior, next workflow.Execution) bool {
 	if len(next.Integrations) < len(prior.Integrations) {
 		return false
 	}
+	for _, integration := range next.Integrations[len(prior.Integrations):] {
+		// New intent must be committed before any terminal observation.
+		if integration.Status != workflow.IntegrationPrepared {
+			return false
+		}
+	}
 	for k, integration := range prior.Integrations {
 		changed := next.Integrations[k]
 		if integration.Status == workflow.IntegrationPrepared && changed.Status != workflow.IntegrationPrepared {

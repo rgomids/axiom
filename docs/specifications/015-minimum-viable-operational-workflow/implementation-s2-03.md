@@ -256,3 +256,134 @@ integrated closure; S2.4 is not dispatched by this attempt. Human pre-merge
 review, merge, release, Product Accepted and AXM-12 remain separate human
 gates. No background continuation exists; checkpoint
 `AWAITING_EXECUTION_REPORT`.
+
+## S23-CR-01–03 correction checkpoint (2026-11-02)
+
+Attempt: `CORRECT-S23-CR-01-03-CODEX-01`, principal Codex executor, no
+subagents or child vendor CLI invocations. Scope is only the three Major
+findings in [review 5743413857](https://github.com/rgomids/axiom/pull/366#pullrequestreview-5743413857)
+and its [Linear receipt](https://linear.app/rgomids/issue/AXM-42#comment-ed8e710b).
+Fetched local/remote baseline was exactly
+`082ace0d2846dc131fcea6df151210e37f0ea778`, clean worktree. Generated
+`graphify-out/**` was excluded from review and edits. No reset, deletion,
+force push, new PR, CLI, store, scheduler, ADR or S2.4 work.
+
+The historical S2.2 pending statement above is superseded for this checkpoint:
+that analytical gate is satisfied by the existing review 5742024731 and
+Linear receipt 5d740e7f, as confirmed in review 5743413857. It was not repeated.
+S2.3 still requires independent re-review; this correction is not acceptance.
+
+### Executable regressions
+
+Each primary regression ran RED before its relevant fix. The final primary
+tests were also independently rerun against an isolated `git archive` of
+`082ace0`, with only those test functions/fixtures copied into the temporary
+source. All three commands exited **1**, for the intended assertions (not
+compilation failures). Temporary Git fixtures have no remotes; runner stubs
+perform no vendor inference. The cancellation fixture joins its runner on
+failure as well as success.
+
+| Finding | RED on original baseline | GREEN after correction |
+| --- | --- | --- |
+| S23-CR-01 | `go test ./internal/stageexecution -run '^TestIntegrateUnknownCheckBlocksReplay$' -count=1 -timeout=60s`: completed/not_integrated, **two** check invocations after a second IntegrationID, for unknown and ambiguous outcomes | Same test: unknown/recovery_required, one invocation, target unchanged, persisted unknown check/exit evidence retained |
+| S23-CR-02 | `go test ./internal/stageexecution -run '^TestIntegratePersistedCancelChecks$' -count=1 -timeout=60s`: active check not stopped by persisted cancel; between-check case invokes command 2 | Same test: active real group stops; second command never starts; unconfirmed stop remains unknown; start-race cancellation holds the command gate and stops its owned process |
+| S23-CR-03 | `go test ./internal/local -run 'TestExecutionStoreRejectsIntegrationHistoryRewrite\|TestExecutionStoreUpdateIntegrationSnapshotIsolation' -count=1 -timeout=60s`: Save accepts deletion, target/final-SHA/diagnostic/check/identity rewrite and reordering; Update callback aliases prior Integration, Checks and EndedAt | Same tests reject valid-looking Save rewrites with ErrConflict and unchanged history/revision; failed callbacks return the unchanged snapshot |
+
+Additional GREEN coverage (exit 0):
+
+- `TestIntegrationCheckObservationSemantics`: unknown and ambiguous zero-exit
+  results remain unknown, including unknown with Stopped=true; known spawn
+  refusal and confirmed stopped timeout remain terminated.
+- `TestIntegrateCheckTimeoutStopsOwnedProcess`: bounded real timeout,
+  not_integrated, unchanged target and no surviving recorded owned process.
+- `TestIntegrationUnknownCheckCodecAndDisposition`: unknown exit -1/0
+  round-trip through format 4, recovery blocks another integration, human
+  abandonment preserves unknown evidence, downgrade is rejected.
+- `TestExecutionStoreIntegrationPreparedAndHumanDisposition`: legitimate
+  append and prepared-to-terminal commits, prepared intent immutability,
+  unknown-to-human disposition, independent Resolution pointer, and rejected
+  terminal disposition rewrite through Update.
+- The store terminal-append case additionally failed RED before its guard
+  (Save returned nil), then passed with the prepared-first guard.
+- The unknown/cancel/confirmed-timeout integration matrix also passed
+  `-count=3` before the final assertion-only strengthening.
+
+### Technical decisions
+
+- **TD-CR-01 (TECHNICAL_LOCAL):** retain `CheckUnknown` in the existing nested
+  check and use the existing integration unknown/recovery lifecycle. A generic
+  terminated status loses the distinction; a new store/lifecycle adds no
+  needed behavior. Unknown takes precedence over Stopped because stopping a
+  process does not prove its effects. Exit zero can coexist with ambiguous
+  effects. Refs: [CR-01 fix](https://github.com/rgomids/axiom/commit/785bb65),
+  [codec/gate coverage](https://github.com/rgomids/axiom/commit/6d733fd).
+- **TD-CR-02 (TECHNICAL_LOCAL):** reuse `watchCancel` and join it before
+  returning, check persisted intent before every command and again while the
+  existing stdin gate still holds command execution. Polling alone leaves a
+  start window; a second cancel owner is unnecessary. The ObservedRunner
+  still owns group stop and its uncertainty classification. Ref:
+  [CR-02 fix](https://github.com/rgomids/axiom/commit/3017e59).
+- **TD-CR-03 (TECHNICAL_LOCAL):** extend `preservesExecutionHistory` at the
+  canonical Save boundary, comparing integrations by append-only position and
+  immutable intent. Permit only observed prepared-to-terminal completion or
+  explicit human disposition of unknown; terminal facts stay immutable.
+  New entries must first be prepared; direct terminal append is rejected.
+  Clone Integration/Checks/EndedAt/Resolution for Update snapshot isolation,
+  rather than redesigning unrelated aggregate cloning. Ref:
+  [CR-03 fix](https://github.com/rgomids/axiom/commit/60d9f62).
+
+### Limits retained
+
+No new optional work was implemented (`deferred_findings: []` for this
+correction); existing DF-S23-01..07 and DF-S22-01..04 remain as recorded.
+Unknown check status does **not** recover a durable check PID after runner
+crash, prove termination of escaped descendants, reverse effects or add OS
+isolation. The live cancellation test proves the controlled owned process
+family through the existing observer and fixture no-child check. The
+unconfirmed-stop case is fault injection, not proof of terminating an unknown
+real process. No actual vendor CLI, model battery, inference, remote test Git
+mutation, installed-state cutover, merge or release was run.
+
+Runtime quota percentages from the dispatch could not be verified: this
+session exposes no quota endpoint. Execution stayed on the host-selected
+principal runtime. Local environment is Linux/arm64, Go 1.27.3, CGO disabled;
+`go test -race` exited 2 before tests (`-race requires cgo`), and no C compiler
+was available. Gitleaks is unavailable and was NOT_RUN. Staticcheck initially exited 1
+because it was outside PATH, then could not decode Go 1.27 export data. The
+already installed pinned Staticcheck 0.8.1 passed (exit 0) with the existing Go
+1.26.0 toolchain and matching GOROOT:
+
+```sh
+GOROOT=/home/grokbot/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.0.linux-arm64 \
+PATH=/home/grokbot/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.0.linux-arm64/bin:/home/grokbot/go/bin:$PATH \
+./scripts/check-go-quality.sh staticcheck
+```
+
+No toolchain, dependency, source or persistent configuration was installed or
+changed to obtain that result. Exact-SHA CI is reported separately.
+
+### Validation capture before the final commit
+
+Observed exit 0: focused CR matrix in `stageexecution`, `workflow`, `local`;
+full adjacent `go test ./internal/local ./internal/workflow
+./internal/stageexecution -count=1`; `go build ./...`; `go vet ./...`;
+`./scripts/check-go-quality.sh format`; `./scripts/check-go-quality.sh tidy`;
+`go mod verify`; pinned Staticcheck with the environment above;
+`go run ./scripts/check-architecture.go domain` and `application`;
+`./scripts/validate-repository.sh .`; `git diff --check`; staged
+`./scripts/check-sensitive-files.sh --staged .` before each commit.
+Repository validation explicitly skipped native Runtime behavioral scenarios
+(UNVERIFIED), as intended; no model battery was requested or invoked.
+
+The executor inspected the affected domain, engine/runner/gate, canonical
+store and callers using axiom-review and Ponytail review discipline. No
+remaining blocking finding was identified in this scoped self-review; it is
+not the requested independent re-review. Existing format-4 codec tests and
+records without Integrations remain supported; no stable snapshot was changed.
+
+This is a pre-publication capture. The final committed-SHA full-project test
+run and exact remote CI outcomes belong to the one completion receipt on
+AXM-42 / PR #366; they were pending when this Evidence was committed. That
+receipt must distinguish PASS, FAIL, NOT_RUN and in-progress observations,
+include the final full remote SHA, and retain next gate
+`INDEPENDENT_RE_REVIEW_S2_3`. No review thread is resolved by this correction.

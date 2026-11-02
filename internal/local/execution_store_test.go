@@ -688,7 +688,7 @@ func storeIntegratedExecution(t *testing.T) (ExecutionStore, *RunLease, workflow
 }
 
 func TestExecutionStoreRejectsIntegrationHistoryRewrite(t *testing.T) {
-	for _, mode := range []string{"delete", "target", "final-sha", "diagnostic", "checks", "reorder", "identity"} {
+	for _, mode := range []string{"delete", "target", "final-sha", "diagnostic", "checks", "reorder", "identity", "terminal-append"} {
 		t.Run(mode, func(t *testing.T) {
 			s, lease, current := storeIntegratedExecution(t)
 			before, _ := workflow.EncodeExecution(current)
@@ -714,6 +714,10 @@ func TestExecutionStoreRejectsIntegrationHistoryRewrite(t *testing.T) {
 				next.Integrations[0], next.Integrations[1] = next.Integrations[1], next.Integrations[0]
 			case "identity":
 				i.IntegrationID = "other-id"
+			case "terminal-append":
+				appended := *i
+				appended.IntegrationID = "unprepared-terminal"
+				next.Integrations = append(next.Integrations, appended)
 			}
 			next.Revision++
 			if err := next.Validate(); err != nil {

@@ -833,11 +833,12 @@ func TestIntegrateUnknownCheckBlocksReplay(t *testing.T) {
 				return executiongraph.ProcessResult{ExitCode: -1, OutcomeUnknown: true, EffectAmbiguous: ambiguous}
 			}}
 			f.engine.Runner = r
-			got, err := f.integrate(engineExecutionID, f.git, f.request(x, "a", "unknown-check", f.base))
+			g := &faultGit{IntegrationGit: f.git}
+			got, err := f.integrate(engineExecutionID, g, f.request(x, "a", "unknown-check", f.base))
 			firstErr := err
 			before := f.load(engineExecutionID)
-			_, err = f.integrate(engineExecutionID, f.git, f.request(x, "a", "second-check", f.base))
-			if !errors.Is(firstErr, ErrIntegrationUnknown) || got.Status != workflow.RunRecoveryRequired || err == nil || r.spawns.Load() != 1 || f.target() != f.base {
+			_, err = f.integrate(engineExecutionID, g, f.request(x, "a", "second-check", f.base))
+			if !errors.Is(firstErr, ErrIntegrationUnknown) || got.Status != workflow.RunRecoveryRequired || err == nil || r.spawns.Load() != 1 || g.advances.Load() != 0 || f.target() != f.base {
 				t.Fatalf("unknown check replay: first status=%s first err=%v second err=%v calls=%d", got.Status, firstErr, err, r.spawns.Load())
 			}
 			after := f.load(engineExecutionID)
@@ -908,6 +909,7 @@ func TestIntegratePersistedCancelChecks(t *testing.T) {
 				})
 			}}
 			f.engine.Runner = r
+			g := &faultGit{IntegrationGit: f.git}
 			ctx, stop := context.WithTimeout(context.Background(), 5*time.Second)
 			defer stop()
 			type outcome struct {
@@ -916,7 +918,7 @@ func TestIntegratePersistedCancelChecks(t *testing.T) {
 			}
 			done := make(chan outcome, 1)
 			go func() {
-				got, err := f.engine.Integrate(ctx, "proj", engineExecutionID, f.git, f.request(x, "a", "cancel-check", f.base))
+				got, err := f.engine.Integrate(ctx, "proj", engineExecutionID, g, f.request(x, "a", "cancel-check", f.base))
 				done <- outcome{got, err}
 			}()
 			if mode == "active-group" {
@@ -952,7 +954,7 @@ func TestIntegratePersistedCancelChecks(t *testing.T) {
 			if mode == "unconfirmed-stop" || mode == "start-race" {
 				wantErr = ErrIntegrationUnknown
 			}
-			if !errors.Is(got.err, wantErr) || r.spawns.Load() != 1 || f.target() != f.base {
+			if !errors.Is(got.err, wantErr) || r.spawns.Load() != 1 || g.advances.Load() != 0 || f.target() != f.base {
 				t.Fatalf("cancel: calls=%d status=%s err=%v", r.spawns.Load(), got.x.Status, got.err)
 			}
 			if wantErr == ErrIntegrationUnknown && got.x.Status != workflow.RunRecoveryRequired {
