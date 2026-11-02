@@ -516,8 +516,7 @@ func TestIntegrateRepositoryBindingAndUnauthorizedSources(t *testing.T) {
 		t.Fatalf("foreign repository worktree: %v", err)
 	}
 	// The refusals poisoned nothing: the authorized source still integrates.
-	x, err := f.integrate(engineExecutionID, f.git, f.request(x, "a", "int-a", f.base))
-	if err != nil {
+	if _, err := f.integrate(engineExecutionID, f.git, f.request(x, "a", "int-a", f.base)); err != nil {
 		t.Fatal(err)
 	}
 	if got := f.load(engineExecutionID); len(got.Integrations) != 1 {

@@ -226,6 +226,7 @@ Pre-commit snapshot of this worktree delta from `95cfa3d` on 2026-11-02, Go
 | `git diff --check` | PASS, exit 0 |
 | Vendor-free PATH (`PATH=/usr/local/go/bin:/usr/bin:/bin …`) | NOT_RUN: this session's permission policy refused the PATH override; the `cmd/lingo` Runtime fixtures pin `PATH` to their own temp stub directory |
 | `./scripts/check-go-quality.sh all` (Staticcheck), `check-adr-governance.py`, `check-automation-registry.py`, `check-claude-bootstrap.sh` direct | NOT_RUN: refused by this session's permission policy (needs `AXM_EXTRA_TOOLS`); the bootstrap behaviour was exercised inside `validate-repository.sh` (PASS) |
+| Remote CI on `6a3757d` | FAIL ([run 41513612190](https://github.com/rgomids/axiom/actions/runs/41513612190)): Staticcheck SA4006 unused `x` at `internal/stageexecution/integration_test.go:519`, the only finding; later CI steps skipped. Corrected in the next commit (test-only), whose exact-SHA CI is reported in the PR comment/receipt. Delivery metadata on `6a3757d`: PASS |
 | `go test -race` | NOT_RUN: no `gcc` / cgo on host (as S2.1) |
 | `gitleaks` | NOT_RUN: not installed |
 
