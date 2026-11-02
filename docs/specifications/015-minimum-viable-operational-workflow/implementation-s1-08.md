@@ -554,3 +554,103 @@ callback is launched.
 
 `next_gate`: **HUMAN_DECISION_REQUIRED:DMH-06**, then
 **INDEPENDENT_CLAUDE_OPUS_5_5_TARGETED_RE_REVIEW** on the exact final HEAD.
+
+## DMH-06 Option A reconciliation — Claude Phase 1
+
+2026-11-02, same AXM-42 / PR #366 / existing branch, base
+`739588dd3d9b12dc5a7ff230af3882e973c4e139`. This section supersedes only the
+DMH-06 disposition above; the attempt-2 history stays as written. Executor:
+Claude Code `claude-opus-5-5`, effort medium. That also makes this session the
+author of this commit, so it **cannot certify independent review**. No Product
+Accepted, merge, release, vendor E2E or installed-state cutover.
+
+### Decision authority and scope
+
+Rafael decided **Option A — limited supersession reconciliation** for DMH-06
+on 2026-11-02 at 10:21 America/Sao_Paulo. The decision was supplied by the
+Maestro operator handoff to this session. No separate Linear decision record
+was read or verified here. Approved scope: keep ADR-0009 decision 8 as
+historical text; add a bounded ADR-0037 supersession annotation after it;
+extend ADR-0037's reciprocal backlink; verify the ADR index. No new ADR, no
+other accepted ADR changed, no new selection algorithm, no Runtime/model
+behavior change. This completes the ADR-0009 row of the already accepted
+[research amendment map](../../research/axm-42-minimum-viable-workflow-investigation.md#exact-amendment-implications-proposed-history-preserved)
+("Remove predictive capability/complexity resolution").
+
+### Applied change
+
+Private patch `dmh06-option-a.patch`, SHA-256
+`5c092fdd17708cfb02194173deeec92b7a4b770cd4ea88822b663710bb17cb7b`
+(options note `933336238f5b90e413cb1a4753ae272080ee922bab4d6586f723ce410df3eb28`).
+Its whole content was inspected against the scope above, checked with
+`git apply --check` and applied unmodified. Original files were backed up
+privately first. Total: 2 files, 9 insertions, 1 deletion.
+
+- [ADR-0009](../../decisions/0009-parent-child-execution-graph.md#child-scope-authority-and-resolution):
+  insertion only, after decision 8. Decision 8 itself is unchanged:
+
+  > Superseded by [ADR-0037 — One canonical Execution for new workflow runs](../../decisions/0037-one-canonical-execution-for-new-runs.md#decision), accepted 2026-10-30.
+  > Only capability/complexity-based Runtime/Model Profile selection for new runs
+  > is superseded. Explicit target restrictions, frozen invocation identity and
+  > no silent substitution remain. Historical text is preserved for traceability.
+
+- [ADR-0037 Supersedes](../../decisions/0037-one-canonical-execution-for-new-runs.md#supersedes),
+  ADR-0009 entry. Before: "only durable child Executions and separate graph
+  lifecycle for new runs." After: the same clause ending in `;`, plus
+  "and decision 8, only capability/complexity-based Runtime/Model Profile
+  selection for new runs. Invocation ownership and explicit target
+  restrictions follow decisions 4–5 above."
+- [ADR index](../../decisions/README.md): unchanged. The ADR-0009 entry already
+  carries `Partially superseded by [ADR-0037](0037-one-canonical-execution-for-new-runs.md)`,
+  which is all ADR-0018 §7 requires.
+
+Preserved: ADR-0009 status `Accepted`; decisions 1–7 and 9–24; the
+installed/enabled/allowlisted restriction, no-match block and no silent
+fallback, now stated as the retained scope; legacy records. The annotation
+applies to new canonical runs only.
+
+### Validation
+
+Executed on the working tree at base `739588d` with only this patch applied
+(the Go result also holds for the commit, since it changes no Go file):
+
+| Exact command / observation | Result / exit |
+| --- | --- |
+| `git apply --check -v dmh06-option-a.patch` | PASS / 0, both files |
+| `git diff -U0` on ADR-0009 | insertion-only hunk `@@ -85,0 +86,5 @@`; decision 8 lines 81–85 unchanged |
+| `git diff --stat 739588d -- docs/decisions .agents/policies` | only ADR-0009 and ADR-0037 |
+| Pre-existing DMH-06 documentary assertion (above), evaluated by equivalent `grep -n` because local Python needed approval this session was not granted | PASS: decision-8 slice has the historical text (`:81`) and the annotation (`:87`) before `9. Credentials` (`:91`); ADR-0037 backlink has `capability/complexity` (`:71`) and the `#child-scope-authority-and-resolution` anchor (`:70`) |
+| GitHub GFM render (`gh api markdown`) of an annotation directly followed by `9.` | blockquote closes and the list resumes at 9 |
+| `go build ./...` | PASS / 0 |
+| `go vet ./...` | PASS / 0 |
+| `go test ./... -count=1 -timeout=30m` | PASS / 0; every package `ok`, cmd/lingo 180.392s, local 94.300s, workflow 80.472s, stageexecution 20.200s |
+| `go run ./scripts/check-architecture.go domain` | PASS / 0, 12 files |
+| `go run ./scripts/check-architecture.go application` | PASS / 0, 46 files |
+| `git diff --check` (uncommitted patch) | PASS / 0, empty |
+| `gofmt -l cmd internal scripts`; `PYTHONDONTWRITEBYTECODE=1 bash scripts/validate-repository.sh .` (includes `check-adr-governance.py`); `ps` process sampling | NOT_RUN locally: command approval was not available in this non-interactive session. No Go file changed. ADR structure and validator are proven only by PR Checks on the new SHA |
+
+Process-identity observation was not available (no `ps`), so this run makes no
+zero-survivor claim of its own. The retained orphan/signal tests are part of
+the full suite above.
+
+### Technical decisions, deferrals and next gate
+
+`technical_decisions[]`:
+
+- TD-DMH06-VERBATIM: apply the approved patch byte-for-byte. A blank line
+  after the annotation (to match precedent) was considered and rejected:
+  GFM renders it correctly, and editing it would depart from the approved
+  bytes. Rollback: `git revert` of this commit.
+- TD-DMH06-INDEX: no index edit. It is structurally consistent, and the options
+  note asked for verification without unnecessary edits.
+
+`deferred_findings[]` (DEFERRED_NOT_IMPLEMENTED):
+
+- DF-DMH06-INDEX-TEXT: the ADR-0009 index free text still names only "durable
+  child Executions and separate graph lifecycle". It is navigation-only and
+  does not mention decision 8. Any update needs its own scoped decision.
+- Carried forward unchanged: DF-07-2 vendor SIGKILL NOT_PROVEN, DF-07-3 Darwin
+  NOT_RUN, DF-IR-01, D-01/02/04/05, IF-02.
+
+`next_gate`: **FRESH_SESSION_CLAUDE_READONLY_REVIEW**, an independent
+read-only review of `387b513...<final SHA>` covering DMH-01..08.

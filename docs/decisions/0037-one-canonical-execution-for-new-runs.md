@@ -66,7 +66,10 @@ For **new** workflow runs:
 ## Supersedes
 
 - [ADR-0009 parent, child and graph semantics](0009-parent-child-execution-graph.md#parent-child-and-graph-semantics):
-  only durable child Executions and separate graph lifecycle for new runs.
+  only durable child Executions and separate graph lifecycle for new runs;
+  and [decision 8](0009-parent-child-execution-graph.md#child-scope-authority-and-resolution),
+  only capability/complexity-based Runtime/Model Profile selection for new runs.
+  Invocation ownership and explicit target restrictions follow decisions 4–5 above.
 - [ADR-0020 exact relationship to accepted decisions](0020-workflow-definition-revision-binding.md#exact-relationship-to-accepted-decisions):
   only the separate sequential/graph executor assertion; immutable definition
   binding and rework linkage remain.

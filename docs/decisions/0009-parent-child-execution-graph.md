@@ -83,6 +83,11 @@ artifacts or retained Evidence, so an ADR is required before implementation.
    allowlisted choices. No-match blocks; fallback requires an explicit newly
    authorized graph/envelope revision. Codex and Claude are the two concrete S8
    acceptance Runtime paths, never domain identities or permanent vendor coupling.
+
+> Superseded by [ADR-0037 — One canonical Execution for new workflow runs](0037-one-canonical-execution-for-new-runs.md#decision), accepted 2026-10-30.
+> Only capability/complexity-based Runtime/Model Profile selection for new runs
+> is superseded. Explicit target restrictions, frozen invocation identity and
+> no silent substitution remain. Historical text is preserved for traceability.
 9. Credentials remain behind Runtime/Integration-owned machine-local references.
    They are not copied into graph, coordination, prompt, artifact or Evidence
    content. A child gets only the minimum credential capability for its effects.
