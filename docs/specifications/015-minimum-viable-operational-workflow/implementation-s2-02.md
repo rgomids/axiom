@@ -164,6 +164,15 @@ the final drain. Fixed in `exchange.go` (context cancellation no longer
 fail-closes the area) before commit; the 20× run above is after the fix. No
 assertion was weakened.
 
+Retained CI failure: [CI run 41500519022](https://github.com/rgomids/axiom/actions/runs/41500519022)
+at `84c3159ce7e7da97e293a70948e7bc2cfa08912e` failed in pinned Staticcheck
+v0.8.1: `internal/local/s8_stores_test.go:99:6: func opaqueID is unused (U1000)`.
+The retirement commit deleted that test helper's only caller. Later CI steps
+did not run in that job. The fix removes the helper only; `go vet` and
+`go test ./internal/local` pass afterwards (exit 0, 51.4s). Delivery metadata at that
+SHA: success. The final-SHA CI result is reported in the PR comment and
+completion receipt, never inferred here.
+
 Not run locally, with reason:
 
 - `./scripts/check-go-quality.sh`, `bash scripts/validate-repository.sh .`,

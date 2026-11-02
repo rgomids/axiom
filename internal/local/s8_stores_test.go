@@ -96,8 +96,6 @@ func localGraphFixture(t *testing.T) executiongraph.Graph {
 	return graph
 }
 
-func opaqueID(value int) string { return fmt.Sprintf("00000000-0000-4000-8000-%012d", value) }
-
 func coordinationRecord(graph executiongraph.Graph) coordination.Record {
 	record := coordination.Record{FormatVersion: 1, RecordID: "00000000-0000-4000-8000-000000000010", Kind: coordination.Progress, ParentID: graph.Parent.ExecutionID, ChildID: graph.Children[0].ExecutionID, GraphRevision: graph.Parent.GraphRevision, Revision: 1, Provenance: coordination.Provenance{Product: "Axiom", Version: "dev", Revision: "abc", SourceState: "clean"}, Fields: []coordination.Field{{Name: "phase", Value: "testing"}}, CreatedAt: time.Unix(2, 0).UTC()}
 	// Service is responsible for the digest; use it against a memory-like store.
