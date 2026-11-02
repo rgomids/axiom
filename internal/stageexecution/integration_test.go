@@ -866,9 +866,104 @@ func TestIntegrationCheckObservationSemantics(t *testing.T) {
 			e := Engine{Runner: &fakeRunner{run: func(context.Context, executiongraph.Invocation, func(*executiongraph.ProcessCorrelation) error) executiongraph.ProcessResult {
 				return tc.result
 			}}}
-			got := e.runIntegrationCheck(context.Background(), t.TempDir(), checkCommand("exit 0", 10)[0])
+			got := e.runIntegrationCheck(context.Background(), t.TempDir(), checkCommand("exit 0", 10)[0], func() error { return nil })
 			if got.Status != tc.want {
 				t.Fatalf("got %+v, want %s", got, tc.want)
+			}
+		})
+	}
+}
+
+// S23-CR-02: lease-free persisted cancellation stops this scope and no later check.
+func TestIntegratePersistedCancelChecks(t *testing.T) {
+	for _, mode := range []string{"active-group", "unconfirmed-stop", "between-checks", "start-race"} {
+		t.Run(mode, func(t *testing.T) {
+			f := newIntegrationFixture(t, map[string]edit{"a": commitFile("a.txt", "changed\n")})
+			marker := filepath.Join(t.TempDir(), "running")
+			f.checks = checkCommand("echo ready > '"+marker+"'; sleep 30", 10)
+			second := checkCommand("exit 0", 10)[0]
+			second.ID = "second"
+			f.checks = append(f.checks, second)
+			x := f.start(engineExecutionID, "a")
+			cancelIntent := func() {
+				if _, err := f.engine.Cancel(context.Background(), "proj", engineExecutionID, "human:maintainer"); err != nil {
+					t.Error(err)
+				}
+			}
+			entered := make(chan struct{})
+			r := &fakeRunner{run: func(ctx context.Context, inv executiongraph.Invocation, started func(*executiongraph.ProcessCorrelation) error) executiongraph.ProcessResult {
+				if mode == "between-checks" {
+					cancelIntent()
+					return executiongraph.ProcessResult{}
+				}
+				if mode == "unconfirmed-stop" {
+					close(entered)
+					<-ctx.Done()
+					return executiongraph.ProcessResult{ExitCode: -1, OutcomeUnknown: true, EffectAmbiguous: true}
+				}
+				return (executiongraph.OSProcessRunner{}).RunObserved(ctx, inv, func(p *executiongraph.ProcessCorrelation) error {
+					f.lastCheck.Store(p)
+					if mode == "start-race" {
+						cancelIntent()
+					}
+					return started(p)
+				})
+			}}
+			f.engine.Runner = r
+			ctx, stop := context.WithTimeout(context.Background(), 5*time.Second)
+			defer stop()
+			type outcome struct {
+				x   workflow.Execution
+				err error
+			}
+			done := make(chan outcome, 1)
+			go func() {
+				got, err := f.engine.Integrate(ctx, "proj", engineExecutionID, f.git, f.request(x, "a", "cancel-check", f.base))
+				done <- outcome{got, err}
+			}()
+			if mode == "active-group" {
+				deadline := time.After(3 * time.Second)
+				for {
+					if _, err := os.Stat(marker); err == nil {
+						break
+					}
+					select {
+					case <-deadline:
+						t.Fatal("check never reached barrier")
+					case <-time.After(10 * time.Millisecond):
+					}
+				}
+				cancelIntent()
+			} else if mode == "unconfirmed-stop" {
+				select {
+				case <-entered:
+				case <-time.After(3 * time.Second):
+					t.Fatal("check never started")
+				}
+				cancelIntent()
+			}
+			var got outcome
+			select {
+			case got = <-done:
+			case <-time.After(2 * time.Second):
+				stop()
+				<-done // join the runner even when the regression fails
+				t.Fatal("persisted cancel did not stop active check")
+			}
+			wantErr := ErrNotIntegrated
+			if mode == "unconfirmed-stop" || mode == "start-race" {
+				wantErr = ErrIntegrationUnknown
+			}
+			if !errors.Is(got.err, wantErr) || r.spawns.Load() != 1 || f.target() != f.base {
+				t.Fatalf("cancel: calls=%d status=%s err=%v", r.spawns.Load(), got.x.Status, got.err)
+			}
+			if wantErr == ErrIntegrationUnknown && got.x.Status != workflow.RunRecoveryRequired {
+				t.Fatalf("uncertain stop lost: %+v", got.x.Integrations)
+			}
+			if p := f.lastCheck.Load(); p != nil {
+				if current, err := executiongraph.ObserveRecordedProcess(*p); err != nil || current != nil && current.StartIdentity == p.StartIdentity {
+					t.Fatalf("owned process survives: %+v %v", current, err)
+				}
 			}
 		})
 	}

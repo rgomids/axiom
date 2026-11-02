@@ -137,8 +137,20 @@ func (e Engine) Integrate(ctx context.Context, projectID, executionID string, gi
 			stage = s
 		}
 	}
+	checkCtx, stopChecks := context.WithCancel(ctx)
+	joinCancel := e.watchCancel(checkCtx, stopChecks, projectID, executionID)
+	defer joinCancel()
+	beforeStart := func() error {
+		if checkCtx.Err() != nil || e.cancelPersisted(ctx, projectID, executionID) {
+			return workflow.ErrCancelled
+		}
+		return nil
+	}
 	for _, check := range stage.Commands {
-		result := e.runIntegrationCheck(ctx, path, check)
+		if beforeStart() != nil {
+			return finish(workflow.IntegrationNotIntegrated, "cancelled_before_check")
+		}
+		result := e.runIntegrationCheck(checkCtx, path, check, beforeStart)
 		record.Checks = append(record.Checks, result)
 		if result.Status == workflow.CheckUnknown {
 			return finish(workflow.IntegrationUnknown, "post_merge_check_unknown")
@@ -178,7 +190,7 @@ func (e Engine) Integrate(ctx context.Context, projectID, executionID string, gi
 // runIntegrationCheck re-runs one authorized stage command on the merged tree
 // through the ADR-0028 observed process boundary with an exact minimal
 // environment. Unconfirmed process/effect outcomes remain unknown.
-func (e Engine) runIntegrationCheck(ctx context.Context, cwd string, check workflow.CommandCheck) workflow.IntegrationCheck {
+func (e Engine) runIntegrationCheck(ctx context.Context, cwd string, check workflow.CommandCheck, beforeStart func() error) workflow.IntegrationCheck {
 	terminated := workflow.IntegrationCheck{ID: check.ID, Status: workflow.CheckTerminated, ExitCode: -1}
 	if len(check.Argv) == 0 || !filepath.IsAbs(check.Argv[0]) || !cleanRuntimePath(check.Argv[0]) || !cleanRuntimePath(cwd) {
 		return terminated
@@ -188,7 +200,13 @@ func (e Engine) runIntegrationCheck(ctx context.Context, cwd string, check workf
 	gate := []string{commandGateShell, "-c", commandGateScript, "axiom-command-gate", check.Argv[0]}
 	inv := executiongraph.Invocation{Argv: append(gate, check.Argv[1:]...), CWD: cwd, Stdin: []byte("axiom-command-start\n"), OutputMax: 4096}
 	inv = executiongraph.WithExactEnvironment(inv, []string{"PATH=/usr/bin:/bin", "LC_ALL=C"})
-	result := e.Runner.RunObserved(checkCtx, inv, func(*executiongraph.ProcessCorrelation) error { return nil })
+	if beforeStart() != nil {
+		return terminated
+	}
+	result := e.Runner.RunObserved(checkCtx, inv, func(*executiongraph.ProcessCorrelation) error {
+		// The command gate still holds stdin while persisted cancellation is checked.
+		return beforeStart()
+	})
 	if result.OutcomeUnknown || result.EffectAmbiguous {
 		return workflow.IntegrationCheck{ID: check.ID, Status: workflow.CheckUnknown, ExitCode: result.ExitCode}
 	}
