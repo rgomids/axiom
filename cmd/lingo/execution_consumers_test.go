@@ -17,7 +17,7 @@ func TestCanonicalReadinessIgnoresLegacyLedgersAndGrantsNoEffects(t *testing.T) 
 	done := f.run(t, cli.ExitSuccess, minimalRun("--authorize-external")...)
 	service := f.env.service.(lifecycleService)
 	// Deliberately undecodable historical bytes cannot become current truth.
-	for _, family := range []string{"graphs/v1", "single-stage-runs/v1", "executions/v1"} {
+	for _, family := range []string{"graphs/v1", "single-stage-runs/v1", "executions/v1", "coordination/v1"} {
 		path := filepath.Join(f.env.state, family, "legacy.json")
 		if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 			t.Fatal(err)

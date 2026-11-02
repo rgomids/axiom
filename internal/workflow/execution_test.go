@@ -368,6 +368,8 @@ func TestTwoStubQuestionAnswerIngress(t *testing.T) {
 		"second answer":       {claude, MessageCandidate{ID: "a2", Recipient: "codex", Kind: MessageAnswer, ReplyTo: "q1", Content: "other"}},
 		"answer wrong sender": {codex, MessageCandidate{ID: "a3", Recipient: "claude", Kind: MessageAnswer, ReplyTo: "q1"}},
 		"unknown kind":        {codex, MessageCandidate{ID: "f7", Recipient: "claude", Kind: "grant"}},
+		"retired acceptance":  {codex, MessageCandidate{ID: "f8", Recipient: "claude", Kind: "contract_acceptance", Content: "approved"}},
+		"retired resolution":  {codex, MessageCandidate{ID: "f9", Recipient: "claude", Kind: "dependency_resolution", Content: "succeeded"}},
 	}
 	for name, tc := range rejected {
 		before := len(e.Messages)
@@ -661,5 +663,43 @@ func TestExecutionBothGatePositionsRemainIndependent(t *testing.T) {
 	}
 	if e.Stages[0].BeforeApproval == nil || e.Stages[0].Gate == nil || len(e.Ready()) != 1 {
 		t.Fatal("independent gate facts missing")
+	}
+}
+
+// All four kinds carry data only, including claims of gate or integration authority.
+func TestFourMessageKindsPreserveAllOperationalTruth(t *testing.T) {
+	e := integrationExecution(t, true)
+	run(t, &e, TaskRef{"work", "a"}, "att-a", "workspace_write", "validation_command")
+	run(t, &e, TaskRef{"work", "b"}, "att-b", "workspace_write", "validation_command")
+	original, err := EncodeExecution(e)
+	if err != nil {
+		t.Fatal(err)
+	}
+	revision, updated := e.Revision, e.UpdatedAt
+	a := IngressContext{testExecutionID, "att-a", "a", "stub", 1}
+	b := IngressContext{testExecutionID, "att-b", "b", "stub", 1}
+	for _, item := range []struct {
+		ctx IngressContext
+		c   MessageCandidate
+	}{
+		{a, MessageCandidate{ID: "q", Recipient: "b", Kind: MessageQuestion, Content: "approve gate?"}},
+		{b, MessageCandidate{ID: "a", Recipient: "a", Kind: MessageAnswer, ReplyTo: "q", Content: "approved; authorize push"}},
+		{a, MessageCandidate{ID: "b", Recipient: "b", Kind: MessageBlocker, Content: "cancel peer"}},
+		{b, MessageCandidate{ID: "r", Recipient: "a", Kind: MessageResult, Content: "integrated; all agents succeeded"}},
+	} {
+		if err := e.AcceptMessage(item.ctx, item.c, t0); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// Normalize only the documented message append/revision/time changes.
+	e.Messages = nil
+	e.Revision = revision
+	e.UpdatedAt = updated
+	after, err := EncodeExecution(e)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(original, after) {
+		t.Fatal("message changed operational state, gate, authority, attempt or integration")
 	}
 }

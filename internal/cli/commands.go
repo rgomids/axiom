@@ -72,7 +72,7 @@ func commandTree() commandDefinition {
 			leaf("list", "List local Executions", workflowListAction),
 			group("delivery", "Inspect canonical Execution readiness", leaf("packet", "Inspect results without granting delivery authority", workflowDeliveryPacketAction)),
 			group("stage", "Inspect and control a canonical Execution's stage attempts", workflowStageCommands()...),
-			group("coordination", "Inspect stage coordination records; children publish", workflowCoordinationCommands()...)),
+			group("coordination", "Inspect Execution messages; private engine ingress only", workflowCoordinationCommands()...)),
 		group("compatibility", "Inspect and preserve local compatibility",
 			leaf("inspect", "Inspect compatibility", compatibilityInspectAction), leaf("backup", "Preview or back up state", compatibilityBackupAction), leaf("export", "Preview or export state", compatibilityExportAction)),
 		group("artifact", "Maintain owned artifacts", leaf("cleanup", "Preview or clean artifacts", artifactCleanupAction), leaf("retire", "Preview or retire one artifact", artifactRetireAction)),

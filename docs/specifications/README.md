@@ -26,6 +26,9 @@ records cross-Runtime messages through the canonical attempt ingress and the
 retired independent inbox/ingest/stream reader.
 [S2.3 Evidence](015-minimum-viable-operational-workflow/implementation-s2-03.md)
 records isolated agent worktrees and principal-controlled integration state.
+[S2.4 Evidence](015-minimum-viable-operational-workflow/implementation-s2-04.md)
+records coordination writer retirement, historical decoder survival proof,
+canonical message/gate invariants and scoped validation.
 [CR-S1-06 correction](015-minimum-viable-operational-workflow/correction-cr-s1-06.md):
 the cutover inventory catalog now covers capability evidence, probe envelopes and Project context.
 [CR-S1-07 correction](015-minimum-viable-operational-workflow/correction-cr-s1-07.md):

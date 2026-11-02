@@ -1,22 +1,16 @@
-// Package coordination owns bounded structured child coordination records.
+// Package coordination decodes inert format-1 history for upgrade inventory only.
+// New runs use workflow.Message; this package has no publisher, store or authority verifier.
 package coordination
 
 import (
-	"bytes"
-	"context"
-	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"regexp"
-	"sort"
 	"strings"
 	"time"
-
-	"github.com/rgomids/axiom/internal/executiongraph"
 )
 
 const (
@@ -30,8 +24,6 @@ const (
 
 var (
 	ErrInvalidRecord     = errors.New("invalid coordination record")
-	ErrStaleRevision     = errors.New("stale coordination revision")
-	ErrCapacity          = errors.New("coordination capacity exhausted")
 	sensitiveAssignment  = regexp.MustCompile(`(?i)\b(?:password|passwd|token|api[_-]?key|client[_-]?secret|secret|authorization)[ \t]*[:=][ \t]*["']?[^ \t"']{4,}`)
 	bearerCredential     = regexp.MustCompile(`(?i)\bauthorization[ \t]*:[ \t]*bearer[ \t]+[a-z0-9._~+/=-]{8,}`)
 	privateKeyCredential = regexp.MustCompile(`(?i)-----begin (?:[a-z0-9]+ )*private key-----`)
@@ -100,83 +92,6 @@ type Stream struct {
 	Records       []Record `json:"records"`
 }
 
-type Input struct {
-	Kind             Kind
-	ParentID         string
-	ChildID          string
-	GraphRevision    uint64
-	AttemptID        string
-	ExpectedRevision uint64
-	PreviousDigest   string
-	Provenance       Provenance
-	Fields           []Field
-	Usage            *UsageObservation
-}
-
-type Store interface {
-	Latest(context.Context, string, string) (Record, bool, error)
-	Publish(context.Context, Record) error
-}
-
-type Service struct {
-	store      Store
-	allocateID func() (string, error)
-	now        func() time.Time
-}
-
-func New(store Store, allocateID func() (string, error), now func() time.Time) Service {
-	if allocateID == nil {
-		allocateID = randomID
-	}
-	if now == nil {
-		now = time.Now
-	}
-	return Service{store: store, allocateID: allocateID, now: now}
-}
-
-func (s Service) Publish(ctx context.Context, graph executiongraph.Graph, input Input) (Record, error) {
-	if s.store == nil || !executiongraph.ValidGraph(graph) || !validInput(graph, input) {
-		return Record{}, ErrInvalidRecord
-	}
-	latest, exists, err := s.store.Latest(ctx, input.ParentID, input.ChildID)
-	if err != nil {
-		return Record{}, err
-	}
-	expected := uint64(0)
-	previousDigest := ""
-	if exists {
-		expected = latest.Revision
-		previousDigest = latest.Digest
-	}
-	if input.ExpectedRevision != expected || input.PreviousDigest != previousDigest {
-		return Record{}, ErrStaleRevision
-	}
-	if expected >= maxStreamRecords {
-		return Record{}, ErrCapacity
-	}
-	recordID, err := s.allocateID()
-	if err != nil || !validID(recordID) {
-		return Record{}, ErrInvalidRecord
-	}
-	record := Record{
-		FormatVersion: FormatVersion, RecordID: recordID, Kind: input.Kind, ParentID: input.ParentID, ChildID: input.ChildID,
-		GraphRevision: input.GraphRevision, AttemptID: input.AttemptID, Revision: expected + 1, PreviousDigest: previousDigest,
-		Provenance: input.Provenance, Fields: sortedFields(input.Fields), Usage: input.Usage, CreatedAt: s.now().UTC(),
-	}
-	digest, err := recordDigest(record)
-	if err != nil {
-		return Record{}, err
-	}
-	record.Digest = digest
-	if !ValidRecord(record) {
-		return Record{}, ErrInvalidRecord
-	}
-	if err := s.store.Publish(ctx, record); err != nil {
-		return Record{}, err
-	}
-	return record, nil
-}
-
 func ValidRecord(record Record) bool {
 	if record.FormatVersion != FormatVersion || !validID(record.RecordID) || !validKind(record.Kind) || !validID(record.ParentID) || !validID(record.ChildID) || record.GraphRevision == 0 || record.Revision == 0 || record.Revision > maxStreamRecords || record.CreatedAt.IsZero() || !validDigest(record.Digest) || !validProvenance(record.Provenance) || len(record.Fields) == 0 || len(record.Fields) > maxFields {
 		return false
@@ -205,62 +120,6 @@ func ValidRecord(record Record) bool {
 	return err == nil && digest == record.Digest
 }
 
-// AcceptanceVerifier is the production executiongraph.CoordinationVerifier.
-// It derives acceptance facts only from a canonical encoded record whose digest
-// is recomputed from its content.
-type AcceptanceVerifier struct{}
-
-func (AcceptanceVerifier) VerifyCoordination(wire []byte) (executiongraph.CoordinationEvidence, error) {
-	record, err := Decode(wire)
-	if err != nil {
-		return executiongraph.CoordinationEvidence{}, err
-	}
-	evidence := executiongraph.CoordinationEvidence{RecordID: record.RecordID, Kind: string(record.Kind), ParentID: record.ParentID, GraphRevision: record.GraphRevision, ChildID: record.ChildID, AttemptID: record.AttemptID, Digest: record.Digest}
-	for _, field := range record.Fields {
-		switch {
-		case record.Kind == Answer && field.Name == "question_reference", record.Kind == ContractAcceptance && field.Name == "contract_reference":
-			evidence.Reference = field.Value
-		case record.Kind == ContractAcceptance && field.Name == "decision":
-			evidence.Decision = field.Value
-		}
-	}
-	return evidence, nil
-}
-
-func Encode(record Record) ([]byte, error) {
-	if !ValidRecord(record) {
-		return nil, ErrInvalidRecord
-	}
-	wire, err := json.Marshal(record)
-	if err != nil || len(wire)+1 > MaxRecordBytes {
-		return nil, ErrInvalidRecord
-	}
-	return append(wire, '\n'), nil
-}
-
-// Decode accepts exactly the canonical encoding produced by Encode: the record
-// must decode strictly, pass ValidRecord (which recomputes the digest from the
-// content) and re-encode to the same bytes.
-func Decode(wire []byte) (Record, error) {
-	if len(wire) == 0 || len(wire) > MaxRecordBytes {
-		return Record{}, ErrInvalidRecord
-	}
-	decoder := json.NewDecoder(bytes.NewReader(wire))
-	decoder.DisallowUnknownFields()
-	var record Record
-	if err := decoder.Decode(&record); err != nil {
-		return Record{}, ErrInvalidRecord
-	}
-	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
-		return Record{}, ErrInvalidRecord
-	}
-	canonical, err := Encode(record)
-	if err != nil || !bytes.Equal(canonical, wire) {
-		return Record{}, ErrInvalidRecord
-	}
-	return record, nil
-}
-
 func ValidStream(stream Stream) bool {
 	if stream.FormatVersion != FormatVersion || !validID(stream.ParentID) || !validID(stream.ChildID) || len(stream.Records) == 0 || len(stream.Records) > maxStreamRecords {
 		return false
@@ -273,17 +132,6 @@ func ValidStream(stream Stream) bool {
 		previous = record.Digest
 	}
 	return true
-}
-
-func EncodeStream(stream Stream) ([]byte, error) {
-	if !ValidStream(stream) {
-		return nil, ErrInvalidRecord
-	}
-	wire, err := json.Marshal(stream)
-	if err != nil || len(wire)+1 > MaxStreamBytes {
-		return nil, ErrInvalidRecord
-	}
-	return append(wire, '\n'), nil
 }
 
 func DecodeStream(wire []byte) (Stream, error) {
@@ -300,38 +148,6 @@ func DecodeStream(wire []byte) (Stream, error) {
 		return Stream{}, ErrInvalidRecord
 	}
 	return stream, nil
-}
-
-func validInput(graph executiongraph.Graph, input Input) bool {
-	if input.ParentID != graph.Parent.ExecutionID || input.GraphRevision != graph.Parent.GraphRevision || !validKind(input.Kind) || !validProvenance(input.Provenance) || len(input.Fields) == 0 || len(input.Fields) > maxFields {
-		return false
-	}
-	childFound := false
-	attemptFound := input.AttemptID == ""
-	for _, child := range graph.Children {
-		if child.ExecutionID != input.ChildID {
-			continue
-		}
-		childFound = true
-		for _, attempt := range child.Attempts {
-			if attempt.AttemptID == input.AttemptID {
-				attemptFound = true
-			}
-		}
-	}
-	if !validResultOutcome(input.Kind, input.Fields) {
-		return false
-	}
-	probe := Record{Kind: input.Kind, Fields: input.Fields, Usage: input.Usage}
-	allowed := allowedFields(probe.Kind)
-	seen := map[string]bool{}
-	for _, field := range probe.Fields {
-		if !allowed[field.Name] || seen[field.Name] || !validValue(field.Value) {
-			return false
-		}
-		seen[field.Name] = true
-	}
-	return childFound && attemptFound && (input.Usage == nil || validUsage(*input.Usage))
 }
 
 func allowedFields(kind Kind) map[string]bool {
@@ -426,12 +242,6 @@ func validDigest(value string) bool {
 	return err == nil && len(decoded) == sha256.Size
 }
 
-func sortedFields(fields []Field) []Field {
-	result := append([]Field(nil), fields...)
-	sort.Slice(result, func(i, j int) bool { return result[i].Name < result[j].Name })
-	return result
-}
-
 func recordDigest(record Record) (string, error) {
 	record.Digest = ""
 	wire, err := json.Marshal(record)
@@ -440,16 +250,6 @@ func recordDigest(record Record) (string, error) {
 	}
 	digest := sha256.Sum256(wire)
 	return hex.EncodeToString(digest[:]), nil
-}
-
-func randomID() (string, error) {
-	var value [16]byte
-	if _, err := rand.Read(value[:]); err != nil {
-		return "", err
-	}
-	value[6] = value[6]&0x0f | 0x40
-	value[8] = value[8]&0x3f | 0x80
-	return fmt.Sprintf("%08x-%04x-%04x-%04x-%012x", value[0:4], value[4:6], value[6:8], value[8:10], value[10:16]), nil
 }
 
 // ResultOutcome is the closed terminal result vocabulary.
@@ -470,45 +270,4 @@ func validResultOutcome(kind Kind, fields []Field) bool {
 		}
 	}
 	return false
-}
-
-// ClassifierRecord projects only validated canonical records. An invalid or
-// rejected candidate yields an unaccepted projection and cannot qualify work.
-func ClassifierRecord(record Record) executiongraph.AttemptRecord {
-	if !ValidRecord(record) {
-		return executiongraph.AttemptRecord{}
-	}
-	projected := executiongraph.AttemptRecord{ParentID: record.ParentID, ChildID: record.ChildID, AttemptID: record.AttemptID, GraphRevision: record.GraphRevision, Revision: record.Revision, Kind: string(record.Kind), Digest: record.Digest, Accepted: true}
-	for _, field := range record.Fields {
-		if field.Name == "outcome" {
-			projected.Outcome = field.Value
-		}
-	}
-	return projected
-}
-
-// AttemptCapacity divides the stream evenly; each attempt reserves one slot
-// for its terminal result or blocker. Remainder slots stay unallocated.
-func AttemptCapacity(maximumAttempts uint32) (int, error) {
-	if maximumAttempts == 0 || maximumAttempts > 10 {
-		return 0, ErrCapacity
-	}
-	return maxStreamRecords / int(maximumAttempts), nil
-}
-
-// CheckAttemptCapacity checks the next publication using the number of records
-// already accepted for this attempt. Ingestion supplies that count.
-func CheckAttemptCapacity(maximumAttempts uint32, accepted int, kind Kind) error {
-	capacity, err := AttemptCapacity(maximumAttempts)
-	if err != nil || accepted < 0 || !validKind(kind) {
-		return ErrCapacity
-	}
-	limit := capacity - 1
-	if kind == Result || kind == Blocker {
-		limit = capacity
-	}
-	if accepted >= limit {
-		return ErrCapacity
-	}
-	return nil
 }

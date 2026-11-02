@@ -111,9 +111,9 @@ func workflowStageCommands() []commandDefinition {
 
 func workflowCoordinationCommands() []commandDefinition {
 	return []commandDefinition{
-		leaf("list", "List canonical coordination records (read-only)", workflowCoordinationListAction),
-		leaf("show", "Inspect one canonical coordination record", workflowCoordinationShowAction),
-		leaf("publish", "Publish into the running child's own inbox (child only)", workflowCoordinationPublishAction),
+		leaf("list", "List canonical Execution messages (read-only)", workflowCoordinationListAction),
+		leaf("show", "Inspect one canonical Execution message", workflowCoordinationShowAction),
+		leaf("publish", "Retired publication spelling; always refuses (private engine ingress only)", workflowCoordinationPublishAction),
 	}
 }
 
@@ -170,14 +170,14 @@ func workflowStageFlagSet(operation action, in *WorkflowStageInput) *flag.FlagSe
 	}
 	switch operation {
 	case workflowCoordinationListAction:
-		set.StringVar(&in.Child, "child", "", "Child stream; `<child-id>`.")
+		set.StringVar(&in.Child, "child", "", "Sender agent filter; `<agent-id>` (no child Execution).")
 		set.StringVar(&in.Attempt, "attempt", "", "Attempt filter; `<attempt-id>`.")
-		set.StringVar(&in.Kind, "kind", "", "Record kind filter; `<kind>`.")
-		set.Uint64Var(&in.After, "after", 0, "Only revisions after this one; `<revision>`.")
-		set.DurationVar(&in.Wait, "wait", 0, "Bounded wait for a newer record; `<duration>` (max 30s).")
+		set.StringVar(&in.Kind, "kind", "", "Message kind filter; question, answer, blocker or result.")
+		set.Uint64Var(&in.After, "after", 0, "Retired stream cursor; nonzero values are refused.")
+		set.DurationVar(&in.Wait, "wait", 0, "Retired stream wait; nonzero values are refused.")
 	case workflowCoordinationShowAction:
-		set.StringVar(&in.Child, "child", "", "Child stream; `<child-id>`.")
-		set.StringVar(&in.Record, "record", "", "Canonical record identity; `<record-id>`.")
+		set.StringVar(&in.Child, "child", "", "Sender agent filter; `<agent-id>` (no child Execution).")
+		set.StringVar(&in.Record, "record", "", "Execution message identity; `<message-id>`.")
 	case workflowCoordinationPublishAction:
 		set.StringVar(&in.Kind, "kind", "", "Record kind; `<kind>`.")
 		set.Func("field", "Record field; repeat `<name>=<value>`.", func(v string) error {

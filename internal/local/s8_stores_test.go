@@ -13,7 +13,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/rgomids/axiom/internal/coordination"
 	"github.com/rgomids/axiom/internal/executiongraph"
 	"github.com/rgomids/axiom/internal/runtimeprofile"
 )
@@ -94,83 +93,6 @@ func localGraphFixture(t *testing.T) executiongraph.Graph {
 	}
 	graph := fixtureGraph(t, proposal, 1, workspaces, resolutions)
 	return graph
-}
-
-func coordinationRecord(graph executiongraph.Graph) coordination.Record {
-	record := coordination.Record{FormatVersion: 1, RecordID: "00000000-0000-4000-8000-000000000010", Kind: coordination.Progress, ParentID: graph.Parent.ExecutionID, ChildID: graph.Children[0].ExecutionID, GraphRevision: graph.Parent.GraphRevision, Revision: 1, Provenance: coordination.Provenance{Product: "Axiom", Version: "dev", Revision: "abc", SourceState: "clean"}, Fields: []coordination.Field{{Name: "phase", Value: "testing"}}, CreatedAt: time.Unix(2, 0).UTC()}
-	// Service is responsible for the digest; use it against a memory-like store.
-	service := coordination.New(&recordCapture{}, func() (string, error) { return record.RecordID, nil }, func() time.Time { return record.CreatedAt })
-	published, _ := service.Publish(context.Background(), graph, coordination.Input{Kind: record.Kind, ParentID: record.ParentID, ChildID: record.ChildID, GraphRevision: record.GraphRevision, Provenance: record.Provenance, Fields: record.Fields})
-	return published
-}
-
-type recordCapture struct{}
-
-func (*recordCapture) Latest(context.Context, string, string) (coordination.Record, bool, error) {
-	return coordination.Record{}, false, nil
-}
-func (*recordCapture) Publish(context.Context, coordination.Record) error { return nil }
-
-func TestCoordinationServiceBootstrapsMissingStoreHierarchy(t *testing.T) {
-	for _, level := range []string{"absent", "root", "coordination", "version", "project"} {
-		t.Run(level, func(t *testing.T) {
-			root := filepath.Join(t.TempDir(), "state")
-			paths := []string{root, filepath.Join(root, "coordination"), filepath.Join(root, "coordination", "v1"), filepath.Join(root, "coordination", "v1", "project-1")}
-			for index, name := range []string{"root", "coordination", "version", "project"} {
-				if level == "absent" {
-					break
-				}
-				if err := os.Mkdir(paths[index], 0o700); err != nil {
-					t.Fatal(err)
-				}
-				if level == name {
-					break
-				}
-			}
-			store, err := NewCoordinationStore(root, "project-1")
-			if err != nil {
-				t.Fatal(err)
-			}
-			graph := localGraphFixture(t)
-			if _, exists, err := store.Latest(context.Background(), graph.Parent.ExecutionID, graph.Children[0].ExecutionID); err != nil || exists {
-				t.Fatalf("fresh latest exists=%t err=%v", exists, err)
-			}
-			if level == "absent" {
-				if _, err := os.Stat(root); !os.IsNotExist(err) {
-					t.Fatalf("read created root: %v", err)
-				}
-			}
-			record, err := coordination.New(store, nil, nil).Publish(context.Background(), graph, coordination.Input{
-				Kind: coordination.QuestionRequest, ParentID: graph.Parent.ExecutionID, ChildID: graph.Children[0].ExecutionID, GraphRevision: graph.Parent.GraphRevision,
-				Provenance: coordination.Provenance{Product: "lingo", Version: "development", Revision: "test", SourceState: "clean"}, Fields: []coordination.Field{{Name: "question", Value: "Which contract?"}},
-			})
-			if err != nil {
-				t.Fatal(err)
-			}
-			latest, exists, err := store.Latest(context.Background(), graph.Parent.ExecutionID, graph.Children[0].ExecutionID)
-			if err != nil || !exists || latest.Digest != record.Digest {
-				t.Fatalf("round trip exists=%t err=%v", exists, err)
-			}
-		})
-	}
-}
-
-func TestCoordinationLatestRejectsUnsafeHierarchy(t *testing.T) {
-	root := filepath.Join(t.TempDir(), "state")
-	if err := os.Mkdir(root, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Chmod(root, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	store, err := NewCoordinationStore(root, "project-1")
-	if err != nil {
-		t.Fatal(err)
-	}
-	graph := localGraphFixture(t)
-	if _, exists, err := store.Latest(context.Background(), graph.Parent.ExecutionID, graph.Children[0].ExecutionID); !errors.Is(err, ErrUnsafe) || exists {
-		t.Fatalf("unsafe latest exists=%t err=%v", exists, err)
-	}
 }
 
 // fixtureGraph constructs inert integration/codec test data. It has no writer,

@@ -36,7 +36,7 @@ import (
 // different gap:
 //
 //   - every top-level directory a store opens is classified by the inventory;
-//   - every v1 kind is produced by a real writer and read back as supported;
+//   - current writer output and inert historical kinds are recognized;
 //   - the frozen stable corpus (internal/compatibility/testdata/stable-v1),
 //     written by earlier writers, keeps resolving to a direct upgrade.
 
@@ -175,7 +175,7 @@ func TestEveryV1WriterIsRecognizedByInventory(t *testing.T) {
 	}
 }
 
-// writeEveryV1Kind drives each v1 store's public write path into fresh roots.
+// writeEveryV1Kind exercises retained stores and frozen history in fresh roots.
 func writeEveryV1Kind(t *testing.T) (string, string) {
 	t.Helper()
 	base := privateTestRoot(t)
@@ -281,13 +281,13 @@ func writeEveryV1Kind(t *testing.T) (string, string) {
 	originalWire := mustHistoricalWire(encodeExecution(original))
 	historicalFixtureWire(t, state, "executions", original.ProjectID, retainedExecutionName(original.ExecutionID), originalWire)
 	historicalFixtureWire(t, state, "executions", original.ProjectID, reworkName(original.ExecutionID), mustHistoricalWire(workflow.EncodeReworkPreview(rework)))
-	streams, err := NewCoordinationStore(state, authority.ProjectID)
+	// Frozen bytes exercise historical recognition without restoring a retired writer.
+	streamPath := filepath.Join("..", "compatibility", "testdata", "stable-v1", "snapshots", "v0.8.1-issue233", "state", "coordination", "v1", "project-1", coordinationName(graph.Parent.ExecutionID, graph.Children[0].ExecutionID))
+	streamWire, err := os.ReadFile(streamPath)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := streams.Publish(context.Background(), coordinationRecord(graph)); err != nil {
-		t.Fatal(err)
-	}
+	historicalFixtureWire(t, state, "coordination", authority.ProjectID, filepath.Base(streamPath), streamWire)
 	profiles, err := NewRuntimeProfileStore(state)
 	if err != nil {
 		t.Fatal(err)

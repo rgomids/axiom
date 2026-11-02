@@ -29,6 +29,10 @@ fixture checks establishes document consistency only.
 > not re-enabled. Workflow intent, Work Item/repository identity, immutable
 > provenance, real authority, honest outcomes and immutable rejected history
 > remain. Historical text below is preserved.
+> S2.4 [implementation reconciliation](../015-minimum-viable-operational-workflow/implementation-s2-04.md)
+> retires the independent coordination writer/acceptance verifier. New runs use
+> Execution-owned question/answer/blocker/result facts; none can satisfy a gate.
+> Historical format recognition remains inventory-only, with no operational store.
 
 Audit baseline: `c7260797aad7865419f555eea94a2eef7ae78285`; authoring inspection:
 `73dce6df0ab590b37df0e5a19b1483737bf1ca1e` (main). Existing

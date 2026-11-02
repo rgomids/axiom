@@ -426,8 +426,10 @@ selects one format-4 Execution under `executions/v2`, one fenced
 `stageexecution.Engine` and frozen per-attempt invocation/authority. The public
 `workflow run` uses that engine; its status, cancel, retry and reconcile operations
 address the same aggregate. Graph/Single supervisors and dispatch are retired.
-Retained historical lifecycle, delivery and coordination readers are unresolved
-cutover work, not a second supported engine. See
+Retained historical lifecycle/delivery contracts await S3 reconciliation.
+Coordination format-1 survives only as an inert upgrade-inventory decoder; its
+store, publisher and authority verifier are removed. New messages use only
+`workflow.Message` and `Execution.AcceptMessage`, never a second state owner. See
 [S1-05 Evidence](../specifications/015-minimum-viable-operational-workflow/implementation-s1-05.md)
 for the precise completion limits. No real cutover is certified.
 

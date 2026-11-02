@@ -235,15 +235,10 @@ func TestEverySupportedRecordLoadsThroughItsCanonicalStore(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			// The stream's Project is the directory the inventory bound to
-			// its owning graph.
-			store, err := NewCoordinationStore(state, parts[2])
-			if err != nil {
-				t.Fatal(err)
+			if coordinationName(stream.ParentID, stream.ChildID) != parts[len(parts)-1] {
+				t.Fatal("historical stream address differs")
 			}
-			if _, ok, err := store.Latest(ctx, stream.ParentID, stream.ChildID); err != nil || !ok {
-				t.Errorf("supported coordination stream %s does not load canonically: ok=%v err=%v", entry.Relative, ok, err)
-			}
+
 		case InventoryCreateAttempt:
 			attempt, err := decodeCreateAttempt(wire())
 			if err != nil {

@@ -382,7 +382,7 @@ func walkStateRootEntries(w *inventoryWalk, root *os.Root) error {
 }
 
 // eachDigestRecordDirectory walks <project>/<sha256>.json records, the layout
-// GraphStore and CoordinationStore publish below their version directory.
+// Historical graph and coordination records live below their version directory.
 func eachDigestRecordDirectory(w *inventoryWalk, version *os.Root, relative string, limit int, decode func(projectID, file string, wire []byte) InventoryKind) error {
 	return eachName(w, version, relative, func(projectID string) error {
 		childRelative := relative + "/" + projectID
@@ -484,7 +484,7 @@ func (w *inventoryWalk) classifyCoordination(projectID, file string, wire []byte
 // carries only its parent and child Execution IDs, and coordination lineage
 // is bound to the graph that owns them (evidence-s8), so a stream is
 // supported only beside a supported graph of the same Project whose parent
-// and child it names. CoordinationStore is opened with that graph's Project.
+// and child it names. The retired stream writer used that graph's Project.
 func (w *inventoryWalk) bindCoordination() {
 	for _, stream := range w.streams {
 		if !w.graphChildren[stream.projectID+"\x00"+stream.parentID][stream.child] {
@@ -992,4 +992,10 @@ func classifyDispatchAuthority(projectID, file string, wire []byte, scope string
 		return InventoryMalformed
 	}
 	return InventoryDispatchAuthority
+}
+
+// coordinationName addresses inert history only; no coordination writer remains.
+func coordinationName(parentID, childID string) string {
+	digest := sha256.Sum256([]byte(parentID + "\x00" + childID))
+	return hex.EncodeToString(digest[:]) + ".json"
 }

@@ -92,8 +92,9 @@ retries preserve the invocation and require current effect authorization.
 Independent ready tasks run concurrently on the canonical Execution engine;
 the principal serializes their state commits. Dependencies and configured human
 gates still control eligibility. Cancellation, failed required validation and
-unknown effects stop successors. Cross-Runtime collaboration transport and
-managed worktree integration remain pending S2 work. See the
+unknown effects stop successors. Cross-Runtime collaboration uses the same Execution messages and private attempt
+ingress. Principal-controlled worktree integration is a library operation; its
+public composition remains deferred. See the
 [operational guide](operational/workflow.md).
 
 Retry preserves the frozen invocation unless `--new-selection` explicitly permits
@@ -1878,6 +1879,57 @@ invocation, authority, process observations and validated results. Changing a
 Project selection changes future runs; it does not rewrite retained attempts.
 `workflow status`, `evidence` and `list` inspect canonical Executions only.
 They never activate or convert old state.
+
+
+### Execution messages and authority
+
+Codex and Claude use the same private attempt transport and canonical
+`Execution.messages` record (`workflow.Message`). Only the principal engine
+accepts candidates through `Execution.AcceptMessage`, binding sender, Runtime,
+attempt and runner generation from the launcher. The child's JSON supplies only
+`id`, `recipient`, `kind`, optional `replyTo`, and `content`; it cannot select
+sender, generation, authority, a gate decision or an integration outcome.
+Records are bounded to 256 messages and 4 KiB content each. Duplicate IDs with
+identical content are idempotent; conflicting IDs and duplicate answers refuse.
+Wrong Runtime/attempt/recipient, stale fences, ended askers, unknown kinds,
+oversized content and post-cancel publications refuse without a state write.
+
+| Kind | Consumer | Effect on eligibility |
+| --- | --- | --- |
+| `question` | Principal pump delivers to the addressed running agent | None |
+| `answer` | Pump delivers one correlated reply to the running asker | None |
+| `blocker` | Recipient delivery and status/message inspection expose the diagnosis | None; it cannot cancel or approve work |
+| `result` | Recipient delivery exposes reported data; engine output validation separately verifies the attempt result | Message alone never completes an attempt or unblocks a dependency |
+
+Inspect the same stored records with `workflow coordination list` or `show`:
+
+```sh
+axiom --json workflow coordination list --project <slug-or-id> \
+  --repository <key> --work-item github:<owner>/<repository>#<number> \
+  --execution <id> --kind question
+axiom --json workflow coordination show --project <slug-or-id> \
+  --repository <key> --work-item github:<owner>/<repository>#<number> \
+  --execution <id> --child <sender-agent-id> --record <message-id>
+```
+
+`--child` is a sender-agent filter, not a child Execution. `--attempt` filters
+sender attempts on list. Old nonzero `--after`/`--wait` cursors refuse. The
+historical `coordination publish` spelling always refuses with
+`child_context_required`; it is no alternate ingress. Children write only into
+their launcher-issued area; the principal alone commits canonical state.
+Same-UID filesystem access is not OS isolation (ADR-0028).
+
+Only explicit human authority records configured before/after gates or exact
+result review. Unknown effects/cancel/failure stop successors regardless of
+message content. S2.3 integration remains a principal library operation with
+expected-head CAS, retained checks and truthful unknown/recovery; messages
+cannot integrate, dispose an unknown outcome, push or open a PR. Its public
+composition and repository delivery remain deferred to the accepted later work.
+
+The retired format-1 stream has no writer, store, acceptance verifier or runtime
+packet producer. Its read-only decoder survives solely for historical upgrade
+inventory; it cannot feed new Executions. Old bytes remain untouched and cannot
+resume. Cutover backup and disposition still require separate authority.
 
 ### Retired stage dispatch contracts
 

@@ -241,9 +241,12 @@ effects remain uncertain and are never replayed. `unknown` and
 blindly. Continuing after a restart is `workflow run --execution <id>`.
 
 `coordination.list` and `coordination.show` read canonical records only.
-Public child publication is unavailable in S1; private engine ingress validates
-attempt and fence identity internally. Cross-Runtime transport belongs to S2.
-Records grant no authority.
+Private engine ingress binds Codex/Claude messages to launcher-issued attempt,
+Runtime and fence identity. The four kinds are question, answer, blocker and
+result; messages never approve gates, complete attempts or integrate branches.
+The public publish spelling always refuses; list/show inspect the same
+Execution messages. Nonzero legacy --after/--wait cursors refuse.
+Integration public composition and delivery remain later work.
 
 ## list and show
 
