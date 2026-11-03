@@ -2,6 +2,7 @@ package workflow
 
 import (
 	"reflect"
+	"slices"
 	"testing"
 )
 
@@ -78,8 +79,9 @@ func TestRepositoryOutcomesRefuseFabricatedSuccess(t *testing.T) {
 
 func TestRepositoryOutcomesUnknownAndMissingResult(t *testing.T) {
 	e := twoStageExecution(t, false)
-	if o := e.RepositoryOutcomes()[0]; o.Ready || len(o.Blockers) == 0 {
-		t.Fatal("missing result ready")
+	e.Repositories = append(e.Repositories, RepositoryBinding{"docs", "github.com/example/docs"})
+	if o := e.RepositoryOutcomes(); o[0].Ready || !slices.Contains(o[0].Blockers, "repository_result_missing") || slices.Contains(o[1].Blockers, "repository_result_missing") {
+		t.Fatalf("missing result: %+v", o)
 	}
 	run(t, &e, TaskRef{"work", "builder"}, "build", "workspace_write")
 	if err := e.MarkUnknown("build", 1, "lost_result", t0); err != nil {

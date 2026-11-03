@@ -6,7 +6,9 @@ import (
 	"github.com/rgomids/axiom/internal/manifest"
 	"github.com/rgomids/axiom/internal/project"
 	"github.com/rgomids/axiom/internal/workitem"
+	"maps"
 	"os"
+	"slices"
 	"path/filepath"
 	"testing"
 
@@ -16,9 +18,23 @@ import (
 
 func installLinkedTarget(t *testing.T, env workItemSourceEnvironment) {
 	t.Helper()
+	installLinkedTargetRepositories(t, env, "main")
+}
+
+// installLinkedTargetRepositories binds each extra Project Repository to its
+// own directory and returns those paths; "main" stays the linked target.
+func installLinkedTargetRepositories(t *testing.T, env workItemSourceEnvironment, keys ...string) map[string]string {
+	t.Helper()
 	source := filepath.Join(env.elsewhere, "external")
-	repository := filepath.Join(t.TempDir(), "repository")
-	for _, path := range []string{source, repository} {
+	paths := map[string]string{}
+	args := []string{"project", "install", "--source", source}
+	configured := []project.Repository{}
+	for _, key := range keys {
+		paths[key] = filepath.Join(t.TempDir(), "repository")
+		configured = append(configured, project.Repository{Key: key})
+		args = append(args, "--repository", key+"="+paths[key])
+	}
+	for _, path := range append([]string{source}, slices.Collect(maps.Values(paths))...) {
 		if err := os.Mkdir(path, 0700); err != nil {
 			t.Fatal(err)
 		}
@@ -28,7 +44,7 @@ func installLinkedTarget(t *testing.T, env workItemSourceEnvironment) {
 		t.Fatal(issues)
 	}
 	state := value.State()
-	state.Repositories = project.Configured([]project.Repository{{Key: "main"}})
+	state.Repositories = project.Configured(configured)
 	value, issues = project.New(state)
 	if len(issues) != 0 {
 		t.Fatal(issues)
@@ -45,9 +61,10 @@ func installLinkedTarget(t *testing.T, env workItemSourceEnvironment) {
 	if err := os.WriteFile(filepath.Join(source, "axiom.yaml"), wire, 0600); err != nil {
 		t.Fatal(err)
 	}
-	runCLI(t, env.service, []string{"project", "install", "--source", source, "--repository", "main=" + repository}, cli.ExitSuccess, "installed")
+	runCLI(t, env.service, args, cli.ExitSuccess, "installed")
 	saveTargetLink(t, env.state, workItemSourceProjectID, "7", "owner/repo")
 	saveTargetLink(t, env.state, workItemSourceProjectID, "8", "owner/repo")
+	return paths
 }
 
 func saveTargetLink(t *testing.T, root, projectID, id, resource string) {

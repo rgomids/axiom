@@ -67,6 +67,12 @@ type executionRunFixture struct {
 
 func newExecutionRunFixture(t *testing.T) *executionRunFixture {
 	t.Helper()
+	f, _ := newExecutionRunFixtureRepositories(t, "main")
+	return f
+}
+
+func newExecutionRunFixtureRepositories(t *testing.T, keys ...string) (*executionRunFixture, map[string]string) {
+	t.Helper()
 	temp, err := filepath.EvalSymlinks(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
@@ -89,9 +95,9 @@ func newExecutionRunFixture(t *testing.T) *executionRunFixture {
 	t.Setenv("PATH", bin)
 	t.Setenv("TMPDIR", temp)
 	f := &executionRunFixture{env: newWorkItemSourceEnvironment(t)}
-	installLinkedTarget(t, f.env)
+	paths := installLinkedTargetRepositories(t, f.env, keys...)
 	publishRuntimeProfileV3(t, f.env.state, singleRuntimeV3("codex", "profile-codex", "stub-model", []string{"read"}, []string{"medium"}))
-	return f
+	return f, paths
 }
 
 func (f *executionRunFixture) run(t *testing.T, want int, args ...string) executionRunEvent {

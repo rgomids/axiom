@@ -26,7 +26,8 @@ func (c executionComposition) repositoryOutcomes(ctx context.Context, x workflow
 				}
 			}
 		}
-		if path == "" || local.CheckPublicationDirectory(path) != nil {
+		// An unclaimed Repository has nothing to observe, so its path is not read.
+		if x.Claims(*o) && (path == "" || local.CheckPublicationDirectory(path) != nil) {
 			o.Blockers = append(o.Blockers, "repository_binding_mismatch")
 		}
 		for _, r := range o.Results {

@@ -23,6 +23,13 @@ type RepositoryAttemptResult struct {
 	Artifacts []ArtifactRef `json:"artifacts"`
 }
 
+// Claims reports whether an outcome row carries facts readiness must observe:
+// the Work Item Repository always does, any other bound Repository only once
+// an attempt or integration names it.
+func (e Execution) Claims(o RepositoryOutcome) bool {
+	return o.RepositoryKey == e.WorkItem.RepositoryKey || len(o.Results) != 0 || len(o.Integrations) != 0
+}
+
 // RepositoryOutcomes keeps historical attempts and Git provenance together
 // without adding a persisted readiness boolean or another result owner.
 func (e Execution) RepositoryOutcomes() []RepositoryOutcome {
@@ -52,9 +59,6 @@ func (e Execution) RepositoryOutcomes() []RepositoryOutcome {
 				}
 			}
 		}
-		if len(o.Results) == 0 {
-			o.Blockers = append(o.Blockers, "repository_result_missing")
-		}
 		// Only the latest observation of each target governs current readiness;
 		// all earlier outcomes remain visible, including failed/unknown attempts.
 		latest := map[string]int{}
@@ -77,6 +81,9 @@ func (e Execution) RepositoryOutcomes() []RepositoryOutcome {
 			if latest[i.TargetRef] == k && i.Status != IntegrationIntegrated {
 				o.Blockers = append(o.Blockers, i.IntegrationID+":"+string(i.Status))
 			}
+		}
+		if len(o.Results) == 0 && e.Claims(o) {
+			o.Blockers = append(o.Blockers, "repository_result_missing")
 		}
 		out = append(out, o)
 	}
