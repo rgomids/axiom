@@ -2,6 +2,8 @@ package stageexecution
 
 import (
 	"context"
+	"errors"
+
 	"github.com/rgomids/axiom/internal/workflow"
 )
 
@@ -56,32 +58,38 @@ func (e Engine) Deliver(ctx context.Context, r workflow.DeliveryRequest, grant w
 		if err != nil {
 			return x, err
 		}
+		if status == "refused" {
+			return x, workflow.ErrDeliveryRefused
+		}
 		if status == "unknown" {
 			return x, workflow.ErrUnknownOutstanding
 		}
 		return x, nil
 	}
 	latest, err := e.Store.Load(ctx, r.ProjectID, r.ExecutionID)
-	if err != nil || latest.Cancel != nil || latest.RunnerGeneration != lease.Generation() || ctx.Err() != nil {
-		return finish("unknown", nil)
+	if err != nil || latest.Cancel != nil || latest.RunnerGeneration != lease.Generation() || latest.Revision != current.Revision || ctx.Err() != nil {
+		return finish("refused", nil)
 	}
 	if err = check(ctx, latest); err != nil {
-		return finish("unknown", nil)
+		return finish("refused", nil)
 	}
 	// Re-observe after intent publication. A drift never reaches the effect.
 	o, err = effects.ObserveDelivery(ctx, r.Preview())
 	if err != nil || !r.MatchesObservation(o, false) {
-		return finish("unknown", &o)
+		return finish("refused", &o)
 	}
 	if e.cancelPersisted(ctx, r.ProjectID, r.ExecutionID) || ctx.Err() != nil {
-		return finish("unknown", nil)
+		return finish("refused", nil)
 	}
 	latest, err = e.Store.Load(ctx, r.ProjectID, r.ExecutionID)
-	if err != nil || latest.Cancel != nil || latest.RunnerGeneration != lease.Generation() {
-		return finish("unknown", nil)
+	if err != nil || latest.Cancel != nil || latest.RunnerGeneration != lease.Generation() || latest.Revision != current.Revision {
+		return finish("refused", nil)
 	}
 	if err = check(ctx, latest); err != nil {
-		return finish("unknown", nil)
+		return finish("refused", nil)
+	}
+	if ctx.Err() != nil || e.cancelPersisted(ctx, r.ProjectID, r.ExecutionID) {
+		return finish("refused", nil)
 	}
 	p := r.Preview()
 	p.Observation = o
@@ -91,6 +99,9 @@ func (e Engine) Deliver(ctx context.Context, r workflow.DeliveryRequest, grant w
 		err = effects.CreateDeliveryPR(ctx, p)
 	}
 	if err != nil {
+		if errors.Is(err, workflow.ErrDeliveryRefused) {
+			return finish("refused", nil)
+		}
 		return finish("unknown", nil)
 	}
 	o, err = effects.ObserveDelivery(ctx, p)

@@ -55,6 +55,17 @@ func TestPublicExecutionDeliveryExactGrantAndChildDenial(t *testing.T) {
 	service := f.env.service.(lifecycleService)
 	service.deliveryEffects = func(context.Context, string) (workflow.DeliveryEffects, error) { factories++; return d, nil }
 	f.env.service = service
+
+	for _, head := range []string{r.Target.HeadCommit, strings.Repeat("e", 40)} {
+		invalid := r
+		invalid.ExpectedRemoteHead = head
+		wire, _ := json.Marshal(invalid)
+		result := f.run(t, cli.ExitFailure, "workflow", "delivery", "advance", "--project", "external", "--execution", x.ExecutionID, "--request", string(wire), "--grant", invalid.Digest(), "--authorize-local", "--authorize-human", "--authorize-push")
+		latest, err := store.Load(context.Background(), x.ProjectID, x.ExecutionID)
+		if err != nil || factories+d.reads+d.pushes+d.prs != 0 || len(latest.Deliveries) != 0 || latest.Status == workflow.RunRecoveryRequired || strings.Contains(result.Raw, "recovery_required") {
+			t.Fatalf("existing push head was not cleanly refused: %v %s", err, result.Raw)
+		}
+	}
 	wire, _ := json.Marshal(r)
 	base := []string{"workflow", "delivery", "advance", "--project", "external", "--execution", x.ExecutionID, "--request", string(wire)}
 	preview := f.run(t, cli.ExitSuccess, base...)

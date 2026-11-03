@@ -43,11 +43,11 @@ func (d deliveryRemote) ObserveDelivery(ctx context.Context, p workflow.Delivery
 func (d deliveryRemote) PushDelivery(ctx context.Context, p workflow.DeliveryPreview) error {
 	token, err := d.provider.DeliveryGitCredential(ctx)
 	if err != nil {
-		return err
+		return errors.Join(workflow.ErrDeliveryRefused, err)
 	}
 	git, err := d.git.WithGitHubCredential(token)
 	if err != nil {
-		return err
+		return errors.Join(workflow.ErrDeliveryRefused, err)
 	}
 	return git.PushDelivery(ctx, p)
 }
@@ -180,7 +180,7 @@ func (s lifecycleService) executionDelivery(ctx context.Context, in cli.Workflow
 		x, err = c.engine(nil).Deliver(ctx, r, grant, effects, check)
 	}
 	if err != nil {
-		if errors.Is(err, workflow.ErrUnauthorizedEffect) {
+		if errors.Is(err, workflow.ErrUnauthorizedEffect) || errors.Is(err, workflow.ErrDeliveryRefused) {
 			return denied()
 		}
 		return s.stageFailure(completion.Failure, "delivery_recovery_required", "Delivery did not confirm", "Inspect the exact recorded target under its original grant; no automatic replay", executionPayload(x, nil))

@@ -2,6 +2,7 @@ package gitworkspace
 
 import (
 	"context"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -73,8 +74,8 @@ func TestDeliveryGitLocalBareConfirmationAndNoForce(t *testing.T) {
 		t.Fatal(observed, err)
 	}
 	g.allowFile = false
-	if err = g.PushDelivery(ctx, p); err == nil {
-		t.Fatal("product path accepted file transport")
+	if err = g.PushDelivery(ctx, p); !errors.Is(err, workflow.ErrDeliveryRefused) {
+		t.Fatal("product path failed to classify file transport refusal", err)
 	}
 }
 
@@ -87,5 +88,13 @@ func TestDeliveryGitCredentialIsTransientAndBoundToGitHub(t *testing.T) {
 		if _, err = g.WithGitHubCredential(invalid); err == nil {
 			t.Fatal("invalid credential")
 		}
+	}
+}
+
+func TestDeliveryGitPreEffectRefusal(t *testing.T) {
+	// A nil manager would panic if validation reached Git.
+	p := workflow.DeliveryPreview{Target: workflow.DeliveryTarget{HeadCommit: strings.Repeat("a", 40)}, Observation: workflow.DeliveryObservation{RemoteHead: strings.Repeat("b", 40)}}
+	if err := (DeliveryGit{}).PushDelivery(context.Background(), p); !errors.Is(err, workflow.ErrDeliveryRefused) {
+		t.Fatal(err)
 	}
 }

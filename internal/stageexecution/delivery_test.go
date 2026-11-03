@@ -193,7 +193,7 @@ func TestExecutionDeliveryLostResponseInspectOnlyExactTarget(t *testing.T) {
 }
 
 func TestExecutionDeliveryDriftAndRevocationBeforeEffect(t *testing.T) {
-	for _, scenario := range []string{"base", "head", "tree", "remote_head", "binding", "authority", "cancel"} {
+	for _, scenario := range []string{"base", "head", "tree", "remote_head", "binding", "authority", "path", "ref", "cancel"} {
 		t.Run(scenario, func(t *testing.T) {
 			f, d, r, a := deliveryFixture(t, false)
 			revoked := false
@@ -208,7 +208,7 @@ func TestExecutionDeliveryDriftAndRevocationBeforeEffect(t *testing.T) {
 						d.request.Target.Tree = strings.Repeat("e", 40)
 					case "remote_head":
 						d.request.ExpectedRemoteHead = strings.Repeat("e", 40)
-					case "binding", "authority":
+					case "binding", "authority", "path", "ref":
 						revoked = true
 					case "cancel":
 						_, err := f.engine.Store.UpdateFenced(context.Background(), "proj", engineExecutionID, nil, func(x *workflow.Execution) error { return x.RequestCancel("human:reviewer", time.Now()) })
@@ -225,7 +225,7 @@ func TestExecutionDeliveryDriftAndRevocationBeforeEffect(t *testing.T) {
 				return nil
 			}
 			x, err := f.engine.Deliver(context.Background(), r, a, d, check)
-			if err == nil || d.pushes+d.prs != 0 || len(x.Deliveries) != 1 || x.Deliveries[0].Status != "unknown" {
+			if err == nil || d.pushes+d.prs != 0 || len(x.Deliveries) != 1 || x.Deliveries[0].Status != "refused" || x.Status == workflow.RunRecoveryRequired {
 				t.Fatalf("drift effect: %v %+v", err, x.Deliveries)
 			}
 		})
@@ -409,5 +409,109 @@ func TestExecutionDeliveryPushThenPRUsesSameExecution(t *testing.T) {
 	x, err = f.engine.Deliver(context.Background(), r, a, d, allowDelivery)
 	if err != nil || x.ExecutionID != r.ExecutionID || len(x.Deliveries) != 2 || x.Deliveries[0].Status != "confirmed" || x.Deliveries[1].Status != "confirmed" || d.pushes != 1 || d.prs != 1 {
 		t.Fatalf("two phases: %v %+v", err, x.Deliveries)
+	}
+}
+
+func TestExecutionDeliveryPushMustCreate(t *testing.T) {
+	for _, head := range []string{strings.Repeat("b", 40), strings.Repeat("e", 40)} {
+		t.Run(head[:1], func(t *testing.T) {
+			f, d, r, a := deliveryFixture(t, false)
+			r.ExpectedRemoteHead = head
+			d.request = r
+			a.Digest = r.Digest()
+			if r.Valid() {
+				t.Error("canonical validation accepted existing push head")
+			}
+			x, err := f.engine.Deliver(context.Background(), r, a, d, allowDelivery)
+			if !errors.Is(err, workflow.ErrUnauthorizedEffect) || d.reads+d.pushes+d.prs != 0 || len(x.Deliveries) != 0 || x.Status == workflow.RunRecoveryRequired {
+				t.Fatalf("invalid push reached intent/effect: %v %+v", err, x)
+			}
+		})
+	}
+}
+
+func TestExecutionDeliveryRefusalAllowsFreshGrant(t *testing.T) {
+	f, d, r, a := deliveryFixture(t, false)
+	checks := 0
+	check := func(context.Context, workflow.Execution) error {
+		checks++
+		if checks == 3 {
+			return workflow.ErrUnauthorizedEffect
+		}
+		return nil
+	}
+	x, err := f.engine.Deliver(context.Background(), r, a, d, check)
+	if !errors.Is(err, workflow.ErrDeliveryRefused) || len(x.Deliveries) != 1 || x.Deliveries[0].Status != "refused" || x.Status == workflow.RunRecoveryRequired || d.pushes+d.prs != 0 {
+		t.Fatalf("refusal: %v %+v", err, x.Deliveries)
+	}
+	wire, err := workflow.EncodeExecution(x)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = workflow.DecodeExecution(wire); err != nil {
+		t.Fatal(err)
+	}
+	if err := x.ObserveDelivery(0, x.RunnerGeneration, a, workflow.DeliveryObservation{}, time.Now()); err == nil {
+		t.Fatal("inspection changed a refused result")
+	}
+	prior := x.Deliveries[0]
+	r.Revision = x.Revision
+	a.Digest = r.Digest()
+	d.request = r
+	x, err = f.engine.Deliver(context.Background(), r, a, d, allowDelivery)
+	if err != nil || len(x.Deliveries) != 2 || !reflect.DeepEqual(prior, x.Deliveries[0]) || x.Deliveries[1].Status != "confirmed" || d.pushes != 1 {
+		t.Fatalf("refused blocked new grant: %v %+v", err, x.Deliveries)
+	}
+	changed := append([]workflow.ExecutionDelivery(nil), x.Deliveries...)
+	changed[0].Status = "unknown"
+	if workflow.PreservesDeliveryHistory(x.Deliveries, changed) {
+		t.Fatal("refusal history rewritten")
+	}
+}
+
+func TestExecutionDeliveryCallerCancellationBeforeEffect(t *testing.T) {
+	for _, at := range []string{"read", "final_check", "persisted_final_check"} {
+		t.Run(at, func(t *testing.T) {
+			f, d, r, a := deliveryFixture(t, false)
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			d.beforeRead = func(n int) {
+				if n == 2 && at == "read" {
+					cancel()
+				}
+			}
+			checks := 0
+			check := func(context.Context, workflow.Execution) error {
+				checks++
+				if checks == 4 {
+					if at == "final_check" {
+						cancel()
+					}
+					if at == "persisted_final_check" {
+						if _, err := f.engine.Cancel(context.Background(), r.ProjectID, r.ExecutionID, "human:reviewer"); err != nil {
+							t.Fatal(err)
+						}
+					}
+				}
+				return nil
+			}
+			x, err := f.engine.Deliver(ctx, r, a, d, check)
+			if !errors.Is(err, workflow.ErrDeliveryRefused) || len(x.Deliveries) != 1 || x.Deliveries[0].Status != "refused" || x.Status == workflow.RunRecoveryRequired || d.pushes+d.prs != 0 {
+				t.Fatalf("cancel: %v %+v", err, x.Deliveries)
+			}
+		})
+	}
+}
+
+type refusedDeliveryFake struct{ *deliveryFake }
+
+func (d refusedDeliveryFake) PushDelivery(context.Context, workflow.DeliveryPreview) error {
+	return workflow.ErrDeliveryRefused
+}
+func TestExecutionDeliveryAdapterKnownRefusal(t *testing.T) {
+	f, d, r, a := deliveryFixture(t, false)
+	x, err := f.engine.Deliver(context.Background(), r, a, refusedDeliveryFake{d}, allowDelivery)
+	if !errors.Is(err, workflow.ErrDeliveryRefused) || x.Deliveries[0].Status != "refused" || x.Status == workflow.RunRecoveryRequired || d.pushes+d.prs != 0 {
+		t.Fatalf("adapter refusal: %v %+v", err, x.Deliveries)
 	}
 }

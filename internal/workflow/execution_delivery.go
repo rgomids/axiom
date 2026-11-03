@@ -1,11 +1,15 @@
 package workflow
 
 import (
+	"errors"
 	"reflect"
 	"slices"
 	"strings"
 	"time"
 )
+
+// ErrDeliveryRefused guarantees the adapter did not invoke a remote mutation.
+var ErrDeliveryRefused = errors.New("delivery_refused_before_effect")
 
 // DeliveryRequest binds a single current-phase effect to reviewed Execution
 // results. It is nested intent, never a separately persisted delivery object.
@@ -43,7 +47,7 @@ func (r DeliveryRequest) Valid() bool {
 			}
 		}
 	}
-	return ValidToken(r.ProjectID) && ValidExecutionID(r.ExecutionID) && r.Revision > 0 && ValidToken(r.RepositoryKey) && boundedText(r.RepositoryIdentity, 512) && r.RepositoryIdentity != "" && t.Remote == "https://github.com/"+t.Repository+".git" && validDeliveryTarget(t) && t.RetryOf == "" && t.Push != t.PR && (r.ExpectedRemoteHead == "" || ValidObjectID(r.ExpectedRemoteHead)) && (!t.PR || r.ExpectedRemoteHead == t.HeadCommit)
+	return ValidToken(r.ProjectID) && ValidExecutionID(r.ExecutionID) && r.Revision > 0 && ValidToken(r.RepositoryKey) && boundedText(r.RepositoryIdentity, 512) && r.RepositoryIdentity != "" && t.Remote == "https://github.com/"+t.Repository+".git" && validDeliveryTarget(t) && t.RetryOf == "" && t.Push != t.PR && (r.ExpectedRemoteHead == "" || ValidObjectID(r.ExpectedRemoteHead)) && (!t.Push || r.ExpectedRemoteHead == "") && (!t.PR || r.ExpectedRemoteHead == t.HeadCommit)
 }
 
 // DeliveryGrant is supplied only by the trusted operator entry, never ingress.
@@ -110,6 +114,9 @@ func (e *Execution) PrepareDelivery(r DeliveryRequest, a DeliveryGrant, generati
 		return ErrUnauthorizedEffect
 	}
 	for _, d := range e.Deliveries {
+		if d.Status == "refused" {
+			continue
+		}
 		if d.Status != "confirmed" {
 			return ErrUnknownOutstanding
 		}
@@ -131,7 +138,10 @@ func (e *Execution) FinishDelivery(index int, generation uint64, status string, 
 		return ErrTransition
 	}
 	d := &e.Deliveries[index]
-	if d.Status != "prepared" || status != "unknown" && status != "confirmed" || status == "confirmed" && (d.RunnerGeneration != generation || observation == nil || !d.Request.MatchesObservation(*observation, true)) {
+	if status == "refused" && d.RunnerGeneration != generation {
+		return ErrStaleRunner
+	}
+	if d.Status != "prepared" || status != "unknown" && status != "confirmed" && status != "refused" || status == "confirmed" && (d.RunnerGeneration != generation || observation == nil || !d.Request.MatchesObservation(*observation, true)) {
 		return ErrTransition
 	}
 	d.Status = status
@@ -183,9 +193,9 @@ func validateDeliveries(e Execution) error {
 			if d.EndedAt != nil || len(d.Observations) != 0 {
 				return invalid("prepared delivery")
 			}
-		case "unknown":
+		case "unknown", "refused":
 			if d.EndedAt == nil {
-				return invalid("unknown delivery")
+				return invalid("terminal delivery")
 			}
 		case "confirmed":
 			if d.EndedAt == nil || len(d.Observations) != 1 || !r.MatchesObservation(d.Observations[0], true) {

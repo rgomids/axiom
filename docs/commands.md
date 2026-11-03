@@ -2155,7 +2155,9 @@ blockers. Incomplete, cancelled or unknown results cannot become ready.
 '<json>'` reviews one current-phase request, locally and read-only. The strict
 JSON DeliveryRequest contains `projectId`, `executionId`, `revision`,
 `repositoryKey`, `repositoryIdentity`, `target` (the existing DeliveryTarget
-fields), and `expectedRemoteHead` (empty for an absent push target). Exactly
+fields), and `expectedRemoteHead`. Push is create-only: `expectedRemoteHead` MUST be empty,
+even when an existing remote branch already points to `HeadCommit`. PR requires
+`expectedRemoteHead` equal to `HeadCommit`. Exactly
 one target flag, `push` or `pr`, is true. Repository identity must match the bound Execution checkout identity (including
 local `fs:` identities); the explicit target remote must be
 `https://github.com/<owner>/<repo>.git`. Both identities are bound by the grant.
@@ -2170,7 +2172,10 @@ or intent invalidates the grant. Intent is committed in Execution before the
 call; only an exact observed result confirms it. No packet/publication/decision
 store is created. Local completion requires no delivery operation.
 
-A lost response remains unknown/recovery-required. `advance --inspect <index>`
+A known refusal before any mutation is recorded as terminal `refused`; it does
+not require unknown-effect recovery or block a newly authorized operation.
+Cancellation and current authority still apply. A lost response remains
+unknown/recovery-required. `advance --inspect <index>`
 instead of `--request`, with the original exact grant and authority flags,
 records only an exact-target read. It never repeats an effect or turns guessed
 success into confirmation. Unknown disposition and linked rework remain S3.3;
