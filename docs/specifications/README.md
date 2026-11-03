@@ -38,6 +38,11 @@ fixes IR-01..IR-09 of the independent full S1 review (orphan liveness before aba
 operator-signal ownership, late cancel, command markers, symlinked command freeze);
 the subsequent reviews above supersede its pending-review checkpoint.
 
+[S3.4 implementation/deletion reconciliation](015-minimum-viable-operational-workflow/implementation-s3-04.md)
+records the final producer/consumer union, retained historical readers,
+net reductions and local validation. S3.4 review is exclusively ChatGPT Axiom
+Workflow; S3.5/final review and manual acceptance remain pending.
+
 ## 014 — CLI operability for smaller models
 
 [Specification revision 1](014-small-model-cli-operability/spec.md) replays the

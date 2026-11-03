@@ -426,7 +426,9 @@ selects one format-4 Execution under `executions/v2`, one fenced
 `stageexecution.Engine` and frozen per-attempt invocation/authority. The public
 `workflow run` uses that engine; its status, cancel, retry and reconcile operations
 address the same aggregate. Graph/Single supervisors and dispatch are retired.
-Retained historical lifecycle/delivery contracts await S3 reconciliation.
+Legacy lifecycle/delivery formats survive only as strict historical recognition,
+attachment and retention readers; their independent producers and writers are
+removed. Canonical delivery/rework facts belong to Execution.
 Coordination format-1 survives only as an inert upgrade-inventory decoder; its
 store, publisher and authority verifier are removed. New messages use only
 `workflow.Message` and `Execution.AcceptMessage`, never a second state owner. See
@@ -467,3 +469,11 @@ Evidence, preserving the process facts. The store freezes rejected history and
 validates the source link under its existing project lock when creating a new,
 pristine Execution. Rework resolves current invocation and authority through the
 ordinary start path; the link carries neither permission nor mutable state.
+
+
+S3.4 removes the independent packet composer, publication/decision writers and
+legacy orchestration adapters. Historical format validation and raw-byte backup
+remain separate from operational execution: no conversion, dispatch or effects
+can originate from those records. The [final union inventory and survival proof](../specifications/015-minimum-viable-operational-workflow/implementation-s3-04.md)
+records the retained dependency boundaries and net deletion against the accepted
+baseline, including replacement files outside the original candidate envelope.

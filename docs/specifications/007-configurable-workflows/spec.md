@@ -33,6 +33,11 @@ fixture checks establishes document consistency only.
 > retires the independent coordination writer/acceptance verifier. New runs use
 > Execution-owned question/answer/blocker/result facts; none can satisfy a gate.
 > Historical format recognition remains inventory-only, with no operational store.
+> S3.4 [deletion reconciliation](../015-minimum-viable-operational-workflow/implementation-s3-04.md)
+> removes independent legacy delivery/rework producers and writers. New delivery,
+> human rejection and linked rework use Execution; retained strict format readers
+> protect inventory/provenance/retention only. No historical clause below grants
+> an alternate execution path or effect authority.
 
 Audit baseline: `c7260797aad7865419f555eea94a2eef7ae78285`; authoring inspection:
 `73dce6df0ab590b37df0e5a19b1483737bf1ca1e` (main). Existing

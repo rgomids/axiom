@@ -8,6 +8,9 @@
 > the authorized invocation is attempted and actual auth/vendor failure is
 > reported. Executable/target identity, sanitized errors and no credential
 > exposure remain. Historical observations below are unchanged.
+> [S3.4 reconciliation](../015-minimum-viable-operational-workflow/implementation-s3-04.md)
+> confirms no retired auth preflight or legacy invocation resolver is required by
+> the canonical run path; bounded selector inspection and observed errors remain.
 
 Tracking: GitHub [#272](https://github.com/rgomids/axiom/issues/272) (canonical
 contract), Linear

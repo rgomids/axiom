@@ -149,9 +149,9 @@ a process stop nor abandonment proves human acceptance or reversal of effects.
 `start`, `advance`, `fact`, `resume` and Provider projection `reconcile` operations
 are retired. Use `workflow run` and the canonical stage controls. Historical
 Execution/Graph/Single bytes are inert: there is no legacy resume or conversion.
-Public child publication remains unavailable; S1's private engine ingress does
-not expose the S2 collaboration transport. Delivery packet readiness is read-only;
-publication, acceptance and rework effects remain S3 work. No real installed-state
+Public child publication remains unavailable; collaboration uses the private
+attempt ingress described below. Delivery packet readiness is read-only;
+publication and rejection/linked rework use the canonical Execution path below. No real installed-state
 operation is implied by these examples. The separately authorized stop-or-block
 procedure is in the [operational guide](operational/workflow.md).
 
@@ -1942,7 +1942,8 @@ result review. Unknown effects/cancel/failure stop successors regardless of
 message content. S2.3 integration remains a principal library operation with
 expected-head CAS, retained checks and truthful unknown/recovery; messages
 cannot integrate, dispose an unknown outcome, push or open a PR. Its public
-composition and repository delivery remain deferred to the accepted later work.
+integration command remains unavailable. Repository delivery uses the canonical
+Execution operation below.
 
 The retired format-1 stream has no writer, store, acceptance verifier or runtime
 packet producer. Its read-only decoder survives solely for historical upgrade
@@ -2196,13 +2197,16 @@ Cancellation and current authority still apply. A lost response remains
 unknown/recovery-required. `advance --inspect <index>`
 instead of `--request`, with the original exact grant and authority flags,
 records only an exact-target read. It never repeats an effect or turns guessed
-success into confirmation. Unknown disposition and linked rework remain S3.3;
-legacy DTO/store deletion remains S3.4. Read-only packet and status views remain.
+success into confirmation. Rejection and linked rework use the ordinary
+Execution controls described above; unknown effects require explicit recovery.
+Legacy delivery writers and composers are removed. Strict historical readers
+remain for inventory and retention, without a compatibility executor.
 No merge, release, acceptance or Work Item closure authority is granted.
 
 ### Human delivery decision and linked rework
 
-Human acceptance and linked rework are S3 work. Technical completion and retained
-Evidence do not accept the product or close its Work Item. Historical delivery
+Human rejection and linked rework use `stage reject` and `run --rework-of` as
+described above. Technical completion and retained Evidence do not accept the
+product or close its Work Item. Historical delivery
 contracts remain recorded in [Spec 007](specifications/007-configurable-workflows/spec.md);
 they are not an alternative operational engine.

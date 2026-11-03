@@ -1,5 +1,11 @@
 # Plan 015 — One operational Execution
 
+> **Implementation reconciliation (S3.4).** The dated planning/status language
+> below is preserved. Subsequent scoped authority and implementation are recorded
+> in the [S3.4 report](implementation-s3-04.md) and [final union inventory](deletion-s3-04.json).
+> The approved contract and non-goals remain unchanged; S3.5/final review and
+> later manual acceptance are not performed or authorized by this note.
+
 Plan attempt: `plan-01-recovery-01`. Documentation only; implementation not started.
 Authority: [human approval of correction-04](https://github.com/rgomids/axiom/pull/366#pullrequestreview-5720318529), reviewed source `0a65d9a90e907fe1904241a82878e0196418e351`.
 Consumes [Spec 015](spec.md) and [Research A–L](../../research/axm-42-minimum-viable-workflow-investigation.md). The Proposed/pending language in those dated Specify artifacts describes their capture time; the linked subsequent human decision authorizes this Plan and Tasks. It does not authorize implementation, merge or Product Accepted.

@@ -1,5 +1,11 @@
 # Specification 015 — Minimum viable operational workflow
 
+> **Implementation reconciliation (S3.4).** The dated planning/status language
+> below is preserved. Subsequent scoped authority and implementation are recorded
+> in the [S3.4 report](implementation-s3-04.md) and [final union inventory](deletion-s3-04.json).
+> The approved contract and non-goals remain unchanged; S3.5/final review and
+> later manual acceptance are not performed or authorized by this note.
+
 Status: **Proposed — correction-04**. Specification + Research only; no implementation authority or architecture acceptance.
 Technical baseline: main `440e44a68638e08e901fd3f87f5b15cd395a6365`; correction-04 starts from fetched PR HEAD `cc709b7c0ecf4ba9b796d13ec692be0c55660a1d` on [PR #366](https://github.com/rgomids/axiom/pull/366).
 Authority: [accepted Intake](https://linear.app/rgomids/issue/AXM-42#comment-274fd7e0) plus the **new human product direction** [7a717e9f](https://linear.app/rgomids/issue/AXM-42#comment-7a717e9f). [AR-01](https://github.com/rgomids/axiom/pull/366#pullrequestreview-5708094263) supersedes the favorable assessment under the previous baseline. F1–F4 corrections and historical receipts remain archival facts.

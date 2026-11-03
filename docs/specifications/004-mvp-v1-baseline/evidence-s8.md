@@ -1,3 +1,9 @@
+> **Historical implementation note — Spec 015 S3.4.** The production verifier
+> and independent Graph Evidence builder described below are retired. The
+> format-1 coordination decoder remains solely for inert inventory; new runs use
+> Execution-owned messages. This dated Evidence is preserved, not a claim about
+> the current runtime. See [deletion reconciliation](../015-minimum-viable-operational-workflow/implementation-s3-04.md).
+
 # Evidence — MVP Slice S8: T36 ready for human review
 
 ## Current T36 result — 2026-09-27

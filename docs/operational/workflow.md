@@ -113,8 +113,9 @@ selection/authority refuses. Unknown effects cannot use rejection/rework to
 bypass explicit recovery. Existing bounded retries, timeouts, leases and
 `--new-selection` apply; no automatic replay, closure, merge or acceptance.
 
-Legacy rework producers are removed. Read-only historical codecs remain for
-inventory/retention; broader delivery deletion belongs to S3.4.
+Legacy packet/publication/decision/rework producers and independent writers are
+removed. Strict historical codecs and read-only attachment/inventory/retention
+readers remain; they cannot start, resume or deliver an Execution. Spec 015 S3.4 records the source inventory and deletion evidence.
 
 ### Execution messages and authority
 
@@ -159,7 +160,8 @@ result review. Unknown effects/cancel/failure stop successors regardless of
 message content. S2.3 integration remains a principal library operation with
 expected-head CAS, retained checks and truthful unknown/recovery; messages
 cannot integrate, dispose an unknown outcome, push or open a PR. Its public
-composition and repository delivery remain deferred to the accepted later work.
+integration command remains unavailable. Repository delivery uses the canonical
+Execution operation described above.
 
 The retired format-1 stream has no writer, store, acceptance verifier or runtime
 packet producer. Its read-only decoder survives solely for historical upgrade

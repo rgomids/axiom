@@ -1,5 +1,11 @@
 # Tasks 015 — S1/S2/S3 execution checklist
 
+> **Implementation reconciliation (S3.4).** The dated planning/status language
+> below is preserved. Subsequent scoped authority and implementation are recorded
+> in the [S3.4 report](implementation-s3-04.md) and [final union inventory](deletion-s3-04.json).
+> The approved contract and non-goals remain unchanged; S3.5/final review and
+> later manual acceptance are not performed or authorized by this note.
+
 Prepared automatically after the conformant [Plan](plan.md), under the [human Plan→Tasks authority](https://github.com/rgomids/axiom/pull/366#pullrequestreview-5720318529). All implementation tasks below are **NOT_STARTED**; no implementation authorization is inferred. These are internal checklists on AXM-42, not new slices/cards. The approved Spec fixes their scope. Each task's Evidence must identify source SHA, deterministic fixture/check, result and remaining uncertainty.
 
 ## S1 — Canonical single-agent path and structural cutover

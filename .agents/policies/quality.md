@@ -42,7 +42,10 @@ legitimately wrote. Three executable guards enforce it; do not weaken them:
   state-root directory a store opens is classified by the inventory
   (`StateRootDirectories`).
 - `TestEveryV1WriterIsRecognizedByInventory` (`internal/local`): every v1 kind
-  (`V1Kinds`) is produced by a real store write and read back as supported.
+  (`V1Kinds`) is exercised by its current writer and read back as supported.
+  Under ADR-0037 / Spec 015, explicitly retired operational kinds instead use
+  inert historical byte fixtures; this preserves recognition without restoring
+  a deleted writer or permitting old-attempt resume.
 - `TestInventoryRejectsRecordsAwayFromTheirCanonicalLocation` and
   `TestEverySupportedRecordLoadsThroughItsCanonicalStore` (`internal/local`):
   a record is supported only at the location its store addresses it by, and
@@ -53,7 +56,7 @@ legitimately wrote. Three executable guards enforce it; do not weaken them:
   `direct` upgrade and is never edited or pruned.
 
 When a change adds or changes a persisted file, directory, kind, or encoding,
-extend the inventory, exercise the writer in `writeEveryV1Kind`, and freeze it
+extend the inventory, exercise the current writer in `writeEveryV1Kind`, and freeze it
 before release with `AXIOM_FREEZE_STATE_CORPUS=<release> go test
 ./internal/local -run TestEveryV1WriterIsRecognizedByInventory`. Output that
 differs from every frozen snapshot, even at an existing logical path, becomes a

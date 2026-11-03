@@ -118,3 +118,17 @@ outcomes and ADR-0028 process-group supervision limits.
 - measured aggregate size or contention exceeds bounded storage limits;
 - parallel S2 completions show writer starvation;
 - a stable/LTS release begins strict compatibility obligations.
+
+
+## Implementation reconciliation — S3.4
+
+The [S3.4 report](../specifications/015-minimum-viable-operational-workflow/implementation-s3-04.md)
+records removal of redundant legacy producers and independent delivery writers.
+Delivery intent, exact-effect authority and observations are nested Execution
+facts; rejection is immutable result-bound human disposition and linked rework
+uses a fresh ordinary Execution with no inherited permission. Strict inert
+format readers remain only where inventory, retained provenance or artifact
+retention requires them. This implements the accepted Spec 015 contract; it
+adds no compatibility executor, migration, human acceptance or cutover authority.
+The partial supersessions above and their preserved historical clauses remain
+unchanged.
