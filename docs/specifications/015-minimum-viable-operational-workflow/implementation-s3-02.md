@@ -92,6 +92,14 @@ concurrent embedded-skill/source changes; they do not establish final validity.
 One earlier loaded run also failed the existing integration cancellation timing
 assertion. Final stable-source results must supersede those attempts explicitly.
 
+The full check of local implementation commit `a1e35ffe3ff30ea6f0faf738bcb85521e40e0bef`
+found `TestEveryPublishedSharedRevisionStaysOwned` failing: changing the installed
+skill also requires preserving its prior manifest in shared Runtime history.
+The bounded correction appends the baseline's four actual skill digests and pins
+the new embedded manifest in the existing ownership test. No ownership history
+is removed or Runtime-only history changed. This is a required installed-skill
+caller correction, not an S3.3 feature. Final checks cover the correction SHA.
+
 ## Actual ownership delta and retained scope
 
 | Metric in this S3.2 delta | Before | After |
