@@ -29,6 +29,8 @@ records isolated agent worktrees and principal-controlled integration state.
 [S2.4 Evidence](015-minimum-viable-operational-workflow/implementation-s2-04.md)
 records coordination writer retirement, historical decoder survival proof,
 canonical message/gate invariants and scoped validation.
+[Integrated S2 reconciliation](015-minimum-viable-operational-workflow/reconciliation-s2-integrated.md)
+records m1/m2/n1 corrections, criterion evidence, deferred findings and S3 readiness limits.
 [CR-S1-06 correction](015-minimum-viable-operational-workflow/correction-cr-s1-06.md):
 the cutover inventory catalog now covers capability evidence, probe envelopes and Project context.
 [CR-S1-07 correction](015-minimum-viable-operational-workflow/correction-cr-s1-07.md):
