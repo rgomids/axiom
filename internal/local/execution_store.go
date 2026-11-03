@@ -227,6 +227,9 @@ func (s ExecutionStore) Save(ctx context.Context, next workflow.Execution, expec
 	if !preservesExecutionHistory(current, next) {
 		return ErrConflict
 	}
+	if lease == nil && !reflect.DeepEqual(current.Deliveries, next.Deliveries) {
+		return workflow.ErrStaleRunner
+	}
 	var fence func() error
 	if lease == nil {
 		if next.RunnerGeneration != current.RunnerGeneration {
@@ -262,6 +265,9 @@ func preservesExecutionHistory(prior, next workflow.Execution) bool {
 		return false
 	}
 	if prior.Cancel != nil && !reflect.DeepEqual(prior.Cancel, next.Cancel) {
+		return false
+	}
+	if !workflow.PreservesDeliveryHistory(prior.Deliveries, next.Deliveries) {
 		return false
 	}
 	if len(next.Integrations) < len(prior.Integrations) {
@@ -354,6 +360,10 @@ func (s ExecutionStore) Update(ctx context.Context, projectID, executionID strin
 		}
 		next := current
 		next.Stages = cloneExecutionStages(current.Stages)
+		next.Deliveries = append([]workflow.ExecutionDelivery(nil), current.Deliveries...)
+		for i := range next.Deliveries {
+			next.Deliveries[i].Observations = append([]workflow.DeliveryObservation(nil), current.Deliveries[i].Observations...)
+		}
 		next.Messages = append([]workflow.Message(nil), current.Messages...)
 		next.Integrations = append([]workflow.Integration(nil), current.Integrations...)
 		for i := range next.Integrations {

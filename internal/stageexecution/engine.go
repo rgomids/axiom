@@ -138,6 +138,13 @@ func (e Engine) Claim(ctx context.Context, projectID, executionID string) (workf
 				return err
 			}
 		}
+		for k, d := range x.Deliveries {
+			if d.Status == "prepared" && d.RunnerGeneration < gen {
+				if err := x.FinishDelivery(k, gen, "unknown", nil, now); err != nil {
+					return err
+				}
+			}
+		}
 		// A prepared integration of an older runner has no correlated target
 		// observation; it is never re-run.
 		for _, i := range x.Integrations {

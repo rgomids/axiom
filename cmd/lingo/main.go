@@ -205,6 +205,7 @@ func stateRoot() (string, error) {
 }
 
 type lifecycleService struct {
+	deliveryEffects        func(context.Context, string) (workflow.DeliveryEffects, error)
 	lifecycle              projectapp.Lifecycle
 	portable               local.PortableStore
 	installation           local.InstallationStore

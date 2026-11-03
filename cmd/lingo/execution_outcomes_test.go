@@ -172,7 +172,9 @@ func TestRepositoryReadinessIgnoresUnclaimedProjectRepository(t *testing.T) {
 	}
 	// Project admission refuses unavailable Repositories before readiness, so
 	// the unclaimed path is removed only for the readiness observation itself.
-	if err := os.Remove(paths["docs"]); err != nil {
+	// Preserve the bound filesystem identity when restoring this fixture.
+	hiddenDocs := paths["docs"] + ".away"
+	if err := os.Rename(paths["docs"], hiddenDocs); err != nil {
 		t.Fatal(err)
 	}
 	if o := observe(c, x); !o["main"].Ready || !o["docs"].Ready || len(o["docs"].Results) != 0 {
@@ -215,7 +217,7 @@ func TestRepositoryReadinessIgnoresUnclaimedProjectRepository(t *testing.T) {
 		}
 	})
 
-	if err := os.Mkdir(paths["docs"], 0700); err != nil {
+	if err := os.Rename(hiddenDocs, paths["docs"]); err != nil {
 		t.Fatal(err)
 	}
 	a := done.Stage.Stages[0].Tasks[0].Attempts[0]

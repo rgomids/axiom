@@ -383,29 +383,30 @@ func (p *authorityProbe) WorkItemReopen(_ context.Context, input WorkItemInput) 
 // mutatingRequests are the selector-complete requests a Runtime forms for
 // each mutating command after operation resolution, before any authority.
 var mutatingRequests = map[string][]string{
-	"configure/create":         {"project", "configure", "--slug", "alpha", "--name", "Alpha", "--repository", "main=/work/main", "--work-item-provider", "github"},
-	"configure/edit":           {"project", "configure", "--project", "alpha", "--name", "Renamed"},
-	"work-item create":         {"work-item", "create", "--project", "alpha", "--repository", "main", "--provider-repository", "owner/repo", "--intent", "Fix it"},
-	"work-item select":         {"work-item", "select", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7"},
-	"project archive":          {"project", "archive", "--project", "alpha"},
-	"project reactivate":       {"project", "reactivate", "--project", "alpha"},
-	"integration disable":      {"integration", "disable", "--project", "alpha", "--integration", "work-items"},
-	"integration enable":       {"integration", "enable", "--project", "alpha", "--integration", "work-items"},
-	"integration remove":       {"integration", "remove", "--project", "alpha", "--integration", "work-items"},
-	"work-item update":         {"work-item", "update", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--title", "Renamed"},
-	"work-item comment":        {"work-item", "comment", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--message", "Note"},
-	"work-item close":          {"work-item", "close", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7"},
-	"work-item reopen":         {"work-item", "reopen", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7"},
-	"workflow run":             {"workflow", "run", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--select", "agent.runtime=codex"},
-	"workflow stage cancel":    {"workflow", "stage", "cancel", "--project", "alpha", "--execution", "e-1"},
-	"workflow stage retry":     {"workflow", "stage", "retry", "--project", "alpha", "--execution", "e-1", "--stage", "implementation", "--agent", "owner"},
-	"workflow stage reconcile": {"workflow", "stage", "reconcile", "--project", "alpha", "--execution", "e-1"},
-	"workflow delivery packet": {"workflow", "delivery", "packet", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--execution", "e-1"},
+	"configure/create":          {"project", "configure", "--slug", "alpha", "--name", "Alpha", "--repository", "main=/work/main", "--work-item-provider", "github"},
+	"configure/edit":            {"project", "configure", "--project", "alpha", "--name", "Renamed"},
+	"work-item create":          {"work-item", "create", "--project", "alpha", "--repository", "main", "--provider-repository", "owner/repo", "--intent", "Fix it"},
+	"work-item select":          {"work-item", "select", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7"},
+	"project archive":           {"project", "archive", "--project", "alpha"},
+	"project reactivate":        {"project", "reactivate", "--project", "alpha"},
+	"integration disable":       {"integration", "disable", "--project", "alpha", "--integration", "work-items"},
+	"integration enable":        {"integration", "enable", "--project", "alpha", "--integration", "work-items"},
+	"integration remove":        {"integration", "remove", "--project", "alpha", "--integration", "work-items"},
+	"work-item update":          {"work-item", "update", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--title", "Renamed"},
+	"work-item comment":         {"work-item", "comment", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--message", "Note"},
+	"work-item close":           {"work-item", "close", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7"},
+	"work-item reopen":          {"work-item", "reopen", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7"},
+	"workflow run":              {"workflow", "run", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--select", "agent.runtime=codex"},
+	"workflow stage cancel":     {"workflow", "stage", "cancel", "--project", "alpha", "--execution", "e-1"},
+	"workflow stage retry":      {"workflow", "stage", "retry", "--project", "alpha", "--execution", "e-1", "--stage", "implementation", "--agent", "owner"},
+	"workflow stage reconcile":  {"workflow", "stage", "reconcile", "--project", "alpha", "--execution", "e-1"},
+	"workflow delivery advance": {"workflow", "delivery", "advance", "--project", "alpha", "--execution", "e-1", "--request", "{}"},
+	"workflow delivery packet":  {"workflow", "delivery", "packet", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--execution", "e-1"},
 }
 
 // authorityValues are explicit, well-formed values for authority inputs that
 // take a value.
-var authorityValues = map[string]string{"--disposition": "preserve", "--expected-revision": strings.Repeat("b", 64), "--preview-digest": strings.Repeat("a", 64), "--project-id": "123e4567-e89b-42d3-a456-426614174000"}
+var authorityValues = map[string]string{"--grant": strings.Repeat("a", 64), "--disposition": "preserve", "--expected-revision": strings.Repeat("b", 64), "--preview-digest": strings.Repeat("a", 64), "--project-id": "123e4567-e89b-42d3-a456-426614174000"}
 
 func routedRequest(t *testing.T, operation string, mode skillOperationMode, command string) []string {
 	t.Helper()

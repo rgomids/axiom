@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -843,6 +844,7 @@ type executionStageView struct {
 // executionView is the safe projection: no executable path, instruction
 // text, repository identity or child output.
 type executionView struct {
+	Deliveries         []workflow.ExecutionDelivery   `json:"deliveries,omitempty"`
 	RepositoryOutcomes []workflow.RepositoryOutcome   `json:"repositoryOutcomes"`
 	ExecutionID        string                         `json:"executionId"`
 	ProjectID          string                         `json:"projectId"`
@@ -881,6 +883,7 @@ func executionPayload(x workflow.Execution, facts []stageexecution.ReconcileFact
 		v.Stages = append(v.Stages, stage)
 	}
 	v.RepositoryOutcomes = x.RepositoryOutcomes()
+	v.Deliveries = x.Deliveries
 
 	return v
 }
@@ -889,6 +892,11 @@ func executionPayload(x workflow.Execution, facts []stageexecution.ReconcileFact
 // Technical completion is never human acceptance.
 func executionNext(x workflow.Execution) string {
 	selector := " --execution " + x.ExecutionID
+	for k, d := range x.Deliveries {
+		if d.Status == "unknown" || d.Status == "prepared" {
+			return fmt.Sprintf("Inspect exact delivery target: axiom workflow delivery advance%s --inspect %d --grant %s --authorize-local --authorize-human with its original --authorize-push or --authorize-pr; no replay or acceptance", selector, k, d.Grant.Digest)
+		}
+	}
 	switch x.Status {
 	case workflow.RunCompleted:
 		return "Inspect the recorded artifacts; technical completion is not human acceptance"

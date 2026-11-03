@@ -14,11 +14,11 @@ import (
 // Canonical Execution operations (ADR-0037, Spec 015 S1): one run action
 // starts or continues the linked Work Item's Execution and progresses eligible
 // work; stage status/cancel/retry/reconcile inspect and control that same
-// Execution. Delivery packet is read-only canonical readiness; legacy delivery
-// mutation verbs over retired ledgers were removed and S3 owns their
-// Execution-owned replacement.
+// Execution. Delivery packet is read-only canonical readiness; delivery advance
+// performs the current exactly authorized phase over nested Execution facts.
 const (
 	workflowRunAction                 action = "workflow_run"
+	workflowDeliveryAdvanceAction     action = "workflow_delivery_advance"
 	workflowDeliveryPacketAction      action = "workflow_delivery_packet"
 	workflowStageStatusAction         action = "workflow_stage_status"
 	workflowStageCancelAction         action = "workflow_stage_cancel"
@@ -41,6 +41,9 @@ const MaxCoordinationWait = 30 * time.Second
 // coordination command. It carries no lineage for publish: the running child
 // context is resolved by the trusted launcher, never from flags.
 type WorkflowStageInput struct {
+	AuthorizePush, AuthorizePR               bool
+	DeliveryRequest                          string
+	InspectDelivery                          int
 	AuthorizeHuman                           bool
 	Operation                                string
 	Project, Repository, WorkItem, Execution string
@@ -79,8 +82,9 @@ type WorkflowStageResponse struct {
 }
 
 var workflowStageOperations = map[action]string{
-	workflowRunAction:            "execution-run",
-	workflowDeliveryPacketAction: "delivery-packet", workflowStageStatusAction: "status", workflowStageCancelAction: "cancel",
+	workflowRunAction:             "execution-run",
+	workflowDeliveryAdvanceAction: "delivery-advance",
+	workflowDeliveryPacketAction:  "delivery-packet", workflowStageStatusAction: "status", workflowStageCancelAction: "cancel",
 	workflowStageRetryAction: "retry", workflowStageReconcileAction: "reconcile",
 	workflowCoordinationListAction: "coordination-list", workflowCoordinationShowAction: "coordination-show", workflowCoordinationPublishAction: "coordination-publish",
 }
@@ -94,7 +98,7 @@ func workflowStageOperation(operation action) bool {
 // Repository/Work Item selectors after start.
 func executionOperation(operation action) bool {
 	switch operation {
-	case workflowStageStatusAction, workflowStageCancelAction, workflowStageRetryAction, workflowStageReconcileAction:
+	case workflowDeliveryAdvanceAction, workflowStageStatusAction, workflowStageCancelAction, workflowStageRetryAction, workflowStageReconcileAction:
 		return true
 	}
 	return false
@@ -132,6 +136,14 @@ func workflowStageFlagSet(operation action, in *WorkflowStageInput) *flag.FlagSe
 		set.StringVar(&in.Project, "project", "", "Configured Project identity; `<uuid-or-slug>`.")
 		set.StringVar(&in.Execution, "execution", "", "Exact Execution identity; `<execution-id>`.")
 		switch operation {
+		case workflowDeliveryAdvanceAction:
+			set.StringVar(&in.DeliveryRequest, "request", "", "Exact JSON DeliveryRequest; omit only for --inspect.")
+			set.StringVar(&in.PreviewDigest, "grant", "", "Digest of the exact reviewed request.")
+			set.IntVar(&in.InspectDelivery, "inspect", -1, "Inspect this unknown delivery index only; no effect or disposition.")
+			set.BoolVar(&in.AuthorizePush, "authorize-push", false, "Authorize only the exact push in --grant.")
+			set.BoolVar(&in.AuthorizePR, "authorize-pr", false, "Authorize only the exact PR creation in --grant.")
+			set.BoolVar(&in.AuthorizeHuman, "authorize-human", false, "Confirm operator authority; Runtime children are refused.")
+			set.BoolVar(&in.AuthorizeLocal, "authorize-local", false, "Persist delivery intent/result or recovery observations in Execution.")
 		case workflowRunAction:
 			set.StringVar(&in.Repository, "repository", "", "Project-scoped Repository selector of the linked Work Item; `<key>`.")
 			set.StringVar(&in.WorkItem, "work-item", "", "Exact existing linked Work Item; `github:<owner>/<repository>#<number>`.")
@@ -321,6 +333,7 @@ func workflowStageSkillSpecs() []skillOperationSpec {
 	}
 	return []skillOperationSpec{
 		{name: "execution.run", actions: []action{workflowRunAction}, modes: []skillModeSpec{{name: "default", effect: effectExternalMutation, authority: "one run action; spawning the selected Runtimes needs --authorize-external; a human gate records only with --approve-gate and --authorize-human", actions: []action{workflowRunAction}, authorityInputs: []string{"--authorize-external", "--authorize-human"}, rejectedInputs: []string{}, example: "axiom workflow run --project <uuid-or-slug> --repository <key> --work-item github:<owner>/<repository>#<number> --select agent.runtime=<codex|claude> --select agent.model=<model> --select agent.effort=<runtime-default|token> --authorize-external"}}},
+		{name: "delivery.advance", actions: []action{workflowDeliveryAdvanceAction}, modes: []skillModeSpec{{name: "default", effect: effectExternalMutation, authority: "preview without grant; exact --grant with --authorize-human --authorize-local and --authorize-push OR --authorize-pr; --inspect only reads the granted remote target and records observations", actions: []action{workflowDeliveryAdvanceAction}, authorityInputs: []string{"--grant", "--authorize-human", "--authorize-local", "--authorize-push", "--authorize-pr"}, rejectedInputs: []string{}, example: "axiom workflow delivery advance " + execution + " --request '<json>'"}}},
 		read("delivery.packet", workflowDeliveryPacketAction, "axiom workflow delivery packet "+selectors),
 		read("stage.status", workflowStageStatusAction, "axiom workflow stage status "+execution),
 		{name: "stage.cancel", actions: []action{workflowStageCancelAction}, modes: []skillModeSpec{{name: "default", effect: effectLocalMutation, authority: "--authorize-local records cancel intent only; the runner reports requested versus observed stop", actions: []action{workflowStageCancelAction}, authorityInputs: []string{"--authorize-local"}, rejectedInputs: []string{}, example: "axiom workflow stage cancel " + execution}}},

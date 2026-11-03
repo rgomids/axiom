@@ -342,7 +342,8 @@ type Execution struct {
 	// Integrations are principal-controlled Git integrations of attempt
 	// branches (S2.3); append-only intent and immutable terminal observations.
 	// Absent for runs that integrate nothing.
-	Integrations []Integration `json:"integrations,omitempty"`
+	Integrations []Integration       `json:"integrations,omitempty"`
+	Deliveries   []ExecutionDelivery `json:"deliveries,omitempty"`
 	// Selections are the explicit run overrides given by the start action.
 	// They are immutable inputs of every later attempt's resolution; changing
 	// them needs an explicitly authorized new selection on a retry.
@@ -670,6 +671,9 @@ func (e Execution) Validate() error {
 		return err
 	}
 	if err := validateSelections(e); err != nil {
+		return err
+	}
+	if err := validateDeliveries(e); err != nil {
 		return err
 	}
 	if err := validateIntegrations(e); err != nil {

@@ -91,8 +91,12 @@ refs. Missing, changed or foreign evidence blocks readiness without rewriting a
 completed attempt. Historical attempts and integration observations remain visible.
 A Repository with no result is reported explicitly. Local completion needs no PR;
 absence of an integration means no Git target is claimed. Readiness grants no
-publication, merge or acceptance authority. Delivery publication and linked
-rework effects remain S3.2/S3.3 work.
+publication, merge or acceptance authority. Optional `workflow delivery advance` performs one exactly authorized push or PR
+phase over `Execution.deliveries`, with intent before effect and exact observed
+confirmation. Lost responses remain unknown; `--inspect` records only exact-target
+observations under the original grant, without replay. Use `axiom docs commands` for the full command reference.
+Human disposition/linked rework remain S3.3 work; old delivery formats are inert
+and retained pending S3.4 deletion.
 
 ### Execution messages and authority
 

@@ -18,7 +18,7 @@ names, `requiredWhen` conditions and accepted forms. Never invent a flag. On a
 refusal, read `details` (`<code>` or `<code>:--<flag>`) and change only the
 named input; never repeat an unchanged command.
 
-Supported domain operations are `create`, `run`, `status`, `list`, `show`, `update`, `comment`, `close`, `reopen`, `execution.run`, `delivery.packet`, `stage.status`, `stage.cancel`, `stage.retry`, `stage.reconcile`, `coordination.list`, and `coordination.show`.
+Supported domain operations are `create`, `run`, `status`, `list`, `show`, `update`, `comment`, `close`, `reopen`, `execution.run`, `delivery.advance`, `delivery.packet`, `stage.status`, `stage.cancel`, `stage.retry`, `stage.reconcile`, `coordination.list`, and `coordination.show`.
 Any other operation, such as `delete` or Execution `cancel`, is unsupported:
 report that it is not available and do not run a Lingo command for it. Work
 Items are closed or reopened, never deleted. Canonical Executions use
@@ -46,6 +46,7 @@ Login and successful process exit do not prove successful Stage output.
 | `close` | - | `axiom --json work-item close --project <uuid-or-slug>` | external mutation | preview first; close only with the exact `--preview-digest` plus `--authorize-external` | only for unambiguous close intent |
 | `reopen` | - | `axiom --json work-item reopen --project <uuid-or-slug>` | external mutation | preview first; reopen only with the exact `--preview-digest` plus `--authorize-external` | only for unambiguous reopen intent |
 | `execution.run` | - | `axiom --json workflow run` | external mutation | one run action; spawning the selected Runtimes needs `--authorize-external`; a human gate records only with `--approve-gate` and `--authorize-human` | only for unambiguous run intent |
+| `delivery.advance` | - | `axiom --json workflow delivery advance` | external mutation | exact `--grant`; `--authorize-local` `--authorize-human` and `--authorize-push` OR `--authorize-pr`; `--inspect` only records exact-target observations | only for unambiguous delivery intent |
 | `delivery.packet` | - | `axiom --json workflow delivery packet` | read-only | none; readiness grants no delivery authority | allowed |
 | `stage.status` | - | `axiom --json workflow stage status` | read-only | none; persisted state only, never a stop or success claim | allowed |
 | `stage.cancel` | - | `axiom --json workflow stage cancel` | local mutation | `--authorize-local` records cancel intent only; the runner reports requested versus observed stop | only for unambiguous stage cancel intent |
@@ -216,10 +217,10 @@ exact frozen argv and effect bounds. Do not infer this authority from a run.
 ## delivery packet
 
 Use `axiom --json workflow delivery packet` with the exact persisted Project, Repository,
-Work Item and Execution selectors. Report `packetDigest`, readiness, blockers and
+Work Item and Execution selectors. Report readiness, blockers and
 next action unchanged. This reads canonical state without retaining a companion
-packet or contacting a Provider. Publication, acceptance and linked rework
-effects remain unavailable on S1. Packet readiness grants no effect authority.
+packet or contacting a Provider. Optional publication uses `delivery.advance`; acceptance and linked rework
+remain separate S3.3 work. Packet readiness grants no effect authority.
 
 ## stage dispatch and coordination
 
@@ -469,3 +470,24 @@ JSON in `LINGO_INVOCATION_DEFAULTS`, for example
 fields, then local defaults. Missing or conflicting fields refuse without
 selection inference. Ordinary retry keeps the frozen tuple and provenance;
 changed defaults require an explicitly authorized new selection.
+
+## delivery advance
+
+Use `axiom --json workflow delivery advance --project <id> --execution <id>
+--request '<json>'` to review a single current-phase DeliveryRequest and its
+`grantDigest`. Without a grant this is local and read-only. The request binds
+Project, Execution revision, Repository key/identity, target repository/remote,
+base/head refs and commits, tree, diff digest, content/metadata, expected remote
+head and exactly one of push or PR. A push and later PR are separate phases of
+the same Execution, each authorized for its exact effect.
+
+Only after actual operator review supply `--grant <digest> --authorize-local
+--authorize-human` and the matching `--authorize-push` or `--authorize-pr`.
+A changed request or Execution revision invalidates the grant. Runtime children
+and messages cannot authorize delivery. Ordinary local completion needs none
+of these steps.
+
+A lost response is unknown, never an automatic retry. Use the same operation
+with `--inspect <delivery-index>` instead of `--request`, and the original grant
+and effect flags, to record an exact-target read only. This does not accept,
+replay, close, merge or release. Unknown disposition/linked rework remain S3.3.

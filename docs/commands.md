@@ -2151,10 +2151,31 @@ blockers. Incomplete, cancelled or unknown results cannot become ready.
 
 ### Exact delivery publication
 
-Delivery publication/prepare/apply/inspect/reconcile effects are unavailable on
-this S1 path. The readiness response grants no push, PR, merge, release or
-Provider authority. Canonical delivery effects are approved S3 work; old packet
-and publication bytes remain inert rather than being resumed or converted.
+`axiom workflow delivery advance --project <id> --execution <id> --request
+'<json>'` reviews one current-phase request, locally and read-only. The strict
+JSON DeliveryRequest contains `projectId`, `executionId`, `revision`,
+`repositoryKey`, `repositoryIdentity`, `target` (the existing DeliveryTarget
+fields), and `expectedRemoteHead` (empty for an absent push target). Exactly
+one target flag, `push` or `pr`, is true. Repository identity must match the bound Execution checkout identity (including
+local `fs:` identities); the explicit target remote must be
+`https://github.com/<owner>/<repo>.git`. Both identities are bound by the grant.
+Base/head refs, commits, tree, diff digest, title/body and metadata are exact
+reviewed inputs; PR requires the remote head already at the expected commit.
+
+After operator review, the same command with `--grant <grantDigest>
+--authorize-local --authorize-human` and the matching `--authorize-push` OR
+`--authorize-pr` may perform that one effect. Readiness, current repository
+binding, grant, ref/SHA and remote observations are rechecked. Changed revision
+or intent invalidates the grant. Intent is committed in Execution before the
+call; only an exact observed result confirms it. No packet/publication/decision
+store is created. Local completion requires no delivery operation.
+
+A lost response remains unknown/recovery-required. `advance --inspect <index>`
+instead of `--request`, with the original exact grant and authority flags,
+records only an exact-target read. It never repeats an effect or turns guessed
+success into confirmation. Unknown disposition and linked rework remain S3.3;
+legacy DTO/store deletion remains S3.4. Read-only packet and status views remain.
+No merge, release, acceptance or Work Item closure authority is granted.
 
 ### Human delivery decision and linked rework
 

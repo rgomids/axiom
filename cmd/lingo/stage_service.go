@@ -39,6 +39,8 @@ func (s lifecycleService) WorkflowStage(ctx context.Context, in cli.WorkflowStag
 		return s.stageFailure(completion.Interrupted, "workflow_cancelled", "Operation cancelled", "Inspect Execution status", nil)
 	}
 	switch in.Operation {
+	case "delivery-advance":
+		return s.executionDelivery(ctx, in)
 	case "execution-run", "status", "cancel", "retry", "reconcile":
 		return s.executionStage(ctx, in)
 	case "coordination-publish":
@@ -46,7 +48,7 @@ func (s lifecycleService) WorkflowStage(ctx context.Context, in cli.WorkflowStag
 	case "coordination-list", "coordination-show", "delivery-packet":
 		return s.executionRead(ctx, in)
 	}
-	return s.stageFailure(completion.ValidationFailure, "unsupported_execution_operation", "This operation is not implemented for canonical Executions", "Inspect workflow run/status; delivery effects require the approved S3 implementation", nil)
+	return s.stageFailure(completion.ValidationFailure, "unsupported_execution_operation", "This operation is not implemented for canonical Executions", "Inspect workflow run/status or workflow delivery advance", nil)
 }
 
 func (s lifecycleService) executionRead(ctx context.Context, in cli.WorkflowStageInput) cli.WorkflowStageResponse {
