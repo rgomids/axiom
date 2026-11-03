@@ -652,6 +652,14 @@ func (e Execution) Validate() error {
 						}
 					}
 				}
+				if attempt.Status == AttemptSucceeded {
+					agent := spec.Agents[j]
+					for _, name := range spec.Outputs {
+						if (!agent.OutputScope || slices.Contains(agent.Outputs, name)) && !seen[name] {
+							return invalid("succeeded attempt missing required output")
+						}
+					}
+				}
 			}
 		}
 	}

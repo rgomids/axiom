@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/rgomids/axiom/internal/gitworkspace"
+	"github.com/rgomids/axiom/internal/workflow"
 )
 
 func commitAll(t *testing.T, directory, message string) string {
@@ -100,5 +101,62 @@ func TestIntegratorPreservesUserBranchesAndBindsExactRepository(t *testing.T) {
 		if _, err := gitworkspace.NewIntegrator(context.Background(), bind[0], bind[1]); !errors.Is(err, gitworkspace.ErrInvalidConfiguration) {
 			t.Fatalf("%s accepted: %v", name, err)
 		}
+	}
+}
+
+func TestObserveIntegrationTwoRepositoriesAndStaleOrForeignFacts(t *testing.T) {
+	ctx := context.Background()
+	root := canonicalTempDir(t)
+	var repos []string
+	var observations []workflow.Integration
+	for _, key := range []string{"app", "lib"} {
+		f := initRepository(t, filepath.Join(root, key))
+		repo := f.repository
+		writeFile(t, filepath.Join(repo, "result.txt"), key)
+		candidate := commitAll(t, repo, key)
+		git(t, repo, "branch", "agent", candidate)
+		git(t, repo, "branch", "target", candidate)
+		i := workflow.Integration{RepositoryKey: key, SourceBranch: "refs/heads/agent", TargetRef: "refs/heads/target", BaseSHA: f.revision, ExpectedTargetHead: f.revision, CandidateSHA: candidate, FinalSHA: candidate, MergeSHA: candidate, ObservedTargetHead: candidate, Status: workflow.IntegrationIntegrated}
+		if err := gitworkspace.ObserveIntegration(ctx, repo, i, true); err != nil {
+			t.Fatal(err)
+		}
+		repos = append(repos, repo)
+		observations = append(observations, i)
+	}
+	if observations[0].CandidateSHA == observations[1].CandidateSHA {
+		t.Fatal("fixture results not distinct")
+	}
+	if gitworkspace.ObserveIntegration(ctx, repos[0], observations[1], true) == nil {
+		t.Fatal("foreign repository result accepted")
+	}
+	for _, mode := range []string{"ref", "source-ref", "source", "base", "sha", "path"} {
+		t.Run(mode, func(t *testing.T) {
+			i := observations[0]
+			repo := repos[0]
+			switch mode {
+			case "ref":
+				i.TargetRef = "refs/heads/missing"
+			case "source-ref":
+				i.SourceBranch = "refs/heads/missing"
+			case "source":
+				i.CandidateSHA = observations[1].CandidateSHA
+			case "base":
+				i.BaseSHA = observations[1].CandidateSHA
+			case "sha":
+				i.FinalSHA = i.BaseSHA
+			case "path":
+				repo = filepath.Join(repo, "..", "lib")
+			}
+			if gitworkspace.ObserveIntegration(ctx, repo, i, true) == nil {
+				t.Fatal("wrong target facts ready")
+			}
+		})
+	}
+	git(t, repos[0], "update-ref", observations[0].TargetRef, observations[0].BaseSHA)
+	if gitworkspace.ObserveIntegration(ctx, repos[0], observations[0], true) == nil {
+		t.Fatal("stale target ready")
+	}
+	if err := gitworkspace.ObserveIntegration(ctx, repos[0], observations[0], false); err != nil {
+		t.Fatalf("historical target must not require current tip: %v", err)
 	}
 }

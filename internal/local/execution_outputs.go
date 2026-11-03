@@ -3,6 +3,9 @@ package local
 import (
 	"context"
 	"encoding/hex"
+	"encoding/json"
+	"io"
+	"os"
 	"strings"
 
 	"github.com/rgomids/axiom/internal/strictjson"
@@ -53,4 +56,72 @@ func (v WorkflowReferenceValidator) ValidateExecutionOutput(ctx context.Context,
 		}
 	}
 	return workflow.ArtifactRef{Name: subject.Check.Name, RetainedID: artifact.ID, RepositoryKey: subject.RepositoryKey, Digest: "sha256:" + ref.Digest, Size: int64(artifact.ContentBytes)}, nil
+}
+
+// ObserveExecutionArtifact re-reads the exact attempt-owned content. Retained
+// typed output is checked by the same schema/lineage validator as collection;
+// ordinary output is hashed in its private, rooted ingress directory.
+func (v WorkflowReferenceValidator) ObserveExecutionArtifact(ctx context.Context, x workflow.Execution, ref workflow.TaskRef, a workflow.Attempt, artifact workflow.ArtifactRef) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	recorded, actualRef, ok := x.FindAttempt(a.AttemptID)
+	if !ok || actualRef != ref || recorded.Authority.RepositoryKey != artifact.RepositoryKey || a.Authority.RepositoryKey != artifact.RepositoryKey || !workflow.ValidToken(artifact.Name) {
+		return ErrUnsafe
+	}
+	found := false
+	for _, r := range recorded.Artifacts {
+		found = found || r == artifact
+	}
+	if !found {
+		return ErrUnsafe
+	}
+	for _, stage := range x.Workflow.Stages {
+		if stage.ID == ref.StageID {
+			for _, check := range stage.OutputChecks {
+				if check.Name == artifact.Name {
+					wire, _ := json.Marshal(map[string]string{"kind": "artifact", "id": artifact.RetainedID, "digest": strings.TrimPrefix(artifact.Digest, "sha256:")})
+					observed, err := v.ValidateExecutionOutput(ctx, workflow.OutputSubject{ExecutionID: x.ExecutionID, AttemptID: a.AttemptID, StageID: ref.StageID, RepositoryKey: artifact.RepositoryKey, DefinitionDigest: stage.DefinitionDigest, Check: check}, wire)
+					if err != nil || observed != artifact {
+						return ErrUnsafe
+					}
+					return nil
+				}
+			}
+		}
+	}
+	if artifact.RetainedID != "" {
+		return ErrUnsafe
+	}
+	root, err := existingPrivateRoot(v.artifacts.root)
+	if err != nil {
+		return err
+	}
+	for _, name := range []string{"executions", "v2-attempt-outputs", x.ProjectID, x.ExecutionID, a.AttemptID} {
+		child, err := existingPrivateChild(root, name)
+		root.Close()
+		if err != nil {
+			return err
+		}
+		root = child
+	}
+	defer root.Close()
+	info, err := root.Lstat(artifact.Name)
+	if err != nil || !info.Mode().IsRegular() || info.Size() > maxWorkflowEvidenceBytes {
+		return ErrUnsafe
+	}
+	file, err := root.OpenFile(artifact.Name, os.O_RDONLY|noFollow, 0)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	opened, err := file.Stat()
+	if err != nil || !os.SameFile(info, opened) || !singleLink(file, opened) {
+		return ErrUnsafe
+	}
+	data, err := io.ReadAll(io.LimitReader(file, maxWorkflowEvidenceBytes+1))
+	if err != nil || len(data) > maxWorkflowEvidenceBytes || int64(len(data)) != artifact.Size || workflow.DigestText(data) != artifact.Digest {
+		return ErrUnsafe
+	}
+	return ctx.Err()
 }

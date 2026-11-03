@@ -229,7 +229,7 @@ func (e *Execution) PrepareIntegration(in IntegrationInput) error {
 		}
 		// The principal asserts which branch carries which attempt's work; once
 		// recorded, that association cannot be reused for another attempt.
-		if (other.SourceBranch == in.SourceBranch || other.Worktree == in.Worktree || other.SourceAttemptID == in.SourceAttemptID) && (other.SourceAttemptID != in.SourceAttemptID || other.SourceBranch != in.SourceBranch || other.Worktree != in.Worktree) {
+		if (other.RepositoryKey == in.RepositoryKey && (other.SourceBranch == in.SourceBranch || other.Worktree == in.Worktree) || other.SourceAttemptID == in.SourceAttemptID) && (other.SourceAttemptID != in.SourceAttemptID || other.SourceBranch != in.SourceBranch || other.Worktree != in.Worktree) {
 			return fmt.Errorf("%w: branch, worktree and attempt association mismatch", ErrTransition)
 		}
 	}
@@ -308,7 +308,7 @@ func validateIntegrations(e Execution) error {
 		}
 		seen[i.IntegrationID] = true
 		bound := i.SourceAttemptID + "\x00" + i.SourceBranch + "\x00" + i.Worktree
-		for _, key := range []string{"attempt:" + i.SourceAttemptID, "branch:" + i.SourceBranch, "worktree:" + i.Worktree} {
+		for _, key := range []string{"attempt:" + i.SourceAttemptID, "branch:" + i.RepositoryKey + ":" + i.SourceBranch, "worktree:" + i.RepositoryKey + ":" + i.Worktree} {
 			if previous, ok := association[key]; ok && previous != bound {
 				return invalid("integration %q association", i.IntegrationID)
 			}

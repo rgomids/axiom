@@ -81,30 +81,20 @@ func (s lifecycleService) executionRead(ctx context.Context, in cli.WorkflowStag
 		if in.AuthorizeLocal || in.PreviewDigest != "" || in.Record != "" {
 			return s.stageFailure(completion.ValidationFailure, "unsupported_execution_operation", "Canonical readiness is read-only", "Delivery publication is S3; no legacy packet is read or retained", nil)
 		}
+		repositories := c.repositoryOutcomes(ctx, x)
 		blockers := []string{}
-		if x.Status != workflow.RunCompleted {
-			blockers = append(blockers, "execution_not_completed")
-		}
 		artifacts := []workflow.ArtifactRef{}
-		for _, stage := range x.Stages {
-			for _, task := range stage.Tasks {
-				if len(task.Attempts) == 0 {
-					blockers = append(blockers, stage.StageID+":"+task.AgentID+":attempt_missing")
-					continue
+		for _, r := range repositories {
+			for _, b := range r.Blockers {
+				blockers = append(blockers, r.RepositoryKey+":"+b)
+			}
+			for _, result := range r.Results {
+				if result.Current {
+					artifacts = append(artifacts, result.Artifacts...)
 				}
-				a := task.Attempts[len(task.Attempts)-1]
-				if a.Status != workflow.AttemptSucceeded {
-					blockers = append(blockers, stage.StageID+":"+task.AgentID+":"+string(a.Status))
-				}
-				for _, effect := range a.Effects {
-					if effect.State == workflow.EffectUnknown {
-						blockers = append(blockers, a.AttemptID+":unknown_effect")
-					}
-				}
-				artifacts = append(artifacts, a.Artifacts...)
 			}
 		}
-		return s.stageSuccess("execution_readiness", "Canonical Execution readiness", []string{"execution:" + x.ExecutionID}, "Readiness grants no delivery authority; publication is implemented in S3", map[string]any{"execution": x.ExecutionID, "revision": x.Revision, "ready": len(blockers) == 0, "blockers": blockers, "artifacts": artifacts, "deliveryAuthorized": false})
+		return s.stageSuccess("execution_readiness", "Canonical Execution readiness", []string{"execution:" + x.ExecutionID}, "Readiness grants no delivery authority", map[string]any{"execution": x.ExecutionID, "revision": x.Revision, "ready": len(blockers) == 0, "blockers": blockers, "artifacts": artifacts, "repositories": repositories, "deliveryAuthorized": false})
 	}
 	records := []workflow.Message{}
 	for _, m := range x.Messages {

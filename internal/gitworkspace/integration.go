@@ -46,32 +46,15 @@ type WorktreeObservation struct {
 }
 
 func NewIntegrator(ctx context.Context, repository, root string) (*Integrator, error) {
-	git, err := exec.LookPath("git")
+	m, err := openIntegrationRepository(ctx, repository)
 	if err != nil {
-		return nil, ErrInvalidConfiguration
-	}
-	if git, err = filepath.Abs(git); err != nil {
-		return nil, ErrInvalidConfiguration
-	}
-	repository, err = cleanExistingDirectory(repository)
-	if err != nil {
-		return nil, ErrInvalidConfiguration
+		return nil, err
 	}
 	root, err = cleanAuthorizedRoot(root)
-	if err != nil || samePath(root, repository) || isWithin(repository, root) || isWithin(root, repository) {
+	if err != nil || samePath(root, m.repository) || isWithin(m.repository, root) || isWithin(root, m.repository) {
 		return nil, ErrInvalidConfiguration
 	}
-	m := &Manager{git: git, repository: repository, root: root}
-	if err := m.rejectExecutableConfiguration(ctx, repository); err != nil {
-		return nil, fmt.Errorf("%w: %w", ErrInvalidConfiguration, err)
-	}
-	top, err := m.gitPath(ctx, repository, "rev-parse", "--show-toplevel")
-	if err != nil || !samePath(top, repository) {
-		return nil, ErrInvalidConfiguration
-	}
-	if m.commonDirectory, err = m.gitPath(ctx, repository, "rev-parse", "--path-format=absolute", "--git-common-dir"); err != nil {
-		return nil, ErrInvalidConfiguration
-	}
+	m.root = root
 	return &Integrator{m: m}, nil
 }
 
@@ -288,4 +271,75 @@ func (g *Integrator) Advance(ctx context.Context, ref, expected, merge string) (
 		return observed, fmt.Errorf("%w: %v", ErrTargetMoved, advanceErr)
 	}
 	return observed, nil
+}
+
+// openIntegrationRepository opens the existing hardened local Git boundary;
+// read-only observations need no worktree root or workspace mutation.
+func openIntegrationRepository(ctx context.Context, repository string) (*Manager, error) {
+	git, err := exec.LookPath("git")
+	if err != nil {
+		return nil, ErrInvalidConfiguration
+	}
+	git, err = filepath.Abs(git)
+	if err != nil {
+		return nil, ErrInvalidConfiguration
+	}
+	repository, err = cleanExistingDirectory(repository)
+	if err != nil {
+		return nil, ErrInvalidConfiguration
+	}
+	m := &Manager{git: git, repository: repository}
+	if err := m.rejectExecutableConfiguration(ctx, repository); err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrInvalidConfiguration, err)
+	}
+	top, err := m.gitPath(ctx, repository, "rev-parse", "--show-toplevel")
+	if err != nil || !samePath(top, repository) {
+		return nil, ErrInvalidConfiguration
+	}
+	m.commonDirectory, err = m.gitPath(ctx, repository, "rev-parse", "--path-format=absolute", "--git-common-dir")
+	if err != nil {
+		return nil, ErrInvalidConfiguration
+	}
+	return m, nil
+}
+
+// ObserveIntegration checks immutable Git objects/ancestry in the bound local
+// repository. Only the latest accepted record for a target requires the ref
+// still at FinalSHA. Historical source refs may have advanced or been removed;
+// their recorded commits must remain verifiable. It performs no ref mutation.
+func ObserveIntegration(ctx context.Context, repository string, i workflow.Integration, current bool) error {
+	if i.Status != workflow.IntegrationIntegrated || !workflow.ValidBranchRef(i.SourceBranch) || !workflow.ValidBranchRef(i.TargetRef) || i.FinalSHA != i.MergeSHA || i.ObservedTargetHead != i.FinalSHA {
+		return ErrCandidateInvalid
+	}
+	for _, sha := range []string{i.BaseSHA, i.ExpectedTargetHead, i.CandidateSHA, i.FinalSHA} {
+		if !workflow.ValidObjectID(sha) {
+			return ErrCandidateInvalid
+		}
+	}
+	m, err := openIntegrationRepository(ctx, repository)
+	if err != nil {
+		return err
+	}
+	for _, sha := range []string{i.BaseSHA, i.ExpectedTargetHead, i.CandidateSHA, i.FinalSHA} {
+		observed, err := m.revision(ctx, m.repository, sha)
+		if err != nil || observed != sha {
+			return ErrCandidateInvalid
+		}
+	}
+	for _, pair := range [][2]string{{i.BaseSHA, i.CandidateSHA}, {i.CandidateSHA, i.FinalSHA}, {i.ExpectedTargetHead, i.FinalSHA}} {
+		if _, err := m.runGit(ctx, m.repository, nil, nil, "merge-base", "--is-ancestor", pair[0], pair[1]); err != nil {
+			return ErrCandidateInvalid
+		}
+	}
+	if current {
+		source, err := m.revision(ctx, m.repository, i.SourceBranch)
+		if err != nil || source != i.CandidateSHA {
+			return ErrCandidateInvalid
+		}
+		observed, err := m.revision(ctx, m.repository, i.TargetRef)
+		if err != nil || observed != i.FinalSHA {
+			return ErrTargetMoved
+		}
+	}
+	return nil
 }

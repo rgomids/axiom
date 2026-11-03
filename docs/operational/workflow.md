@@ -82,8 +82,17 @@ unobservable (stop it first). `workflow status`, `evidence` and `list` read the 
 lifecycle gate/fact/Provider projection writers and Graph/Single dispatch are
 retired. Old bytes are inert: there is no legacy resume or conversion. Public
 child publication remains unavailable; S1 private ingress belongs to the engine.
-`workflow delivery packet` reports canonical readiness read-only. Delivery
-publication, acceptance and linked rework effects remain S3 work.
+`workflow delivery packet` reports validation readiness per Repository, read-only.
+Status and run results expose `repositoryOutcomes`: attempt/stage/agent lineage,
+artifact references and recorded source/target Git observations. Readiness
+rechecks current output bytes and retained typed-artifact lineage. For recorded
+integrations it also verifies local commit ancestry and the latest source/target
+refs. Missing, changed or foreign evidence blocks readiness without rewriting a
+completed attempt. Historical attempts and integration observations remain visible.
+A Repository with no result is reported explicitly. Local completion needs no PR;
+absence of an integration means no Git target is claimed. Readiness grants no
+publication, merge or acceptance authority. Delivery publication and linked
+rework effects remain S3.2/S3.3 work.
 
 ### Execution messages and authority
 

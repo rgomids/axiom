@@ -97,7 +97,7 @@ func (s lifecycleService) executionStage(ctx context.Context, in cli.WorkflowSta
 		if err != nil {
 			return c.failure(err, nil)
 		}
-		return c.outcome("Execution status", x, nil, true)
+		return c.outcome(ctx, "Execution status", x, nil, true)
 	case "cancel":
 		x, err := c.engine(nil).Cancel(ctx, resolved.Project.ID, in.Execution, executionActor("user:"))
 		if err != nil {
@@ -127,7 +127,7 @@ func (s lifecycleService) executionStage(ctx context.Context, in cli.WorkflowSta
 		if err != nil {
 			return c.failure(err, nil)
 		}
-		return c.outcome("Execution reconciled without signalling or replay", x, facts, true)
+		return c.outcome(ctx, "Execution reconciled without signalling or replay", x, facts, true)
 	}
 	return s.stageFailure(completion.ValidationFailure, "invalid_command", "Unsupported Execution operation", "Run axiom workflow --help", nil)
 }
@@ -182,7 +182,7 @@ func (c executionComposition) run(ctx context.Context, in cli.WorkflowStageInput
 		if err != nil {
 			return c.failure(err, &x)
 		}
-		return c.outcome("Execution progressed", x, nil, false)
+		return c.outcome(ctx, "Execution progressed", x, nil, false)
 	}
 	if in.ApproveGate != "" || in.ReviewStage != "" {
 		return c.failure(errSelectionSyntax, nil)
@@ -226,7 +226,7 @@ func (c executionComposition) run(ctx context.Context, in cli.WorkflowStageInput
 		}
 		return c.failure(err, &x)
 	}
-	return c.outcome("Execution started", x, nil, false)
+	return c.outcome(ctx, "Execution started", x, nil, false)
 }
 
 func (c executionComposition) retry(ctx context.Context, in cli.WorkflowStageInput) cli.WorkflowStageResponse {
@@ -253,7 +253,7 @@ func (c executionComposition) retry(ctx context.Context, in cli.WorkflowStageInp
 	if err != nil {
 		return c.failure(err, &x)
 	}
-	return c.outcome("Retry attempt recorded", x, nil, false)
+	return c.outcome(ctx, "Retry attempt recorded", x, nil, false)
 }
 
 func (c executionComposition) engine(launcher stageexecution.Launcher) stageexecution.Engine {
@@ -843,19 +843,20 @@ type executionStageView struct {
 // executionView is the safe projection: no executable path, instruction
 // text, repository identity or child output.
 type executionView struct {
-	ExecutionID      string                         `json:"executionId"`
-	ProjectID        string                         `json:"projectId"`
-	WorkItem         workflow.WorkItemLink          `json:"workItem"`
-	WorkflowID       string                         `json:"workflowId"`
-	WorkflowRevision string                         `json:"workflowRevision"`
-	WorkflowDigest   string                         `json:"workflowDigest"`
-	Revision         uint64                         `json:"revision"`
-	RunnerGeneration uint64                         `json:"runnerGeneration"`
-	Status           workflow.RunStatus             `json:"status"`
-	Cancel           *workflow.CancelIntent         `json:"cancel,omitempty"`
-	Stages           []executionStageView           `json:"stages"`
-	Reconciliation   []stageexecution.ReconcileFact `json:"reconciliation,omitempty"`
-	NextAction       string                         `json:"nextAction"`
+	RepositoryOutcomes []workflow.RepositoryOutcome   `json:"repositoryOutcomes"`
+	ExecutionID        string                         `json:"executionId"`
+	ProjectID          string                         `json:"projectId"`
+	WorkItem           workflow.WorkItemLink          `json:"workItem"`
+	WorkflowID         string                         `json:"workflowId"`
+	WorkflowRevision   string                         `json:"workflowRevision"`
+	WorkflowDigest     string                         `json:"workflowDigest"`
+	Revision           uint64                         `json:"revision"`
+	RunnerGeneration   uint64                         `json:"runnerGeneration"`
+	Status             workflow.RunStatus             `json:"status"`
+	Cancel             *workflow.CancelIntent         `json:"cancel,omitempty"`
+	Stages             []executionStageView           `json:"stages"`
+	Reconciliation     []stageexecution.ReconcileFact `json:"reconciliation,omitempty"`
+	NextAction         string                         `json:"nextAction"`
 }
 
 func executionPayload(x workflow.Execution, facts []stageexecution.ReconcileFact) executionView {
@@ -879,6 +880,8 @@ func executionPayload(x workflow.Execution, facts []stageexecution.ReconcileFact
 		}
 		v.Stages = append(v.Stages, stage)
 	}
+	v.RepositoryOutcomes = x.RepositoryOutcomes()
+
 	return v
 }
 
@@ -914,8 +917,9 @@ func executionNext(x workflow.Execution) string {
 	return "axiom workflow run" + selector + " --authorize-external"
 }
 
-func (c executionComposition) outcome(message string, x workflow.Execution, facts []stageexecution.ReconcileFact, read bool) cli.WorkflowStageResponse {
+func (c executionComposition) outcome(ctx context.Context, message string, x workflow.Execution, facts []stageexecution.ReconcileFact, read bool) cli.WorkflowStageResponse {
 	payload := executionPayload(x, facts)
+	payload.RepositoryOutcomes = c.repositoryOutcomes(ctx, x)
 	refs := []string{"execution:" + x.ExecutionID}
 	if read {
 		return c.s.stageSuccess("execution_"+string(x.Status), message, refs, payload.NextAction, payload)
