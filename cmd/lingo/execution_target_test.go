@@ -16,11 +16,6 @@ import (
 	"github.com/rgomids/axiom/internal/workflowdefinition"
 )
 
-func installLinkedTarget(t *testing.T, env workItemSourceEnvironment) {
-	t.Helper()
-	installLinkedTargetRepositories(t, env, "main")
-}
-
 // installLinkedTargetRepositories binds each extra Project Repository to its
 // own directory and returns those paths; "main" stays the linked target.
 func installLinkedTargetRepositories(t *testing.T, env workItemSourceEnvironment, keys ...string) map[string]string {
