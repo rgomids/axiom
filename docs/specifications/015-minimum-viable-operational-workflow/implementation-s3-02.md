@@ -120,7 +120,38 @@ CLI/internal scope. This is a self-review, not independent review or acceptance.
 
 ## Completion checkpoint
 
-Pending final exact-source test/status collection. No remote implementation
-publication or CI success is claimed. The user excluded real remote pushes;
-this attempt prepares a local commit and handoff on the existing branch only.
-Next gate after evidence reconciliation: independent `REVIEW_S3_2`.
+Implementation code SHA: `8dbc799bff58caaed2c954ae1c8a3b67e1daa262` (local,
+unpublished), following implementation commit `a1e35ffe3ff30ea6f0faf738bcb85521e40e0bef`.
+[Machine-readable verification](verification-s3-02.json) records commands, actual
+source SHAs, output digests, exit codes, test names and limitations.
+
+- PASS / exit 0 on the corrected SHA: focused delivery/readiness/ownership tests;
+  full `GOTOOLCHAIN=go1.26.0 go test ./... -timeout=15m` (32 packages with tests,
+  plus packages without tests); build; vet; pinned Staticcheck, format/tidiness;
+  module verification. The prior exact-SHA full run at `a1e35ff` failed only
+  `TestEveryPublishedSharedRevisionStaysOwned`; the final full run supersedes it.
+- PASS / exit 0 on `a1e35ff`: repository/governance validation; ten quality-gate
+  contracts after correcting the tool PATH; delivery and correction contracts
+  with local repositories/fake gh; installed-docs journey. The latter retains
+  PARTIAL qualification: real native Runtimes and source/network denial NOT_RUN.
+  The subsequent correction changes only shared skill ownership history and its
+  pin; full corrected-SHA Runtime/install tests pass. Documentation corpus and
+  these governance scripts are unchanged by that correction.
+- NOT_RUN: race (CGO disabled and gcc unavailable); gitleaks (not installed);
+  remote CI on S3.2; real vendor E2E/battery, real delivery, cutover, merge,
+  release and acceptance. No model availability is inferred.
+
+Self-review identified and corrected the required fixture/skill-ownership
+issues described above. No remaining blocking finding identified in that
+self-review; this is not independent approval. S3.3–S3.5 and the recorded
+deferred findings remain untouched.
+
+Handoff is **stage.partial** solely for unpublished integration/remote Evidence:
+the bounded implementation is locally validated, but the same PR still points
+to `d4e35c433e45208c89998118cf52da76c21cca9d`. No push was performed under this
+attempt's explicit exclusion of real remote pushes. CI is NOT_RUN for local
+source; no GitHub S3.2 artifact/approval is fabricated. The same branch contains
+local commits for publication only under separate authority. Next gate:
+independent `REVIEW_S3_2`, after the authorized publication handoff. Checkpoint:
+`AWAITING_EXECUTION_REPORT`. Available Cursor tools dispatch published prompts;
+no authorized completion callback for this unpublished source was invoked.
