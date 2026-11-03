@@ -1,7 +1,6 @@
 package workflow
 
 import (
-	"context"
 	"testing"
 	"time"
 )
@@ -41,37 +40,6 @@ func TestLifecycleCompleteGateFactMatrix(t *testing.T) {
 	assertLifecycle(t, state, LifecycleAccepted)
 }
 
-func TestRecordFactAuthorityAndBlockedTransitionHaveZeroUnauthorizedEffects(t *testing.T) {
-	service, store, provider := newS4Service(t)
-	service.references = acceptingLifecycleReferences{}
-	target := s4Target()
-	service.Start(context.Background(), target)
-	for _, gate := range []Stage{Intake, Specification, Clarification} {
-		state := store.state
-		result := service.Transition(context.Background(), target, TransitionInput{ExpectedRevision: state.Revision, Stage: gate, Outcome: OutcomePassed})
-		if result.Status != Succeeded {
-			t.Fatalf("advance %s = %#v", gate, result)
-		}
-	}
-	reference := Reference{Kind: "specification", ID: "spec", Digest: testDigest}
-	denied := service.RecordLifecycleFact(context.Background(), target, LifecycleFactInput{ExpectedRevision: store.state.Revision, Kind: FactPlanningAuthority, Active: true, Reference: reference}, false)
-	if denied.Status != Denied || store.state.Revision != 4 {
-		t.Fatalf("denied fact = %#v state=%#v", denied, store.state)
-	}
-	authorized := service.RecordLifecycleFact(context.Background(), target, LifecycleFactInput{ExpectedRevision: 4, Kind: FactPlanningAuthority, Active: true, Reference: reference}, true)
-	if authorized.Status != Succeeded || store.state.Revision != 5 {
-		t.Fatalf("authorized fact = %#v", authorized)
-	}
-	blocked := service.RecordLifecycleFact(context.Background(), target, LifecycleFactInput{ExpectedRevision: 5, Kind: FactBlocked, Active: true, Reference: Reference{Kind: "evidence", ID: "blocker", Digest: testDigest}}, true)
-	if blocked.Status != Succeeded || store.state.Revision != 6 {
-		t.Fatalf("blocked fact = %#v", blocked)
-	}
-	transition := service.Transition(context.Background(), target, TransitionInput{ExpectedRevision: 6, Stage: Plan, Outcome: OutcomePassed})
-	if transition.Status != Denied || transition.Category != "workflow_blocked" || store.state.Revision != 6 || len(provider.effects) != 0 {
-		t.Fatalf("blocked transition = %#v state=%#v effects=%v", transition, store.state, provider.effects)
-	}
-}
-
 func TestLifecycleFlagCombinationMatrix(t *testing.T) {
 	for mask := 0; mask < 16; mask++ {
 		conditions := LifecycleConditions{Blocked: mask&1 != 0, NeedsDecision: mask&2 != 0, NeedsApproval: mask&4 != 0, RecoveryRequired: mask&8 != 0}
@@ -83,17 +51,16 @@ func TestLifecycleFlagCombinationMatrix(t *testing.T) {
 }
 
 func TestProjectionUsesDerivedStageAndIndependentFlags(t *testing.T) {
-	service, store, provider := newS4Service(t)
-	service.references = acceptingLifecycleReferences{}
-	target := s4Target()
-	service.Start(context.Background(), target)
-	service.Transition(context.Background(), target, TransitionInput{ExpectedRevision: 1, Stage: Intake, Outcome: OutcomePassed})
-	service.RecordLifecycleFact(context.Background(), target, LifecycleFactInput{ExpectedRevision: 2, Kind: FactBlocked, Active: true, Reference: Reference{Kind: "evidence", ID: "blocker", Digest: testDigest}}, true)
-	lifecycle, err := DeriveLifecycle(store.state)
+	state := lifecycleTestState()
+	advanceLifecycleState(&state)
+	addLifecycleFact(&state, FactBlocked, true, "evidence")
+	observation := alignedReconciliationObservation(state)
+	observation.IssueLabels = []string{"axiom:stage:intake"}
+	lifecycle, err := DeriveLifecycle(state)
 	if err != nil {
 		t.Fatal(err)
 	}
-	preview, err := prepareProjectionPreview(store.state, lifecycle, provider.observation)
+	preview, err := prepareProjectionPreview(state, lifecycle, observation)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -104,9 +71,6 @@ func TestProjectionUsesDerivedStageAndIndependentFlags(t *testing.T) {
 	if !previewHasEffect(previewed.Preview.Effects, AddStageLabel, FlagBlocked) || !previewHasEffect(previewed.Preview.Effects, AddStageLabel, "axiom:stage:specifying") {
 		t.Fatalf("flag effects = %#v", previewed.Preview.Effects)
 	}
-	if len(provider.effects) != 0 {
-		t.Fatalf("preview mutated provider: %v", provider.effects)
-	}
 }
 
 func previewHasEffect(effects []ProjectionEffect, kind ProjectionEffectKind, value string) bool {
@@ -116,12 +80,6 @@ func previewHasEffect(effects []ProjectionEffect, kind ProjectionEffectKind, val
 		}
 	}
 	return false
-}
-
-type acceptingLifecycleReferences struct{}
-
-func (acceptingLifecycleReferences) Validate(context.Context, string, string, Reference) error {
-	return nil
 }
 
 func TestLifecycleBlockedIsOrthogonalAndInconsistencyFailsClosed(t *testing.T) {
@@ -149,15 +107,6 @@ func TestLifecycleBlockedIsOrthogonalAndInconsistencyFailsClosed(t *testing.T) {
 }
 
 func TestLifecycleRejectsStaleDuplicateMissingReferenceAndSkippedHistory(t *testing.T) {
-	service, store, _ := newS4Service(t)
-	service.references = acceptingLifecycleReferences{}
-	target := s4Target()
-	service.Start(context.Background(), target)
-	stale := service.RecordLifecycleFact(context.Background(), target, LifecycleFactInput{ExpectedRevision: 2, Kind: FactBlocked, Active: true, Reference: Reference{Kind: "evidence", ID: "blocker", Digest: testDigest}}, true)
-	if stale.Status != Denied || store.state.Revision != 1 {
-		t.Fatalf("stale fact = %#v state=%#v", stale, store.state)
-	}
-
 	state := lifecycleTestState()
 	for state.Stage != Plan {
 		advanceLifecycleState(&state)

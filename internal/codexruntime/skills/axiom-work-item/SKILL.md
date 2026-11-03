@@ -220,8 +220,10 @@ exact frozen argv and effect bounds. Do not infer this authority from a run.
 Use `axiom --json workflow delivery packet` with the exact persisted Project, Repository,
 Work Item and Execution selectors. Report readiness, blockers and
 next action unchanged. This reads canonical state without retaining a companion
-packet or contacting a Provider. Optional publication uses `delivery.advance`; acceptance and linked rework
-remain separate S3.3 work. Packet readiness grants no effect authority.
+packet or contacting a Provider. Optional publication uses `delivery.advance`;
+rejection and linked rework use `stage.reject` and `run --rework-of` as described
+below. Packet readiness grants no effect authority. Historical delivery formats
+are inventory/retention data, never inputs to a compatibility executor.
 
 ## stage dispatch and coordination
 

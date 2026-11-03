@@ -14,10 +14,9 @@ import (
 )
 
 // S2.3 principal-controlled integration of isolated agent branches. This is
-// the same local Git boundary as Manager (hardened runner, executable
-// configuration veto, rooted no-symlink worktree paths, no cleanup), bound to
-// one repository and one principal-authorized worktree root instead of a
-// Graph. It never pushes, fetches, deletes a ref/branch/worktree or resets a
+// the shared hardened Git boundary (executable configuration veto, rooted
+// no-symlink worktree paths, no cleanup), bound to one repository and one
+// principal-authorized worktree root. It never pushes, fetches, deletes a ref/branch/worktree or resets a
 // working tree; the only ref it moves is the principal's integration target,
 // and only by compare-and-swap.
 var (

@@ -2,7 +2,6 @@ package workflow
 
 import (
 	"context"
-	"reflect"
 	"testing"
 
 	"github.com/rgomids/axiom/internal/projectapp"
@@ -36,15 +35,13 @@ func TestExecutionStartCapturesEffectiveProjectBeforeContextChanges(t *testing.T
 	if category != "" {
 		t.Fatal(category)
 	}
-	service, store, _ := newS4Service(t)
+	service := linkedTargetService(t)
 	service.resolver = bindingResolver{}
-	target := s4Target()
-	target.ProjectSelector = view.Effective
-	started := service.Start(ctx, target)
-	if started.Category != "execution_started" || started.State.ProjectID != idA {
-		t.Fatal(started)
+	target := Target{ProjectSelector: view.Effective, RepositoryKey: "main", WorkItem: "7"}
+	resolved, failed := service.ResolveLinked(ctx, target)
+	if failed.Category != "" || resolved.ProjectID != idA {
+		t.Fatal(resolved, failed)
 	}
-	before := store.state
 	if selection.Set(ctx, "", idB) != "" || selection.Set(ctx, "one", idB) != "" {
 		t.Fatal("context change failed")
 	}
@@ -52,15 +49,7 @@ func TestExecutionStartCapturesEffectiveProjectBeforeContextChanges(t *testing.T
 	if category != "" || view.Effective != idB {
 		t.Fatal(view, category)
 	}
-	if !reflect.DeepEqual(before, store.state) || started.State.ProjectID != idA {
-		t.Fatal("Execution or provenance changed")
-	}
-	retainedState, err := store.Load(ctx, started.State.ProjectID, started.State.RepositoryKey, started.State.WorkItem)
-	if err != nil {
-		t.Fatal(err)
-	}
-	retained := Result{State: retainedState}
-	if retained.State.ProjectID != idA || retained.State.ExecutionID != started.State.ExecutionID || !reflect.DeepEqual(retained.State.Provenance, started.State.Provenance) {
-		t.Fatal(retained)
+	if resolved.ProjectID != idA {
+		t.Fatal("resolved Project changed after context selection")
 	}
 }

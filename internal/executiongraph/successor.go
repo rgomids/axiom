@@ -3,7 +3,7 @@ package executiongraph
 import (
 	"crypto/sha256"
 	"encoding/json"
-	"reflect"
+
 	"strings"
 	"time"
 
@@ -228,81 +228,6 @@ func validClassification(a SuccessorAttempt, integration bool) bool {
 	default:
 		return false
 	}
-}
-
-// ValidateSuccessorRecords resolves qualifying references against accepted
-// canonical projections. It validates persisted reasons, never reclassifies.
-func ValidateSuccessorRecords(g SuccessorGraph, records []AttemptRecord) error {
-	if err := ValidateSuccessorGraph(g); err != nil {
-		return err
-	}
-	for _, c := range g.Children {
-		for _, a := range c.Attempts {
-			if a.QualifyingRecordRef == "" {
-				continue
-			}
-			found := false
-			for _, r := range records {
-				if !r.Accepted || r.Revision == 0 || r.Digest != a.QualifyingRecordRef || r.ParentID != g.Parent.ExecutionID || r.ChildID != c.ExecutionID || r.GraphRevision != g.Parent.GraphRevision || r.AttemptID != a.AttemptID {
-					continue
-				}
-				found = a.ClassificationReason == BlockerPublished && r.Kind == "blocker" || a.ClassificationReason == ResultRecorded && r.Kind == "result" && r.Outcome == "succeeded" || a.ClassificationReason == ResultNotSuccessful && r.Kind == "result" && r.Outcome == "failed"
-				if found {
-					break
-				}
-			}
-			if !found {
-				return ErrInvalidGraph
-			}
-		}
-	}
-	return nil
-}
-
-// ValidateSuccessorUpdate protects frozen publication fields, terminal attempts
-// and fact prefixes. Contradictory new facts remain visible rather than replaced.
-func ValidateSuccessorUpdate(old, next SuccessorGraph) error {
-	if ValidateSuccessorGraph(old) != nil || ValidateSuccessorGraph(next) != nil {
-		return ErrInvalidGraph
-	}
-	oldHeader, nextHeader := old, next
-	oldHeader.Children, nextHeader.Children = nil, nil
-	oldHeader.CancelRequest, nextHeader.CancelRequest = nil, nil
-	oldHeader.StorageRevision, nextHeader.StorageRevision = [32]byte{}, [32]byte{}
-	if !reflect.DeepEqual(oldHeader, nextHeader) || len(old.Children) != len(next.Children) || old.CancelRequest != nil && !reflect.DeepEqual(old.CancelRequest, next.CancelRequest) {
-		return ErrInvalidGraph
-	}
-	for i, c := range old.Children {
-		n := next.Children[i]
-		ca, na := c.Attempts, n.Attempts
-		c.Attempts, n.Attempts = nil, nil
-		if !reflect.DeepEqual(c, n) || len(na) < len(ca) {
-			return ErrInvalidGraph
-		}
-		for j, a := range ca {
-			b := na[j]
-			af, bf := a.ReconciliationFacts, b.ReconciliationFacts
-			a.ReconciliationFacts, b.ReconciliationFacts = nil, nil
-			if len(bf) < len(af) {
-				return ErrInvalidGraph
-			}
-			for k := range af {
-				if !reflect.DeepEqual(af[k], bf[k]) {
-					return ErrInvalidGraph
-				}
-			}
-			if a.Status != AttemptRunning || b.Status == AttemptRunning {
-				if !reflect.DeepEqual(a, b) {
-					return ErrInvalidGraph
-				}
-			} else {
-				if a.AttemptID != b.AttemptID || a.Number != b.Number || a.LeaseEpoch != b.LeaseEpoch || a.PacketDigest != b.PacketDigest || !reflect.DeepEqual(a.StartedAt, b.StartedAt) || !reflect.DeepEqual(a.Process, b.Process) {
-					return ErrInvalidGraph
-				}
-			}
-		}
-	}
-	return nil
 }
 
 func EncodeSuccessorGraph(g SuccessorGraph) ([]byte, error) {

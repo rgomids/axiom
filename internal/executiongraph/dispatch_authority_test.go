@@ -24,33 +24,7 @@ func boundAuthority(t *testing.T) (SuccessorGraph, DispatchAuthority) {
 	}
 	return g, a
 }
-func TestDispatchAuthorityScopeAndBinding(t *testing.T) {
-	g, a := boundAuthority(t)
-	wire, err := EncodeDispatchAuthority(a)
-	if err != nil {
-		t.Fatal(err)
-	}
-	got, err := DecodeDispatchAuthority(wire)
-	if err != nil || got.PreviewDigest != a.PreviewDigest {
-		t.Fatalf("roundtrip %v", err)
-	}
-	if err := ValidateGraphDispatchAuthority(g, a, a.PreviewDigest); err != nil {
-		t.Fatal(err)
-	}
-	if err := CheckFirstDispatch(g, a, a.PreviewDigest, g.Children[0].ExecutionID, 1); err != nil {
-		t.Fatal(err)
-	}
-	if CheckFirstDispatch(g, a, a.PreviewDigest, g.Children[0].ExecutionID, 2) == nil {
-		t.Fatal("retry authorized")
-	}
-	if ValidateGraphDispatchAuthority(g, a, strings.Repeat("b", 64)) == nil {
-		t.Fatal("digest mismatch accepted")
-	}
-	a.Revision++
-	if ValidateGraphDispatchAuthority(g, a, a.PreviewDigest) == nil {
-		t.Fatal("foreign revision accepted")
-	}
-}
+
 func TestDispatchAuthorityClosedCodec(t *testing.T) {
 	_, a := boundAuthority(t)
 	b, _ := EncodeDispatchAuthority(a)

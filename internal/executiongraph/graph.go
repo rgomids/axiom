@@ -1,12 +1,10 @@
 package executiongraph
 
 import (
-	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"sort"
 	"strings"
@@ -208,8 +206,7 @@ func DecodeGraph(wire []byte) (Graph, error) {
 }
 
 func validEnvelope(envelope ChildEnvelope) bool {
-	node := ProposedNode{Key: "probe", Capability: envelope.Capability, Inputs: envelope.Inputs, Outputs: envelope.Outputs, Scope: envelope.Scope, Effects: envelope.AllowedEffects, Controls: envelope.Controls}
-	return validNode(node) && validTarget(envelope.Workspace) && validTarget(envelope.AuthorityReference) && validResolution(envelope.Resolution)
+	return validEnvelopeFields(envelope) && validTarget(envelope.Workspace) && validTarget(envelope.AuthorityReference) && validResolution(envelope.Resolution)
 }
 
 func validResolution(resolution Resolution) bool {
@@ -284,20 +281,6 @@ func effectSubset(child, parent []Effect) bool {
 	return true
 }
 
-func sameEffects(left, right []Effect) bool {
-	left = sortedEffects(left)
-	right = sortedEffects(right)
-	if len(left) != len(right) {
-		return false
-	}
-	for index := range left {
-		if left[index] != right[index] {
-			return false
-		}
-	}
-	return true
-}
-
 func sortedEffects(effects []Effect) []Effect {
 	result := append([]Effect(nil), effects...)
 	sort.Slice(result, func(i, j int) bool {
@@ -331,14 +314,4 @@ func validOpaqueID(value string) bool {
 		}
 	}
 	return true
-}
-
-func randomOpaqueID() (string, error) {
-	var value [16]byte
-	if _, err := rand.Read(value[:]); err != nil {
-		return "", err
-	}
-	value[6] = value[6]&0x0f | 0x40
-	value[8] = value[8]&0x3f | 0x80
-	return fmt.Sprintf("%08x-%04x-%04x-%04x-%012x", value[0:4], value[4:6], value[6:8], value[8:10], value[10:16]), nil
 }

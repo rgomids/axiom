@@ -29,9 +29,9 @@ func readExecutionFile(root *os.Root, name string) ([]byte, error) {
 	return readPrivateFileBounded(root, name, MaxExecutionBytes)
 }
 
+// WorkflowStore reads inert legacy state; canonical writes use ExecutionStore.
 type WorkflowStore struct {
-	root  string
-	hooks publicationHooks
+	root string
 }
 
 type executionDTO struct {
@@ -66,29 +66,23 @@ func NewWorkflowStore(root string) (WorkflowStore, error) {
 	return WorkflowStore{root: canonical}, nil
 }
 
-func (s WorkflowStore) openProject(projectID string, create bool) (*os.Root, *os.Root, *os.Root, *os.Root, error) {
-	openRoot := existingPrivateRoot
-	openChild := existingPrivateChild
-	if create {
-		openRoot = privateRoot
-		openChild = privateChild
-	}
-	root, err := openRoot(s.root)
+func (s WorkflowStore) openProject(projectID string) (*os.Root, *os.Root, *os.Root, *os.Root, error) {
+	root, err := existingPrivateRoot(s.root)
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
-	executions, err := openChild(root, "executions")
+	executions, err := existingPrivateChild(root, "executions")
 	if err != nil {
 		root.Close()
 		return nil, nil, nil, nil, err
 	}
-	version, err := openChild(executions, "v1")
+	version, err := existingPrivateChild(executions, "v1")
 	if err != nil {
 		executions.Close()
 		root.Close()
 		return nil, nil, nil, nil, err
 	}
-	projectRoot, err := openChild(version, projectID)
+	projectRoot, err := existingPrivateChild(version, projectID)
 	if err != nil {
 		version.Close()
 		executions.Close()
@@ -216,14 +210,4 @@ func workflowStoreError(err error) error {
 	default:
 		return errors.Join(err, workflow.ErrRecoveryRequired)
 	}
-}
-
-// ExecutionDigest binds single-stage dispatch to the exact existing Execution3
-// encoding. It introduces neither another codec nor additional wire fields.
-func ExecutionDigest(state workflow.State) (string, error) {
-	wire, err := encodeExecution(state)
-	if err != nil {
-		return "", err
-	}
-	return hexDigest(wire), nil
 }

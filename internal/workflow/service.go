@@ -1,9 +1,8 @@
-// Package workflow owns the bounded sequential MVP Execution and projection plan.
+// Package workflow owns canonical Execution and historical state validation.
 package workflow
 
 import (
 	"context"
-	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -17,7 +16,6 @@ import (
 
 	"github.com/rgomids/axiom/internal/completion"
 	"github.com/rgomids/axiom/internal/provenance"
-	"github.com/rgomids/axiom/internal/runtimeprofile"
 )
 
 const (
@@ -144,16 +142,6 @@ type State struct {
 	StorageRevision            [sha256.Size]byte
 	DeliveryProjectionRevision [sha256.Size]byte `json:"-"`
 }
-type Store interface {
-	Create(context.Context, State) error
-	Load(context.Context, string, string, WorkItem) (State, error)
-	Save(context.Context, State) error
-}
-
-type ReferenceValidator interface {
-	Validate(context.Context, string, string, Reference) error
-}
-
 type ProjectionEffectKind string
 
 const (
@@ -227,301 +215,20 @@ type Result struct {
 	Preview  *ProjectionPreview
 }
 type Target struct {
-	FrozenProfile                                *runtimeprofile.ResolvedProfileV4
-	RuntimePreview                               string
 	ProjectSelector, RepositoryKey               string
 	WorkItemProvider, WorkItemResource, WorkItem string
 	ExecutionID, RuntimeID                       string
-	// ReviewedTarget is an optional read-only preflight snapshot, never persisted.
-	ReviewedTarget *ResolvedTarget
 }
-type TransitionInput struct {
-	StageResult      *StageResult `json:"stageResult,omitempty"`
-	ExpectedRevision uint64
-	Stage            Stage
-	Outcome          Outcome
-	References       []Reference
-	Next             string
-}
-type LifecycleFactInput struct {
-	Actor            string       `json:"actor,omitempty"`
-	StageResult      *StageResult `json:"stageResult,omitempty"`
-	ExpectedRevision uint64
-	Kind             LifecycleFactKind
-	Active           bool
-	Reference        Reference
-}
-type IDAllocator func() (string, error)
-type Clock func() time.Time
 
+// Service resolves the existing linked Work Item for the canonical Execution engine.
 type Service struct {
-	definitions DefinitionResolver
-	validators  StageValidator
-	resolver    Resolver
-	workItems   WorkItems
-	store       Store
-	references  ReferenceValidator
-	source      provenance.Value
-	allocateID  IDAllocator
-	now         Clock
+	resolver  Resolver
+	workItems WorkItems
+	source    provenance.Value
 }
 
-func New(resolver Resolver, workItems WorkItems, store Store, references ReferenceValidator, source provenance.Value, allocateID IDAllocator, now Clock) Service {
-	if allocateID == nil {
-		allocateID = randomID
-	}
-	if now == nil {
-		now = time.Now
-	}
-	return Service{resolver: resolver, workItems: workItems, store: store, references: references, source: source, allocateID: allocateID, now: now}
-}
-
-func (s Service) Start(ctx context.Context, target Target) Result {
-	if err := ctx.Err(); err != nil {
-		return result(Interrupted, "workflow_cancelled", State{})
-	}
-	if target.ExecutionID != "" {
-		return result(ValidationFailed, "execution_selector_conflict", State{})
-	}
-	// The Runtime is an explicit Start input and is persisted as Execution truth;
-	// it is never derived from executables, the parent process, or a default here.
-	if !SupportedRuntime(target.RuntimeID) {
-		return result(ValidationFailed, "invalid_execution_input", State{})
-	}
-	project, repository, item, failed := s.resolve(ctx, target)
-	if failed.Category != "" {
-		return failed
-	}
-	resolvedTarget := ResolvedTarget{ProjectID: project.ID, Repository: repository, WorkItem: item}
-	var observation DefinitionObservation
-	if s.definitions != nil {
-		var category string
-		observation, category = s.definitions.ResolveDefinition(ctx, target.ProjectSelector)
-		if category != "" {
-			return result(ValidationFailed, category, State{})
-		}
-		resolvedTarget.DefinitionObservation = observation.Digest
-		if observation.ProjectID != project.ID || !validDefinitionObservation(observation) {
-			return result(Failed, "recovery_required", State{})
-		}
-	}
-	if target.ReviewedTarget != nil && *target.ReviewedTarget != resolvedTarget {
-		return result(ValidationFailed, "stale_execution_target", State{})
-	}
-	existing, err := s.store.Load(ctx, project.ID, repository.Key, item)
-	if err == nil {
-		if existing.DeliveryDecision != nil && existing.DeliveryDecision.Outcome == "reject" {
-			return result(Denied, "delivery_rework_required", existing)
-		}
-		if equivalentStart(existing, project.ID, repository.Key, item, target.RuntimeID) {
-			return result(Succeeded, "execution_already_started", existing)
-		}
-		return result(ValidationFailed, "execution_scope_conflict", existing)
-	}
-	if !errors.Is(err, ErrNotFound) {
-		return storeFailure(err)
-	}
-	id, err := s.allocateID()
-	if err != nil || !validOpaqueID(id) {
-		return result(Failed, "execution_identity_failed", State{})
-	}
-	now := s.now().UTC()
-	state := State{ExecutionID: id, FormatVersion: FormatVersion, WorkflowVersion: WorkflowVersion, ProjectID: project.ID, RepositoryKey: repository.Key, WorkItem: item, RuntimeID: target.RuntimeID, Stage: Intake, Revision: 1, Status: ExecutionActive, CreatedAt: now, UpdatedAt: now, Provenance: identity(s.source)}
-	if s.definitions != nil {
-		state.FormatVersion, state.WorkflowVersion = ConfiguredFormatVersion, ConfiguredWorkflowVersion
-		state.Binding = &WorkflowBinding{ProjectID: project.ID, Definition: observation.Document.Ref(observation.Source), SchemaVersion: observation.Document.Definition.SchemaVersion, SnapshotRef: "execution:" + id + "#/binding/snapshot", Snapshot: append([]byte(nil), observation.Document.Canonical...), ObservationDigest: observation.Digest, RuntimePreview: target.RuntimePreview, BoundAt: now}
-		if observation.Document.Definition.SchemaVersion == 2 {
-			if target.FrozenProfile == nil || runtimeprofile.ValidateResolvedProfileV4(*target.FrozenProfile) != nil || target.FrozenProfile.RuntimeID != target.RuntimeID {
-				return result(ValidationFailed, "profile_effort_unconfigured", State{})
-			}
-			frozen := *target.FrozenProfile
-			state.Binding.FrozenProfile = &frozen
-			state.FormatVersion, state.WorkflowVersion = OperationalConfiguredFormatVersion, ProfileConfiguredWorkflowVersion
-		}
-		state.Binding.Contexts = observation.Contexts
-		state.Binding.ProjectRevision, state.Binding.LocalRevision = observation.ProjectRevision, observation.LocalRevision
-		state.Stage = Stage(observation.Document.Definition.Stages[0].ID)
-	}
-	if !ValidState(state) {
-		return result(ValidationFailed, "invalid_execution_state", State{})
-	}
-	if err := s.store.Create(ctx, state); err != nil {
-		var committed interface{ EffectCommitted() bool }
-		if errors.As(err, &committed) && committed.EffectCommitted() {
-			existing, loadErr := s.store.Load(ctx, project.ID, repository.Key, item)
-			if loadErr == nil && equivalentStart(existing, project.ID, repository.Key, item, target.RuntimeID) && sameStartContract(existing, state) {
-				return result(Succeeded, "execution_started", existing)
-			}
-		}
-		if errors.Is(err, ErrConflict) {
-			existing, loadErr := s.store.Load(ctx, project.ID, repository.Key, item)
-			if loadErr == nil && equivalentStart(existing, project.ID, repository.Key, item, target.RuntimeID) && sameStartContract(existing, state) {
-				return result(Succeeded, "execution_already_started", existing)
-			}
-		}
-		return storeFailure(err)
-	}
-	loaded, err := s.store.Load(ctx, project.ID, repository.Key, item)
-	if err != nil {
-		return storeFailure(err)
-	}
-	if !equivalentPersistedState(loaded, state) {
-		return result(Failed, "recovery_required", State{})
-	}
-	return result(Succeeded, "execution_started", loaded)
-}
-
-func (s Service) Transition(ctx context.Context, target Target, input TransitionInput) Result {
-	if err := ctx.Err(); err != nil {
-		return result(Interrupted, "workflow_cancelled", State{})
-	}
-	state, repository, failed := s.loadResolved(ctx, target)
-	if failed.Category != "" {
-		return failed
-	}
-	if state.Binding != nil {
-		return s.transitionConfigured(ctx, state, repository, input)
-	}
-	requestDigest, valid := transitionDigest(input)
-	if !valid {
-		return result(ValidationFailed, "invalid_workflow_transition", state)
-	}
-	if state.Revision != input.ExpectedRevision {
-		if replayed(state, input.ExpectedRevision, requestDigest) {
-			return result(Succeeded, "workflow_transition_replayed", state)
-		}
-		return result(Denied, "stale_execution_revision", state)
-	}
-	if state.Status == ExecutionCompleted {
-		return result(ValidationFailed, "execution_already_completed", state)
-	}
-	if state.Status == ExecutionInterrupted {
-		return result(ValidationFailed, "execution_resume_required", state)
-	}
-	lifecycle, lifecycleErr := DeriveLifecycle(state)
-	if lifecycleErr != nil {
-		return result(Failed, "recovery_required", state)
-	}
-	if lifecycle.Conditions.Blocked && input.Outcome == OutcomePassed {
-		return result(Denied, "workflow_blocked", state)
-	}
-	if input.Stage != state.Stage {
-		return result(ValidationFailed, "workflow_stage_conflict", state)
-	}
-	if input.Outcome == OutcomePassed {
-		if lifecycle.Conditions.NeedsDecision || lifecycle.Conditions.NeedsApproval {
-			return result(Denied, "workflow_action_required", state)
-		}
-		if action := NextGateAction(state); action != nil && action.Operation == "fact" {
-			return result(Denied, "workflow_authority_required", state)
-		}
-	}
-	for _, reference := range input.References {
-		if s.references == nil || s.references.Validate(ctx, state.ExecutionID, repository.Path, reference) != nil {
-			return result(ValidationFailed, "workflow_reference_unavailable", state)
-		}
-	}
-	next := state.Stage
-	status := Interrupted
-	category := "workflow_interrupted"
-	state.Status = ExecutionInterrupted
-	if input.Outcome == OutcomePassed {
-		status, category = Succeeded, "workflow_advanced"
-		index := stageIndex(state.Stage)
-		if index == len(stages)-1 {
-			state.Status = ExecutionCompleted
-			category = "workflow_completed"
-			state.Terminal = &Terminal{Status: completion.Success, ConfirmedEffects: []string{"local_execution_transition"}}
-		} else {
-			next = stages[index+1]
-			state.Status = ExecutionActive
-		}
-	}
-	event := transitionFor(state, input, next, s.now().UTC(), s.source)
-	event.RequestDigest = requestDigest
-	state.Revision++
-	state.Stage = next
-	state.UpdatedAt = event.CommittedAt
-	state.Transitions = append(state.Transitions, event)
-	if _, err := DeriveLifecycle(state); err != nil {
-		return result(Failed, "recovery_required", cloneState(stateWithoutLastTransition(state)))
-	}
-	return s.save(ctx, state, status, category)
-}
-
-func stateWithoutLastTransition(state State) State {
-	if len(state.Transitions) == 0 {
-		return state
-	}
-	last := state.Transitions[len(state.Transitions)-1]
-	state.Transitions = state.Transitions[:len(state.Transitions)-1]
-	state.Revision--
-	state.Stage = last.From
-	state.UpdatedAt = state.CreatedAt
-	if len(state.Transitions) != 0 {
-		state.UpdatedAt = state.Transitions[len(state.Transitions)-1].CommittedAt
-	}
-	state.Status = ExecutionActive
-	state.Terminal = nil
-	return state
-}
-
-// RecordLifecycleFact appends one revisioned local fact without changing the
-// canonical gate. Provider observations and technical signals cannot call this
-// operation implicitly; exact caller authority remains mandatory.
-func (s Service) RecordLifecycleFact(ctx context.Context, target Target, input LifecycleFactInput, authorized bool) Result {
-	if err := ctx.Err(); err != nil {
-		return result(Interrupted, "workflow_cancelled", State{})
-	}
-	state, repository, failed := s.loadResolved(ctx, target)
-	if failed.Category != "" {
-		return failed
-	}
-	if state.Revision != input.ExpectedRevision {
-		return result(Denied, "stale_execution_revision", state)
-	}
-	if !authorized {
-		return result(Denied, "lifecycle_fact_authority_denied", state)
-	}
-	if state.Binding != nil && input.Kind == FactHumanAcceptance {
-		return result(Denied, "delivery_packet_required", state)
-	}
-	if state.Binding != nil && !validText(input.Actor) {
-		return result(ValidationFailed, "human_actor_required", state)
-	}
-	allowed := factAllowedAt(input.Kind, state.Stage)
-	if state.Binding != nil {
-		allowed = configuredFactAllowed(state, input.Kind)
-	}
-	if !allowed || !validReference(input.Reference) || state.Status == ExecutionInterrupted {
-		return result(ValidationFailed, "invalid_lifecycle_fact", state)
-	}
-	if s.references == nil || s.references.Validate(ctx, state.ExecutionID, repository.Path, input.Reference) != nil {
-		return result(ValidationFailed, "lifecycle_fact_reference_unavailable", state)
-	}
-	fact := LifecycleFact{Kind: input.Kind, Active: input.Active, ScopeDigest: executionScopeDigest(state), Reference: input.Reference}
-	if state.Binding != nil {
-		fact.Actor = input.Actor
-		if input.Kind == FactStageReview {
-			stage := CurrentStage(state)
-			if input.StageResult == nil || !validStageResult(state, *stage, *input.StageResult) {
-				return result(ValidationFailed, "stage_prerequisite_missing", state)
-			}
-			fact.ResultDigest = digest(input.StageResult)
-		}
-	}
-	previous := cloneState(state)
-	transitionInput := TransitionInput{ExpectedRevision: input.ExpectedRevision, Stage: state.Stage, Outcome: OutcomeFact, References: []Reference{input.Reference}}
-	event := transitionFor(state, transitionInput, state.Stage, s.now().UTC(), s.source)
-	event.RequestDigest = digest(input)
-	event.Fact = &fact
-	state.Revision++
-	state.UpdatedAt = event.CommittedAt
-	state.Transitions = append(state.Transitions, event)
-	if _, err := DeriveLifecycle(state); err != nil {
-		return result(ValidationFailed, "inconsistent_lifecycle_fact", previous)
-	}
-	return s.save(ctx, state, Succeeded, "lifecycle_fact_recorded")
+func New(resolver Resolver, workItems WorkItems, source provenance.Value) Service {
+	return Service{resolver: resolver, workItems: workItems, source: source}
 }
 
 func (s Service) resolve(ctx context.Context, target Target) (Project, Repository, WorkItem, Result) {
@@ -558,67 +265,6 @@ func (s Service) resolve(ctx context.Context, target Target) (Project, Repositor
 		return Project{}, Repository{}, WorkItem{}, result(ValidationFailed, "work_item_not_linked", State{})
 	}
 	return project, repository, item, Result{}
-}
-
-func (s Service) loadResolved(ctx context.Context, target Target) (State, Repository, Result) {
-	project, repository, item, failed := s.resolve(ctx, target)
-	if failed.Category != "" {
-		return State{}, Repository{}, failed
-	}
-	state, err := s.store.Load(ctx, project.ID, repository.Key, item)
-	if err == nil && target.ExecutionID != "" && state.ExecutionID != target.ExecutionID {
-		if reader, ok := s.store.(interface {
-			LoadExecutionID(context.Context, string, string, WorkItem, string) (State, error)
-		}); ok {
-			historical, readErr := reader.LoadExecutionID(ctx, project.ID, repository.Key, item, target.ExecutionID)
-			if errors.Is(readErr, ErrNotFound) {
-				return State{}, Repository{}, result(ValidationFailed, "execution_selector_conflict", State{})
-			}
-			state, err = historical, readErr
-		}
-	}
-
-	if err != nil {
-		return State{}, Repository{}, storeFailure(err)
-	}
-	if !ValidState(state) {
-		return State{}, Repository{}, result(ValidationFailed, "invalid_execution_state", State{})
-	}
-	// Operations after Start act on the persisted Runtime. A supplied Runtime
-	// must match it exactly; nothing can reassign an existing Execution.
-	runtimeID := target.RuntimeID
-	if runtimeID == "" {
-		runtimeID = state.RuntimeID
-	}
-	if !equivalentStart(state, project.ID, repository.Key, item, runtimeID) {
-		return State{}, Repository{}, result(ValidationFailed, "execution_scope_conflict", state)
-	}
-	if target.ExecutionID != "" && state.ExecutionID != target.ExecutionID {
-		return State{}, Repository{}, result(ValidationFailed, "execution_selector_conflict", State{})
-	}
-	return state, repository, Result{}
-}
-
-func (s Service) save(ctx context.Context, state State, status Status, category string) Result {
-	if !ValidState(state) {
-		return result(ValidationFailed, "invalid_execution_state", State{})
-	}
-	err := s.store.Save(ctx, state)
-	if err != nil {
-		var committed interface{ EffectCommitted() bool }
-		if errors.As(err, &committed) && committed.EffectCommitted() {
-			loaded, loadErr := s.store.Load(ctx, state.ProjectID, state.RepositoryKey, state.WorkItem)
-			if loadErr == nil && equivalentPersistedState(loaded, state) {
-				return result(status, category, loaded)
-			}
-		}
-		return storeFailure(err)
-	}
-	loaded, err := s.store.Load(ctx, state.ProjectID, state.RepositoryKey, state.WorkItem)
-	if err != nil {
-		return storeFailure(err)
-	}
-	return result(status, category, loaded)
 }
 
 func prepareProjectionPreview(state State, lifecycle LifecycleProjection, observation ProjectionObservation) (ProjectionPreview, error) {
@@ -696,48 +342,7 @@ func validProjectionObservation(item WorkItem, observation ProjectionObservation
 	return true
 }
 
-func storeFailure(err error) Result {
-	switch {
-	case errors.Is(err, ErrRecoveryRequired):
-		return result(Failed, "recovery_required", State{})
-	case errors.Is(err, ErrConflict):
-		return result(Denied, "stale_execution_revision", State{})
-	case errors.Is(err, ErrNotFound):
-		return result(ValidationFailed, "execution_not_found", State{})
-	default:
-		return result(Failed, "execution_store_failed", State{})
-	}
-}
-
-func transitionFor(state State, input TransitionInput, next Stage, now time.Time, source provenance.Value) Transition {
-	return Transition{Revision: state.Revision + 1, From: state.Stage, To: next, Outcome: input.Outcome, RequestDigest: digest(input), References: cloneReferences(input.References), Next: input.Next, CommittedAt: now, Provenance: identity(source)}
-}
-func transitionDigest(input TransitionInput) (string, bool) {
-	if input.ExpectedRevision == 0 || !input.Stage.Valid() || input.Outcome != OutcomePassed && input.Outcome != OutcomeFailed || len(input.References) > maxReferences || !validOptionalText(input.Next) {
-		return "", false
-	}
-	for _, reference := range input.References {
-		if !validReference(reference) {
-			return "", false
-		}
-	}
-	return digest(input), true
-}
-func replayed(state State, expected uint64, requestDigest string) bool {
-	if len(state.Transitions) == 0 {
-		return false
-	}
-	last := state.Transitions[len(state.Transitions)-1]
-	return last.Revision == expected+1 && last.RequestDigest == requestDigest
-}
-
-// SupportedRuntime reports whether id names a Runtime that may conduct a new
-// Execution. The closed set matches the operator-authorized Runtime paths.
 func SupportedRuntime(id string) bool { return id == "codex" || id == "claude" }
-
-func equivalentStart(state State, projectID, repositoryKey string, item WorkItem, runtimeID string) bool {
-	return ValidState(state) && state.ProjectID == projectID && state.RepositoryKey == repositoryKey && state.RuntimeID == runtimeID && state.WorkItem == item
-}
 
 func ValidState(state State) bool {
 	if state.FormatVersion == ConfiguredFormatVersion || state.FormatVersion == ProfileConfiguredFormatVersion || state.FormatVersion == OperationalConfiguredFormatVersion {
@@ -987,9 +592,6 @@ func projectionKey(executionID string, revision uint64) string {
 	value := sha256.Sum256([]byte(fmt.Sprintf("axiom:workflow-projection:v1\x00%s\x00%d", executionID, revision)))
 	return hex.EncodeToString(value[:])
 }
-func identity(source provenance.Value) Identity {
-	return Identity{Product: source.Product(), Version: source.Version(), Revision: source.Revision(), SourceState: string(source.SourceState())}
-}
 func validIdentity(value Identity) bool {
 	return value.Product == provenance.Product && validText(value.Version) && validText(value.Revision) && (value.SourceState == string(provenance.Clean) || value.SourceState == string(provenance.Dirty) || value.SourceState == string(provenance.Unknown))
 }
@@ -1103,15 +705,6 @@ func validOpaqueID(value string) bool {
 	_, err := hex.DecodeString(strings.Join(parts, ""))
 	return err == nil
 }
-func randomID() (string, error) {
-	var value [16]byte
-	if _, err := rand.Read(value[:]); err != nil {
-		return "", err
-	}
-	value[6] = value[6]&0x0f | 0x40
-	value[8] = value[8]&0x3f | 0x80
-	return fmt.Sprintf("%08x-%04x-%04x-%04x-%012x", value[0:4], value[4:6], value[6:8], value[8:10], value[10:16]), nil
-}
 func digest(value any) string {
 	wire, _ := json.Marshal(value)
 	sum := sha256.Sum256(wire)
@@ -1143,11 +736,6 @@ func effectsConfirmed(intended, confirmed []ProjectionEffect) bool {
 		}
 	}
 	return true
-}
-func equivalentPersistedState(left, right State) bool {
-	left.StorageRevision = [sha256.Size]byte{}
-	right.StorageRevision = [sha256.Size]byte{}
-	return digest(left) == digest(right)
 }
 func sorted(values []string) []string {
 	result := append([]string(nil), values...)

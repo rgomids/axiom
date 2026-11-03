@@ -3,7 +3,6 @@ package runtimeadapter
 import (
 	"context"
 	"errors"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -32,7 +31,8 @@ func TestFrozenStageDeliveredEffortInspection(t *testing.T) {
 			t.Run(id+map[bool]string{true: "/explicit", false: "/runtime-default"}[explicit], func(t *testing.T) {
 				f := newOperationalEffortFixture(t, id, explicit)
 				frozen := f.frozen(t)
-				inv, err := BuildFrozenStageInvocation(f.stage, frozen)
+				inv := f.request.Invocation
+				var err error
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -52,21 +52,5 @@ func TestFrozenStageDeliveredEffortInspection(t *testing.T) {
 				}
 			})
 		}
-	}
-}
-
-func TestFrozenStageRefusesMissingExecutableAndDigestMismatch(t *testing.T) {
-	f := newOperationalEffortFixture(t, "codex", true)
-	frozen := f.frozen(t)
-	frozen.ExecutableDigest = strings.Repeat("b", 64)
-	if _, err := BuildFrozenStageInvocation(f.stage, frozen); !errors.Is(err, ErrInvalidAdapterConfiguration) {
-		t.Fatal("digest mismatch accepted", err)
-	}
-	frozen.ExecutableDigest = f.request.ExecutableDigest
-	if err := os.Remove(f.stage.Profile.Executable); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := BuildFrozenStageInvocation(f.stage, frozen); !errors.Is(err, ErrExecutableUnavailable) {
-		t.Fatal("missing executable accepted", err)
 	}
 }

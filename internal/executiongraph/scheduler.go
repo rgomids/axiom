@@ -8,8 +8,7 @@ import (
 	"errors"
 	"os"
 	"os/exec"
-	"path/filepath"
-	"strings"
+
 	"sync"
 	"time"
 )
@@ -42,52 +41,6 @@ type ProcessResult struct {
 	TimedOut        bool
 	SpawnFailed     bool
 	FailureCode     string
-}
-
-func childEffectsConflict(left, right ChildExecution) bool {
-	leftNode := ProposedNode{Scope: left.Envelope.Scope, Effects: left.Envelope.AllowedEffects}
-	rightNode := ProposedNode{Scope: right.Envelope.Scope, Effects: right.Envelope.AllowedEffects}
-	return effectsConflict(leftNode, rightNode)
-}
-
-func validInvocation(child ChildExecution, invocation Invocation) bool {
-	if len(invocation.Stdin) > MaxStdinBytes || invocation.RuntimeID != child.Envelope.Resolution.RuntimeID || len(invocation.Argv) == 0 || len(invocation.Argv) > 64 || invocation.CWD != child.Envelope.Workspace || !filepath.IsAbs(invocation.CWD) || invocation.OutputMax <= 0 || invocation.OutputMax > MaxCapturedOutputBytes || len(invocation.Env) > 64 {
-		return false
-	}
-	base := strings.TrimSuffix(strings.ToLower(filepath.Base(invocation.Argv[0])), ".exe")
-	if !filepath.IsAbs(invocation.Argv[0]) || base == "sh" || base == "bash" || base == "zsh" || base == "fish" || base == "cmd" || base == "powershell" || base == "pwsh" {
-		return false
-	}
-	for _, argument := range invocation.Argv {
-		if argument == "" || strings.ContainsRune(argument, '\x00') {
-			return false
-		}
-	}
-	seen := map[string]bool{}
-	for _, item := range invocation.inheritedEnvironment {
-		key, _, _ := strings.Cut(item, "=")
-		seen[key] = true
-	}
-	for _, item := range invocation.Env {
-		key, _, ok := strings.Cut(item, "=")
-		if !ok || !validEnvironmentKey(key) || seen[key] || strings.ContainsRune(item, '\x00') {
-			return false
-		}
-		seen[key] = true
-	}
-	return true
-}
-
-func validEnvironmentKey(value string) bool {
-	if value == "" || len(value) > 128 {
-		return false
-	}
-	for index, char := range value {
-		if !((char >= 'A' && char <= 'Z') || char == '_' || (index > 0 && char >= '0' && char <= '9')) {
-			return false
-		}
-	}
-	return true
 }
 
 // ErrAuthenticationBlocked marks an invocation refused by the Runtime
@@ -294,64 +247,5 @@ func (b *limitedBuffer) Bytes() []byte {
 	return append([]byte(nil), b.Buffer.Bytes()...)
 }
 
-// DispatchBatch checks a caller's complete proposed batch before dispatch.
-// Running attempts consume capacity even when they are not ready themselves.
-func (c SuccessorConsumer) DispatchBatch(ids []string, retries map[string]bool) error {
-	ready, _, err := c.Ready(retries)
-	if err != nil {
-		return err
-	}
-	allowed := map[string]bool{}
-	for _, id := range ready {
-		allowed[id] = true
-	}
-	running := 0
-	for _, child := range c.graph.Children {
-		if len(child.Attempts) > 0 && child.Attempts[len(child.Attempts)-1].Status == AttemptRunning {
-			running++
-		}
-	}
-	if len(ids)+running > int(c.graph.StageConcurrency) {
-		return ErrStageConcurrency
-	}
-	selected := []ChildExecution{}
-	seen := map[string]bool{}
-	for _, id := range ids {
-		if seen[id] || !allowed[id] {
-			return ErrInvalidGraph
-		}
-		seen[id] = true
-		for _, child := range c.graph.Children {
-			if child.ExecutionID != id {
-				continue
-			}
-			candidate := ChildExecution{Envelope: child.Envelope}
-			for _, other := range selected {
-				if childEffectsConflict(candidate, other) {
-					return ErrInvalidGraph
-				}
-			}
-			// Concurrent running effects also conflict with a newly proposed child.
-			for _, other := range c.graph.Children {
-				if len(other.Attempts) > 0 && other.Attempts[len(other.Attempts)-1].Status == AttemptRunning && childEffectsConflict(candidate, ChildExecution{Envelope: other.Envelope}) {
-					return ErrInvalidGraph
-				}
-			}
-			selected = append(selected, candidate)
-		}
-	}
-	return nil
-}
-
 // GraphAttemptStore is retained by the independent integration support contract;
 // it has no Graph dispatch owner or production store implementation.
-type GraphAttemptStore interface {
-	Save(context.Context, Graph) (Graph, error)
-}
-
-// DispatchRecord remains an inert acceptance input for integration support.
-type DispatchRecord struct {
-	ChildID, AttemptID string
-	Status             AttemptStatus
-	StartedAt, EndedAt time.Time
-}

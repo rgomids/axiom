@@ -25,10 +25,6 @@ func TestOSProcessRunnerDecoupledOrphanOutsideGuarantee(t *testing.T) {
 	if syscall.Kill(pid, 0) != nil {
 		t.Fatal("process outside the attempt group was signaled")
 	}
-	status, reason, _ := ClassifyAttempt(result, false, AttemptCorrelation{}, nil)
-	if status != AttemptFailed || reason != ResultMissing {
-		t.Fatalf("exit 0 without a recorded result classified as %s/%s", status, reason)
-	}
 }
 
 func TestOSProcessRunnerCancelWithKnownEscapeIsUnknown(t *testing.T) {
@@ -56,10 +52,6 @@ func TestOSProcessRunnerCancelWithKnownEscapeIsUnknown(t *testing.T) {
 	}
 	if syscall.Kill(pid, 0) != nil {
 		t.Fatal("escaped process outside the group was signaled")
-	}
-	status, reason, _ := ClassifyAttempt(result, true, AttemptCorrelation{}, nil)
-	if status != AttemptUnknown || reason != ProcessOutcomeUnknown {
-		t.Fatalf("known escape classified as %s/%s", status, reason)
 	}
 }
 

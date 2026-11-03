@@ -130,14 +130,14 @@ func TestEveryV1WriterIsRecognizedByInventory(t *testing.T) {
 		}
 		for _, entry := range inventory.Entries {
 			if !entry.Kind.Supported() || entry.Kind == InventoryPOCWorkflow {
-				t.Errorf("v1 writer output %s classified as %s", entry.Relative, entry.Kind)
+				t.Errorf("v1 current/historical fixture %s classified as %s", entry.Relative, entry.Kind)
 			}
 			observed[entry.Kind] = true
 		}
 	}
 	for _, kind := range append(V1Kinds(), AdditiveKinds()...) {
 		if kind != InventoryCapabilityEvidence && !observed[kind] {
-			t.Errorf("v1 kind %s is not produced by any writer in writeEveryV1Kind: exercise its store here", kind)
+			t.Errorf("v1 kind %s has no current writer or inert historical fixture in writeEveryV1Kind", kind)
 		}
 	}
 	names, err := os.ReadDir(state)
@@ -157,7 +157,7 @@ func TestEveryV1WriterIsRecognizedByInventory(t *testing.T) {
 	slices.Sort(written)
 	slices.Sort(expected)
 	if !slices.Equal(written, expected) {
-		t.Errorf("writers produced top-level directories %v, want every v1 directory %v", written, expected)
+		t.Errorf("current/historical fixtures cover directories %v, want every v1 directory %v", written, expected)
 	}
 	if label := os.Getenv(freezeCorpusEnv); label != "" {
 		corpus := filepath.Join("..", "compatibility", "testdata", "stable-v1")
@@ -264,14 +264,10 @@ func writeEveryV1Kind(t *testing.T) (string, string) {
 	historicalFixtureDigestWire(t, state, "single-stage-runs", single.Scope.ProjectID, mustHistoricalWire(executiongraph.EncodeSingleStageAuthority(singleAuthority)))
 	outcomeWire := mustHistoricalWire(executiongraph.EncodeStageOutcome(localStageOutcome(v3, "00000000-0000-4000-8000-000000000095")))
 	historicalFixtureDigestWire(t, state, "executions", v3.ProjectID, outcomeWire)
-	if _, err := ledgers.RecordDeliveryPacket(context.Background(), v3, localDeliveryPacket(v3)); err != nil {
-		t.Fatal(err)
-	}
+	seedHistoricalPacket(t, ledgers, localDeliveryPacket(v3))
 	publication := workflow.DeliveryPublication{FormatVersion: 1, Kind: "delivery_publication", Preview: workflow.DeliveryPreview{Packet: localDeliveryPacket(v3), Target: workflow.DeliveryTarget{Kind: "local"}}, Status: "failure", Push: "not_requested", PR: "not_requested", Next: "inspect"}
 	publication.Preview.PacketDigest, _ = workflow.DeliveryPacketDigest(publication.Preview.Packet)
-	if err := ledgers.SaveDeliveryPublication(context.Background(), v3, publication, nil); err != nil {
-		t.Fatal(err)
-	}
+	historicalFixtureWire(t, state, "executions", v3.ProjectID, publicationName(publication.Preview.Digest()), mustHistoricalWire(workflow.EncodeDeliveryPublication(publication)))
 	original, rework := localReworkFixture(t, ledgers, v3)
 	projectionWire, err := json.Marshal(deliveryProjection{1, "delivery_projection", original.ProjectID, original.ExecutionID, original.DeliveryDecision.Digest(), hexDigestRevision(original.StorageRevision), original.Projections})
 	if err != nil {

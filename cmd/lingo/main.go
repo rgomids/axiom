@@ -162,7 +162,7 @@ func composeWithProvenance(source provenance.Value) cli.Service {
 	if err != nil {
 		return cli.NewUnavailableService(source)
 	}
-	workflowService := workflow.New(workflowResolver{installation}, workflowWorkItems{workItemService}, nil, nil, source, nil, nil)
+	workflowService := workflow.New(workflowResolver{installation}, workflowWorkItems{workItemService}, source)
 	return lifecycleService{lifecycle: projectapp.NewLifecycle(store, manifest.Codec{}, local.IdentityAllocator{}), portable: store, installation: installation, operational: operational, projectCatalog: projectapp.NewProjectCatalog(installation, installation).WithOperationalState(operational), codex: codex, workItems: workItemService, workflows: workflowService, projectsRoot: root, stateRoot: state, skillsRoot: codexSkillsRoot(), runtimes: discoverRuntimeRoots(), provenance: source}
 }
 

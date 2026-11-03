@@ -2,13 +2,12 @@ package workflow
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
+	"os"
 	"strings"
 	"testing"
 
 	"github.com/rgomids/axiom/internal/runtimeprofile"
-	"github.com/rgomids/axiom/internal/workflowdefinition"
 )
 
 func frozenBindingFixture(runtimeID string) runtimeprofile.ResolvedProfileV4 {
@@ -18,12 +17,19 @@ func frozenBindingFixture(runtimeID string) runtimeprofile.ResolvedProfileV4 {
 
 func operationalState(t *testing.T) State {
 	t.Helper()
-	s, _, d, _ := newConfigured(t)
-	d.document, _ = workflowdefinition.BuiltinRevision(2)
-	target := configuredTarget()
+	wire, err := os.ReadFile("../workflowcompiler/testdata/issue306/execution-v3.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var state State
+	if err = json.Unmarshal(wire, &state); err != nil || !ValidState(state) {
+		t.Fatal("invalid historical fixture", err)
+	}
 	frozen := frozenBindingFixture("codex")
-	target.FrozenProfile = &frozen
-	return s.Start(context.Background(), target).State
+	state.FormatVersion = OperationalConfiguredFormatVersion
+	state.Binding.ResolvedProfile = nil
+	state.Binding.FrozenProfile = &frozen
+	return state
 }
 
 func TestExecution5ProofFreeBindingCodec(t *testing.T) {

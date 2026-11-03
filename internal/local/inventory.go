@@ -84,16 +84,15 @@ func (k InventoryKind) V1Only() bool {
 	return false
 }
 
-// v1Kinds are the canonical persisted-state v1 kinds. Every kind a v1 writer
-// can produce MUST be listed here so the compatibility guards require it to be
-// exercised by a writer and frozen in the stable corpus.
+// v1Kinds include current writers and recognized inert historical kinds.
+// Compatibility fixtures exercise both; recognition never restores a writer.
 var v1Kinds = []InventoryKind{InventoryInstallation, InventoryWorkItem, InventoryCreateAttempt, InventoryExecution, InventoryArtifact, InventoryCleanupRecord, InventoryRetirementRecord, InventoryGraph, InventoryCoordination, InventoryRuntimeProfile, InventoryPortableManifest, InventoryProjectContext, InventoryOperational}
 
 // V1Kinds returns a copy of the canonical persisted-state v1 kinds.
 func V1Kinds() []InventoryKind { return append([]InventoryKind(nil), v1Kinds...) }
 
 // additiveKinds are v1 state-root records introduced after the latest frozen
-// stable corpus snapshot. They are supported and writer-tested like v1Kinds,
+// stable corpus snapshot. Current writers or inert byte fixtures cover them,
 // but FR-026 assigns their freeze to release acceptance: the first stable
 // release shipping one declares it and freezes it with
 // AXIOM_FREEZE_STATE_CORPUS, then moves it into v1Kinds. The stable corpus

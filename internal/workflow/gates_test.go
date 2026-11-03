@@ -1,9 +1,6 @@
 package workflow
 
 import (
-	"context"
-	"errors"
-	"reflect"
 	"testing"
 )
 
@@ -46,29 +43,4 @@ func TestNextActionGateAndAuthorityMatrix(t *testing.T) {
 	if NextGateAction(state) != nil {
 		t.Fatal("accepted execution has another action")
 	}
-}
-
-func TestExplicitMissingAuthorityAndInvalidReferenceDoNotAdvance(t *testing.T) {
-	service, store, _ := newS4Service(t)
-	target := s4Target()
-	service.Start(context.Background(), target)
-	for _, stage := range []Stage{Intake, Specification, Clarification} {
-		service.Transition(context.Background(), target, TransitionInput{ExpectedRevision: store.state.Revision, Stage: stage, Outcome: OutcomePassed})
-	}
-	before := cloneState(store.state)
-	denied := service.Transition(context.Background(), target, TransitionInput{ExpectedRevision: before.Revision, Stage: Plan, Outcome: OutcomePassed})
-	if denied.Category != "workflow_authority_required" || !reflect.DeepEqual(before, store.state) {
-		t.Fatalf("authority denial = %#v", denied)
-	}
-	service.references = rejectingGateReferences{}
-	invalid := service.RecordLifecycleFact(context.Background(), target, LifecycleFactInput{ExpectedRevision: before.Revision, Kind: FactPlanningAuthority, Active: true, Reference: Reference{Kind: "specification", ID: "missing", Digest: testDigest}}, true)
-	if invalid.Status != ValidationFailed || !reflect.DeepEqual(before, store.state) {
-		t.Fatalf("invalid Evidence = %#v", invalid)
-	}
-}
-
-type rejectingGateReferences struct{}
-
-func (rejectingGateReferences) Validate(context.Context, string, string, Reference) error {
-	return errors.New("unavailable")
 }

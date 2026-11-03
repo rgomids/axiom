@@ -7,7 +7,6 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	"reflect"
 	"strings"
 	"testing"
 
@@ -219,30 +218,6 @@ func TestOperationalEffortBindsSourceBytesAndChildView(t *testing.T) {
 		wire, _ := json.Marshal(projection)
 		if err != nil || bytes.Contains(wire, []byte("unrelated_setting")) || bytes.Contains(wire, []byte("unrelatedSetting")) {
 			t.Fatal("raw config key/value retained", err)
-		}
-	}
-}
-
-func TestOperationalFrozenInvocationBindsIdentityAndProfileIntent(t *testing.T) {
-	for _, runtimeID := range []string{"codex", "claude"} {
-		f := newOperationalEffortFixture(t, runtimeID, true)
-		profile := f.request.Configuration.ModelProfiles[0]
-		pd, _ := runtimeprofile.ProfileDigest(profile)
-		cd, _ := runtimeprofile.DigestV4(f.request.Configuration)
-		digest := strings.Repeat("a", 64)
-		frozen := runtimeprofile.ResolvedProfileV4{ProfileID: profile.ID, RuntimeID: runtimeID, Model: profile.Model, Effort: profile.Effort, ProfileDigest: pd, ConfigurationRevision: 1, ConfigurationDigest: cd, ExecutableDigest: f.request.ExecutableDigest, InvocationMode: "noninteractive", ObservationRevision: 1, ObservationDigest: digest, EffortSourceDigest: digest}
-		inv, err := BuildFrozenStageInvocation(f.stage, frozen)
-		if err != nil || !reflect.DeepEqual(inv, f.request.Invocation) {
-			t.Fatal("frozen intent encoding", err)
-		}
-		frozen.ExecutableDigest = strings.Repeat("b", 64)
-		if _, err := BuildFrozenStageInvocation(f.stage, frozen); err == nil {
-			t.Fatal("executable drift accepted")
-		}
-		frozen.ExecutableDigest = f.request.ExecutableDigest
-		frozen.ProfileID = "other-profile"
-		if _, err := BuildFrozenStageInvocation(f.stage, frozen); err == nil {
-			t.Fatal("Profile substitution accepted")
 		}
 	}
 }

@@ -126,9 +126,4 @@ func TestOSProcessRunnerRetainsFastRejectionBeforeCorrelation(t *testing.T) {
 	if result.ExitCode != 7 || !bytes.Contains(result.Output, []byte("error: unknown option")) {
 		t.Fatalf("lost actual process result: %+v", result)
 	}
-	a := SuccessorAttempt{AttemptID: "00000000-0000-4000-8000-000000000001", Number: 1, Status: AttemptUnknown, ClassificationReason: ProcessOutcomeUnknown}
-	d := DiagnoseAttempt(a, result)
-	if d.EffectCertainty != "unknown" || d.Cause != "invocation_incompatible" || d.CauseConfidence != "hypothesis" {
-		t.Fatalf("%+v", d)
-	}
 }

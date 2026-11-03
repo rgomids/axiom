@@ -7,45 +7,9 @@ import (
 	"io"
 	"os"
 	"strings"
-	"sync"
-	"sync/atomic"
+
 	"testing"
 )
-
-type invocationFake struct {
-	invalid bool
-	stdin   []byte
-}
-
-func (f invocationFake) ResolveInvocation(_ context.Context, child ChildExecution) (Invocation, error) {
-	executable := "/usr/bin/true"
-	if f.invalid {
-		executable = "/bin/sh"
-	}
-	return Invocation{RuntimeID: child.Envelope.Resolution.RuntimeID, Argv: []string{executable, "literal;not-shell"}, CWD: child.Envelope.Workspace, Env: []string{"PATH=/usr/bin"}, OutputMax: 1024, Stdin: f.stdin}, nil
-}
-
-type attemptStoreFake struct {
-	mu    sync.Mutex
-	graph Graph
-	saves []Graph
-}
-
-func (s *attemptStoreFake) Save(_ context.Context, graph Graph) (Graph, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.graph = graph
-	s.saves = append(s.saves, graph)
-	return graph, nil
-}
-
-func sequenceAllocatorFrom(start uint64) func() (string, error) {
-	var next atomic.Uint64
-	next.Store(start)
-	return func() (string, error) {
-		return fmt.Sprintf("00000000-0000-4000-8000-%012d", next.Add(1)), nil
-	}
-}
 
 func TestEffectiveEnvironmentMatchesProcessInheritance(t *testing.T) {
 	t.Setenv("AXM_EFFECTIVE_ENV_PROBE", "inherited")
@@ -56,44 +20,6 @@ func TestEffectiveEnvironmentMatchesProcessInheritance(t *testing.T) {
 	explicit := EffectiveEnvironment([]string{"PATH=/usr/bin"})
 	if len(explicit) != 1 || explicit[0] != "PATH=/usr/bin" {
 		t.Fatalf("explicit environment=%v", explicit)
-	}
-}
-
-func TestInheritedSnapshotKeepsExplicitEnvironmentValidation(t *testing.T) {
-	for i := 0; i < 70; i++ {
-		t.Setenv(fmt.Sprintf("AXM_SNAPSHOT_%d", i), "synthetic")
-	}
-	t.Setenv("lowercase_inherited", "synthetic")
-	child := mustGraph(t).Children[0]
-	invocation, err := (invocationFake{}).ResolveInvocation(context.Background(), child)
-	if err != nil {
-		t.Fatal(err)
-	}
-	invocation.Env = []string{"CLAUDE_CODE_EFFORT_LEVEL=high"}
-	invocation = WithInheritedEnvironment(invocation)
-	if !validInvocation(child, invocation) {
-		t.Fatal("ordinary inherited environment rejected")
-	}
-	t.Setenv("lowercase_inherited", "changed")
-	if !strings.Contains(strings.Join(EffectiveInvocationEnvironment(invocation), "\n"), "lowercase_inherited=synthetic") {
-		t.Fatal("environment snapshot changed")
-	}
-	for _, invalid := range [][]string{
-		{"lowercase_explicit=synthetic"},
-		{"CLAUDE_CODE_EFFORT_LEVEL=high", "CLAUDE_CODE_EFFORT_LEVEL=low"},
-		{"lowercase_inherited=override"},
-	} {
-		invocation.Env = invalid
-		if validInvocation(child, invocation) {
-			t.Fatal("invalid explicit override accepted")
-		}
-	}
-	invocation.Env = nil
-	for i := 0; i < 65; i++ {
-		invocation.Env = append(invocation.Env, fmt.Sprintf("EXPLICIT_%d=synthetic", i))
-	}
-	if validInvocation(child, invocation) {
-		t.Fatal("explicit environment bound weakened")
 	}
 }
 
@@ -143,16 +69,5 @@ func TestOSProcessRunnerStdinBytes(t *testing.T) {
 				t.Fatalf("exit=%d output length=%d", result.ExitCode, len(result.Output))
 			}
 		})
-	}
-}
-
-func TestInvocationStdinBound(t *testing.T) {
-	child := mustGraph(t).Children[0]
-	invocation, _ := (invocationFake{}).ResolveInvocation(context.Background(), child)
-	for _, size := range []int{0, MaxStdinBytes, MaxStdinBytes + 1} {
-		invocation.Stdin = make([]byte, size)
-		if validInvocation(child, invocation) != (size <= MaxStdinBytes) {
-			t.Fatalf("size=%d", size)
-		}
 	}
 }

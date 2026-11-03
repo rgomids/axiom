@@ -1,7 +1,6 @@
 package local
 
 import (
-	"context"
 	"github.com/rgomids/axiom/internal/workflow"
 	"strings"
 	"testing"
@@ -10,16 +9,11 @@ import (
 
 func localReworkFixture(t *testing.T, store WorkflowStore, state workflow.State) (workflow.State, workflow.ReworkPreview) {
 	t.Helper()
-	ctx := context.Background()
 	packet := localDeliveryPacket(state)
-	ref, err := store.RecordDeliveryPacket(ctx, state, packet)
-	if err != nil {
-		t.Fatal(err)
-	}
+	ref := seedHistoricalPacket(t, store, packet)
+	var err error
 	d := workflow.DeliveryDecision{FormatVersion: 1, Kind: "delivery_decision", Packet: packet, PacketDigest: ref, Outcome: "reject", ActorKind: "human-operator", Actor: "fixture-human", Authority: workflow.Reference{Kind: "decision", ID: "human", Digest: strings.Repeat("e", 64)}, Reason: "repair required output", Evidence: []workflow.Reference{}}
-	if err = store.RecordDeliveryDecision(ctx, state, d); err != nil {
-		t.Fatal(err)
-	}
+	historicalFixtureWire(t, store.root, "executions", state.ProjectID, decisionName(state.ExecutionID), mustHistoricalWire(workflow.EncodeDeliveryDecision(d)))
 	state, err = readHistoricalExecutionFixture(store, state)
 	if err != nil {
 		t.Fatal(err)

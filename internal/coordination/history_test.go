@@ -160,3 +160,64 @@ func TestFrozenHistorySemanticValidation(t *testing.T) {
 		}
 	}
 }
+
+func TestFrozenHistoryHeaderLineageAndDecoderRefusals(t *testing.T) {
+	paths, err := filepath.Glob("../compatibility/testdata/stable-v1/snapshots/*/state/coordination/v1/*/*.json")
+	if err != nil || len(paths) == 0 {
+		t.Fatalf("fixtures: %v", err)
+	}
+	wire, err := os.ReadFile(paths[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tt := range []struct {
+		name   string
+		change func(*Stream)
+	}{
+		{"stream-version", func(s *Stream) { s.FormatVersion++ }},
+		{"stream-parent", func(s *Stream) { s.ParentID = "invalid" }},
+		{"stream-child", func(s *Stream) { s.ChildID = "invalid" }},
+		{"empty-records", func(s *Stream) { s.Records = nil }},
+		{"record-version", func(s *Stream) { s.Records[0].FormatVersion++ }},
+		{"unknown-kind", func(s *Stream) { s.Records[0].Kind = "unknown" }},
+		{"id-length", func(s *Stream) { s.Records[0].RecordID = "short" }},
+		{"id-separator", func(s *Stream) { s.Records[0].RecordID = "00000000_0000-4000-8000-000000000001" }},
+		{"id-hex", func(s *Stream) { s.Records[0].RecordID = "g0000000-0000-4000-8000-000000000001" }},
+		{"parent-lineage", func(s *Stream) { s.Records[0].ParentID = "00000000-0000-4000-8000-000000000091" }},
+		{"child-lineage", func(s *Stream) { s.Records[0].ChildID = "00000000-0000-4000-8000-000000000092" }},
+		{"revision-lineage", func(s *Stream) { s.Records[0].Revision = 2; s.Records[0].PreviousDigest = strings.Repeat("a", 64) }},
+		{"digest-lineage", func(s *Stream) {
+			r := s.Records[0]
+			r.Revision = 2
+			r.PreviousDigest = strings.Repeat("b", 64)
+			s.Records = append(s.Records[:1], r)
+		}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			s, err := DecodeStream(wire)
+			if err != nil {
+				t.Fatal(err)
+			}
+			s.Records = s.Records[:1]
+			tt.change(&s)
+			for i := range s.Records {
+				s.Records[i].Digest, err = recordDigest(s.Records[i])
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+			encoded, err := json.Marshal(s)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err = DecodeStream(encoded); !errors.Is(err, ErrInvalidRecord) {
+				t.Fatalf("invalid lineage accepted: %v", err)
+			}
+		})
+	}
+	for _, bad := range [][]byte{nil, append(append([]byte{}, wire...), []byte("{}")...), bytes.Repeat([]byte(" "), MaxStreamBytes+1)} {
+		if _, err := DecodeStream(bad); !errors.Is(err, ErrInvalidRecord) {
+			t.Fatalf("invalid envelope accepted: %v", err)
+		}
+	}
+}

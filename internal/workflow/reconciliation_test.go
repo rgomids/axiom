@@ -49,20 +49,19 @@ func TestCurrentLocalTruthReturnsSharedProjectionPreview(t *testing.T) {
 }
 
 func TestReconciliationUsesSamePreviewAsProjectionService(t *testing.T) {
-	service, _, provider := newS4Service(t)
-	target := s4Target()
-	service.Start(t.Context(), target)
-	transitioned := service.Transition(t.Context(), target, TransitionInput{ExpectedRevision: 1, Stage: Intake, Outcome: OutcomePassed})
-	lifecycle, err := DeriveLifecycle(transitioned.State)
+	state := lifecycleTestState()
+	advanceLifecycleState(&state)
+	observation := alignedReconciliationObservation(state)
+	lifecycle, err := DeriveLifecycle(state)
 	if err != nil {
 		t.Fatal(err)
 	}
-	preview, err := prepareProjectionPreview(transitioned.State, lifecycle, provider.observation)
+	preview, err := prepareProjectionPreview(state, lifecycle, observation)
 	if err != nil {
 		t.Fatal(err)
 	}
 	projected := Result{Preview: &preview}
-	reconciled := InspectReconciliation(ReconciliationInput{Current: &transitioned.State, Provider: &provider.observation})
+	reconciled := InspectReconciliation(ReconciliationInput{Current: &state, Provider: &observation})
 	if projected.Preview == nil || reconciled.Projection == nil || reconciled.Projection.Digest != projected.Preview.Digest {
 		t.Fatalf("projection preview = %#v reconciliation preview = %#v", projected.Preview, reconciled.Projection)
 	}

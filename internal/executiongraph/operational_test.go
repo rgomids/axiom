@@ -240,47 +240,6 @@ func operationalGraphVector(t *testing.T, name string) SuccessorGraph {
 	return g
 }
 
-func TestOperationalGraphTerminalPublicationAndReconciliation(t *testing.T) {
-	running := operationalGraphVector(t, "running")
-	finished := operationalGraphVector(t, "process_failed")
-	if ValidateSuccessorUpdate(running, finished) != nil {
-		t.Fatal("atomic terminal state and diagnostic publication refused")
-	}
-	old := operationalGraphVector(t, "process_outcome_unknown")
-	next := operationalGraphVector(t, "reconciliation")
-	if ValidateSuccessorUpdate(old, next) != nil {
-		t.Fatal("append-only reconciliation refused")
-	}
-	for name, mutate := range map[string]func(*SuccessorGraph){
-		"remove diagnostic": func(g *SuccessorGraph) { g.Children[0].Attempts[0].Diagnostic = nil },
-		"rewrite diagnostic": func(g *SuccessorGraph) {
-			g.Children[0].Attempts[0].Diagnostic.Cause = "authentication_unavailable"
-			g.Children[0].Attempts[0].Diagnostic.CauseConfidence = "confirmed"
-		},
-		"rewrite fact": func(g *SuccessorGraph) {
-			g.Children[0].Attempts[0].ReconciliationFacts[0].ObservationsDigest = strings.Repeat("f", 64)
-		},
-		"remove fact": func(g *SuccessorGraph) { g.Children[0].Attempts[0].ReconciliationFacts = nil },
-		"rewrite binding": func(g *SuccessorGraph) {
-			g.Children[0].Envelope.Resolution.FrozenProfile.ExecutableDigest = strings.Repeat("f", 64)
-		},
-		"rewrite exit": func(g *SuccessorGraph) { g.Children[0].Attempts[0].ExitCode++ },
-	} {
-		t.Run(name, func(t *testing.T) {
-			bad := operationalGraphVector(t, "reconciliation")
-			mutate(&bad)
-			if ValidateSuccessorUpdate(next, bad) == nil {
-				t.Fatal("immutable publication rewritten")
-			}
-		})
-	}
-	withoutDiagnostic := operationalGraphVector(t, "process_failed")
-	withoutDiagnostic.Children[0].Attempts[0].Diagnostic = nil
-	if ValidateSuccessorUpdate(withoutDiagnostic, finished) == nil {
-		t.Fatal("historical cause backfilled")
-	}
-}
-
 func TestOperationalSingleBothAdaptersAndIntent(t *testing.T) {
 	for _, runtimeID := range []string{"codex", "claude"} {
 		for _, effort := range []runtimeprofile.Effort{{Mode: "runtime-default", Value: "default"}, {Mode: "explicit", Value: "new-safe-token"}} {

@@ -70,10 +70,7 @@ func localSingleStage(t *testing.T, state workflow.State) (executiongraph.Single
 
 func localRetryAuthority(g executiongraph.SuccessorGraph) executiongraph.RetryAuthority {
 	c := g.Children[0]
-	disposition := executiongraph.DispositionNotRequired
-	if executiongraph.RetryDispositionRequired(c) {
-		disposition = executiongraph.DispositionPreserve
-	}
+	disposition := executiongraph.DispositionPreserve
 	return executiongraph.RetryAuthority{FormatVersion: 1, ProjectID: c.Envelope.Scope.ProjectID, ParentID: g.Parent.ExecutionID, Revision: g.Parent.GraphRevision, GraphDigest: fmt.Sprintf("%x", g.StorageRevision), PreviewDigest: strings.Repeat("c", 64), DispatchDigest: strings.Repeat("d", 64), ChildID: c.ExecutionID, PriorAttemptID: c.Attempts[len(c.Attempts)-1].AttemptID, AttemptNumber: uint32(len(c.Attempts)) + 1, Effects: c.Envelope.AllowedEffects, Disposition: disposition, ActorKind: "human-operator", Actor: "operator", RecordedAt: time.Unix(20, 0).UTC()}
 }
 
