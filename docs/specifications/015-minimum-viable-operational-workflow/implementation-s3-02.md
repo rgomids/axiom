@@ -260,3 +260,23 @@ Publication: Git transport is authorized only to the existing canonical branch
 `spec/axm-42-minimum-viable-workflow` on origin, PR #366. Exact commit/remote/PR
 SHAs and observed CI are recorded in the publication follow-up and the AXM-42
 completion event; this does not authorize product delivery or approve review.
+
+### Confirmed publication and CI
+
+Correction commit: [`f20dcc7c840255d34a643acf398150123129527f`](https://github.com/rgomids/axiom/commit/f20dcc7c840255d34a643acf398150123129527f).
+`git commit` and non-forced `git push origin HEAD:refs/heads/spec/axm-42-minimum-viable-workflow`
+exited 0. `git ls-remote` confirmed that SHA; the PR API initially returned the
+old HEAD immediately after push, then confirmed the same correction SHA on open Draft PR #366.
+Worktree was clean after push. The staged sensitive-file scan and staged diff
+check each exited 0.
+
+Observed via authenticated GitHub API on that exact correction SHA:
+
+- [CI / PR Checks, run 41579746848](https://github.com/rgomids/axiom/actions/runs/41579746848): completed/success (API command exit 0).
+- [Delivery metadata, run 41579746863](https://github.com/rgomids/axiom/actions/runs/41579746863): completed/success (API command exit 0).
+
+This follow-up changes Evidence only; code/tests are byte-identical to the
+correction commit. Its resulting final remote/PR SHA, commit list and exact-SHA
+CI read-back are reported in the single AXM-42 completion callback. That event
+hands off to `AXIOM_WORKFLOW_CHATGPT_CR_S3_2`; implementation completion grants
+no review approval and does not start S3.3.
