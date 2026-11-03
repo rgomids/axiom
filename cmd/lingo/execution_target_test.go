@@ -8,8 +8,8 @@ import (
 	"github.com/rgomids/axiom/internal/workitem"
 	"maps"
 	"os"
-	"slices"
 	"path/filepath"
+	"slices"
 	"testing"
 
 	"github.com/rgomids/axiom/internal/cli"
