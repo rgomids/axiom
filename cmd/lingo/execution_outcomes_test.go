@@ -4,12 +4,14 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"slices"
 	"testing"
 
 	"github.com/rgomids/axiom/internal/cli"
+	"github.com/rgomids/axiom/internal/completion"
 	"github.com/rgomids/axiom/internal/local"
 	"github.com/rgomids/axiom/internal/workflow"
 )
@@ -74,6 +76,45 @@ func TestRepositoryReadinessRefusesUnsafeOrReboundPath(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// A succeeded attempt can never carry an unknown effect; persisted bytes
+// claiming both are refused at the codec instead of reporting readiness.
+func TestRepositoryReadinessRefusesSucceededAttemptWithUnknownEffect(t *testing.T) {
+	f := newExecutionRunFixture(t)
+	done := f.run(t, cli.ExitSuccess, minimalRun("--authorize-external")...)
+	files := f.executions(t)
+	if len(files) != 1 {
+		t.Fatalf("executions: %v", files)
+	}
+	wire, err := os.ReadFile(files[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	var raw map[string]any
+	if err := json.Unmarshal(wire, &raw); err != nil {
+		t.Fatal(err)
+	}
+	attempt := raw["stages"].([]any)[0].(map[string]any)["tasks"].([]any)[0].(map[string]any)["attempts"].([]any)[0].(map[string]any)
+	if attempt["status"] != "succeeded" {
+		t.Fatalf("attempt: %v", attempt)
+	}
+	attempt["effects"] = []any{map[string]any{"kind": "workspace_write", "target": "main", "state": "unknown"}}
+	forged, err := json.Marshal(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(files[0], forged, 0600); err != nil {
+		t.Fatal(err)
+	}
+	s := f.env.service.(lifecycleService)
+	got := s.WorkflowStage(context.Background(), cli.WorkflowStageInput{Operation: "delivery-packet", Project: "external", Execution: done.Stage.ExecutionID})
+	if p, ok := got.Payload.(map[string]any); ok && p["ready"] != false || got.Result.Completion == nil || got.Result.Completion.Status() == completion.Success {
+		t.Fatalf("unknown effect reported ready: %+v %+v", got.Result, got.Payload)
+	}
+	if _, err := workflow.DecodeExecution(forged); err == nil {
+		t.Fatal("codec accepted succeeded attempt with unknown effect")
 	}
 }
 

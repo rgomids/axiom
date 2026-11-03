@@ -986,7 +986,9 @@ func validateAttempt(a Attempt, number int, generation uint64, repos map[string]
 		allowed[k] = true
 	}
 	for _, f := range a.Effects {
-		if !allowed[f.Kind] || !boundedText(f.Target, 512) || (f.State != EffectConfirmed && f.State != EffectUnknown) {
+		// CompleteAttempt downgrades any unknown effect to an unknown attempt;
+		// success with an unknown effect is never a writer-produced fact.
+		if !allowed[f.Kind] || !boundedText(f.Target, 512) || (f.State != EffectConfirmed && f.State != EffectUnknown) || f.State == EffectUnknown && a.Status == AttemptSucceeded {
 			return invalid("attempt %q effect", a.AttemptID)
 		}
 	}
