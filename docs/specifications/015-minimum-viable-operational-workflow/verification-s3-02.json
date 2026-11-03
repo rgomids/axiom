@@ -8,7 +8,7 @@
       "check": "focused",
       "status": "PASS",
       "exit_code": 0,
-      "command": "GOTOOLCHAIN=go1.26.0 go test ./internal/stageexecution ./cmd/lingo ./internal/cli ./internal/codexruntime -run TestExecutionDelivery|TestPublicExecutionDelivery|TestRepositoryReadiness|TestRepositoryOutcomes|TestEveryPublishedSharedRevisionStaysOwned|TestRuntimeOnlyHistoryIsFrozen|TestCanonicalRoutingContract -count=1",
+      "command": "GOTOOLCHAIN=go1.26.0 go test ./internal/stageexecution ./cmd/lingo ./internal/cli ./internal/codexruntime -run 'TestExecutionDelivery|TestPublicExecutionDelivery|TestRepositoryReadiness|TestRepositoryOutcomes|TestEveryPublishedSharedRevisionStaysOwned|TestRuntimeOnlyHistoryIsFrozen|TestCanonicalRoutingContract' -count=1",
       "source_sha": "8dbc799bff58caaed2c954ae1c8a3b67e1daa262",
       "stdout_sha256": "71f08793c353f68befe828f30a1922fd4e2ed4663f6033e7447649af9532ce6e",
       "qualification": "deterministic local checks"
