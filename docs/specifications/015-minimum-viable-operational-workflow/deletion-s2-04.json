@@ -136,11 +136,35 @@
       "path": "internal/workflow/gates.go, configured.go, service.go",
       "invariant": "Historical lifecycle/delivery consumers remain until S3; canonical Execution gates are separate immutable-definition facts",
       "alternative": "Do not remove shared legacy contracts prematurely or reopen S3; canonical message tests prove no gate/integration authority"
+    },
+    {
+      "path": "internal/executiongraph/acceptance.go",
+      "category": "G",
+      "deferred_until": "S3.4",
+      "symbols": [
+        "Evidence.CoordinationRecords",
+        "Evidence.Coordination",
+        "CoordinationVerifier",
+        "CoordinationEvidence",
+        "CoordinationQuestionRequest",
+        "CoordinationAnswer",
+        "CoordinationContractProposal",
+        "CoordinationContractAcceptance",
+        "CoordinationAccepted",
+        "BuildEvidence",
+        "verifiedCoordination",
+        "validCoordinationEvidence",
+        "coordinatedExchange"
+      ],
+      "invariant": "Retained legacy Graph Evidence format and validation, not an operational coordination owner. No production BuildEvidence caller or VerifyCoordination implementation; existing tests call BuildEvidence with nil and reject asserted/unverified coordination.",
+      "removal_failure": "Deleting the port/projection changes retained Evidence format and breaks legacy acceptance/integration evidence tests; historical removal is reserved for S3.4, not attempted destructively here.",
+      "alternative": "Keep inert code in place and accurately inventory it; no writer, codec copy, runtime wiring or test verifier presented as live evidence."
     }
   ],
   "production_imports_after": [
     "internal/local/inventory.go -> internal/coordination (historical inventory only)"
   ],
   "cli": "list/show read same Execution.messages; publish retained as historical refusal only, no ingress; nonzero legacy cursors refuse",
-  "graphify": "Generated graphify-out/** excluded; no generation or commit"
+  "graphify": "Generated graphify-out/** excluded; no generation or commit",
+  "measurement_note": "before/after/delta describe the S2.4 implementation snapshot at 08f2e0e, excluding later reconciliation corrections; current counts are reported in reconciliation-s2-integrated.md."
 }

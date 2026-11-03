@@ -132,11 +132,9 @@ type CoordinationEvidence struct {
 	Decision      string
 }
 
-// CoordinationVerifier is the acceptance-owned port through which
-// BuildEvidence derives coordination facts. An implementation decodes one
-// canonical coordination record, recomputes its digest from that content and
-// projects it. The coordination package owns the canonical format and provides
-// the production implementation.
+// CoordinationVerifier is a retained legacy evidence port with no production
+// implementation or caller. Its graph evidence format awaits S3.4 retirement;
+// a supplied verifier does not establish live Runtime evidence.
 type CoordinationVerifier interface {
 	VerifyCoordination(record []byte) (CoordinationEvidence, error)
 }

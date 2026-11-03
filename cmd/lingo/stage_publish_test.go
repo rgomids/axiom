@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/rgomids/axiom/internal/cli"
@@ -16,5 +17,8 @@ func TestPublishRefusesAbsentRunningContext(t *testing.T) {
 	result := s.stagePublish(context.Background(), cli.WorkflowStageInput{Kind: "progress", Fields: []string{"summary=synthetic"}})
 	if result.Result.Category != "child_context_required" {
 		t.Fatal(result.Result.Category)
+	}
+	if !strings.Contains(result.Result.Completion.Next().String(), "Publication is retired") || !strings.Contains(result.Result.Completion.Next().String(), "private engine ingress") || !strings.Contains(result.Result.Completion.Next().String(), "workflow coordination list") {
+		t.Fatal(result.Result.Completion.Next().String())
 	}
 }

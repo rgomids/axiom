@@ -49,8 +49,11 @@ a retired writer. No equivalent codec/store was moved elsewhere.
 **Gate ownership:** canonical before/after gates, exact-result human review,
 S2.1 dependencies and S2.3 integration stay Execution-owned. Retained
 `workflow/gates.go`/configured/service lifecycle types have historical delivery
-consumers awaiting S3; deleting those here would reopen S3. No operational
-Graph gate/coordination verifier remains. A message cannot approve a human gate,
+consumers awaiting S3; deleting those here would reopen S3. No Graph gate/coordination verifier is wired into new-run operations.
+The legacy `executiongraph/acceptance.go` verifier port, projections, constants
+and BuildEvidence validation path survive without a production implementation
+or caller; category G retirement is deferred to S3.4 in the survival report.
+Test-supplied verifiers would not prove live Runtime evidence. A message cannot approve a human gate,
 complete its own/another attempt, dispose unknown effects or establish integration.
 The new four-kind test compares every non-message byte of the aggregate before
 and after spoofed approval/integration/cancel claims.

@@ -150,8 +150,8 @@ func (s lifecycleService) stageError(err error, payload any) cli.WorkflowStageRe
 		next     string
 	}
 	rules := []rule{
-		{errChildContext, completion.DeniedAuthority, "child_context_required", "Publish only from a running stage child's own task context"},
-		{errRecordNotFound, completion.ValidationFailure, "record_not_found", "List the child's canonical records first"},
+		{errChildContext, completion.DeniedAuthority, "child_context_required", "Publication is retired; messages use private engine ingress; inspect with workflow coordination list"},
+		{errRecordNotFound, completion.ValidationFailure, "record_not_found", "Inspect Execution messages with workflow coordination list first"},
 		{local.ErrConflict, completion.RetryableFailure, "temporarily_unavailable", "A concurrent operation holds the lease; retry the read first"},
 		{local.ErrRecoveryRequired, completion.Failure, "recovery_required", "Run recovery inspect and apply the reviewed plan"},
 	}
