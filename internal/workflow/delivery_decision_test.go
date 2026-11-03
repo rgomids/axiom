@@ -4,8 +4,6 @@ import (
 	"context"
 	"strings"
 	"testing"
-
-	"github.com/rgomids/axiom/internal/workflowdefinition"
 )
 
 type decisionMemory struct{ value *DeliveryDecision }
@@ -86,47 +84,5 @@ func TestDeliveryDecisionHumanAuthorityExactAcceptanceAndConflict(t *testing.T) 
 	lifecycle, err = DeriveLifecycle(state)
 	if err != nil || accepted || status != "rejected" || lifecycle.Stage == LifecycleAccepted {
 		t.Fatal(status, lifecycle, err)
-	}
-}
-func TestDeliveryReworkExplicitRevisionIndependentGatesAndInputs(t *testing.T) {
-	original, d := decisionFixture(t, "reject")
-	original.DeliveryDecision = &d
-	s, _, definitions, _ := newConfigured(t)
-	input := ReworkInput{NewExecutionID: "00000000-0000-4000-8000-000000000099", RevisionChoice: "retained", RuntimeID: original.RuntimeID, RuntimePreview: strings.Repeat("f", 64), Scope: "repair reviewed finding", Plan: Reference{Kind: "plan", ID: "corrective-plan", Digest: strings.Repeat("e", 64)}, Authority: Reference{Kind: "decision", ID: "new-execution-authority", Digest: strings.Repeat("f", 64)}, Inputs: []Reference{}}
-	r2 := definitions.document.Definition
-	r2.Revision = 2
-	r2.Stages[0].Instructions = "new selected revision"
-	doc, issues := workflowdefinition.Encode(r2)
-	if len(issues) != 0 {
-		t.Fatal(issues)
-	}
-	definitions.document = doc
-	for _, choice := range []string{"retained", "selected"} {
-		input.RevisionChoice = choice
-		p, err := s.PreviewDeliveryRework(context.Background(), original, d, input, configuredTarget())
-		if err != nil {
-			t.Fatal(choice, err)
-		}
-		expected := 1
-		if choice == "selected" {
-			expected = 2
-		}
-		if p.NewState.Binding.Definition.Revision != expected || len(p.NewState.Transitions) != 0 || p.NewState.StageOrdinal != 0 || p.NewState.Revision != 1 || p.NewState.ExecutionID == original.ExecutionID {
-			t.Fatal("invalid fresh binding", p.NewState)
-		}
-	}
-	input.RevisionChoice = ""
-	if _, err := s.PreviewDeliveryRework(context.Background(), original, d, input, configuredTarget()); err == nil {
-		t.Fatal("implicit revision")
-	}
-	input.RevisionChoice = "retained"
-	input.Inputs = []Reference{{Kind: "artifact", ID: "tampered", Digest: strings.Repeat("f", 64)}}
-	if _, err := s.PreviewDeliveryRework(context.Background(), original, d, input, configuredTarget()); err == nil {
-		t.Fatal("unbound prior input")
-	}
-	input.Inputs = nil
-	input.Authority = d.Authority
-	if _, err := s.PreviewDeliveryRework(context.Background(), original, d, input, configuredTarget()); err == nil {
-		t.Fatal("inherited authority")
 	}
 }

@@ -22,6 +22,7 @@ type LinkedWorkItem struct {
 // selected Workflow (or the minimal default) and nothing else. There is no
 // Stage Plan, Validator Policy, preview digest, expected revision or Profile.
 type StartRequest struct {
+	ReworkOf     *workflow.RejectedSource
 	ExecutionID  string
 	ProjectID    string
 	Repositories []workflow.RepositoryBinding
@@ -65,6 +66,10 @@ func (e Engine) Start(ctx context.Context, store creator, r StartRequest) (workf
 		Repositories: r.Repositories, WorkflowID: id, Revision: rev, Stages: stages, Selections: r.Selections, Now: e.now(),
 	})
 	if err != nil {
+		return workflow.Execution{}, err
+	}
+	x.ReworkOf = r.ReworkOf
+	if err := x.Validate(); err != nil {
 		return workflow.Execution{}, err
 	}
 	// A missing, ambiguous or conflicting selection for any agent refuses

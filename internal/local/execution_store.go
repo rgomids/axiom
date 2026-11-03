@@ -91,6 +91,15 @@ func (s ExecutionStore) Create(ctx context.Context, e workflow.Execution) error 
 		return err
 	}
 	defer closeFiles(locks)
+	if e.ReworkOf != nil {
+		source, _, err := s.read(roots.project(), e.ProjectID, e.ReworkOf.ExecutionID)
+		if err != nil {
+			return err
+		}
+		if !workflow.ValidReworkStart(source, e) {
+			return ErrUnsafe
+		}
+	}
 	return publishFile(ctx, roots.project(), runRecordName(e.ExecutionID), nil, wire, true, s.withLimit(nil))
 }
 
@@ -261,6 +270,16 @@ func (s ExecutionStore) Save(ctx context.Context, next workflow.Execution, expec
 // terminal observations. Human resolution may append a disposition to an
 // unresolved unknown, but never rewrite the uncertain effects themselves.
 func preservesExecutionHistory(prior, next workflow.Execution) bool {
+	if !reflect.DeepEqual(prior.ReworkOf, next.ReworkOf) {
+		return false
+	}
+	if prior.Rejection != nil {
+		frozen := next
+		frozen.Revision, frozen.RunnerGeneration, frozen.UpdatedAt = prior.Revision, prior.RunnerGeneration, prior.UpdatedAt
+		if !reflect.DeepEqual(prior, frozen) {
+			return false
+		}
+	}
 	if prior.ExecutionID != next.ExecutionID || prior.ProjectID != next.ProjectID || prior.WorkItem != next.WorkItem || !prior.CreatedAt.Equal(next.CreatedAt) || !reflect.DeepEqual(prior.Repositories, next.Repositories) || !reflect.DeepEqual(prior.Workflow, next.Workflow) || !reflect.DeepEqual(prior.Selections, next.Selections) || len(prior.Stages) != len(next.Stages) {
 		return false
 	}

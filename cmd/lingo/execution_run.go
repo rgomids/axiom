@@ -49,6 +49,9 @@ func (s lifecycleService) executionStage(ctx context.Context, in cli.WorkflowSta
 	// A human disposition never records without both its subject and explicit
 	// human authority; only the built-in minimal Workflow can override the
 	// Project selection. Checked before any read or write.
+	if in.Operation == "reject" && (!in.AuthorizeHuman || !in.AuthorizeLocal || in.ReviewStage == "" || in.ReworkSource != "") {
+		return s.stageFailure(completion.DeniedAuthority, "human_authority_required", "Rejection needs exact result and human/local authority", "Supply --stage --result-digest --evidence --authorize-human --authorize-local", nil)
+	}
 	if in.Operation == "execution-run" && (in.ApproveGate != "" || in.ReviewStage != "") != in.AuthorizeHuman || in.Operation == "reconcile" && (in.Abandon != "") != in.AuthorizeHuman {
 		return s.stageFailure(completion.DeniedAuthority, "human_authority_required", "A human disposition needs its exact subject and --authorize-human", "Repeat with both --approve-gate/--abandon and --authorize-human after real human review", nil)
 	}
@@ -93,6 +96,19 @@ func (s lifecycleService) executionStage(ctx context.Context, in cli.WorkflowSta
 		ctx, stop := interruptibleRun(ctx)
 		defer stop()
 		return c.run(ctx, in)
+	case "reject":
+		x, err := store.Load(ctx, resolved.Project.ID, in.Execution)
+		if err != nil {
+			return c.failure(err, nil)
+		}
+		if err = c.review(ctx, x, in); err != nil {
+			return c.failure(err, &x)
+		}
+		x, err = store.Load(ctx, x.ProjectID, x.ExecutionID)
+		if err != nil {
+			return c.failure(err, nil)
+		}
+		return c.outcome(ctx, "Human rejection recorded; source facts preserved", x, nil, true)
 	case "status":
 		x, err := store.Load(ctx, resolved.Project.ID, in.Execution)
 		if err != nil {
@@ -162,7 +178,7 @@ func (c executionComposition) run(ctx context.Context, in cli.WorkflowStageInput
 		return c.failure(err, nil)
 	}
 	if in.Execution != "" {
-		if len(selections) != 0 || len(in.Inputs) != 0 || in.Workflow != "" || in.Repository != "" || in.WorkItem != "" {
+		if len(selections) != 0 || len(in.Inputs) != 0 || in.Workflow != "" || in.Repository != "" || in.WorkItem != "" || in.ReworkSource != "" {
 			return c.failure(errSelectionsFrozen, nil)
 		}
 		launcher, x, err := c.existingLauncher(ctx, in.Execution)
@@ -212,6 +228,17 @@ func (c executionComposition) run(ctx context.Context, in cli.WorkflowStageInput
 	}
 	if err = c.freezeInputs(ctx, request.Stages, in.Inputs, target.Repository.Key); err != nil {
 		return c.failure(err, nil)
+	}
+	if in.ReworkSource != "" {
+		source, loadErr := c.store.Load(ctx, c.project.ID, in.ReworkSource)
+		if loadErr != nil {
+			return c.failure(loadErr, nil)
+		}
+		link, linkErr := source.RejectedSource()
+		if linkErr != nil {
+			return c.failure(linkErr, nil)
+		}
+		request.ReworkOf = &link
 	}
 	if request.ExecutionID, err = allocateStageID(); err != nil {
 		return c.failure(err, nil)
@@ -844,6 +871,8 @@ type executionStageView struct {
 // executionView is the safe projection: no executable path, instruction
 // text, repository identity or child output.
 type executionView struct {
+	Rejection          *workflow.ResultRejection      `json:"rejection,omitempty"`
+	ReworkOf           *workflow.RejectedSource       `json:"reworkOf,omitempty"`
 	Deliveries         []workflow.ExecutionDelivery   `json:"deliveries,omitempty"`
 	RepositoryOutcomes []workflow.RepositoryOutcome   `json:"repositoryOutcomes"`
 	ExecutionID        string                         `json:"executionId"`
@@ -862,7 +891,7 @@ type executionView struct {
 }
 
 func executionPayload(x workflow.Execution, facts []stageexecution.ReconcileFact) executionView {
-	v := executionView{ExecutionID: x.ExecutionID, ProjectID: x.ProjectID, WorkItem: x.WorkItem, WorkflowID: x.Workflow.ID, WorkflowRevision: x.Workflow.Revision, WorkflowDigest: x.Workflow.Digest,
+	v := executionView{Rejection: x.Rejection, ReworkOf: x.ReworkOf, ExecutionID: x.ExecutionID, ProjectID: x.ProjectID, WorkItem: x.WorkItem, WorkflowID: x.Workflow.ID, WorkflowRevision: x.Workflow.Revision, WorkflowDigest: x.Workflow.Digest,
 		Revision: x.Revision, RunnerGeneration: x.RunnerGeneration, Status: x.Status, Cancel: x.Cancel, Stages: []executionStageView{}, Reconciliation: facts, NextAction: executionNext(x)}
 	for _, s := range x.Stages {
 		stage := executionStageView{StageID: s.StageID, Status: s.Status, Gate: s.Gate, BeforeApproval: s.BeforeApproval, Review: s.Review, Tasks: []executionTaskView{}}
@@ -891,6 +920,9 @@ func executionPayload(x workflow.Execution, facts []stageexecution.ReconcileFact
 // executionNext is the smallest safe next action for the persisted facts.
 // Technical completion is never human acceptance.
 func executionNext(x workflow.Execution) string {
+	if x.Rejection != nil {
+		return "Rejected source is immutable. Start a new workflow run --rework-of " + x.ExecutionID + " with the same linked Work Item/Repositories and fresh selection/authority; no permissions transfer"
+	}
 	selector := " --execution " + x.ExecutionID
 	for k, d := range x.Deliveries {
 		if d.Status == "unknown" || d.Status == "prepared" {
@@ -1113,6 +1145,9 @@ func (c executionComposition) review(ctx context.Context, x workflow.Execution, 
 	}
 	evidence := workflow.ArtifactRef{Name: "human-review", RetainedID: a.ID, RepositoryKey: x.WorkItem.RepositoryKey, Digest: "sha256:" + hex.EncodeToString(a.Digest[:]), Size: int64(a.ContentBytes)}
 	_, err = c.store.UpdateFenced(ctx, x.ProjectID, x.ExecutionID, nil, func(current *workflow.Execution) error {
+		if in.Operation == "reject" {
+			return current.RejectResult(in.ReviewStage, executionActor("human:"), digest, evidence, time.Now())
+		}
 		return current.ReviewStage(in.ReviewStage, executionActor("human:"), digest, evidence, time.Now())
 	})
 	return err

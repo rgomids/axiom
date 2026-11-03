@@ -95,8 +95,26 @@ publication, merge or acceptance authority. Optional `workflow delivery advance`
 phase over `Execution.deliveries`, with intent before effect and exact observed
 confirmation. Lost responses remain unknown; `--inspect` records only exact-target
 observations under the original grant, without replay. Use `axiom docs commands` for the full command reference.
-Human disposition/linked rework remain S3.3 work; old delivery formats are inert
-and retained pending S3.4 deletion.
+
+Human rejection is recorded with `workflow stage reject --execution <id>
+--stage <stage-id> --result-digest <digest> --evidence <retained-evidence-id>
+--authorize-human --authorize-local`. Status provides the exact stage digest.
+Evidence must belong to the same Execution/stage/definition/result/Repository.
+The `rejected` Execution preserves successful process observations and all prior
+history, while refusing further progression and delivery. An existing human
+result approval is immutable and cannot be replaced by rejection.
+
+Start linked rework through the ordinary `workflow run --rework-of <source-id>`
+with the same Project, Work Item and Repository bindings, and fresh Workflow,
+invocation selections and `--authorize-external`. It creates a new Execution;
+`reworkOf` contains provenance only. No grants, gates, attempts, messages,
+integration/delivery state or invocation snapshots transfer. Missing current
+selection/authority refuses. Unknown effects cannot use rejection/rework to
+bypass explicit recovery. Existing bounded retries, timeouts, leases and
+`--new-selection` apply; no automatic replay, closure, merge or acceptance.
+
+Legacy rework producers are removed. Read-only historical codecs remain for
+inventory/retention; broader delivery deletion belongs to S3.4.
 
 ### Execution messages and authority
 

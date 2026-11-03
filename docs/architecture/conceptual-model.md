@@ -459,3 +459,11 @@ not yet a public command. See the
 [S2.2](../specifications/015-minimum-viable-operational-workflow/implementation-s2-02.md)
 and [S2.3](../specifications/015-minimum-viable-operational-workflow/implementation-s2-03.md)
 Evidence for verification and remaining limits.
+
+
+Spec 015 S3.3 records result rejection and rework provenance within that same
+Execution/store. A human rejection binds exact stage results and retained
+Evidence, preserving the process facts. The store freezes rejected history and
+validates the source link under its existing project lock when creating a new,
+pristine Execution. Rework resolves current invocation and authority through the
+ordinary start path; the link carries neither permission nor mutable state.

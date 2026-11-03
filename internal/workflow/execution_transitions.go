@@ -169,6 +169,9 @@ func (e *Execution) derivedStageStatus(i int) StageStatus {
 }
 
 func (e Execution) derivedStatus() RunStatus {
+	if e.Rejection != nil {
+		return RunRejected
+	}
 	for _, d := range e.Deliveries {
 		if d.Status == "unknown" {
 			return RunRecoveryRequired
@@ -235,7 +238,7 @@ func hasActiveAttempt(e Execution) bool {
 // any human gate), in Workflow order. Cancellation, failure or any unresolved
 // unknown effect yields nothing: successors stop.
 func (e Execution) Ready() []TaskRef {
-	if e.Cancel != nil || e.Status == RunRecoveryRequired || e.Status == RunFailed || e.Status == RunCancelled {
+	if e.Rejection != nil || e.Cancel != nil || e.Status == RunRecoveryRequired || e.Status == RunFailed || e.Status == RunCancelled {
 		return nil
 	}
 	// A running independent peer can keep the derived run status Running after
@@ -312,6 +315,9 @@ type PrepareInput struct {
 func (e *Execution) PrepareAttempt(in PrepareInput) error {
 	if err := e.fence(in.Generation); err != nil {
 		return err
+	}
+	if e.Rejection != nil {
+		return ErrTransition
 	}
 	if e.Cancel != nil {
 		return ErrCancelled
@@ -561,7 +567,7 @@ func (e *Execution) RequestCancel(actor string, now time.Time) error {
 // The actor must be a human identity; agent output never reaches this path.
 func (e *Execution) ApproveGate(stageID, actor string, now time.Time) error {
 	i := e.stageIndex(stageID)
-	if e.Cancel != nil || e.Status == RunRecoveryRequired || i < 0 || e.Stages[i].Status != StageAwaitingGate || !ValidToken(actor) || len(actor) < 7 || actor[:6] != "human:" {
+	if e.Rejection != nil || e.Cancel != nil || e.Status == RunRecoveryRequired || i < 0 || e.Stages[i].Status != StageAwaitingGate || !ValidToken(actor) || len(actor) < 7 || actor[:6] != "human:" {
 		return ErrTransition
 	}
 	d := &Disposition{Actor: actor, Decision: DispositionApproved, RecordedAt: now.UTC()}
@@ -642,7 +648,7 @@ func (e Execution) StageResultDigest(stageID string) (string, error) {
 // ReviewStage accepts only an explicit human result approval with retained Evidence.
 func (e *Execution) ReviewStage(stageID, actor, resultDigest string, evidence ArtifactRef, now time.Time) error {
 	i := e.stageIndex(stageID)
-	if i < 0 || e.Cancel != nil || e.Status == RunRecoveryRequired || !e.Workflow.Stages[i].ReviewRequired || e.Stages[i].Review != nil || !humanActor(actor) {
+	if i < 0 || e.Rejection != nil || e.Cancel != nil || e.Status == RunRecoveryRequired || !e.Workflow.Stages[i].ReviewRequired || e.Stages[i].Review != nil || !humanActor(actor) {
 		return ErrTransition
 	}
 	digest, err := e.StageResultDigest(stageID)

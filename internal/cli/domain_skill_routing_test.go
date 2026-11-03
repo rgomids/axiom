@@ -398,6 +398,7 @@ var mutatingRequests = map[string][]string{
 	"work-item reopen":          {"work-item", "reopen", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7"},
 	"workflow run":              {"workflow", "run", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--select", "agent.runtime=codex"},
 	"workflow stage cancel":     {"workflow", "stage", "cancel", "--project", "alpha", "--execution", "e-1"},
+	"workflow stage reject":     {"workflow", "stage", "reject", "--project", "alpha", "--execution", "e-1", "--stage", "work", "--result-digest", "sha256:" + strings.Repeat("a", 64), "--evidence", "evidence-1"},
 	"workflow stage retry":      {"workflow", "stage", "retry", "--project", "alpha", "--execution", "e-1", "--stage", "implementation", "--agent", "owner"},
 	"workflow stage reconcile":  {"workflow", "stage", "reconcile", "--project", "alpha", "--execution", "e-1"},
 	"workflow delivery advance": {"workflow", "delivery", "advance", "--project", "alpha", "--execution", "e-1", "--request", "{}"},

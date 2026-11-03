@@ -18,7 +18,7 @@ names, `requiredWhen` conditions and accepted forms. Never invent a flag. On a
 refusal, read `details` (`<code>` or `<code>:--<flag>`) and change only the
 named input; never repeat an unchanged command.
 
-Supported domain operations are `create`, `run`, `status`, `list`, `show`, `update`, `comment`, `close`, `reopen`, `execution.run`, `delivery.advance`, `delivery.packet`, `stage.status`, `stage.cancel`, `stage.retry`, `stage.reconcile`, `coordination.list`, and `coordination.show`.
+Supported domain operations are `create`, `run`, `status`, `list`, `show`, `update`, `comment`, `close`, `reopen`, `execution.run`, `delivery.advance`, `stage.reject`, `delivery.packet`, `stage.status`, `stage.cancel`, `stage.retry`, `stage.reconcile`, `coordination.list`, and `coordination.show`.
 Any other operation, such as `delete` or Execution `cancel`, is unsupported:
 report that it is not available and do not run a Lingo command for it. Work
 Items are closed or reopened, never deleted. Canonical Executions use
@@ -47,6 +47,7 @@ Login and successful process exit do not prove successful Stage output.
 | `reopen` | - | `axiom --json work-item reopen --project <uuid-or-slug>` | external mutation | preview first; reopen only with the exact `--preview-digest` plus `--authorize-external` | only for unambiguous reopen intent |
 | `execution.run` | - | `axiom --json workflow run` | external mutation | one run action; spawning the selected Runtimes needs `--authorize-external`; a human gate records only with `--approve-gate` and `--authorize-human` | only for unambiguous run intent |
 | `delivery.advance` | - | `axiom --json workflow delivery advance` | external mutation | exact `--grant`; `--authorize-local` `--authorize-human` and `--authorize-push` OR `--authorize-pr`; `--inspect` only records exact-target observations | only for unambiguous delivery intent |
+| `stage.reject` | - | `axiom --json workflow stage reject` | local mutation | exact stage/result/Evidence; `--authorize-human` `--authorize-local`; operator context only | only for unambiguous stage reject intent |
 | `delivery.packet` | - | `axiom --json workflow delivery packet` | read-only | none; readiness grants no delivery authority | allowed |
 | `stage.status` | - | `axiom --json workflow stage status` | read-only | none; persisted state only, never a stop or success claim | allowed |
 | `stage.cancel` | - | `axiom --json workflow stage cancel` | local mutation | `--authorize-local` records cancel intent only; the runner reports requested versus observed stop | only for unambiguous stage cancel intent |
@@ -490,4 +491,23 @@ of these steps.
 A lost response is unknown, never an automatic retry. Use the same operation
 with `--inspect <delivery-index>` instead of `--request`, and the original grant
 and effect flags, to record an exact-target read only. This does not accept,
-replay, close, merge or release. Unknown disposition/linked rework remain S3.3.
+replay, close, merge or release. Unknown delivery effects still block replay; no disposition turns them into success.
+
+
+## Rejected results and linked rework
+
+Only a human operator may record `axiom --json workflow stage reject --project
+<id> --execution <id> --stage <stage-id> --result-digest <digest> --evidence
+<retained-evidence-id> --authorize-human --authorize-local`. The exact successful
+stage result digest comes from status. Evidence must belong to that Execution,
+stage, definition, result and Work Item Repository. Runtime children are refused;
+agent claims and exit zero cannot satisfy human disposition.
+
+Rejection preserves all observed facts and prevents further execution/delivery
+on the source. Use the ordinary `workflow run` with `--rework-of <source-id>`,
+the same linked Work Item and Repository bindings, and freshly selected Workflow,
+invocation inputs and `--authorize-external`. No attempts, gates, authority,
+delivery grants, messages or invocation snapshots transfer. Unknown effects
+must first follow the existing explicit recovery path; they cannot be rejected
+or linked to bypass recovery. Retry limits, timeouts, fencing and explicit
+`--new-selection` remain those of the shared engine. No close/merge/release.

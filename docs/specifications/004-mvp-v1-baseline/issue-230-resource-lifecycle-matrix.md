@@ -493,6 +493,7 @@ canonical `workflow run` and read-only delivery packet routes.
 | axiom-work-item | reopen | default | axiom work-item reopen | external-mutation | --preview-digest --authorize-external |
 | axiom-work-item | execution.run | default | axiom workflow run | external-mutation | --authorize-external --authorize-human |
 | axiom-work-item | delivery.advance | default | axiom workflow delivery advance | external-mutation | --grant --authorize-human --authorize-local --authorize-push --authorize-pr |
+| axiom-work-item | stage.reject | default | axiom workflow stage reject | local-mutation | --authorize-human --authorize-local |
 | axiom-work-item | delivery.packet | default | axiom workflow delivery packet | read-only |  |
 | axiom-work-item | stage.status | default | axiom workflow stage status | read-only |  |
 | axiom-work-item | stage.cancel | default | axiom workflow stage cancel | local-mutation | --authorize-local |

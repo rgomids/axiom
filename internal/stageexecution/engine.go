@@ -130,6 +130,9 @@ func (e Engine) Claim(ctx context.Context, projectID, executionID string) (workf
 	now := e.now()
 	gen := lease.Generation()
 	current, err := e.Store.UpdateFenced(ctx, projectID, executionID, lease, func(x *workflow.Execution) error {
+		if x.Rejection != nil {
+			return workflow.ErrTransition
+		}
 		if err := x.ClaimRunner(gen, now); err != nil {
 			return err
 		}

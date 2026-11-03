@@ -1,0 +1,266 @@
+{
+  "attempt": "IMPLEMENT-S3-03-CODEX-01",
+  "scope": "S3.3_ONLY",
+  "runtime_used": "Codex",
+  "base_sha": "37e63e253ace7e33dfc7bc5343a880e99094be5a",
+  "source_qualification": "working tree on the base SHA; final publication SHA/CI recorded in the AXM-42 callback; earlier failure/RED outputs describe intermediate trees",
+  "evidence": [
+    {
+      "id": "mutation-red-history",
+      "command": "go test ./internal/local -run ^TestExecutionStoreRejectedHistoryAndLinkAreImmutable$ -count=1",
+      "status": "FAIL",
+      "exit_code": 1,
+      "expected_failure": true,
+      "output_sha256": "c0ada6923ed1e3452427c3fce210dac85968d99b8283119782f26d6f566c13c6",
+      "output_bytes": 187
+    },
+    {
+      "id": "mutation-red-link",
+      "command": "go test ./internal/local -run ^TestExecutionStoreRefusesForgedReworkAndInheritedState$ -count=1",
+      "status": "FAIL",
+      "exit_code": 1,
+      "expected_failure": true,
+      "output_sha256": "975de52f0de3a9276ed24048ec4e248944fd5d0a47032096f99963bbc7696de8",
+      "output_bytes": 198
+    },
+    {
+      "id": "mutation-red-actor",
+      "command": "go test ./internal/workflow -run ^TestRejectedResultPreservesFactsAndStopsEveryProgression$ -count=1",
+      "status": "FAIL",
+      "exit_code": 1,
+      "expected_failure": true,
+      "output_sha256": "b1eff8e862b1e1749687a5db7549c5bbe405cc45cf1b8c3f11a62b1bfe87fc76",
+      "output_bytes": 194
+    },
+    {
+      "id": "focused-green",
+      "command": "GOTOOLCHAIN=go1.26.0 go test ./internal/workflow ./internal/local ./internal/stageexecution ./internal/cli ./cmd/lingo -run \"TestRejected|TestExecutionStore.*Rework|TestExecutionStoreRejected|TestLinkedRework|TestPublicRejected|TestEngineExplicitNewSelection|TestEngineNewSelection|TestEngineGateApproval|TestExecutionStoreReleasedOrSupersededLeaseCannotCommit\" -count=1 -timeout=3m",
+      "status": "PASS",
+      "exit_code": 0,
+      "expected_failure": false,
+      "output_sha256": "d259bee3a6f18cda183727e2b977c170837eab36085425952513ec10952379ce",
+      "output_bytes": 283
+    },
+    {
+      "id": "fixture-label-failure",
+      "command": "GOTOOLCHAIN=go1.26.0 go test ./internal/workflow ./internal/local ./internal/stageexecution ./cmd/lingo -run \"TestRejected|TestExecutionStore.*Rework|TestExecutionStoreRejected|TestLinkedRework|TestPublicRejected\" -count=1 -timeout=3m",
+      "status": "FAIL",
+      "exit_code": 1,
+      "expected_failure": false,
+      "output_sha256": "251b94d25ddd19b47501c41cf09de5d6c4347b1967986bcf3c34c4736f014774",
+      "output_bytes": 349
+    },
+    {
+      "id": "regression-green",
+      "command": "GOTOOLCHAIN=go1.26.0 go test ./internal/workflow ./internal/local ./internal/stageexecution ./internal/cli ./cmd/lingo -run \"TestRejected|TestExecutionStore.*Rework|TestExecutionStoreRejected|TestLinkedRework|TestPublicRejected|TestExecutionDelivery|TestPublicExecutionDelivery|TestEngineRetry|TestEngineCrash|TestEngineAbandon|TestEngineExplicitNewSelection|TestEngineNewSelection|TestPublicWorkflowRunRunnerFence|TestPublicWorkflowRunFailure\" -count=1 -timeout=3m",
+      "status": "PASS",
+      "exit_code": 0,
+      "expected_failure": false,
+      "output_sha256": "bbc70b37c460abe9482e19ff30951f67d7988797acf65e3082b374d7ace53a6a",
+      "output_bytes": 284
+    },
+    {
+      "id": "catalog-repair-incomplete",
+      "command": "GOTOOLCHAIN=go1.26.0 go test ./internal/cli ./internal/codexruntime -run \"TestDocumentationRendering|TestCanonicalSkillRouting|TestRoutingAlone|TestCanonicalRoutingContract|TestSkillDiscoveryExact|TestEveryPublishedShared\" -count=1 -timeout=3m",
+      "status": "FAIL",
+      "exit_code": 1,
+      "expected_failure": false,
+      "output_sha256": "72269d6e87aa9660619546cfa22d346e13500814724a77c023c3e4a87d3d7626",
+      "output_bytes": 792
+    },
+    {
+      "id": "catalog-table-wording-incomplete",
+      "command": "GOTOOLCHAIN=go1.26.0 go test ./internal/cli ./internal/codexruntime -run \"TestDocumentationRendering|TestCanonicalSkillRouting|TestRoutingAlone|TestCanonicalRoutingContract|TestSkillDiscoveryExact|TestEveryPublishedShared\" -count=1 -timeout=3m",
+      "status": "FAIL",
+      "exit_code": 1,
+      "expected_failure": false,
+      "output_sha256": "c2ddb59b83ed76d36fb170b2eff8bb56fbacec7b7a9f36489e295b66bfdc289c",
+      "output_bytes": 17064
+    },
+    {
+      "id": "catalog-green",
+      "command": "GOTOOLCHAIN=go1.26.0 go test ./internal/cli ./internal/codexruntime -run \"TestDocumentationRendering|TestCanonicalSkillRouting|TestRoutingAlone|TestCanonicalRoutingContract|TestSkillDiscoveryExact|TestEveryPublishedShared\" -count=1 -timeout=3m",
+      "status": "PASS",
+      "exit_code": 0,
+      "expected_failure": false,
+      "output_sha256": "b9668287261e1a25ab74d9ad822e58324f60544fc69c44ce5c669cab4c1ce3bd",
+      "output_bytes": 109
+    },
+    {
+      "id": "store-final",
+      "command": "GOTOOLCHAIN=go1.26.0 go test ./internal/local -run \"TestExecutionStoreRejected|TestExecutionStore.*Rework\" -count=1 -timeout=2m",
+      "status": "PASS",
+      "exit_code": 0,
+      "expected_failure": false,
+      "output_sha256": "6649b322dd44af27c0dcab4fa410d7f1af8af1e8c46822ca982c166350fee6eb",
+      "output_bytes": 52
+    },
+    {
+      "id": "build",
+      "command": "GOTOOLCHAIN=go1.26.0 go build ./...",
+      "status": "PASS",
+      "exit_code": 0,
+      "expected_failure": false,
+      "output_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "output_bytes": 0
+    },
+    {
+      "id": "vet",
+      "command": "GOTOOLCHAIN=go1.26.0 go vet ./...",
+      "status": "PASS",
+      "exit_code": 0,
+      "expected_failure": false,
+      "output_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "output_bytes": 0
+    },
+    {
+      "id": "quality-environment-failure",
+      "command": "PATH=/home/grokbot/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.0.linux-arm64/bin:$PATH STATICCHECK=/home/grokbot/go/bin/staticcheck ./scripts/check-go-quality.sh all",
+      "status": "FAIL",
+      "exit_code": 1,
+      "expected_failure": false,
+      "output_sha256": "66689e7de2fa2109b9cf92b645dec420eb7bb0aaa20571ac515f869977bb72d3",
+      "output_bytes": 3125
+    },
+    {
+      "id": "quality",
+      "command": "env -u GOROOT PATH=/home/grokbot/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.0.linux-arm64/bin:$PATH STATICCHECK=/home/grokbot/go/bin/staticcheck ./scripts/check-go-quality.sh all",
+      "status": "PASS",
+      "exit_code": 0,
+      "expected_failure": false,
+      "output_sha256": "2fe1a814ffc2e970a8c97c008d59f20f067448e6f02fef8a42d705cc7ba1a0ea",
+      "output_bytes": 253
+    },
+    {
+      "id": "architecture-domain",
+      "command": "GOTOOLCHAIN=go1.26.0 go run ./scripts/check-architecture.go domain",
+      "status": "PASS",
+      "exit_code": 0,
+      "expected_failure": false,
+      "output_sha256": "e279763282381fff92b1bfb1b0643f78a1b0b06228fd2926a7dc19c48240e43c",
+      "output_bytes": 108
+    },
+    {
+      "id": "architecture-application",
+      "command": "GOTOOLCHAIN=go1.26.0 go run ./scripts/check-architecture.go application",
+      "status": "PASS",
+      "exit_code": 0,
+      "expected_failure": false,
+      "output_sha256": "16ee2d2538988e94e9fd9698e106bc17d4e5c228d9c9d9fc6da62a707041b5df",
+      "output_bytes": 113
+    },
+    {
+      "id": "repository",
+      "command": "./scripts/validate-repository.sh .",
+      "status": "PASS",
+      "exit_code": 0,
+      "expected_failure": false,
+      "output_sha256": "e290e26e3c54e0cd8f5d63ce466fcb25ea14ca892556e218f7aceae3ee12e6ad",
+      "output_bytes": 1168
+    },
+    {
+      "id": "modules",
+      "command": "GOTOOLCHAIN=go1.26.0 go mod verify",
+      "status": "PASS",
+      "exit_code": 0,
+      "expected_failure": false,
+      "output_sha256": "b4537ed75f533f993f371954de47e42a793b8e5b0587577de7e27fb3e50696bd",
+      "output_bytes": 21
+    },
+    {
+      "id": "installed-docs",
+      "command": "GOTOOLCHAIN=go1.26.0 ./scripts/test-docs-offline.sh",
+      "status": "PASS",
+      "exit_code": 0,
+      "expected_failure": false,
+      "output_sha256": "0a57c8bbf2506916599c38ce2539c766457f1f74306d2015ef844b2447c188c6",
+      "output_bytes": 1750
+    },
+    {
+      "id": "sensitive-staged",
+      "command": "./scripts/check-sensitive-files.sh --staged .",
+      "status": "PASS",
+      "exit_code": 0,
+      "expected_failure": false,
+      "output_sha256": "63e1f16a7ccd3f97125248375b61512a6a6bcbe7ffeba913284bfe51380faf65",
+      "output_bytes": 44
+    },
+    {
+      "id": "race",
+      "status": "NOT_RUN",
+      "reason": "CGO_ENABLED=0 and gcc unavailable; no race execution claimed"
+    },
+    {
+      "id": "gitleaks",
+      "status": "NOT_RUN",
+      "reason": "binary unavailable; no installation authorized"
+    },
+    {
+      "id": "live-vendor-battery",
+      "status": "NOT_RUN",
+      "reason": "not invoked; no live inference or model availability claim"
+    },
+    {
+      "id": "product-effects",
+      "status": "NOT_RUN",
+      "reason": "no real product Git/Provider pushes/PRs, cutover, merge, release, deploy or acceptance"
+    },
+    {
+      "id": "installed-docs-full-qualification",
+      "status": "NOT_RUN",
+      "reason": "native Runtime, network/source-denial checks NOT_RUN; offline script is PARTIAL qualification"
+    },
+    {
+      "id": "full-before-catalog-repair",
+      "command": "GOTOOLCHAIN=go1.26.0 go test ./... -count=1 -timeout=15m",
+      "status": "FAIL",
+      "exit_code": 1,
+      "output_sha256": "c64abab22497fa4b357e76d5fe1e3621b01500c8337b9ff96c14fa226c78ce53",
+      "reason": "five CLI catalog/routing consumer failures; all other tested packages passed"
+    },
+    {
+      "id": "full-final",
+      "command": "GOTOOLCHAIN=go1.26.0 go test ./... -count=1 -timeout=15m",
+      "status": "PASS",
+      "exit_code": 0,
+      "tested_packages": 32,
+      "output_sha256": "712377d85094e603f47e39e9bee079d75442e6065b97a8181e7f94992ecedfa4",
+      "output_bytes": 2234
+    },
+    {
+      "id": "initial-cli-source-claim-failure",
+      "command": "go test ./cmd/lingo -run '^TestPublicRejected' -count=1 -timeout=2m",
+      "status": "FAIL",
+      "exit_code": 1,
+      "observed_error": "rework mutated source <nil>",
+      "capture": "tool output; fixed by refusing runner claim on rejected source"
+    }
+  ],
+  "source_files": {
+    "cmd/lingo/execution_rework_test.go": "e84a688bb526928c82451648c4541a71f50014e2a36852ecac2df9f7aa7f1f8d",
+    "cmd/lingo/execution_run.go": "1af1bca446ec0e7fa3384be6d6d7863e4bf410b4775517b8b250ad6407bea251",
+    "cmd/lingo/stage_service.go": "736c322d2ce94b470a589c56a57f25226d8675c05da1cf3b2eac76f5bb522f4f",
+    "internal/cli/documentation_test.go": "60a384ad6f7047f7a9f54f15a26ef9431cc611286c4c8890d3916d7237574d3a",
+    "internal/cli/domain_skill_routing_test.go": "330c18cd73a2bf35a57c757636214b6ec55878797720e9543daff5b1a793273d",
+    "internal/cli/skill_inspect_test.go": "091d564c202ce86adfc37652acd4806adc72c7c185b92dae0ce725832fc5afcc",
+    "internal/cli/workflow_stage.go": "5aaf083e24ba577b406e8e025d8ff8a274a7d85ed6d967a84c0560db5562953d",
+    "internal/codexruntime/manifest.go": "f78e749290397e792829eebf2169eea54bf475a168af39ceb4c3b83c9d0b8670",
+    "internal/codexruntime/shared_history_test.go": "dccb452e5316f0f05133263d8e6039af3124e12fed203525b31132e3c40f46ec",
+    "internal/codexruntime/skills/axiom-work-item/SKILL.md": "28befbc0923a7cd5103e2fcfff368cbbd54c315ea3c6b0bda7b6b63ada2a6d0c",
+    "internal/local/execution_rework_test.go": "e1b688c1c5acc42e14b41fc95c45ff0e3d4e8e196414c724da8e69372eda715b",
+    "internal/local/execution_store.go": "1c5f15cb910af6591ab13621b794372098ca873aac867240a9a843ab72475434",
+    "internal/stageexecution/engine.go": "6ad45d5167821de579e6f2ad729884cc5eb0be3fcf854b7289eef21bfaec3243",
+    "internal/stageexecution/rework_test.go": "2f2b94662e7d7ac2b6cb71843514e965bebf7cc163d35001895d1ec090f90877",
+    "internal/stageexecution/run_start.go": "6704f6b348b8c4957f06e0915215552f9da6325acb575d5337672dc7c01d1059",
+    "internal/workflow/delivery_decision_test.go": "5f460e8b0b2c9c12cebf4bdc3543d39619e4cc039c34de1f3d5e47e67247e9b4",
+    "internal/workflow/delivery_rework.go": "54073d96dbadffca4ede2fb7a6fc79a0522b29f4e93f20bac138860109f64a9b",
+    "internal/workflow/execution.go": "e3a9294fd730b17a37566627f401662bc7aad8037647c8c392811b59cc0c1955",
+    "internal/workflow/execution_rework.go": "03e156533f1295f4e67115970eb0a883b16a1ffe242683884ec31ac4ad9a2166",
+    "internal/workflow/execution_rework_test.go": "d22626acd5873606762da6fb2db3381c073786812928aa5dd150b1cfbe30c6e3",
+    "internal/workflow/execution_transitions.go": "3893e96474a2a040492531eaae42dd7788827ffbda742ede52bce9ef3e4e0f81"
+  },
+  "publication": {
+    "status": "PENDING_AT_EVIDENCE_CAPTURE",
+    "final_receipt": "AXM-42 root stage event after commit/push and exact-SHA CI read-back"
+  }
+}

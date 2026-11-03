@@ -111,6 +111,24 @@ axiom workflow stage retry --project my-project --execution <execution-id> \
 axiom workflow stage reconcile --project my-project --execution <execution-id> --authorize-local
 ```
 
+
+Human rejection is recorded with `workflow stage reject --execution <id>
+--stage <stage-id> --result-digest <digest> --evidence <retained-evidence-id>
+--authorize-human --authorize-local`. Status provides the exact stage digest.
+Evidence must belong to the same Execution/stage/definition/result/Repository.
+The `rejected` Execution preserves successful process observations and all prior
+history, while refusing further progression and delivery. An existing human
+result approval is immutable and cannot be replaced by rejection.
+
+Start linked rework through the ordinary `workflow run --rework-of <source-id>`
+with the same Project, Work Item and Repository bindings, and fresh Workflow,
+invocation selections and `--authorize-external`. It creates a new Execution;
+`reworkOf` contains provenance only. No grants, gates, attempts, messages,
+integration/delivery state or invocation snapshots transfer. Missing current
+selection/authority refuses. Unknown effects cannot use rejection/rework to
+bypass explicit recovery. Existing bounded retries, timeouts, leases and
+`--new-selection` apply; no automatic replay, closure, merge or acceptance.
+
 Reconcile observes lost-runner attempts; it never signals or replays them. An
 unknown attempt requires an explicit human disposition (`--abandon <attempt-id>
 --authorize-human`) before any eligible retry. Abandonment re-observes every

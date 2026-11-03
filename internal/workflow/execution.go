@@ -62,6 +62,7 @@ const (
 	RunRunning          RunStatus = "running"
 	RunAwaitingGate     RunStatus = "awaiting_gate"
 	RunCompleted        RunStatus = "completed"
+	RunRejected         RunStatus = "rejected"
 	RunFailed           RunStatus = "failed"
 	RunCancelled        RunStatus = "cancelled"
 	RunRecoveryRequired RunStatus = "recovery_required"
@@ -326,6 +327,8 @@ type CancelIntent struct {
 }
 
 type Execution struct {
+	Rejection        *ResultRejection    `json:"rejection,omitempty"`
+	ReworkOf         *RejectedSource     `json:"reworkOf,omitempty"`
 	Kind             string              `json:"kind"`
 	FormatVersion    int                 `json:"formatVersion"`
 	ExecutionID      string              `json:"executionId"`
@@ -668,6 +671,9 @@ func (e Execution) Validate() error {
 		return invalid("cancel intent")
 	}
 	if err := validateMessages(e); err != nil {
+		return err
+	}
+	if err := validateRework(e); err != nil {
 		return err
 	}
 	if err := validateSelections(e); err != nil {
@@ -1055,7 +1061,7 @@ func validStageStatus(s StageStatus) bool {
 
 func validRunStatus(s RunStatus) bool {
 	switch s {
-	case RunReady, RunRunning, RunAwaitingGate, RunCompleted, RunFailed, RunCancelled, RunRecoveryRequired:
+	case RunReady, RunRunning, RunAwaitingGate, RunCompleted, RunRejected, RunFailed, RunCancelled, RunRecoveryRequired:
 		return true
 	}
 	return false
