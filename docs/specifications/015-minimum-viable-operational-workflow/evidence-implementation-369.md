@@ -126,3 +126,33 @@ TestI369InspectionDoesNotMaterialize for both adapters, exact inspection/Build
 invocation equality and absent parent preservation; existing symlink/identity,
 selector and command tests. Self-review: no blocking finding identified at this
 boundary. Final engine reservation rechecks and public-route purity await P5b/P4b.
+
+## I369-P5a — prospective aggregate accounting (validation checkpoint)
+
+Added optional immutable `attemptPolicy=spawn-boundary-v1`; no operational writer
+selects it yet. Legacy absent-policy accounting and historical bytes remain exact.
+Pending and charged count conservatively; deterministic_refusal uses a separate
+two-record lifetime allowance. Counts derive only from bounded nested attempts.
+New-policy attempts require accounting and retry parent/preserve lineage; existing
+actor/time, generation, frozen invocation/provenance and authority remain required.
+Closed noSpawn/materialization evidence is mandatory for deterministic refusal.
+Charged cannot be refunded; unknown pending remains charged conservatively.
+
+State truth table: prepare -> pending (charged slot occupied); reservation ->
+charged; closed fenced refusal from pending -> deterministic_refusal (one lifetime
+slot); unknown pending -> unknown/pending (no refund); spawn failure, cancellation
+and unclassified failure -> charged. Prepared charged cannot become a refusal.
+Prepare requires chargedIncludingPending < maximumAttempts AND lifetimeRefusals < 2.
+No reset on selection/restart/launch. Validation checks prefix exhaustion, lineage,
+mandatory metadata, total bounds and enums; protected history freezes policy,
+accounting once resolved, parent and refusal evidence. New metadata is scalar
+except the previously deep-cloned LaunchFailure.
+
+PASS: `go test ./internal/workflow ./internal/local ./internal/strictjson ./internal/compatibility -count=1`;
+`go test ./internal/workflow -count=1`; `go test ./internal/local -run TestI369 -count=1`.
+TestI369AccountingBudgets covers limits 1/2/10, zero/one/two refusals, pending charge,
+charged exhaustion, charged->refusal denial and no third append. Frozen oracle
+examples drive TestI369FrozenAccountingOracle. Launch/restart test preserves both
+refusals. Strict codec and store tests reject missing/unknown metadata, refunds
+and policy stripping. Actual writer-byte old-reader replay precedes activation
+and will be recorded next; no partially supported writer enabled.

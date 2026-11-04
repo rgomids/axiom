@@ -355,7 +355,7 @@ func (e *Execution) PrepareAttempt(in PrepareInput) error {
 		if !in.NewSelection && !reflect.DeepEqual(in.Invocation, last.Invocation) {
 			return fmt.Errorf("%w: retry requires the frozen invocation", ErrTransition)
 		}
-		if len(task.Attempts) >= agent.AttemptLimit() {
+		if !e.attemptBudgetAvailable(*task, agent) {
 			return fmt.Errorf("%w: attempt limit", ErrTransition)
 		}
 	}
@@ -380,7 +380,21 @@ func (e *Execution) PrepareAttempt(in PrepareInput) error {
 	if _, _, dup := e.FindAttempt(in.AttemptID); dup {
 		return ErrTransition
 	}
+	if !e.attemptBudgetAvailable(*task, agent) {
+		return ErrTransition
+	}
+	if e.AttemptPolicy == SpawnBoundaryPolicy && in.Retry && in.WorkspaceDisposition != "preserve" {
+		return ErrWorkspaceDispositionRequired
+	}
+	accounting, parent := "", ""
+	if e.AttemptPolicy == SpawnBoundaryPolicy {
+		accounting = AccountingPending
+		if last != nil {
+			parent = last.AttemptID
+		}
+	}
 	task.Attempts = append(task.Attempts, Attempt{
+		Accounting: accounting, ParentAttemptID: parent,
 		AttemptID: in.AttemptID, Number: len(task.Attempts) + 1, RunnerGeneration: in.Generation,
 		Invocation: in.Invocation, Authority: in.Authority, WorkspaceDisposition: in.WorkspaceDisposition, Status: AttemptPrepared, PreparedAt: in.Now.UTC(),
 	})
@@ -406,6 +420,9 @@ func (e *Execution) MarkStarted(id string, generation uint64, process ProcessIde
 		return err
 	}
 	at := now.UTC()
+	if e.AttemptPolicy == SpawnBoundaryPolicy && a.Accounting != AccountingCharged {
+		return ErrTransition
+	}
 	a.Status, a.StartedAt, a.Process = AttemptRunning, &at, &process
 	e.touch(now)
 	return e.Validate()
@@ -419,6 +436,9 @@ func (e *Execution) MarkSpawnFailed(id string, generation uint64, diagnostic str
 		return err
 	}
 	at := now.UTC()
+	if e.AttemptPolicy == SpawnBoundaryPolicy && a.Accounting == AccountingPending {
+		a.Accounting = AccountingCharged
+	}
 	a.Status, a.EndedAt, a.Diagnostic = AttemptFailed, &at, clip(diagnostic)
 	e.touch(now)
 	return e.Validate()
@@ -541,6 +561,9 @@ func (e *Execution) MarkCancelled(id string, generation uint64, diagnostic strin
 		return ErrTransition
 	}
 	at := now.UTC()
+	if e.AttemptPolicy == SpawnBoundaryPolicy && a.Accounting == AccountingPending {
+		a.Accounting = AccountingCharged
+	}
 	a.Status, a.EndedAt, a.Diagnostic = AttemptCancelled, &at, clip(diagnostic)
 	e.touch(now)
 	return e.Validate()
