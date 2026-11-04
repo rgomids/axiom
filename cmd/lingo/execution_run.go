@@ -341,6 +341,12 @@ func (c executionComposition) launcher(executionID, repositoryKey string) (stage
 	if err != nil {
 		return stageexecution.RuntimeLauncher{}, err
 	}
+	// os.Executable is unresolved on darwin (Homebrew links, /var temp dirs);
+	// Build refuses any symlinked component, so pass the resolved binary.
+	axiom, err = filepath.EvalSymlinks(axiom)
+	if err != nil {
+		return stageexecution.RuntimeLauncher{}, err
+	}
 	// Created through the state root so no path component can redirect it
 	// outside; Build still refuses any symlinked component before spawning.
 	relative := filepath.Join("executions", "v2-attempt-outputs", c.project.ID, executionID)

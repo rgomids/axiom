@@ -84,7 +84,7 @@ type engineFixture struct {
 
 func newEngineFixture(t *testing.T, stages []workflow.StageSpec, run func(context.Context, executiongraph.Invocation, func(*executiongraph.ProcessCorrelation) error) executiongraph.ProcessResult) *engineFixture {
 	t.Helper()
-	root := t.TempDir()
+	root := realTempDir(t)
 	if err := os.Chmod(root, 0o700); err != nil {
 		t.Fatal(err)
 	}

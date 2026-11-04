@@ -65,6 +65,17 @@ type executionRunFixture struct {
 	env workItemSourceEnvironment
 }
 
+// resolvedTempDir resolves t.TempDir: the Runtime launcher refuses symlinked
+// path components, and darwin temp dirs live under the /var symlink.
+func resolvedTempDir(t *testing.T) string {
+	t.Helper()
+	dir, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	return dir
+}
+
 func newExecutionRunFixture(t *testing.T) *executionRunFixture {
 	t.Helper()
 	f, _ := newExecutionRunFixtureRepositories(t, "main")

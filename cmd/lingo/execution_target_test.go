@@ -25,7 +25,7 @@ func installLinkedTargetRepositories(t *testing.T, env workItemSourceEnvironment
 	args := []string{"project", "install", "--source", source}
 	configured := []project.Repository{}
 	for _, key := range keys {
-		paths[key] = filepath.Join(t.TempDir(), "repository")
+		paths[key] = filepath.Join(resolvedTempDir(t), "repository")
 		configured = append(configured, project.Repository{Key: key})
 		args = append(args, "--repository", key+"="+paths[key])
 	}
