@@ -34,6 +34,19 @@
   Projects created by `project configure` carry no policy and block until an
   authored policy is installed.
 
+## [0.23.0](https://github.com/rgomids/axiom/compare/v0.22.3...v0.23.0) (2026-11-04)
+
+
+### Features
+
+* **cli:** make Work Item refusals recoverable for smaller models ([#365](https://github.com/rgomids/axiom/issues/365)) ([08e5e21](https://github.com/rgomids/axiom/commit/08e5e21df9fd8b01b8c07f866b39ff2d0354974d))
+* **workflow:** canonical Execution and parallel ready tasks (AXM-42) ([#366](https://github.com/rgomids/axiom/issues/366)) ([3daa3a9](https://github.com/rgomids/axiom/commit/3daa3a9f03b41975bdfe3ece2d675d2c37378863))
+
+
+### Bug Fixes
+
+* **ci:** restore native suite after canonical Execution cutover ([#367](https://github.com/rgomids/axiom/issues/367)) ([5f32921](https://github.com/rgomids/axiom/commit/5f329212ff9e79408768a77c6e77fc51f4ec6ce9))
+
 ## [0.22.3](https://github.com/rgomids/axiom/compare/v0.22.2...v0.22.3) (2026-10-27)
 
 
