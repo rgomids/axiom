@@ -271,3 +271,12 @@ Limitations: race detector, repository validator, sensitive-file scripts and
 gofmt were not executed locally; they rely on CI. No real vendor, authentication,
 inference, private configuration, network or external Project was used. No merge,
 release, deploy, acceptance or Issue closure was performed.
+
+## Delivery correction
+
+The #369 implementation (I369-P1 to P6 above, the TOML parser dependency and the
+read-only diagnose route) was squash-merged by PR #370 as `2aa9209` under a
+`docs(execution)` subject written at the Plan gate. A `docs` commit is not
+releasable, so the release plan excluded a runtime bug fix. History on `main` is
+never rewritten; the follow-up `fix(execution)` PR that adds this section carries
+the release-relevant commit type so the fix ships in the next patch release.
