@@ -209,8 +209,26 @@ func TestClassificationMatrix(t *testing.T) {
 			rewrite(t, path, strings.Replace(read(t, path), `"formatVersion":1`, `"formatVersion":2`, 1))
 			return roots
 		}, UnsupportedNewer, "newer_format_version"},
-		{"newer execution layout", func(t *testing.T, roots Roots) Roots {
+		{"canonical execution namespaces", func(t *testing.T, roots Roots) Roots {
+			removeAll(t, filepath.Join(roots.State, "workflows"))
+			executions := privateDir(t, roots.State, "executions")
+			privateDir(t, privateDir(t, executions, "v2"), pocProjectID)
+			privateDir(t, executions, "v2-attempt-outputs")
+			return roots
+		}, ValidV1, "v1_readable_state"},
+		{"canonical execution beside POC history", func(t *testing.T, roots Roots) Roots {
 			privateDir(t, privateDir(t, roots.State, "executions"), "v2")
+			return roots
+		}, ValidV1, "v1_state_with_preserved_poc_history"},
+		{"newer execution layout", func(t *testing.T, roots Roots) Roots {
+			privateDir(t, privateDir(t, roots.State, "executions"), "v3")
+			return roots
+		}, UnsupportedNewer, "newer_format_version"},
+		{"symlinked canonical execution namespace", func(t *testing.T, roots Roots) Roots {
+			executions := privateDir(t, roots.State, "executions")
+			if err := os.Symlink(privateDir(t, t.TempDir(), "elsewhere"), filepath.Join(executions, "v2")); err != nil {
+				t.Fatal(err)
+			}
 			return roots
 		}, UnsupportedNewer, "newer_format_version"},
 		{"newer portable schema", func(t *testing.T, roots Roots) Roots {
@@ -578,4 +596,17 @@ func treeHash(t *testing.T, root string) string {
 		t.Fatal(err)
 	}
 	return hex.EncodeToString(hash.Sum(nil))
+}
+
+// An owned upgrade over state written by a release with canonical Executions
+// (ADR-0037) resolves direct instead of state_unsupported.
+func TestOwnedUpgradeAcceptsCanonicalExecutionState(t *testing.T) {
+	roots := pocRoots(t)
+	removeAll(t, filepath.Join(roots.State, "workflows"))
+	executions := privateDir(t, roots.State, "executions")
+	privateDir(t, privateDir(t, executions, "v2"), pocProjectID)
+	privateDir(t, executions, "v2-attempt-outputs")
+	if decision := Resolve(Owned, inspect(t, roots)); decision.Strategy != StrategyDirect {
+		t.Fatalf("decision=%+v want direct", decision)
+	}
 }

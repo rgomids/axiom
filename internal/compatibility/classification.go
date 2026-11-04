@@ -112,6 +112,11 @@ func Inspect(ctx context.Context, roots Roots) (Report, error) {
 			}
 			summary.Present = inventory.Present
 			for _, entry := range inventory.Entries {
+				// The canonical Execution namespaces are current state of this
+				// release line, not a newer format (#369 release upgrade).
+				if source.category == CategoryState && local.ExecutionReferenceNamespace(source.path, entry) {
+					entry.Kind = local.InventoryCanonicalExecution
+				}
 				observed.add(Object{Category: source.category, Relative: entry.Relative, Kind: entry.Kind, Digest: entry.Digest, Bytes: entry.Bytes})
 				summary.Entries++
 				summary.Bytes += entry.Bytes
