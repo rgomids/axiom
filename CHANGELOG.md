@@ -34,6 +34,13 @@
   Projects created by `project configure` carry no policy and block until an
   authored policy is installed.
 
+## [0.23.1](https://github.com/rgomids/axiom/compare/v0.23.0...v0.23.1) (2026-11-04)
+
+
+### Bug Fixes
+
+* **execution:** release bounded pre-spawn launch corrections ([#369](https://github.com/rgomids/axiom/issues/369)) ([#372](https://github.com/rgomids/axiom/issues/372)) ([6393ce7](https://github.com/rgomids/axiom/commit/6393ce773ddf5942b10ccc724e3f73d2fb4ddd00))
+
 ## [0.23.0](https://github.com/rgomids/axiom/compare/v0.22.3...v0.23.0) (2026-11-04)
 
 
