@@ -256,8 +256,10 @@ func (e Engine) runAttempt(ctx context.Context, lease workflow.RunnerFence, requ
 
 	cancelBeforeSpawn := func() (workflow.Execution, error) {
 		return update(func(x *workflow.Execution) error {
-			if err := recordInterrupt(ctx, x, e.now()); err != nil {
-				return err
+			if x.Cancel == nil {
+				if err := x.RequestCancel(interruptActor, e.now()); err != nil {
+					return err
+				}
 			}
 			return x.MarkCancelled(attemptID, gen, "cancelled_before_spawn", e.now())
 		})
@@ -268,9 +270,12 @@ func (e Engine) runAttempt(ctx context.Context, lease workflow.RunnerFence, requ
 		return cancelBeforeSpawn()
 	}
 	built, err := e.Launcher.Build(ctx, request)
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		return cancelBeforeSpawn()
+	}
 	if err != nil && ctx.Err() == nil {
 		return update(func(x *workflow.Execution) error {
-			return x.MarkSpawnFailed(attemptID, gen, "launch_refused: check Runtime configuration and frozen selectors", e.now())
+			return x.MarkLaunchFailed(attemptID, gen, launchFailure(err, "invocation_build"), e.now())
 		})
 	}
 	// Build may read configuration or prepare local output paths. Cancel intent

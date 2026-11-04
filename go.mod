@@ -5,12 +5,10 @@ go 1.26.0
 require go.yaml.in/yaml/v3 v3.0.5
 
 require (
+	github.com/BurntSushi/toml v1.6.1-0.20260818200445-d733fc535e4a
 	github.com/cyberphone/json-canonicalization v0.0.0-20241213102144-19d51d7fe467
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2
 	golang.org/x/sys v0.44.0
 )
 
-require (
-	github.com/BurntSushi/toml v1.6.1-0.20260818200445-d733fc535e4a
-	golang.org/x/text v0.14.0 // indirect
-)
+require golang.org/x/text v0.14.0 // indirect

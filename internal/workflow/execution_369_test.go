@@ -64,3 +64,27 @@ func TestI369LegacyBudget(t *testing.T) {
 		})
 	}
 }
+
+func TestI369FailureCodec(t *testing.T) {
+	e := twoStageExecution(t, false)
+	prepare(t, &e, TaskRef{"work", "builder"}, "a1")
+	if err := e.MarkLaunchFailed("a1", 1, LaunchFailure{Reason: "selector_conflict", Phase: "selector_inspection", Source: "user"}, t0); err != nil {
+		t.Fatal(err)
+	}
+	wire, err := EncodeExecution(e)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range []struct{ old, new string }{
+		{`"selector_conflict"`, `"unknown"`}, {`"selector_inspection"`, `"unknown"`}, {`"user"`, `"private-path"`},
+		{`"launchFailure":{`, `"launchFailure":{"extra":true,`},
+	} {
+		if _, err := DecodeExecution(bytes.Replace(wire, []byte(c.old), []byte(c.new), 1)); err == nil {
+			t.Fatal("unknown failure accepted")
+		}
+	}
+	back, err := DecodeExecution(wire)
+	if err != nil || *back.Stages[0].Tasks[0].Attempts[0].LaunchFailure != *e.Stages[0].Tasks[0].Attempts[0].LaunchFailure {
+		t.Fatal("failure not retained", err)
+	}
+}

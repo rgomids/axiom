@@ -341,6 +341,9 @@ func preservesExecutionHistory(prior, next workflow.Execution) bool {
 				if attempt.AttemptID != changed.AttemptID || attempt.Number != changed.Number || attempt.RunnerGeneration != changed.RunnerGeneration || !attempt.PreparedAt.Equal(changed.PreparedAt) || attempt.WorkspaceDisposition != changed.WorkspaceDisposition || !reflect.DeepEqual(attempt.Invocation, changed.Invocation) || !reflect.DeepEqual(attempt.Authority, changed.Authority) {
 					return false
 				}
+				if attempt.LaunchFailure != nil && !reflect.DeepEqual(attempt.LaunchFailure, changed.LaunchFailure) {
+					return false
+				}
 				if len(changed.Commands) < len(attempt.Commands) {
 					return false
 				}
@@ -420,6 +423,12 @@ func cloneExecutionStages(stages []workflow.StageRun) []workflow.StageRun {
 		for j, t := range s.Tasks {
 			out[i].Tasks[j] = t
 			out[i].Tasks[j].Attempts = append([]workflow.Attempt(nil), t.Attempts...)
+			for k, a := range t.Attempts {
+				if a.LaunchFailure != nil {
+					f := *a.LaunchFailure
+					out[i].Tasks[j].Attempts[k].LaunchFailure = &f
+				}
+			}
 		}
 	}
 	return out

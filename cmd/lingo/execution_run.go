@@ -832,6 +832,8 @@ func completionStatus(s workflow.Status) completion.Status {
 // --- presentation ----------------------------------------------------------
 
 type executionAttemptView struct {
+	LaunchFailure        *workflow.LaunchFailure    `json:"launchFailure,omitempty"`
+	NextAction           string                     `json:"nextAction,omitempty"`
 	WorkspaceDisposition string                     `json:"workspaceDisposition,omitempty"`
 	AttemptID            string                     `json:"attemptId"`
 	Number               int                        `json:"number"`
@@ -907,7 +909,10 @@ func executionPayload(x workflow.Execution, facts []stageexecution.ReconcileFact
 			for _, a := range t.Attempts {
 				view := executionAttemptView{WorkspaceDisposition: a.WorkspaceDisposition, AttemptID: a.AttemptID, Number: a.Number, RunnerGeneration: a.RunnerGeneration, Status: a.Status, Runtime: a.Invocation.Runtime, Model: a.Invocation.Model, Effort: a.Invocation.Effort,
 					Profile: a.Invocation.Profile, ProfileDigest: a.Invocation.ProfileDigest, InstructionsDigest: a.Invocation.InstructionsDigest, Provenance: a.Invocation.Provenance,
-					RepositoryKey: a.Authority.RepositoryKey, AuthorizedEffects: append([]string{}, a.Authority.Effects...), ExitCode: a.ExitCode, Diagnostic: a.Diagnostic, Effects: a.Effects, Artifacts: a.Artifacts, Resolution: a.Resolution}
+					RepositoryKey: a.Authority.RepositoryKey, AuthorizedEffects: append([]string{}, a.Authority.Effects...), ExitCode: a.ExitCode, Diagnostic: a.Diagnostic, LaunchFailure: a.LaunchFailure, Effects: a.Effects, Artifacts: a.Artifacts, Resolution: a.Resolution}
+				if a.LaunchFailure != nil {
+					view.NextAction = a.LaunchFailure.NextAction()
+				}
 				if a.Process != nil {
 					view.Process = &executionProcessView{PID: a.Process.PID, StartIdentity: a.Process.StartIdentity}
 				}

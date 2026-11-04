@@ -60,10 +60,15 @@ func (l RuntimeLauncher) inbox(r LaunchRequest) (string, error) {
 }
 
 func (l RuntimeLauncher) Build(ctx context.Context, r LaunchRequest) (executiongraph.Invocation, error) {
-	fail := func() (executiongraph.Invocation, error) { return executiongraph.Invocation{}, ErrRuntimeLaunch }
+	fail := func() (executiongraph.Invocation, error) {
+		return refuseLaunch(ctx, ErrRuntimeLaunch, "invocation_build", "builder_failed")
+	}
 	frozen := r.Attempt.Invocation
-	if !runtimeOutputSupported || ctx.Err() != nil || workflow.DigestText([]byte(frozen.Instructions)) != frozen.InstructionsDigest {
-		return fail()
+	if ctx.Err() != nil {
+		return executiongraph.Invocation{}, ctx.Err()
+	}
+	if !runtimeOutputSupported || workflow.DigestText([]byte(frozen.Instructions)) != frozen.InstructionsDigest {
+		return refuseLaunch(ctx, ErrRuntimeLaunch, "invocation_build", "identity_unsafe")
 	}
 	inbox, err := l.inbox(r)
 	if err != nil {
@@ -72,27 +77,30 @@ func (l RuntimeLauncher) Build(ctx context.Context, r LaunchRequest) (executiong
 	// Reject symlinks in every machine-local path before constructing argv.
 	for _, path := range []string{l.Workspace, l.InboxRoot, l.AxiomPath} {
 		if !cleanRuntimePath(path) {
-			return fail()
+			return refuseLaunch(ctx, ErrRuntimeLaunch, "invocation_build", "path_unsafe")
 		}
 	}
 	info, err := os.Lstat(l.InboxRoot)
-	if err != nil || !info.IsDir() || info.Mode().Perm()&0o077 != 0 {
-		return fail()
+	if err != nil {
+		return refuseLaunch(ctx, err, "invocation_build", "")
+	}
+	if !info.IsDir() || info.Mode().Perm()&0o077 != 0 {
+		return refuseLaunch(ctx, ErrRuntimeLaunch, "invocation_build", "path_unsafe")
 	}
 	if !filepath.IsAbs(frozen.Executable) {
-		return fail()
+		return refuseLaunch(ctx, ErrRuntimeLaunch, "invocation_build", "path_unsafe")
 	}
 	root, err := os.OpenRoot(l.InboxRoot)
 	if err != nil {
-		return fail()
+		return refuseLaunch(ctx, err, "invocation_build", "")
 	}
 	defer root.Close()
 	if err := root.Mkdir(r.Attempt.AttemptID, 0o700); err != nil {
-		return fail()
+		return refuseLaunch(ctx, err, "invocation_build", "")
 	}
 	for _, area := range []string{sendArea, receiveArea} {
 		if err := root.Mkdir(filepath.Join(r.Attempt.AttemptID, area), 0o700); err != nil {
-			return fail()
+			return refuseLaunch(ctx, err, "invocation_build", "")
 		}
 	}
 	inv, err := runtimeadapter.BuildStageInvocation(runtimeadapter.StageInvocationRequest{
@@ -105,7 +113,7 @@ func (l RuntimeLauncher) Build(ctx context.Context, r LaunchRequest) (executiong
 		Correlation: attemptCorrelation(r),
 	})
 	if err != nil {
-		return fail()
+		return refuseLaunch(ctx, err, "invocation_build", "")
 	}
 	environment := executiongraph.EffectiveInvocationEnvironment(inv)
 	if frozen.Effort != runtimeadapter.RuntimeDefaultEffort {
@@ -125,10 +133,10 @@ func (l RuntimeLauncher) Build(ctx context.Context, r LaunchRequest) (executiong
 	}
 	roots, err := resolveRoots(ctx, inv, slices.Contains(r.Attempt.Authority.Effects, "workspace_write"))
 	if err != nil {
-		return fail()
+		return refuseLaunch(ctx, err, "source_resolution", "")
 	}
 	if err := runtimeadapter.CheckFrozenSelectors(ctx, frozen.Runtime, frozen.Model, frozen.Effort, roots, inv); err != nil {
-		return fail()
+		return refuseLaunch(ctx, err, "selector_inspection", "")
 	}
 	// JSON is data on stdin, never shell syntax or a source of authority. Child
 	// output is accepted only as bounded files with declared names in this inbox.

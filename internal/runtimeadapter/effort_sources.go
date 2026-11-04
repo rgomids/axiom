@@ -144,15 +144,15 @@ func observeEffortFacts(ctx context.Context, p effortIntent, d effortRules, inv 
 	seen := map[string]bool{}
 	for _, source := range d.Sources {
 		if ctx.Err() != nil {
-			return nil, ErrEffortConfigurationUnsafe
+			return nil, &SourceError{Source: source.Scope, Cause: ErrEffortConfigurationUnsafe}
 		}
 		if !recognizedEffortSource(p.RuntimeID, source) || seen[source.Scope+"\x00"+source.Root+"\x00"+source.Relative] {
-			return nil, ErrEffortConfigurationUnsafe
+			return nil, &SourceError{Source: source.Scope, Cause: ErrEffortConfigurationUnsafe}
 		}
 		seen[source.Scope+"\x00"+source.Root+"\x00"+source.Relative] = true
 		wires, present, binding, e := observeEffortSource(source)
 		if e != nil {
-			return nil, ErrEffortConfigurationUnsafe
+			return nil, &SourceError{Source: source.Scope, Cause: ErrEffortConfigurationUnsafe}
 		}
 		selectors := []string{}
 		for _, wire := range wires {
@@ -163,7 +163,7 @@ func observeEffortFacts(ctx context.Context, p effortIntent, d effortRules, inv 
 				selected, e = jsonEffortSelectors(wire, d.JSONKeys)
 			}
 			if e != nil {
-				return nil, ErrEffortConfigurationInvalid
+				return nil, &SourceError{Source: source.Scope, Cause: ErrEffortConfigurationInvalid}
 			}
 			selectors = append(selectors, selected...)
 		}
@@ -174,7 +174,7 @@ func observeEffortFacts(ctx context.Context, p effortIntent, d effortRules, inv 
 
 		// Native no-selector semantics, not value merging or invented precedence.
 		if len(selectors) != 0 {
-			return nil, ErrEffortOverrideConflict
+			return nil, &SourceError{Source: source.Scope, Cause: ErrEffortOverrideConflict}
 		}
 	}
 	// Require explicit complete scope declaration; absent files are facts, while

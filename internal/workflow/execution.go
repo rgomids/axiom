@@ -281,6 +281,7 @@ type CommandResult struct {
 	ExitCode   int              `json:"exitCode"`
 }
 type Attempt struct {
+	LaunchFailure        *LaunchFailure   `json:"launchFailure,omitempty"`
 	Commands             []CommandResult  `json:"commands,omitempty"`
 	WorkspaceDisposition string           `json:"workspaceDisposition,omitempty"`
 	AttemptID            string           `json:"attemptId"`
@@ -950,6 +951,9 @@ func validEffectKinds(kinds []string) error {
 }
 
 func validateAttempt(a Attempt, number int, generation uint64, repos map[string]bool) error {
+	if a.LaunchFailure != nil && (!a.LaunchFailure.Valid() || a.Status != AttemptFailed || a.StartedAt != nil || a.Process != nil) {
+		return invalid("launch failure")
+	}
 	if a.WorkspaceDisposition != "" && (number == 1 || a.WorkspaceDisposition != "preserve") {
 		return invalid("workspace disposition")
 	}
