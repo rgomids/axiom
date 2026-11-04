@@ -375,9 +375,11 @@ local-file documentation bindings kept in the installation record. Read-only
 discovery (`projectdiscovery`) proposes Repository remotes and technology facts
 from explicit locations only. `projectapp` owns the single operation-scoped
 readiness evaluator (`ProjectReadiness`, capability → Integration → Provider via
-`ResolveCapability`, Runtime availability via `runtimeapplication`); `project
-validate`, Work Item operations and workflow start/resume consume it. Readiness
-is not authority.
+`ResolveCapability`); `project validate`, Work Item operations and the canonical
+`workflow run` admission consume it. Since Spec 015 S1, readiness never predicts
+Runtime availability: Runtime/model/effort are selected on the attempt
+(`selected_at_dispatch`) and actual spawn/vendor failures are recorded there.
+Readiness is not authority.
 
 ## Strategic upstream boundary
 
@@ -416,3 +418,62 @@ intent / Work Item
 -> Reconciliation
 -> Release
 ```
+
+## Canonical Execution cutover boundary
+
+[ADR-0037](../decisions/0037-one-canonical-execution-for-new-runs.md)
+selects one format-4 Execution under `executions/v2`, one fenced
+`stageexecution.Engine` and frozen per-attempt invocation/authority. The public
+`workflow run` uses that engine; its status, cancel, retry and reconcile operations
+address the same aggregate. Graph/Single supervisors and dispatch are retired.
+Legacy lifecycle/delivery formats survive only as strict historical recognition,
+attachment and retention readers; their independent producers and writers are
+removed. Canonical delivery/rework facts belong to Execution.
+Coordination format-1 survives only as an inert upgrade-inventory decoder; its
+store, publisher and authority verifier are removed. New messages use only
+`workflow.Message` and `Execution.AcceptMessage`, never a second state owner. See
+[S1-05 Evidence](../specifications/015-minimum-viable-operational-workflow/implementation-s1-05.md)
+for the precise completion limits. No real cutover is certified.
+
+New invocations compose explicit per-agent overrides, Workflow inputs and bounded
+machine-local `LINGO_INVOCATION_DEFAULTS` in that order. Profiles supply optional
+inputs; the attempt snapshot retains the effective tuple and safe provenance.
+Supported configured stages preserve before/after human gates, agent dependencies,
+assigned required outputs, timeouts and attempt limits. Independent ready tasks
+run concurrently on the same loop and codec; the principal serializes all
+attempt state commits. Failed tasks, cancellation, unknown effects and configured
+human gates prevent dependent dispatch. Codex and Claude children exchange
+question, answer, blocker and result messages through private per-attempt areas
+of the common launcher; the engine binds each to the running attempt's identity,
+Runtime and fence and commits it through the same principal writer. Messages
+never complete a task, satisfy a gate or grant authority. Agents editing one
+Repository are recommended an isolated worktree and branch each; only the
+principal, holding the runner lease, integrates a succeeded attempt's branch
+into its integration ref. The Execution records the intent before any Git
+effect and then the observed base, expected and observed target head,
+candidate, intermediate merge, post-merge check results and final SHA.
+Integration happens only after every stage check passed on the merged tree and
+the target compare-and-swap was observed; conflicts, drift, dirty or
+checked-out destinations and failed checks stay `not_integrated`, and an
+unestablished effect is `unknown`, never retried. This is a library operation,
+not yet a public command. See the
+[S2.1](../specifications/015-minimum-viable-operational-workflow/implementation-s2-01.md),
+[S2.2](../specifications/015-minimum-viable-operational-workflow/implementation-s2-02.md)
+and [S2.3](../specifications/015-minimum-viable-operational-workflow/implementation-s2-03.md)
+Evidence for verification and remaining limits.
+
+
+Spec 015 S3.3 records result rejection and rework provenance within that same
+Execution/store. A human rejection binds exact stage results and retained
+Evidence, preserving the process facts. The store freezes rejected history and
+validates the source link under its existing project lock when creating a new,
+pristine Execution. Rework resolves current invocation and authority through the
+ordinary start path; the link carries neither permission nor mutable state.
+
+
+S3.4 removes the independent packet composer, publication/decision writers and
+legacy orchestration adapters. Historical format validation and raw-byte backup
+remain separate from operational execution: no conversion, dispatch or effects
+can originate from those records. The [final union inventory and survival proof](../specifications/015-minimum-viable-operational-workflow/implementation-s3-04.md)
+records the retained dependency boundaries and net deletion against the accepted
+baseline, including replacement files outside the original candidate envelope.

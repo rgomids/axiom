@@ -138,15 +138,6 @@ func TestRuntimeImpactsSharedProjectsPreservedAfterRemoval(t *testing.T) {
 	if after := snapshotTrees(t, env.root, filepath.Join(env.state, "projects")); !bytes.Equal(before, after) {
 		t.Fatal("local Profile removal modified Project bytes/records/status")
 	}
-	// Resolution checks the real Project/local intersection before any executable
-	// observation. Neither Project is patched to substitute the surviving Profile.
-	source := runtimePolicySource{installation: service.installation, portable: service.portable, stateRoot: env.state, runtimes: runtimeObservationSources{lookPath: func(string) (string, error) { return "", exec.ErrNotFound }}}
-	policy := runtimeapplication.New(source)
-	for _, id := range []string{env.projectID, secondID} {
-		if code := policy.Availability(ctx, id); code != "no_allowed_match" {
-			t.Fatalf("removed profile for %s blocker %s", id, code)
-		}
-	}
 	output, err := json.Marshal(applied)
 	if err != nil {
 		t.Fatal(err)
@@ -206,7 +197,9 @@ func TestRuntimeImpactsCurrentReadinessAndMissingConfigurationRouting(t *testing
 	lookups := 0
 	service.runtimes.lookPath = func(string) (string, error) { lookups++; return "", exec.ErrNotFound }
 	before := snapshotTrees(t, env.root, env.state)
-	if code := (runtimeReadiness{service}).Availability(ctx, env.projectID); code != "configuration_missing" {
+	// Missing optional local Profile configuration is not a readiness blocker:
+	// no Profile catalogue is mandatory and nothing is predicted.
+	if code := (runtimeReadiness{service}).Availability(ctx, env.projectID); code != projectapp.RuntimeSelectedAtDispatch {
 		t.Fatalf("missing local configuration blocker %s", code)
 	}
 	if lookups != 0 {
@@ -239,8 +232,14 @@ func TestRuntimeImpactsCurrentReadinessAndMissingConfigurationRouting(t *testing
 	}
 	writeLegacyRuntimeProfile(t, env.state, legacy)
 	before = snapshotTrees(t, env.root, env.state)
-	if code := (runtimeReadiness{service}).Availability(ctx, env.projectID); code != "unsupported_configuration_format" {
-		t.Fatalf("historical local1 admitted as current readiness: %s", code)
+	// Readiness does not read local Profile configuration; explicit validation
+	// still refuses the historical format and nothing is migrated.
+	if code := (runtimeReadiness{service}).Availability(ctx, env.projectID); code != projectapp.RuntimeSelectedAtDispatch {
+		t.Fatalf("readiness consulted historical local1: %s", code)
+	}
+	output.Reset()
+	if code := cli.Run(ctx, []string{"runtime", "profile", "validate"}, env.service, currentProvenance(), &output); code != cli.ExitFailure {
+		t.Fatalf("historical local1 validated as current: %d %s", code, output.String())
 	}
 	if after := snapshotTrees(t, env.root, env.state); !bytes.Equal(before, after) {
 		t.Fatal("local1 readiness implicitly migrated local or Project state")

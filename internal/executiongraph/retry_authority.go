@@ -4,7 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
+
 	"time"
 
 	"github.com/rgomids/axiom/internal/strictjson"
@@ -78,48 +78,4 @@ func RetryAuthorityDigest(a RetryAuthority) (string, error) {
 	}
 	d := sha256.Sum256(b)
 	return hex.EncodeToString(d[:]), nil
-}
-
-// RetryDispositionRequired reports whether a prior attempt could have changed
-// the workspace: a repository-write child, or any ambiguous effect.
-func RetryDispositionRequired(c SuccessorChild) bool {
-	if len(c.Attempts) == 0 {
-		return false
-	}
-	for _, a := range c.Attempts {
-		if a.AmbiguousEffect {
-			return true
-		}
-	}
-	for _, e := range c.Envelope.AllowedEffects {
-		if e.Kind == "repository-write" {
-			return true
-		}
-	}
-	return false
-}
-
-// CheckRetryDispatch is called immediately before starting a retry attempt.
-// It returns the attempt number the authority covers.
-func CheckRetryDispatch(g SuccessorGraph, a RetryAuthority) (uint32, error) {
-	if ValidateRetryAuthority(a) != nil || ValidateSuccessorGraph(g) != nil || g.StorageRevision == ([32]byte{}) || fmt.Sprintf("%x", g.StorageRevision) != a.GraphDigest || a.ParentID != g.Parent.ExecutionID || a.Revision != g.Parent.GraphRevision || a.ProjectID != g.Children[0].Envelope.Scope.ProjectID || g.CancelRequest != nil {
-		return 0, ErrInvalidGraph
-	}
-	for _, c := range g.Children {
-		if c.ExecutionID != a.ChildID {
-			continue
-		}
-		if c.Envelope.IntegrationOwner || len(c.Attempts) == 0 || c.Attempts[len(c.Attempts)-1].AttemptID != a.PriorAttemptID || uint32(len(c.Attempts))+1 != a.AttemptNumber || !sameEffects(a.Effects, c.Envelope.AllowedEffects) {
-			return 0, ErrInvalidGraph
-		}
-		if RetryDispositionRequired(c) == (a.Disposition == DispositionNotRequired) {
-			return 0, ErrInvalidGraph
-		}
-		eligible, err := SuccessorRetryEligible(g, c.ExecutionID, true)
-		if err != nil || !eligible {
-			return 0, ErrInvalidGraph
-		}
-		return a.AttemptNumber, nil
-	}
-	return 0, ErrInvalidGraph
 }

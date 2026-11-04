@@ -3,7 +3,6 @@ package local
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"os"
 	"path/filepath"
 	"slices"
@@ -18,44 +17,32 @@ func localDeliveryPacket(state workflow.State) workflow.DeliveryPacket {
 	return workflow.DeliveryPacket{FormatVersion: 1, Kind: "delivery_packet", ProjectID: state.ProjectID, RepositoryKey: state.RepositoryKey, WorkItem: state.WorkItem, ExecutionID: state.ExecutionID, ExecutionRevision: state.Revision, LedgerDigest: hexDigestRevision(state.StorageRevision), BindingDigest: hexDigest(binding), Definition: state.Binding.Definition, Stages: []workflow.DeliveryStage{}, Blockers: []string{"execution:not_completed"}, Ready: false, Next: "resolve packet blockers through the retained workflow gates", Provenance: state.Provenance}
 }
 
-func TestDeliveryPacketStoreCASReadbackTamperAndInventory(t *testing.T) {
+func seedHistoricalPacket(t *testing.T, store WorkflowStore, packet workflow.DeliveryPacket) string {
+	t.Helper()
+	wire := mustHistoricalWire(workflow.EncodeDeliveryPacket(packet))
+	historicalFixtureDigestWire(t, store.root, "executions", packet.ProjectID, wire)
+	return hexDigest(wire)
+}
+
+func TestHistoricalDeliveryPacketReadbackTamperAndInventory(t *testing.T) {
 	ctx := context.Background()
 	root := privateTestRoot(t)
 	store, _ := NewWorkflowStore(root)
 	state := createLocalV3Execution(t, store)
 	before, _ := os.ReadFile(executionPath(t, root, state))
-	packet := localDeliveryPacket(state)
-	ref, err := store.RecordDeliveryPacket(ctx, state, packet)
-	if err != nil {
-		t.Fatal(err)
-	}
-	again, err := store.RecordDeliveryPacket(ctx, state, packet)
-	if err != nil || again != ref {
-		t.Fatal("not idempotent", err)
-	}
+	ref := seedHistoricalPacket(t, store, localDeliveryPacket(state))
 	if _, err := store.LoadDeliveryPacket(ctx, state.ProjectID, ref); err != nil {
 		t.Fatal(err)
 	}
-	if list, err := store.List(ctx, state.ProjectID); err != nil || len(list) != 1 {
-		t.Fatal("packet breaks execution list", err)
-	}
 	after, _ := os.ReadFile(executionPath(t, root, state))
 	if string(before) != string(after) {
-		t.Fatal("ledger mutated")
+		t.Fatal("reader mutated ledger")
 	}
-	if got := kindOf(t, root, filepath.ToSlash(filepath.Join("executions", "v1", state.ProjectID, ref+".json"))); got != InventoryDeliveryPacket {
+	path := filepath.Join("executions", "v1", state.ProjectID, ref+".json")
+	if got := kindOf(t, root, filepath.ToSlash(path)); got != InventoryDeliveryPacket {
 		t.Fatal(got)
 	}
-	stale := state
-	stale.StorageRevision[0] ^= 1
-	packet = localDeliveryPacket(stale)
-	if _, err := store.RecordDeliveryPacket(ctx, stale, packet); !errors.Is(err, ErrConflict) {
-		t.Fatal("stale generation accepted", err)
-	}
-	path := filepath.Join(root, "executions", "v1", state.ProjectID, ref+".json")
-	wire, _ := os.ReadFile(path)
-	wire = append(wire, []byte("{}")...)
-	if err := os.WriteFile(path, wire, 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(root, path), []byte(`{}`), 0600); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := store.LoadDeliveryPacket(ctx, state.ProjectID, ref); err == nil {
@@ -63,28 +50,13 @@ func TestDeliveryPacketStoreCASReadbackTamperAndInventory(t *testing.T) {
 	}
 }
 
-func TestDeliveryPacketPublicationFailureIsProtected(t *testing.T) {
-	ctx := context.Background()
-	root := privateTestRoot(t)
-	store, _ := NewWorkflowStore(root)
-	state := createLocalV3Execution(t, store)
-	store.hooks.beforeCommit = func() error { return errors.New("injected publication failure") }
-	if _, err := store.RecordDeliveryPacket(ctx, state, localDeliveryPacket(state)); err == nil {
-		t.Fatal("publication fault ignored")
-	}
-}
-
 func TestDeliveryPacketReferencesRemainRetained(t *testing.T) {
-	ctx := context.Background()
 	root := privateTestRoot(t)
 	store, _ := NewWorkflowStore(root)
 	state := createLocalV3Execution(t, store)
 	packet := localDeliveryPacket(state)
 	packet.Stages = []workflow.DeliveryStage{{Ordinal: 0, StageID: "intake", Artifacts: []workflow.Reference{{Kind: "artifact", ID: "00000000-0000-4000-8000-000000000008", Digest: strings.Repeat("e", 64)}}}}
-	digest, err := store.RecordDeliveryPacket(ctx, state, packet)
-	if err != nil {
-		t.Fatal(err)
-	}
+	digest := seedHistoricalPacket(t, store, packet)
 	handle, err := existingPrivateRoot(root)
 	if err != nil {
 		t.Fatal(err)

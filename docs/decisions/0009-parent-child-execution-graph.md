@@ -67,6 +67,9 @@ artifacts or retained Evidence, so an ADR is required before implementation.
    may use a one-node graph where graph correlation is required, but existing
    records are not rewritten or assigned invented parents.
 
+> Superseded by [ADR-0037 — One canonical Execution for new workflow runs](0037-one-canonical-execution-for-new-runs.md#decision), accepted 2026-10-30.
+> Only durable child Executions and the separate revisioned graph lifecycle for new runs are superseded: agent attempts are nested in one Execution with a transient dependency schedule. Dependency ordering, attempt ownership, bounded scope and the remaining decisions stay in force; text preserved for traceability.
+
 ### Child scope, authority and resolution
 
 6. Every child has a bounded envelope: required role/capabilities, inputs, expected
@@ -80,6 +83,11 @@ artifacts or retained Evidence, so an ADR is required before implementation.
    allowlisted choices. No-match blocks; fallback requires an explicit newly
    authorized graph/envelope revision. Codex and Claude are the two concrete S8
    acceptance Runtime paths, never domain identities or permanent vendor coupling.
+
+> Superseded by [ADR-0037 — One canonical Execution for new workflow runs](0037-one-canonical-execution-for-new-runs.md#decision), accepted 2026-10-30.
+> Only capability/complexity-based Runtime/Model Profile selection for new runs
+> is superseded. Explicit target restrictions, frozen invocation identity and
+> no silent substitution remain. Historical text is preserved for traceability.
 9. Credentials remain behind Runtime/Integration-owned machine-local references.
    They are not copied into graph, coordination, prompt, artifact or Evidence
    content. A child gets only the minimum credential capability for its effects.

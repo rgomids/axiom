@@ -88,20 +88,3 @@ func TestRuntimeResolutionCompletionRejectsOversizedOutput(t *testing.T) {
 		}
 	}
 }
-
-func TestWorkflowStartForwardsExplicitPolicyInputs(t *testing.T) {
-	digest := strings.Repeat("a", 64)
-	start := []string{"--project", "sample", "--repository", "main", "--number", "7", "--role", "implementation", "--complexity", "high", "--capabilities", "code,review"}
-	values, ok := workflowFlags(workflowStartAction, append(append([]string{}, start...), "--runtime-preview", digest))
-	if !ok || values.runtime != "" || values.role != "implementation" || values.complexity != "high" || values.capabilities != "code,review" || values.runtimePreview != digest {
-		t.Fatalf("ok=%v values=%+v", ok, values)
-	}
-	// Runtime observations are Lingo's own machine-local reads; no caller
-	// inventory, path or claimed proof is accepted on the command line.
-	if _, ok := workflowFlags(workflowStartAction, append(append([]string{}, start...), "--observations", "/absolute/inventory.json")); ok {
-		t.Fatal("workflow start accepted a caller-supplied observation inventory")
-	}
-	for _, name := range []string{"role", "complexity", "capabilities", "runtime-preview"} {
-		assertStrictParserFailure(t, []string{"workflow", "start", "--" + name, "first", "--" + name, "second"})
-	}
-}

@@ -34,7 +34,7 @@ func commandTree() commandDefinition {
 			group("codex", "Codex integration", leaf("install", "Install user-global skills", codexInstallAction), leaf("status", "Inspect integration", codexStatusAction), leaf("auth", "Inspect subscription authentication (read-only)", codexAuthAction)),
 			group("claude", "Claude integration", leaf("install", "Install user-global skills", claudeInstallAction), leaf("status", "Inspect integration", claudeStatusAction), leaf("auth", "Inspect subscription authentication (read-only)", claudeAuthAction)),
 			group("binding", "Author machine-local Runtime bindings", runtimeAuthoringCommands("binding")...),
-			group("profile", "Inspect and author local Profiles", append([]commandDefinition{leaf("validate", "Validate local configuration", runtimeProfileValidateAction), leaf("preview", "Preview Runtime resolution", runtimeProfilePreviewAction)}, runtimeAuthoringCommands("profile")...)...)),
+			group("profile", "Inspect and author local Profiles", append([]commandDefinition{leaf("validate", "Validate local configuration", runtimeProfileValidateAction), leaf("preview", "Explain retired predictive preview", runtimeProfilePreviewAction)}, runtimeAuthoringCommands("profile")...)...)),
 		group("project", "Configure and inspect Projects",
 			workflowAuthoringCommands(),
 			leaf("configure", "Preview CREATE or EDIT; publish with exact authority", configureAction),
@@ -67,13 +67,12 @@ func commandTree() commandDefinition {
 			leaf("close", "Preview or close Provider Work Item", workItemCloseAction), leaf("reopen", "Preview or reopen Provider Work Item", workItemReopenAction),
 			leaf("complete", "Compatibility spelling of close", workItemCompleteAction)),
 		group("workflow", "Inspect and drive Executions with explicit authority",
-			leaf("start", "Preview Runtime resolution or start Execution", workflowStartAction), leaf("advance", "Record technical result or evaluate Intake", workflowAdvanceAction),
-			leaf("fact", "Record explicit lifecycle fact", workflowFactAction), leaf("resume", "Resume committed Execution", workflowResumeAction),
+			leaf("run", "Run the linked Work Item with explicit inputs or LINGO_INVOCATION_DEFAULTS; progress eligible stages", workflowRunAction),
 			leaf("status", "Inspect Execution and next gate action", workflowStatusAction), leaf("evidence", "Inspect Execution Evidence", workflowEvidenceAction),
-			leaf("list", "List local Executions", workflowListAction), leaf("reconcile", "Preview or project lifecycle metadata", workflowReconcileAction),
-			group("delivery", "Inspect reviewed delivery and readiness", leaf("packet", "Compose or inspect the canonical delivery packet", workflowDeliveryPacketAction), leaf("decision", "Inspect or record exact human accept/reject", workflowDeliveryDecisionAction), leaf("rework", "Preview or admit a new linked Execution", workflowDeliveryReworkAction), leaf("prepare", "Preview or prepare a local reviewed commit", workflowDeliveryPrepareAction), leaf("preview", "Review exact delivery effects", workflowDeliveryPreviewAction), leaf("apply", "Apply exact authorized delivery effects", workflowDeliveryApplyAction), leaf("inspect", "Read publication fence and confirmed artifact", workflowDeliveryInspectAction), leaf("reconcile", "Reconcile uncertain delivery without retry", workflowDeliveryReconcileAction)),
-			group("stage", "Plan, dispatch and inspect configured stage agents", workflowStageCommands()...),
-			group("coordination", "Inspect stage coordination records; children publish", workflowCoordinationCommands()...)),
+			leaf("list", "List local Executions", workflowListAction),
+			group("delivery", "Inspect readiness or advance the current authorized delivery phase", leaf("advance", "Preview or perform one exact push/PR; inspect unknown without replay", workflowDeliveryAdvanceAction), leaf("packet", "Inspect results without granting delivery authority", workflowDeliveryPacketAction)),
+			group("stage", "Inspect and control a canonical Execution's stage attempts", workflowStageCommands()...),
+			group("coordination", "Inspect Execution messages; private engine ingress only", workflowCoordinationCommands()...)),
 		group("compatibility", "Inspect and preserve local compatibility",
 			leaf("inspect", "Inspect compatibility", compatibilityInspectAction), leaf("backup", "Preview or back up state", compatibilityBackupAction), leaf("export", "Preview or export state", compatibilityExportAction)),
 		group("artifact", "Maintain owned artifacts", leaf("cleanup", "Preview or clean artifacts", artifactCleanupAction), leaf("retire", "Preview or retire one artifact", artifactRetireAction)),
@@ -136,8 +135,6 @@ func commandFlagSet(operation action) *flag.FlagSet {
 		return projectContextFlagSet(&ProjectContextInput{Action: strings.TrimPrefix(string(operation), "context_")})
 	case operation == runtimeProfilePreviewAction:
 		return runtimePreviewFlagSet(&RuntimeProfilePreviewInput{}, new(string))
-	case operation == workflowStagePlanAction:
-		return workflowStagePlanFlagSet(&WorkflowStagePlanInput{})
 	case workflowStageOperation(operation):
 		return workflowStageFlagSet(operation, &WorkflowStageInput{})
 	case maintenanceOperation(operation):

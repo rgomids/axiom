@@ -1,0 +1,121 @@
+{
+  "work_item": "AXM-42",
+  "stage": "specify",
+  "attempt": "correction-01",
+  "result": "COMPLETED",
+  "outcome": "completed",
+  "pr_url": "https://github.com/rgomids/axiom/pull/366",
+  "pr_head_sha_note": "Prefer git tip of branch spec/axm-42-minimum-viable-workflow at publish time; Linear AWF event carries the authoritative tip SHA.",
+  "spec_correction_sha": "b50ccca27037ee868c984055bd397631322a437a",
+  "prior_reviewed_sha": "74b668460ef8f53de7323fce54f2f0adc61d646d",
+  "review_url": "https://github.com/rgomids/axiom/pull/366#pullrequestreview-5707420506",
+  "finding_disposition": [
+    {
+      "id": "F1",
+      "severity": "Major",
+      "status": "fixed",
+      "evidence": "docs/specifications/015-minimum-viable-operational-workflow/spec.md § Slim contracts — Separation of concerns; Plan/Policy/graph preview not required on happy path; external auth/compat observed at Runtime failure"
+    },
+    {
+      "id": "F2",
+      "severity": "Major",
+      "status": "fixed",
+      "evidence": "spec.md § Acceptance criteria A (Specify checklist) vs B (P-AC1–P-AC6 / S1–S3); R2/R3 remain NOT_RUN"
+    },
+    {
+      "id": "F3",
+      "severity": "Major",
+      "status": "fixed",
+      "evidence": "spec.md Baseline settled by Intake + Open MATERIAL; investigation §4 rewritten; proposed Spec 007 ceremony supersession mapped without silent ADR rewrite"
+    },
+    {
+      "id": "F4",
+      "severity": "Minor",
+      "status": "fixed",
+      "evidence": "completion-receipt-specify.json + linear-comment-ready.md marked historical_snapshot; valid permalink 74b6684; pointer to Linear comment 4ee399c9 and PR 366"
+    }
+  ],
+  "docs_changed": [
+    "docs/specifications/015-minimum-viable-operational-workflow/spec.md",
+    "docs/research/axm-42-minimum-viable-workflow-investigation.md",
+    "docs/specifications/015-minimum-viable-operational-workflow/completion-receipt-specify.json",
+    "docs/specifications/015-minimum-viable-operational-workflow/linear-comment-ready.md",
+    "docs/specifications/README.md",
+    "docs/specifications/015-minimum-viable-operational-workflow/completion-receipt-specify-correction-01.json"
+  ],
+  "checks": [
+    {
+      "kind": "content_regression_F1_F4",
+      "status": "PASS",
+      "detail": "Local checklist FAIL_COUNT=0"
+    },
+    {
+      "kind": "pr_checks_pre_correction_head",
+      "status": "PASS",
+      "detail": "Observed on 74b6684: PR Checks pass; delivery-metadata pass",
+      "url": "https://github.com/rgomids/axiom/actions/runs/40990103118/job/123850159252"
+    },
+    {
+      "kind": "pr_checks_correction_head",
+      "status": "UNKNOWN",
+      "detail": "CI for tip SHA — observe Actions on PR #366"
+    },
+    {
+      "kind": "live_codex_claude_e2e",
+      "status": "NOT_RUN"
+    },
+    {
+      "kind": "go_product_tests",
+      "status": "SKIP",
+      "detail": "No Go/product code changed under this correction authority"
+    }
+  ],
+  "technical_decisions": [
+    {
+      "id": "TD-C01",
+      "summary": "No subagent delegation; Orchestrator edited coupled Spec/research/receipts inline",
+      "rationale": "Tightly coupled F1–F4 doc integration; delegation cost > benefit"
+    },
+    {
+      "id": "TD-C02",
+      "summary": "Treat Intake-settled items as baseline text, not open options; keep Spec 007/ADR supersession as proposed map only",
+      "rationale": "F3 forbids reopening product direction; silent historical rewrite forbidden"
+    },
+    {
+      "id": "TD-C03",
+      "summary": "Preserve attempt-01 receipt/event wording as archival; add correction-01 receipt rather than fabricate history",
+      "rationale": "F4 — do not overwrite published event history"
+    },
+    {
+      "id": "TD-C04",
+      "summary": "Commit author via process env GIT_* without git config mutation",
+      "rationale": "Local git identity missing; user rule forbids git config updates; match prior commit author"
+    }
+  ],
+  "deferred_findings": [
+    {
+      "id": "DF-01",
+      "summary": "Builtin embed vs listed r2 default drift (r1 wire vs 10-stage r2) — still deferred; not expanded into requirements",
+      "evidence": "internal/workflowdefinition Builtin(); default-sdd-r2.json"
+    }
+  ],
+  "remaining_work": [
+    "Analytical re-review of PR #366 on current tip",
+    "Human Spec 015 acceptance + precise Spec 007/ADR amendment package (separate)",
+    "Authorized Plan/Implement of slim path (separate)",
+    "Authorized live R2/R3 Codex+Claude E2E (separate)",
+    "Linear correction comment publish (REPORT_PENDING if MCP unauthenticated)"
+  ],
+  "linear_published": false,
+  "linear_comment_id": null,
+  "linear_comment_url": null,
+  "report_pending": true,
+  "report_status": "REPORT_PENDING",
+  "prior_published_event": "https://linear.app/rgomids/issue/AXM-42#comment-4ee399c9",
+  "next_gate": "re_review_PR_366",
+  "limitations": [
+    "Linear MCP needsAuth; interactive auth unavailable in this agent environment — correction comment not published from session",
+    "No merge, release, Spec acceptance, ADR rewrite, or gate-removal Implement performed",
+    "CI for correction tip may still be pending/unknown at receipt time"
+  ]
+}

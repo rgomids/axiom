@@ -51,7 +51,7 @@ func TestWorkflowSkillCoversSchemaAndAuthorityBoundaries(t *testing.T) {
 		}
 	}
 	item, _ := fs.ReadFile(skillFiles, "skills/axiom-work-item/SKILL.md")
-	for _, required := range []string{"## acceptance (stage-plan, R-1)", "provisional `approved: true`", "`planDocumentDigest`", "`planRevision`", "`planDigest`", "`stageId`", "`workflowRef`", "`plan.digest`", "no Axiom fact", "#278"} {
+	for _, required := range []string{"## execution run", "`axiom --json workflow run`", "no Stage Plan, Validator Policy, preview digest or expected revision", "`runtime-default`", "`--authorize-external`", "--approve-gate <stage-id> --authorize-human", "`--new-selection`", "never replayed", "Exit zero alone never proves completion"} {
 		if !strings.Contains(string(item), required) {
 			t.Errorf("Work Item missing %q", required)
 		}

@@ -149,21 +149,10 @@ var (
 		authority:       "preview first; link only with the exact --preview-digest plus --authorize-local",
 		authorityInputs: []string{"--preview-digest", "--authorize-local"}, rejectedInputs: []string{},
 		example: "axiom work-item select --project <uuid-or-slug> --repository <key> --work-item github:<owner>/<repository>#<number>"}
-	workflowTransitionMode = skillModeSpec{name: "transition", effect: effectLocalMutation, actions: []action{workflowStartAction, workflowAdvanceAction, workflowResumeAction},
-		authority:       "workflow start previews the Runtime/Profile resolution first and starts only with the exact --runtime-preview; Lingo enforces the exact Execution revision and gate rules",
-		authorityInputs: []string{}, rejectedInputs: []string{},
-		example: "axiom workflow start --project <uuid-or-slug> --repository <key> --work-item github:<owner>/<repository>#<number> --role <role> --complexity <complexity> --capabilities <capabilities> --runtime <codex|claude>"}
-	workflowFactMode = skillModeSpec{name: "fact", effect: effectLocalMutation, actions: []action{workflowFactAction},
-		authority:       "records a workflow fact only with --authorize-local and the exact Execution revision",
-		authorityInputs: []string{"--authorize-local"}, rejectedInputs: []string{},
-		example: "axiom workflow fact --project <uuid-or-slug> --repository <key> --work-item github:<owner>/<repository>#<number> --execution <id> --expected-revision <revision> --fact <fact> --active --reference <reference> --authorize-local"}
-	workflowReconcileMode = skillModeSpec{name: "reconcile", effect: effectExternalMutation, actions: []action{workflowReconcileAction},
-		authority:       "preview first; publish a Provider projection only with the exact --preview-digest plus --authorize-external",
-		authorityInputs: []string{"--preview-digest", "--authorize-external"}, rejectedInputs: []string{},
-		example: "axiom workflow reconcile --project <uuid-or-slug> --repository <key> --work-item github:<owner>/<repository>#<number> --execution <id> --expected-revision <revision>"}
-	workflowStagePlanMode = skillModeSpec{name: "default", effect: effectReadOnly, actions: []action{workflowStagePlanAction}, authority: "none; the proposal never dispatches, grants effects or satisfies human gates",
-		authorityInputs: []string{}, rejectedInputs: []string{},
-		example: "axiom workflow stage plan --project <uuid-or-slug> --repository <key> --work-item github:<owner>/<repository>#<number> --execution <id> --expected-revision <revision> --stage <stage-id> --plan <json-file>"}
+	workflowRunMode = skillModeSpec{name: "default", effect: effectExternalMutation, actions: []action{workflowRunAction},
+		authority:       "spawning selected Runtimes requires --authorize-external; exact human gates or result reviews require --authorize-human",
+		authorityInputs: []string{"--authorize-external", "--authorize-human"}, rejectedInputs: []string{},
+		example: "axiom workflow run --project <uuid-or-slug> --repository <key> --work-item github:<owner>/<repository>#<number> --workflow minimal --select agent.runtime=<runtime> --select agent.model=<model> --select agent.effort=runtime-default --authorize-external"}
 	workItemStatusMode = skillModeSpec{name: "default", effect: effectReadOnly, actions: []action{workflowStatusAction, workflowEvidenceAction}, authority: "none",
 		authorityInputs: []string{}, rejectedInputs: []string{},
 		example: "axiom workflow status --project <uuid-or-slug> --repository <key> --work-item github:<owner>/<repository>#<number> --execution <id>"}
@@ -175,9 +164,8 @@ var (
 	projectShow      = skillOperationSpec{name: "show", actions: []action{showAction}, modes: []skillModeSpec{projectShowMode}}
 	workItemCreate   = skillOperationSpec{name: "create", actions: []action{workItemCreateAction, workItemSelectAction}, modes: []skillModeSpec{workItemNewMode, workItemExistingMode}}
 	workItemRun      = skillOperationSpec{name: "run",
-		actions: []action{workflowStartAction, workflowAdvanceAction, workflowFactAction, workflowResumeAction, workflowReconcileAction},
-		modes:   []skillModeSpec{workflowTransitionMode, workflowFactMode, workflowReconcileMode}}
-	workItemPlan   = skillOperationSpec{name: "plan", actions: []action{workflowStagePlanAction}, modes: []skillModeSpec{workflowStagePlanMode}}
+		actions: []action{workflowRunAction},
+		modes:   []skillModeSpec{workflowRunMode}}
 	workItemStatus = skillOperationSpec{name: "status", actions: []action{workflowStatusAction, workflowEvidenceAction, workflowListAction}, modes: []skillModeSpec{workItemStatusMode, executionListMode}}
 
 	// Issue #230 lifecycle operations.
@@ -207,7 +195,7 @@ func skillOperationSpecs(name string) []skillOperationSpec {
 	case "axiom-workflow":
 		return append(workflowAuthoringSkillSpecs(false), workflowConfigurationReadiness())
 	case "axiom-work-item":
-		return append([]skillOperationSpec{workItemCreate, workItemRun, workItemStatus, workItemPlan, workItemList, workItemShow, workItemUpdate, workItemComment, workItemClose, workItemReopen}, workflowStageSkillSpecs()...)
+		return append([]skillOperationSpec{workItemCreate, workItemRun, workItemStatus, workItemList, workItemShow, workItemUpdate, workItemComment, workItemClose, workItemReopen}, workflowStageSkillSpecs()...)
 
 	}
 	return nil
@@ -215,8 +203,10 @@ func skillOperationSpecs(name string) []skillOperationSpec {
 
 // Configuration diagnostics reuse existing read-only commands; authentication
 // observation is separate from configuration validity and Runtime readiness.
+// Predictive Runtime resolution preview is not a readiness observation: the
+// canonical run selects Runtime/model/effort explicitly at dispatch.
 func workflowConfigurationReadiness() skillOperationSpec {
-	configuration := []action{runtimeProfileValidateAction, runtimeProfilePreviewAction}
+	configuration := []action{runtimeProfileValidateAction}
 	runtime := []action{codexStatusAction, claudeStatusAction}
 	authentication := []action{codexAuthAction, claudeAuthAction}
 	return skillOperationSpec{name: "configuration.readiness",
@@ -271,8 +261,6 @@ func skillFlagSet(operation action, values *requestInput) *flag.FlagSet {
 		return projectValidateFlagSet(new(string), &ProjectLifecycleInput{})
 	case workflowListAction:
 		return executionListFlagSet(&ExecutionListInput{})
-	case workflowStagePlanAction:
-		return workflowStagePlanFlagSet(&WorkflowStagePlanInput{})
 	}
 	if workflowStageOperation(operation) {
 		return workflowStageFlagSet(operation, &WorkflowStageInput{})

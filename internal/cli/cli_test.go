@@ -36,7 +36,6 @@ func TestRunDelegatesEachLifecycleOperation(t *testing.T) {
 		{"configure", []string{"project", "configure", "--slug", "alpha", "--name", "Alpha", "--repository", "main=/tmp/alpha"}, "configure:alpha:Alpha:main:/tmp/alpha"},
 		{"work item select", []string{"work-item", "select", "--project", "alpha", "--repository", "main", "--provider-repository", "owner/repo", "--number", "7"}, "work-item-select:alpha:main:7"},
 		{"work item exact", []string{"work-item", "show", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7"}, "work-item-show:alpha:main:github:owner/repo:7"},
-		{"workflow advance", []string{"workflow", "advance", "--project", "alpha", "--repository", "main", "--number", "7", "--expected-revision", "1", "--gate", "intake", "--outcome", "pass"}, "workflow-advance:alpha:main:7:intake:pass:"},
 		{"workflow exact", []string{"workflow", "status", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--execution", "018f4a44-7c31-7dd4-9d00-111111111111"}, "workflow-status:alpha:main:github:owner/repo:7:018f4a44-7c31-7dd4-9d00-111111111111"},
 	}
 	for _, test := range cases {

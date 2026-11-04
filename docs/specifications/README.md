@@ -1,5 +1,48 @@
 # Specifications
 
+## 015 — Minimum viable operational workflow
+
+[Specification correction-04](015-minimum-viable-operational-workflow/spec.md)
+for [AXM-42](https://linear.app/rgomids/issue/AXM-42) / [PR #366](https://github.com/rgomids/axiom/pull/366).
+[Subsequent human approval](https://github.com/rgomids/axiom/pull/366#pullrequestreview-5720318529)
+authorizes Plan then Tasks; the Specify artifacts retain their historical Proposed wording.
+[Plan](015-minimum-viable-operational-workflow/plan.md) and
+[deletion baseline](015-minimum-viable-operational-workflow/deletion-baseline.json), plus
+[Tasks](015-minimum-viable-operational-workflow/tasks.md), map the approved one-Execution direction and Research A–L to exactly S1/S2/S3.
+No implementation, merge, live validation or Product Accepted authority is implied.
+S1 contract reconciliation: [ADR-0037](../decisions/0037-one-canonical-execution-for-new-runs.md)
+records the approved architecture with prospective notes on Spec 007, amendments #276/#306 and Spec 004 #272.
+[S1 full review](015-minimum-viable-operational-workflow/review-s1-full.md) and its
+[coverage ledger](015-minimum-viable-operational-workflow/review-s1-full-coverage.json)
+record the earlier incomplete self-review. Subsequent
+[full independent review](https://github.com/rgomids/axiom/pull/366#pullrequestreview-5732644991),
+[targeted re-review](https://github.com/rgomids/axiom/pull/366#pullrequestreview-5737621372)
+and [S1 thread reconciliation](https://linear.app/rgomids/issue/AXM-42#comment-8bf68cab)
+close the eight DMH findings technically; human pre-merge review remains distinct.
+[S2.1 Evidence](015-minimum-viable-operational-workflow/implementation-s2-01.md)
+records the authorized parallel-scheduler checkpoint and remaining S2 work.
+[S2.2 Evidence](015-minimum-viable-operational-workflow/implementation-s2-02.md)
+records cross-Runtime messages through the canonical attempt ingress and the
+retired independent inbox/ingest/stream reader.
+[S2.3 Evidence](015-minimum-viable-operational-workflow/implementation-s2-03.md)
+records isolated agent worktrees and principal-controlled integration state.
+[S2.4 Evidence](015-minimum-viable-operational-workflow/implementation-s2-04.md)
+records coordination writer retirement, historical decoder survival proof,
+canonical message/gate invariants and scoped validation.
+[Integrated S2 reconciliation](015-minimum-viable-operational-workflow/reconciliation-s2-integrated.md)
+records m1/m2/n1 corrections, criterion evidence, deferred findings and S3 readiness limits.
+[CR-S1-06 correction](015-minimum-viable-operational-workflow/correction-cr-s1-06.md):
+the cutover inventory catalog now covers capability evidence, probe envelopes and Project context.
+[CR-S1-07 correction](015-minimum-viable-operational-workflow/correction-cr-s1-07.md):
+fixes IR-01..IR-09 of the independent full S1 review (orphan liveness before abandonment,
+operator-signal ownership, late cancel, command markers, symlinked command freeze);
+the subsequent reviews above supersede its pending-review checkpoint.
+
+[S3.4 implementation/deletion reconciliation](015-minimum-viable-operational-workflow/implementation-s3-04.md)
+records the final producer/consumer union, retained historical readers,
+net reductions and local validation. S3.4 review is exclusively ChatGPT Axiom
+Workflow; S3.5/final review and manual acceptance remain pending.
+
 ## 014 — CLI operability for smaller models
 
 [Specification revision 1](014-small-model-cli-operability/spec.md) replays the

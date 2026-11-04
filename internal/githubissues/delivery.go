@@ -51,11 +51,11 @@ func (a Adapter) ObserveDeliveryPR(ctx context.Context, p workflow.DeliveryPrevi
 func (a Adapter) CreateDeliveryPR(ctx context.Context, p workflow.DeliveryPreview) error {
 	t := p.Target
 	if !a.ValidResource(t.Repository) || t.Title == "" || len(p.PRBody()) > bodyLimit {
-		return workflow.ErrDelivery
+		return errors.Join(workflow.ErrDeliveryRefused, workflow.ErrDelivery)
 	}
 	var metadata MetadataPreview
 	if json.Unmarshal(t.Metadata, &metadata) != nil || metadata.Surface != workitem.PullRequestSurface || metadata.Target != t.Repository || len(metadata.Effects) != 0 || !(MetadataAuthority{Target: metadata.Target, ObservationDigest: metadata.ObservationDigest, PreviewDigest: metadata.Digest}).Covers(metadata) {
-		return workflow.ErrDelivery
+		return errors.Join(workflow.ErrDeliveryRefused, workflow.ErrDelivery)
 	}
 	payload, err := json.Marshal(struct {
 		Title string `json:"title"`
@@ -65,7 +65,7 @@ func (a Adapter) CreateDeliveryPR(ctx context.Context, p workflow.DeliveryPrevie
 		Draft bool   `json:"draft"`
 	}{t.Title, p.PRBody(), strings.TrimPrefix(t.BaseRef, "refs/heads/"), strings.TrimPrefix(t.HeadRef, "refs/heads/"), true})
 	if err != nil {
-		return err
+		return errors.Join(workflow.ErrDeliveryRefused, err)
 	}
 	_, err = a.run(ctx, payload, "api", "--hostname", "github.com", "--method", "POST", "repos/"+t.Repository+"/pulls", "--input", "-")
 	return err

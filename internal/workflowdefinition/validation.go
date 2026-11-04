@@ -3,7 +3,9 @@ package workflowdefinition
 import (
 	"fmt"
 	"github.com/rgomids/axiom/internal/portableconfig"
+	"slices"
 	"sort"
+	"strings"
 )
 
 func validate(d Definition) []Diagnostic {
@@ -56,6 +58,18 @@ func validate(d Definition) []Diagnostic {
 		}
 		for _, v := range s.Validators {
 			validators = append(validators, v.ID)
+			if v.Kind == "command" {
+				if d.SchemaVersion != 2 || len(v.Argv) == 0 || v.TimeoutSeconds <= 0 || len(v.EffectCeilings) == 0 {
+					add(field+".validators", "invalid_command")
+				}
+				for _, arg := range v.Argv {
+					if strings.ContainsRune(arg, 0) {
+						add(field+".validators", "invalid_command")
+					}
+				}
+			} else if len(v.Argv) != 0 || v.TimeoutSeconds != 0 || len(v.EffectCeilings) != 0 {
+				add(field+".validators", "unexpected_command_control")
+			}
 		}
 		for _, c := range s.CompletionCriteria {
 			criteria = append(criteria, c.ID)
@@ -123,6 +137,21 @@ func validate(d Definition) []Diagnostic {
 			if d.SchemaVersion == 1 && (a.Effort.Mode == "runtime-default") != (a.Effort.Value == "default") {
 				add(af, "invalid_effort")
 			}
+			// Every Workflow-agent selector is validated even when a run override
+			// would shadow it; historical schema-1 effort semantics stay separate.
+			if inv := a.Invocation; inv != nil {
+				if d.SchemaVersion != 2 || *inv == (AgentInvocation{}) {
+					add(af+".invocation", "invalid_invocation")
+				}
+				for _, value := range []string{inv.Model, inv.Effort} {
+					if value != "" && (!portableconfig.SafeValue(value, "logical") || portableconfig.ContainsSecretBearingValue(value)) {
+						add(af+".invocation", "unsafe_selector")
+					}
+				}
+				if inv.Runtime != "" && len(a.RuntimeConstraints) != 0 && !slices.Contains(a.RuntimeConstraints, inv.Runtime) {
+					add(af+".invocation", "runtime_not_permitted")
+				}
+			}
 			if s.Mode == "sequential" && j > 0 {
 				found := false
 				for _, dep := range a.DependsOn {
@@ -175,10 +204,10 @@ func validate(d Definition) []Diagnostic {
 			prior[s.ID+"/"+out.ID] = true
 		}
 	}
-	if len(covered) != 6 {
+	if d.SchemaVersion == 1 && len(covered) != 6 {
 		add("stages", "phase_coverage_required")
 	}
-	if len(gates) != 4 {
+	if d.SchemaVersion == 1 && len(gates) != 4 {
 		add("stages", "protected_gates_required")
 	}
 	if !portableconfig.SafeProse(d.Name) {

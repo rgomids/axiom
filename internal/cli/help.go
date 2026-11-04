@@ -155,9 +155,6 @@ func validHelpInputs(operation action, args []string) bool {
 	case operation == workflowListAction:
 		_, ok := executionListFlagsWithPresence(args, false)
 		return ok
-	case operation == workflowStagePlanAction:
-		_, ok := workflowStagePlanFlags(args, false)
-		return ok
 	case workflowStageOperation(operation):
 		_, ok := workflowStageFlags(operation, args, false)
 		return ok
@@ -342,7 +339,7 @@ func commandExample(operation action, path []string) string {
 		}
 		seen[rule.name] = true
 	}
-	if strings.HasPrefix(string(operation), "context_") && operation != "context_show" || operation == workflowFactAction {
+	if strings.HasPrefix(string(operation), "context_") && operation != "context_show" {
 		result += " --authorize-local"
 	}
 	if operation == recoveryApplyAction {

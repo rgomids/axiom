@@ -115,7 +115,7 @@ func TestWorkflowSelectorAmbiguityFailsBeforeFallbackOrEffects(t *testing.T) {
 		}
 	}
 	before := snapshotTrees(t, state)
-	runCanonicalCLI(t, compose(), []string{"workflow", "status", "--project", "duplicate", "--repository", "main", "--work-item", "github:owner/repo#7", "--execution", "018f4a44-7c31-7dd4-9d00-111111111111"}, cli.ExitFailure, "validation_failure", "Execution workflow operation did not complete")
+	runCanonicalCLI(t, compose(), []string{"workflow", "status", "--project", "duplicate", "--repository", "main", "--work-item", "github:owner/repo#7", "--execution", "018f4a44-7c31-7dd4-9d00-111111111111"}, cli.ExitFailure, "validation_failure", "Project could not be resolved: project_ambiguous")
 	after := snapshotTrees(t, state)
 	if !bytes.Equal(before, after) {
 		t.Fatalf("ambiguous selector mutated local state\nbefore=%s\nafter=%s", before, after)

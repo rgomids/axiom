@@ -158,13 +158,14 @@ func TestBootstrapFromExplicitRepositoriesResolvesAmbiguityAndSeparatesLocalStat
 		t.Fatalf("local documentation binding wrong: %s", record)
 	}
 
-	// Readiness: Work Item ready, Execution blocked by absent Runtime policy.
+	// Readiness: absent Runtime policy is not a predictive Execution blocker;
+	// Runtime/model/effort are selected and observed on the actual attempt.
 	validated, output := runEvent(t, env.service, cli.ExitSuccess, "project", "validate", "--slug", "multi")
 	report := validated.Readiness
-	if validated.Result != "Project is valid" || report == nil || report.Effective != "partial" || report.SchemaVersion != 3 {
+	if validated.Result != "Project is valid" || report == nil || report.Effective != "ready" || report.SchemaVersion != 3 || report.Runtime.Status != projectapp.RuntimeSelectedAtDispatch {
 		t.Fatalf("readiness = %+v", report)
 	}
-	if work, exec := report.Operation(projectapp.OperationWorkItem), report.Operation(projectapp.OperationExecution); !work.Ready() || blockerCodes(exec.Blockers) != "runtime_policy_unavailable:" {
+	if work, exec := report.Operation(projectapp.OperationWorkItem), report.Operation(projectapp.OperationExecution); !work.Ready() || !exec.Ready() {
 		t.Fatalf("operations = %+v / %+v", work, exec)
 	}
 	for _, source := range report.Documentation {
@@ -213,22 +214,19 @@ func TestBootstrapAuthorsRuntimePolicyFromLocalCandidatesOnly(t *testing.T) {
 	if err != nil || !strings.Contains(string(manifest), "runtimes:\n  - id: claude") || !strings.Contains(string(manifest), "model: approved-model") || strings.Contains(string(manifest), "private-test-reference") {
 		t.Fatalf("authored policy = %s %v", manifest, err)
 	}
+	// The authored policy is portable intent only. Readiness never predicts a
+	// vendor invocation from it, with or without the executable on PATH.
 	service, _ := testRuntime(t, env.service.(lifecycleService), "claude")
-	report := service.readiness().Evaluate(context.Background(), "policy")
-	if code := (runtimeReadiness{service}).Availability(context.Background(), preview.Setup.ProjectID); code != "" {
-		t.Fatal(code)
-	}
-	if report.Effective != "partial" || report.Runtime.Detail != "inventory_unavailable" || !report.Operation(projectapp.OperationWorkItem).Ready() {
-		t.Fatalf("readiness = %+v", report)
-	}
 	missing := service
 	missing.runtimes.lookPath = func(string) (string, error) { return "", os.ErrNotExist }
-	blocked := missing.readiness().Evaluate(context.Background(), "policy")
-	if code := (runtimeReadiness{missing}).Availability(context.Background(), preview.Setup.ProjectID); code != "runtime_unavailable" {
-		t.Fatal(code)
-	}
-	if blocked.Effective != "partial" || blocked.Runtime.Detail != "inventory_unavailable" || !blocked.Operation(projectapp.OperationWorkItem).Ready() {
-		t.Fatalf("blocked = %+v", blocked)
+	for _, candidate := range []lifecycleService{service, missing} {
+		report := candidate.readiness().Evaluate(context.Background(), "policy")
+		if code := (runtimeReadiness{candidate}).Availability(context.Background(), preview.Setup.ProjectID); code != projectapp.RuntimeSelectedAtDispatch {
+			t.Fatal(code)
+		}
+		if report.Runtime.Status != projectapp.RuntimeSelectedAtDispatch || !report.Operation(projectapp.OperationWorkItem).Ready() || !report.Operation(projectapp.OperationExecution).Ready() {
+			t.Fatalf("readiness = %+v", report)
+		}
 	}
 }
 
@@ -252,11 +250,18 @@ func TestBlockedPreflightPerformsNoEffects(t *testing.T) {
 			"create":  service.WorkItemCreate(context.Background(), cli.WorkItemInput{Project: slug, Repository: "main", ProviderRepository: "owner/repo", Intent: "x", Problem: "x", DesiredOutcome: "x", Context: "x", Scope: "x", Constraints: "x", NonGoals: "x", Acceptance: "x", PreviewDigest: "any", AuthorizeExternal: true}),
 			"select":  service.WorkItemSelect(context.Background(), cli.WorkItemInput{Project: slug, Repository: "main", ProviderRepository: "owner/repo", Number: 1, PreviewDigest: "any", AuthorizeLocal: true}),
 			"comment": service.WorkItemComment(context.Background(), cli.WorkItemInput{Project: slug, Repository: "main", Number: 1, Message: "x", AuthorizeExternal: true}),
-			"start":   service.WorkflowStart(context.Background(), cli.WorkflowInput{Project: slug, Repository: "main", Number: 1, Role: "implementation", Complexity: "high", Capabilities: []string{"axiom-skills"}, RuntimePreview: "any"}),
-			"resume":  service.WorkflowResume(context.Background(), cli.WorkflowInput{Project: slug, Repository: "main", Number: 1, ExpectedRevision: 1}),
 		}
 		for name, result := range results {
 			if result.Completion == nil || result.Completion.Status() != completion.ValidationFailure || result.Category != want || result.Preflight == nil {
+				t.Fatalf("%s %s: %+v", provider, name, result)
+			}
+		}
+		// Retired legacy lifecycle writers refuse without reading or writing.
+		for name, result := range map[string]cli.Result{
+			"start":  service.WorkflowStart(context.Background(), cli.WorkflowInput{Project: slug, Repository: "main", Number: 1}),
+			"resume": service.WorkflowResume(context.Background(), cli.WorkflowInput{Project: slug, Repository: "main", Number: 1, ExpectedRevision: 1}),
+		} {
+			if result.Category != "workflow_legacy_operation_retired" {
 				t.Fatalf("%s %s: %+v", provider, name, result)
 			}
 		}

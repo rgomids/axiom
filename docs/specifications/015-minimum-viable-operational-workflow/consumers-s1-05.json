@@ -1,0 +1,2627 @@
+{
+  "scope": "Production lexical declarations/references, including producer and consumer calls. Member-name matches can include canonical storage and require type confirmation; this is not a semantic reachability certificate. Structural S1 retirement remains open.",
+  "patterns": {
+    "graph_store": "\\b(?:GraphStore|NewGraphStore)\\b",
+    "single_store": "\\b(?:SingleStageStore|NewSingleStageStore|loadStageSingle)\\b",
+    "workflow_store": "\\b(?:WorkflowStore|NewWorkflowStore)\\b",
+    "legacy_policy": "\\b(?:EvaluatePolicy|CheckPolicy|ConsumerFromRecord|ReadinessCandidates|ResolvePolicyV4|PolicyV4|RuntimePolicy|runtimePolicyPreview|scopedRuntimePolicyPreview)\\b",
+    "legacy_lifecycle": "\\b(?:workflowStartAction|workflowAdvanceAction|workflowResumeAction|workflowFactAction|workflowEvidenceAction|workflowReconcileAction)\\b",
+    "legacy_auth": "\\b(?:AuthPreflight|NewAuthPreflight|DispatchAllowed|OSStatusRunner|AuthTarget|AuthReport)\\b",
+    "store_member_call": "\\.(?:graphs|singles|executions)\\.[A-Z]\\w*\\(",
+    "legacy_codec": "\\b(?:EncodeSingleStageRun|DecodeSingleStageRun|EncodeSingleStageAuthority|DecodeSingleStageAuthority|EncodeGraph|DecodeGraph|EncodeSuccessor|DecodeSuccessor|EncodeDispatchInputs|DecodeDispatchInputs|SingleStageRunKind|SingleStageRunVersion|OperationalSingleStageRunVersion)\\b"
+  },
+  "occurrences": [
+    {
+      "path": "cmd/lingo/delivery.go",
+      "line": 65,
+      "families": [
+        "store_member_call"
+      ],
+      "source": "parent, err := d.stores.graphs.FindStageGraph(ctx, state.ProjectID, state.ExecutionID, stage.ID)"
+    },
+    {
+      "path": "cmd/lingo/delivery.go",
+      "line": 70,
+      "families": [
+        "single_store"
+      ],
+      "source": "run, err := loadStageSingle(ctx, d.stores.singles, prefix)"
+    },
+    {
+      "path": "cmd/lingo/delivery.go",
+      "line": 94,
+      "families": [
+        "store_member_call"
+      ],
+      "source": "authority, err := d.stores.singles.LoadAuthority(ctx, *run, run.Authorities[len(run.Authorities)-1])"
+    },
+    {
+      "path": "cmd/lingo/delivery.go",
+      "line": 121,
+      "families": [
+        "store_member_call"
+      ],
+      "source": "graph, err := d.stores.graphs.LoadSuccessor(ctx, state.ProjectID, parent)"
+    },
+    {
+      "path": "cmd/lingo/delivery.go",
+      "line": 137,
+      "families": [
+        "store_member_call"
+      ],
+      "source": "outcomes, err := d.stores.executions.LoadStageOutcomes(ctx, state.ProjectID, state.ExecutionID)"
+    },
+    {
+      "path": "cmd/lingo/delivery.go",
+      "line": 148,
+      "families": [
+        "store_member_call"
+      ],
+      "source": "receipt, err := d.stores.graphs.LoadIntegrationReceipt(ctx, state.ProjectID, parent, outcome.IntegrationReceiptRef)"
+    },
+    {
+      "path": "cmd/lingo/delivery.go",
+      "line": 214,
+      "families": [
+        "store_member_call"
+      ],
+      "source": "packet, err := stores.executions.LoadDeliveryPacket(ctx, target.state.ProjectID, in.Record)"
+    },
+    {
+      "path": "cmd/lingo/delivery.go",
+      "line": 235,
+      "families": [
+        "store_member_call"
+      ],
+      "source": "if _, err = stores.executions.RecordDeliveryPacket(ctx, target.state, packet); err != nil {"
+    },
+    {
+      "path": "cmd/lingo/delivery_decision.go",
+      "line": 24,
+      "families": [
+        "store_member_call"
+      ],
+      "source": "d, err := stores.executions.LoadDeliveryDecision(ctx, t.state.ProjectID, t.state.ExecutionID)"
+    },
+    {
+      "path": "cmd/lingo/delivery_decision.go",
+      "line": 34,
+      "families": [
+        "store_member_call"
+      ],
+      "source": "p, err := stores.executions.LoadDeliveryPacket(ctx, t.state.ProjectID, request.PacketDigest)"
+    },
+    {
+      "path": "cmd/lingo/delivery_decision.go",
+      "line": 48,
+      "families": [
+        "store_member_call"
+      ],
+      "source": "record, e := stores.executions.LoadDeliveryPublication(ctx, t.state.ProjectID, request.PublicationDigest)"
+    },
+    {
+      "path": "cmd/lingo/delivery_decision.go",
+      "line": 82,
+      "families": [
+        "store_member_call"
+      ],
+      "source": "d, err := stores.executions.LoadDeliveryDecision(ctx, t.state.ProjectID, t.state.ExecutionID)"
+    },
+    {
+      "path": "cmd/lingo/delivery_publication.go",
+      "line": 118,
+      "families": [
+        "store_member_call"
+      ],
+      "source": "record, err = stores.executions.LoadDeliveryPublication(ctx, t.state.ProjectID, in.Record)"
+    },
+    {
+      "path": "cmd/lingo/delivery_publication.go",
+      "line": 160,
+      "families": [
+        "store_member_call"
+      ],
+      "source": "prior, loadErr := stores.executions.LoadDeliveryPublication(ctx, t.state.ProjectID, in.PreviewDigest)"
+    },
+    {
+      "path": "cmd/lingo/delivery_publication.go",
+      "line": 200,
+      "families": [
+        "store_member_call"
+      ],
+      "source": "if _, e = stores.executions.LoadDeliveryPacket(ctx, t.state.ProjectID, preview.PacketDigest); e != nil {"
+    },
+    {
+      "path": "cmd/lingo/execution_target.go",
+      "line": 76,
+      "families": [
+        "legacy_policy"
+      ],
+      "source": "preview, policy, err := s.scopedRuntimePolicyPreview(ctx, policyInput, s.runtimeObservationSources().scoped(target.Repository.Path, input.AuthorizeLocal))"
+    },
+    {
+      "path": "cmd/lingo/main.go",
+      "line": 162,
+      "families": [
+        "workflow_store"
+      ],
+      "source": "workflows, err := local.NewWorkflowStore(state)"
+    },
+    {
+      "path": "cmd/lingo/readiness.go",
+      "line": 86,
+      "families": [
+        "legacy_policy"
+      ],
+      "source": "runtimes, code := runtimeapplication.ReadinessCandidates(snapshot.State, snapshot.V4)"
+    },
+    {
+      "path": "cmd/lingo/runtime_bootstrap.go",
+      "line": 122,
+      "families": [
+        "legacy_auth"
+      ],
+      "source": "report := runtimeadapter.AuthReport{RuntimeID: runtimeID, Status: runtimeadapter.AuthUnavailable, Reason: \"executable_unavailable\", Method: \"unknown\", Version: \"unknown\", EvidenceKind: runtimeadapter.EvidenceLocalObservation, Usability: runtimeadapter.UsabilityUnproven, Revalidation: runtimeadapter.RevalidateBeforeDispatch}"
+    },
+    {
+      "path": "cmd/lingo/runtime_bootstrap.go",
+      "line": 123,
+      "families": [
+        "legacy_auth"
+      ],
+      "source": "preflight, err := runtimeadapter.NewAuthPreflight(runtimeadapter.OSStatusRunner{}, runtimeadapter.DefaultManagedConfiguration())"
+    },
+    {
+      "path": "cmd/lingo/runtime_bootstrap.go",
+      "line": 127,
+      "families": [
+        "legacy_auth"
+      ],
+      "source": "report = preflight.Check(ctx, runtimeadapter.AuthTarget{RuntimeID: runtimeID, Executable: executable, WorkingDirectory: cwd, Environment: os.Environ()})"
+    },
+    {
+      "path": "cmd/lingo/runtime_bootstrap.go",
+      "line": 133,
+      "families": [
+        "legacy_auth"
+      ],
+      "source": "func runtimeAuthResult(report runtimeadapter.AuthReport, label string, source provenance.Value) cli.Result {"
+    },
+    {
+      "path": "cmd/lingo/runtime_policy.go",
+      "line": 69,
+      "families": [
+        "legacy_policy"
+      ],
+      "source": "consumer, code := runtimeapplication.ConsumerFromRecord(localState.State, localState.V4)"
+    },
+    {
+      "path": "cmd/lingo/runtime_policy.go",
+      "line": 83,
+      "families": [
+        "legacy_policy"
+      ],
+      "source": "func (s lifecycleService) runtimePolicyPreview(ctx context.Context, input cli.RuntimeProfilePreviewInput) (runtimeapplication.Preview, runtimeapplication.Service, error) {"
+    },
+    {
+      "path": "cmd/lingo/runtime_policy.go",
+      "line": 84,
+      "families": [
+        "legacy_policy"
+      ],
+      "source": "return s.scopedRuntimePolicyPreview(ctx, input, s.runtimeObservationSources())"
+    },
+    {
+      "path": "cmd/lingo/runtime_policy.go",
+      "line": 87,
+      "families": [
+        "legacy_policy"
+      ],
+      "source": "func (s lifecycleService) scopedRuntimePolicyPreview(ctx context.Context, input cli.RuntimeProfilePreviewInput, runtimes runtimeObservationSources) (runtimeapplication.Preview, runtimeapplication.Service, error) {"
+    },
+    {
+      "path": "cmd/lingo/runtime_policy.go",
+      "line": 120,
+      "families": [
+        "legacy_policy"
+      ],
+      "source": "preview, _, err := s.runtimePolicyPreview(ctx, input)"
+    },
+    {
+      "path": "cmd/lingo/runtime_profile.go",
+      "line": 48,
+      "families": [
+        "legacy_policy"
+      ],
+      "source": "_, code := runtimeapplication.ConsumerFromRecord(snapshot.State, snapshot.V4)"
+    },
+    {
+      "path": "cmd/lingo/stage_legacy_reader.go",
+      "line": 13,
+      "families": [
+        "single_store"
+      ],
+      "source": "// loadStageSingle returns the pre-cutover single-stage ledger of the"
+    },
+    {
+      "path": "cmd/lingo/stage_legacy_reader.go",
+      "line": 18,
+      "families": [
+        "single_store"
+      ],
+      "source": "func loadStageSingle(ctx context.Context, singles local.SingleStageStore, state workflow.State) (*executiongraph.SingleStageRun, error) {"
+    },
+    {
+      "path": "cmd/lingo/stage_publish.go",
+      "line": 22,
+      "families": [
+        "graph_store"
+      ],
+      "source": "graphs                          local.GraphStore"
+    },
+    {
+      "path": "cmd/lingo/stage_publish.go",
+      "line": 24,
+      "families": [
+        "single_store"
+      ],
+      "source": "singles                         local.SingleStageStore"
+    },
+    {
+      "path": "cmd/lingo/stage_publish.go",
+      "line": 25,
+      "families": [
+        "workflow_store"
+      ],
+      "source": "executions                      local.WorkflowStore"
+    },
+    {
+      "path": "cmd/lingo/stage_publish.go",
+      "line": 37,
+      "families": [
+        "store_member_call"
+      ],
+      "source": "g, err := r.graphs.LoadSuccessor(ctx, r.project, r.parent)"
+    },
+    {
+      "path": "cmd/lingo/stage_publish.go",
+      "line": 63,
+      "families": [
+        "store_member_call"
+      ],
+      "source": "states, err := r.executions.List(ctx, r.project)"
+    },
+    {
+      "path": "cmd/lingo/stage_publish.go",
+      "line": 71,
+      "families": [
+        "single_store"
+      ],
+      "source": "run, err := loadStageSingle(ctx, r.singles, state)"
+    },
+    {
+      "path": "cmd/lingo/stage_publish.go",
+      "line": 101,
+      "families": [
+        "graph_store"
+      ],
+      "source": "graphs, err := local.NewGraphStore(s.stateRoot)"
+    },
+    {
+      "path": "cmd/lingo/stage_publish.go",
+      "line": 113,
+      "families": [
+        "single_store"
+      ],
+      "source": "singles, err := local.NewSingleStageStore(s.stateRoot)"
+    },
+    {
+      "path": "cmd/lingo/stage_publish.go",
+      "line": 117,
+      "families": [
+        "workflow_store"
+      ],
+      "source": "executions, err := local.NewWorkflowStore(s.stateRoot)"
+    },
+    {
+      "path": "cmd/lingo/stage_service.go",
+      "line": 31,
+      "families": [
+        "graph_store"
+      ],
+      "source": "graphs     local.GraphStore"
+    },
+    {
+      "path": "cmd/lingo/stage_service.go",
+      "line": 33,
+      "families": [
+        "workflow_store"
+      ],
+      "source": "executions local.WorkflowStore"
+    },
+    {
+      "path": "cmd/lingo/stage_service.go",
+      "line": 35,
+      "families": [
+        "single_store"
+      ],
+      "source": "singles    local.SingleStageStore"
+    },
+    {
+      "path": "cmd/lingo/stage_service.go",
+      "line": 41,
+      "families": [
+        "graph_store"
+      ],
+      "source": "if out.graphs, err = local.NewGraphStore(s.stateRoot); err != nil {"
+    },
+    {
+      "path": "cmd/lingo/stage_service.go",
+      "line": 47,
+      "families": [
+        "workflow_store"
+      ],
+      "source": "if out.executions, err = local.NewWorkflowStore(s.stateRoot); err != nil {"
+    },
+    {
+      "path": "cmd/lingo/stage_service.go",
+      "line": 50,
+      "families": [
+        "single_store"
+      ],
+      "source": "if out.singles, err = local.NewSingleStageStore(s.stateRoot); err != nil {"
+    },
+    {
+      "path": "cmd/lingo/stage_service.go",
+      "line": 162,
+      "families": [
+        "graph_store"
+      ],
+      "source": "if graphs, err := local.NewGraphStore(s.stateRoot); err == nil {"
+    },
+    {
+      "path": "cmd/lingo/stage_service.go",
+      "line": 172,
+      "families": [
+        "single_store"
+      ],
+      "source": "singles, err := local.NewSingleStageStore(s.stateRoot)"
+    },
+    {
+      "path": "cmd/lingo/stage_service.go",
+      "line": 174,
+      "families": [
+        "single_store"
+      ],
+      "source": "t.single, err = loadStageSingle(ctx, singles, state)"
+    },
+    {
+      "path": "cmd/lingo/stage_service.go",
+      "line": 195,
+      "families": [
+        "store_member_call"
+      ],
+      "source": "g, err := stores.graphs.LoadSuccessor(ctx, r.ProjectID, r.ParentID)"
+    },
+    {
+      "path": "cmd/lingo/stage_service.go",
+      "line": 199,
+      "families": [
+        "store_member_call"
+      ],
+      "source": "historical, herr := stores.graphs.Load(ctx, r.ProjectID, r.ParentID)"
+    },
+    {
+      "path": "cmd/lingo/workflow_authoring.go",
+      "line": 113,
+      "families": [
+        "workflow_store"
+      ],
+      "source": "store, err := local.NewWorkflowStore(s.stateRoot)"
+    },
+    {
+      "path": "cmd/lingo/workflow_authoring.go",
+      "line": 198,
+      "families": [
+        "legacy_policy"
+      ],
+      "source": "consumer, code := runtimeapplication.ConsumerFromRecord(snapshot.State, snapshot.V4)"
+    },
+    {
+      "path": "internal/cli/argument_requirements.go",
+      "line": 84,
+      "families": [
+        "legacy_lifecycle"
+      ],
+      "source": "if operation == workflowStartAction {"
+    },
+    {
+      "path": "internal/cli/argument_requirements.go",
+      "line": 92,
+      "families": [
+        "legacy_lifecycle"
+      ],
+      "source": "if knownWorkflow(operation) && operation != workflowStartAction {"
+    },
+    {
+      "path": "internal/cli/argument_requirements.go",
+      "line": 95,
+      "families": [
+        "legacy_lifecycle"
+      ],
+      "source": "if operation == workflowAdvanceAction || operation == workflowFactAction || operation == workflowResumeAction || operation == workflowReconcileAction {"
+    },
+    {
+      "path": "internal/cli/argument_requirements.go",
+      "line": 98,
+      "families": [
+        "legacy_lifecycle"
+      ],
+      "source": "if operation == workflowAdvanceAction {"
+    },
+    {
+      "path": "internal/cli/argument_requirements.go",
+      "line": 103,
+      "families": [
+        "legacy_lifecycle"
+      ],
+      "source": "if operation == workflowFactAction {"
+    },
+    {
+      "path": "internal/cli/cli.go",
+      "line": 185,
+      "families": [
+        "legacy_auth"
+      ],
+      "source": "RuntimeAuth *runtimeadapter.AuthReport"
+    },
+    {
+      "path": "internal/cli/cli.go",
+      "line": 457,
+      "families": [
+        "legacy_lifecycle"
+      ],
+      "source": "needsExecution := operation != workflowStartAction"
+    },
+    {
+      "path": "internal/cli/cli.go",
+      "line": 628,
+      "families": [
+        "legacy_lifecycle"
+      ],
+      "source": "workflowStartAction     action = \"workflow_start\""
+    },
+    {
+      "path": "internal/cli/cli.go",
+      "line": 629,
+      "families": [
+        "legacy_lifecycle"
+      ],
+      "source": "workflowAdvanceAction   action = \"workflow_advance\""
+    },
+    {
+      "path": "internal/cli/cli.go",
+      "line": 630,
+      "families": [
+        "legacy_lifecycle"
+      ],
+      "source": "workflowFactAction      action = \"workflow_fact\""
+    },
+    {
+      "path": "internal/cli/cli.go",
+      "line": 631,
+      "families": [
+        "legacy_lifecycle"
+      ],
+      "source": "workflowResumeAction    action = \"workflow_resume\""
+    },
+    {
+      "path": "internal/cli/cli.go",
+      "line": 633,
+      "families": [
+        "legacy_lifecycle"
+      ],
+      "source": "workflowEvidenceAction  action = \"workflow_evidence\""
+    },
+    {
+      "path": "internal/cli/cli.go",
+      "line": 634,
+      "families": [
+        "legacy_lifecycle"
+      ],
+      "source": "workflowReconcileAction action = \"workflow_reconcile\""
+    },
+    {
+      "path": "internal/cli/cli.go",
+      "line": 812,
+      "families": [
+        "legacy_lifecycle"
+      ],
+      "source": "if requireInputs && operation == workflowStartAction && missingRequiredInputs(operation, values, \"role\", \"complexity\", \"capabilities\") {"
+    },
+    {
+      "path": "internal/cli/cli.go",
+      "line": 819,
+      "families": [
+        "legacy_lifecycle"
+      ],
+      "source": "if operation == workflowStartAction && values.execution != \"\" {"
+    },
+    {
+      "path": "internal/cli/cli.go",
+      "line": 829,
+      "families": [
+        "legacy_lifecycle"
+      ],
+      "source": "if operation == workflowAdvanceAction && values.automatic && (values.gate != \"\" || values.outcome != \"\" || values.reference != \"\" || values.next != \"\" || values.stageResultFile != \"\") {"
+    },
+    {
+      "path": "internal/cli/cli.go",
+      "line": 1026,
+      "families": [
+        "legacy_lifecycle"
+      ],
+      "source": "if operation == workflowStartAction {"
+    },
+    {
+      "path": "internal/cli/cli.go",
+      "line": 1032,
+      "families": [
+        "legacy_lifecycle"
+      ],
+      "source": "if operation == workflowAdvanceAction || operation == workflowFactAction || operation == workflowResumeAction || operation == workflowReconcileAction {"
+    },
+    {
+      "path": "internal/cli/cli.go",
+      "line": 1035,
+      "families": [
+        "legacy_lifecycle"
+      ],
+      "source": "if operation == workflowReconcileAction {"
+    },
+    {
+      "path": "internal/cli/cli.go",
+      "line": 1039,
+      "families": [
+        "legacy_lifecycle"
+      ],
+      "source": "if operation == workflowAdvanceAction {"
+    },
+    {
+      "path": "internal/cli/cli.go",
+      "line": 1047,
+      "families": [
+        "legacy_lifecycle"
+      ],
+      "source": "if operation == workflowFactAction {"
+    },
+    {
+      "path": "internal/cli/cli.go",
+      "line": 1074,
+      "families": [
+        "legacy_lifecycle"
+      ],
+      "source": "if operation == workflowStartAction {"
+    },
+    {
+      "path": "internal/cli/cli.go",
+      "line": 1214,
+      "families": [
+        "legacy_lifecycle"
+      ],
+      "source": "case workflowStartAction, workflowAdvanceAction, workflowFactAction, workflowResumeAction, workflowStatusAction, workflowEvidenceAction, workflowReconcileAction:"
+    },
+    {
+      "path": "internal/cli/cli.go",
+      "line": 1224,
+      "families": [
+        "legacy_lifecycle"
+      ],
+      "source": "case workflowStartAction:"
+    },
+    {
+      "path": "internal/cli/cli.go",
+      "line": 1226,
+      "families": [
+        "legacy_lifecycle"
+      ],
+      "source": "case workflowAdvanceAction:"
+    },
+    {
+      "path": "internal/cli/cli.go",
+      "line": 1228,
+      "families": [
+        "legacy_lifecycle"
+      ],
+      "source": "case workflowFactAction:"
+    },
+    {
+      "path": "internal/cli/cli.go",
+      "line": 1234,
+      "families": [
+        "legacy_lifecycle"
+      ],
+      "source": "case workflowResumeAction:"
+    },
+    {
+      "path": "internal/cli/cli.go",
+      "line": 1238,
+      "families": [
+        "legacy_lifecycle"
+      ],
+      "source": "case workflowReconcileAction:"
+    },
+    {
+      "path": "internal/cli/cli.go",
+      "line": 1388,
+      "families": [
+        "legacy_lifecycle"
+      ],
+      "source": "if knownWorkflow(operation) && operation != workflowStartAction {"
+    },
+    {
+      "path": "internal/cli/commands.go",
+      "line": 71,
+      "families": [
+        "legacy_lifecycle"
+      ],
+      "source": "leaf(\"start\", \"Preview Runtime resolution or start Execution\", workflowStartAction), leaf(\"advance\", \"Record technical result or evaluate Intake\", workflowAdvanceAction),"
+    },
+    {
+      "path": "internal/cli/commands.go",
+      "line": 72,
+      "families": [
+        "legacy_lifecycle"
+      ],
+      "source": "leaf(\"fact\", \"Record explicit lifecycle fact\", workflowFactAction), leaf(\"resume\", \"Resume committed Execution\", workflowResumeAction),"
+    },
+    {
+      "path": "internal/cli/commands.go",
+      "line": 73,
+      "families": [
+        "legacy_lifecycle"
+      ],
+      "source": "leaf(\"status\", \"Inspect Execution and next gate action\", workflowStatusAction), leaf(\"evidence\", \"Inspect Execution Evidence\", workflowEvidenceAction),"
+    },
+    {
+      "path": "internal/cli/commands.go",
+      "line": 74,
+      "families": [
+        "legacy_lifecycle"
+      ],
+      "source": "leaf(\"list\", \"List local Executions\", workflowListAction), leaf(\"reconcile\", \"Preview or project lifecycle metadata\", workflowReconcileAction),"
+    },
+    {
+      "path": "internal/cli/help.go",
+      "line": 342,
+      "families": [
+        "legacy_lifecycle"
+      ],
+      "source": "if strings.HasPrefix(string(operation), \"context_\") && operation != \"context_show\" || operation == workflowFactAction {"
+    },
+    {
+      "path": "internal/cli/runtime_resolution_completion.go",
+      "line": 34,
+      "families": [
+        "legacy_auth"
+      ],
+      "source": "RuntimeAuth runtimeadapter.AuthReport `json:\"runtimeAuth\"`"
+    },
+    {
+      "path": "internal/cli/runtime_resolution_completion.go",
+      "line": 39,
+      "families": [
+        "legacy_auth"
+      ],
+      "source": "func emitRuntimeAuthCompletion(writer io.Writer, mode outputMode, result completion.Result, report runtimeadapter.AuthReport) int {"
+    },
+    {
+      "path": "internal/cli/skill_inspect.go",
+      "line": 152,
+      "families": [
+        "legacy_lifecycle"
+      ],
+      "source": "workflowTransitionMode = skillModeSpec{name: \"transition\", effect: effectLocalMutation, actions: []action{workflowStartAction, workflowAdvanceAction, workflowResumeAction},"
+    },
+    {
+      "path": "internal/cli/skill_inspect.go",
+      "line": 156,
+      "families": [
+        "legacy_lifecycle"
+      ],
+      "source": "workflowFactMode = skillModeSpec{name: \"fact\", effect: effectLocalMutation, actions: []action{workflowFactAction},"
+    },
+    {
+      "path": "internal/cli/skill_inspect.go",
+      "line": 160,
+      "families": [
+        "legacy_lifecycle"
+      ],
+      "source": "workflowReconcileMode = skillModeSpec{name: \"reconcile\", effect: effectExternalMutation, actions: []action{workflowReconcileAction},"
+    },
+    {
+      "path": "internal/cli/skill_inspect.go",
+      "line": 164,
+      "families": [
+        "legacy_lifecycle"
+      ],
+      "source": "workItemStatusMode = skillModeSpec{name: \"default\", effect: effectReadOnly, actions: []action{workflowStatusAction, workflowEvidenceAction}, authority: \"none\","
+    },
+    {
+      "path": "internal/cli/skill_inspect.go",
+      "line": 175,
+      "families": [
+        "legacy_lifecycle"
+      ],
+      "source": "actions: []action{workflowStartAction, workflowAdvanceAction, workflowFactAction, workflowResumeAction, workflowReconcileAction},"
+    },
+    {
+      "path": "internal/cli/skill_inspect.go",
+      "line": 177,
+      "families": [
+        "legacy_lifecycle"
+      ],
+      "source": "workItemStatus = skillOperationSpec{name: \"status\", actions: []action{workflowStatusAction, workflowEvidenceAction, workflowListAction}, modes: []skillModeSpec{workItemStatusMode, executionListMode}}"
+    },
+    {
+      "path": "internal/executiongraph/acceptance.go",
+      "line": 161,
+      "families": [
+        "legacy_codec"
+      ],
+      "source": "graphWire, err := EncodeGraph(graph)"
+    },
+    {
+      "path": "internal/executiongraph/dispatch_inputs.go",
+      "line": 36,
+      "families": [
+        "legacy_codec"
+      ],
+      "source": "func EncodeDispatchInputs(d DispatchInputs) ([]byte, error) {"
+    },
+    {
+      "path": "internal/executiongraph/dispatch_inputs.go",
+      "line": 52,
+      "families": [
+        "legacy_codec"
+      ],
+      "source": "func DecodeDispatchInputs(b []byte) (DispatchInputs, error) {"
+    },
+    {
+      "path": "internal/executiongraph/dispatch_inputs.go",
+      "line": 61,
+      "families": [
+        "legacy_codec"
+      ],
+      "source": "b, err := EncodeDispatchInputs(d)"
+    },
+    {
+      "path": "internal/executiongraph/graph.go",
+      "line": 110,
+      "families": [
+        "graph_store"
+      ],
+      "source": "type GraphStore interface {"
+    },
+    {
+      "path": "internal/executiongraph/graph.go",
+      "line": 116,
+      "families": [
+        "graph_store"
+      ],
+      "source": "store      GraphStore"
+    },
+    {
+      "path": "internal/executiongraph/graph.go",
+      "line": 121,
+      "families": [
+        "graph_store"
+      ],
+      "source": "func NewGraphService(store GraphStore, allocateID func() (string, error), now func() time.Time) GraphService {"
+    },
+    {
+      "path": "internal/executiongraph/graph.go",
+      "line": 204,
+      "families": [
+        "legacy_codec"
+      ],
+      "source": "intendedWire, err := EncodeGraph(graph)"
+    },
+    {
+      "path": "internal/executiongraph/graph.go",
+      "line": 217,
+      "families": [
+        "legacy_codec"
+      ],
+      "source": "persistedWire, err := EncodeGraph(persisted)"
+    },
+    {
+      "path": "internal/executiongraph/graph.go",
+      "line": 328,
+      "families": [
+        "legacy_codec"
+      ],
+      "source": "func EncodeGraph(graph Graph) ([]byte, error) {"
+    },
+    {
+      "path": "internal/executiongraph/graph.go",
+      "line": 340,
+      "families": [
+        "legacy_codec"
+      ],
+      "source": "func DecodeGraph(wire []byte) (Graph, error) {"
+    },
+    {
+      "path": "internal/executiongraph/single_stage.go",
+      "line": 17,
+      "families": [
+        "legacy_codec"
+      ],
+      "source": "SingleStageRunKind               = \"single_stage_run\""
+    },
+    {
+      "path": "internal/executiongraph/single_stage.go",
+      "line": 18,
+      "families": [
+        "legacy_codec"
+      ],
+      "source": "SingleStageRunVersion            = 1"
+    },
+    {
+      "path": "internal/executiongraph/single_stage.go",
+      "line": 19,
+      "families": [
+        "legacy_codec"
+      ],
+      "source": "OperationalSingleStageRunVersion = 2"
+    },
+    {
+      "path": "internal/executiongraph/single_stage.go",
+      "line": 122,
+      "families": [
+        "legacy_codec"
+      ],
+      "source": "if version == OperationalSingleStageRunVersion {"
+    },
+    {
+      "path": "internal/executiongraph/single_stage.go",
+      "line": 139,
+      "families": [
+        "legacy_codec"
+      ],
+      "source": "if r.Kind != SingleStageRunKind || r.FormatVersion != SingleStageRunVersion && r.FormatVersion != OperationalSingleStageRunVersion || err != nil || digest != r.ScopeDigest || !validSingleBinding(r.FormatVersion, r.Binding) || !utc(r.CreatedAt) {"
+    },
+    {
+      "path": "internal/executiongraph/single_stage.go",
+      "line": 159,
+      "families": [
+        "legacy_codec"
+      ],
+      "source": "scope := attemptScope{diagnostics: r.FormatVersion == OperationalSingleStageRunVersion, created: r.CreatedAt, cancel: r.CancelRequest, parentID: r.Scope.ExecutionID, childID: r.Scope.ExecutionID, revision: r.Binding.WorkflowRevision, maximum: r.Binding.Controls.MaximumAttempts, authority: refs}"
+    },
+    {
+      "path": "internal/executiongraph/single_stage.go",
+      "line": 174,
+      "families": [
+        "legacy_codec"
+      ],
+      "source": "func EncodeSingleStageRun(r SingleStageRun) ([]byte, error) {"
+    },
+    {
+      "path": "internal/executiongraph/single_stage.go",
+      "line": 185,
+      "families": [
+        "legacy_codec"
+      ],
+      "source": "// DecodeSingleStageRun admits only kind single_stage_run format 1. A different"
+    },
+    {
+      "path": "internal/executiongraph/single_stage.go",
+      "line": 187,
+      "families": [
+        "legacy_codec"
+      ],
+      "source": "func DecodeSingleStageRun(wire []byte) (SingleStageRun, error) {"
+    },
+    {
+      "path": "internal/executiongraph/single_stage.go",
+      "line": 192,
+      "families": [
+        "legacy_codec"
+      ],
+      "source": "if len(wire) > MaxSingleStageRunBytes || json.Unmarshal(wire, &header) != nil || header.Kind != SingleStageRunKind {"
+    },
+    {
+      "path": "internal/executiongraph/single_stage.go",
+      "line": 195,
+      "families": [
+        "legacy_codec"
+      ],
+      "source": "if header.FormatVersion != SingleStageRunVersion && header.FormatVersion != OperationalSingleStageRunVersion {"
+    },
+    {
+      "path": "internal/executiongraph/single_stage.go",
+      "line": 276,
+      "families": [
+        "legacy_codec"
+      ],
+      "source": "func EncodeSingleStageAuthority(a SingleStageAuthority) ([]byte, error) {"
+    },
+    {
+      "path": "internal/executiongraph/single_stage.go",
+      "line": 287,
+      "families": [
+        "legacy_codec"
+      ],
+      "source": "// DecodeSingleStageAuthority accepts only version 2 with the single-stage"
+    },
+    {
+      "path": "internal/executiongraph/single_stage.go",
+      "line": 289,
+      "families": [
+        "legacy_codec"
+      ],
+      "source": "func DecodeSingleStageAuthority(wire []byte) (SingleStageAuthority, error) {"
+    },
+    {
+      "path": "internal/executiongraph/single_stage.go",
+      "line": 308,
+      "families": [
+        "legacy_codec"
+      ],
+      "source": "b, err := EncodeSingleStageAuthority(a)"
+    },
+    {
+      "path": "internal/executiongraph/successor.go",
+      "line": 345,
+      "families": [
+        "legacy_codec"
+      ],
+      "source": "g, err := DecodeGraph(wire)"
+    },
+    {
+      "path": "internal/executiongraph/successor.go",
+      "line": 362,
+      "families": [
+        "legacy_codec"
+      ],
+      "source": "return EncodeGraph(*d.Historical)"
+    },
+    {
+      "path": "internal/graphapplication/frozen_stage.go",
+      "line": 15,
+      "families": [
+        "legacy_auth"
+      ],
+      "source": "// authentication preflight (runtimeadapter.AuthPreflight)."
+    },
+    {
+      "path": "internal/graphapplication/frozen_stage.go",
+      "line": 17,
+      "families": [
+        "legacy_auth"
+      ],
+      "source": "Check(context.Context, runtimeadapter.AuthTarget) runtimeadapter.AuthReport"
+    },
+    {
+      "path": "internal/graphapplication/frozen_stage.go",
+      "line": 39,
+      "families": [
+        "legacy_auth"
+      ],
+      "source": "func PrepareFrozenStageInvocation(ctx context.Context, request runtimeadapter.StageInvocationRequest, frozen runtimeprofile.ResolvedProfileV4, preview runtimeapplication.Preview, checker StageBindingChecker, sources EffortSourceInspector, auth SubscriptionAuthenticator) (executiongraph.Invocation, runtimeadapter.AuthReport, error) {"
+    },
+    {
+      "path": "internal/graphapplication/frozen_stage.go",
+      "line": 40,
+      "families": [
+        "legacy_auth"
+      ],
+      "source": "report := runtimeadapter.AuthReport{}"
+    },
+    {
+      "path": "internal/graphapplication/frozen_stage.go",
+      "line": 70,
+      "families": [
+        "legacy_auth"
+      ],
+      "source": "report = auth.Check(ctx, runtimeadapter.AuthTarget{RuntimeID: frozen.RuntimeID, Executable: inv.Argv[0], ExpectedDigest: frozen.ExecutableDigest, WorkingDirectory: inv.CWD, Environment: executiongraph.EffectiveInvocationEnvironment(inv)})"
+    },
+    {
+      "path": "internal/graphapplication/frozen_stage.go",
+      "line": 74,
+      "families": [
+        "legacy_auth"
+      ],
+      "source": "if report.RuntimeID != frozen.RuntimeID || !report.DispatchAllowed() || report.ExecutableDigest != frozen.ExecutableDigest {"
+    },
+    {
+      "path": "internal/local/delivery_decision.go",
+      "line": 30,
+      "families": [
+        "workflow_store"
+      ],
+      "source": "func (s WorkflowStore) LoadDeliveryDecision(ctx context.Context, projectID, executionID string) (workflow.DeliveryDecision, error) {"
+    },
+    {
+      "path": "internal/local/delivery_decision.go",
+      "line": 53,
+      "families": [
+        "workflow_store"
+      ],
+      "source": "func (s WorkflowStore) RecordDeliveryDecision(ctx context.Context, state workflow.State, d workflow.DeliveryDecision) error {"
+    },
+    {
+      "path": "internal/local/delivery_decision.go",
+      "line": 204,
+      "families": [
+        "workflow_store"
+      ],
+      "source": "func (s WorkflowStore) saveDeliveryProjection(ctx context.Context, project *os.Root, frozen []byte, state workflow.State, d workflow.DeliveryDecision) error {"
+    },
+    {
+      "path": "internal/local/delivery_packet.go",
+      "line": 15,
+      "families": [
+        "workflow_store"
+      ],
+      "source": "func (s WorkflowStore) RecordDeliveryPacket(ctx context.Context, state workflow.State, packet workflow.DeliveryPacket) (string, error) {"
+    },
+    {
+      "path": "internal/local/delivery_packet.go",
+      "line": 68,
+      "families": [
+        "workflow_store"
+      ],
+      "source": "func (s WorkflowStore) LoadDeliveryPacket(ctx context.Context, projectID, ref string) (workflow.DeliveryPacket, error) {"
+    },
+    {
+      "path": "internal/local/delivery_publication.go",
+      "line": 16,
+      "families": [
+        "workflow_store"
+      ],
+      "source": "func (s WorkflowStore) LoadDeliveryPublication(ctx context.Context, projectID, ref string) (workflow.DeliveryPublication, error) {"
+    },
+    {
+      "path": "internal/local/delivery_publication.go",
+      "line": 47,
+      "families": [
+        "workflow_store"
+      ],
+      "source": "func (s WorkflowStore) SaveDeliveryPublication(ctx context.Context, state workflow.State, r workflow.DeliveryPublication, prior *workflow.DeliveryPublication) error {"
+    },
+    {
+      "path": "internal/local/delivery_rework.go",
+      "line": 64,
+      "families": [
+        "workflow_store"
+      ],
+      "source": "func (s WorkflowStore) ApplyDeliveryRework(ctx context.Context, original workflow.State, p workflow.ReworkPreview) (workflow.State, error) {"
+    },
+    {
+      "path": "internal/local/delivery_rework.go",
+      "line": 129,
+      "families": [
+        "workflow_store"
+      ],
+      "source": "func (s WorkflowStore) retainDeliveryFile(ctx context.Context, project *os.Root, name string, wire []byte) error {"
+    },
+    {
+      "path": "internal/local/delivery_rework.go",
+      "line": 151,
+      "families": [
+        "workflow_store"
+      ],
+      "source": "func (s WorkflowStore) LoadExecutionID(ctx context.Context, projectID, repository string, item workflow.WorkItem, id string) (workflow.State, error) {"
+    },
+    {
+      "path": "internal/local/delivery_rework.go",
+      "line": 216,
+      "families": [
+        "workflow_store"
+      ],
+      "source": "func (s WorkflowStore) LoadDeliveryRework(ctx context.Context, projectID, originalID string) (workflow.ReworkPreview, error) {"
+    },
+    {
+      "path": "internal/local/dispatch_authority.go",
+      "line": 16,
+      "families": [
+        "graph_store"
+      ],
+      "source": "func (s GraphStore) CommitDispatch(ctx context.Context, g executiongraph.SuccessorGraph, a executiongraph.DispatchAuthority, preview string, lease *RunLease) error {"
+    },
+    {
+      "path": "internal/local/dispatch_authority.go",
+      "line": 77,
+      "families": [
+        "graph_store"
+      ],
+      "source": "func (s GraphStore) LoadDispatchAuthority(ctx context.Context, projectID, parentID, preview string) (executiongraph.DispatchAuthority, error) {"
+    },
+    {
+      "path": "internal/local/dispatch_authority.go",
+      "line": 108,
+      "families": [
+        "workflow_store"
+      ],
+      "source": "func (s WorkflowStore) CommitSingleDispatch(ctx context.Context, state workflow.State, a executiongraph.DispatchAuthority, preview string) error {"
+    },
+    {
+      "path": "internal/local/dispatch_authority.go",
+      "line": 186,
+      "families": [
+        "workflow_store"
+      ],
+      "source": "func (s WorkflowStore) LoadSingleDispatchAuthority(ctx context.Context, state workflow.State, reference, preview, attemptID string) (executiongraph.DispatchAuthority, error) {"
+    },
+    {
+      "path": "internal/local/graph_store.go",
+      "line": 13,
+      "families": [
+        "graph_store"
+      ],
+      "source": "type GraphStore struct {"
+    },
+    {
+      "path": "internal/local/graph_store.go",
+      "line": 18,
+      "families": [
+        "graph_store"
+      ],
+      "source": "func NewGraphStore(root string) (GraphStore, error) {"
+    },
+    {
+      "path": "internal/local/graph_store.go",
+      "line": 20,
+      "families": [
+        "graph_store"
+      ],
+      "source": "return GraphStore{}, ErrUnsafe"
+    },
+    {
+      "path": "internal/local/graph_store.go",
+      "line": 24,
+      "families": [
+        "graph_store"
+      ],
+      "source": "return GraphStore{}, err"
+    },
+    {
+      "path": "internal/local/graph_store.go",
+      "line": 26,
+      "families": [
+        "graph_store"
+      ],
+      "source": "return GraphStore{root: canonical}, nil"
+    },
+    {
+      "path": "internal/local/graph_store.go",
+      "line": 29,
+      "families": [
+        "graph_store"
+      ],
+      "source": "func (s GraphStore) Create(ctx context.Context, graph executiongraph.Graph) error {"
+    },
+    {
+      "path": "internal/local/graph_store.go",
+      "line": 33,
+      "families": [
+        "legacy_codec"
+      ],
+      "source": "wire, err := executiongraph.EncodeGraph(graph)"
+    },
+    {
+      "path": "internal/local/graph_store.go",
+      "line": 53,
+      "families": [
+        "graph_store"
+      ],
+      "source": "func (s GraphStore) Save(ctx context.Context, graph executiongraph.Graph) (executiongraph.Graph, error) {"
+    },
+    {
+      "path": "internal/local/graph_store.go",
+      "line": 57,
+      "families": [
+        "legacy_codec"
+      ],
+      "source": "wire, err := executiongraph.EncodeGraph(graph)"
+    },
+    {
+      "path": "internal/local/graph_store.go",
+      "line": 89,
+      "families": [
+        "graph_store"
+      ],
+      "source": "func (s GraphStore) Load(ctx context.Context, projectID, parentID string) (executiongraph.Graph, error) {"
+    },
+    {
+      "path": "internal/local/graph_store.go",
+      "line": 113,
+      "families": [
+        "legacy_codec"
+      ],
+      "source": "graph, err := executiongraph.DecodeGraph(wire)"
+    },
+    {
+      "path": "internal/local/graph_store.go",
+      "line": 121,
+      "families": [
+        "graph_store"
+      ],
+      "source": "func (s GraphStore) openProject(projectID string, create bool) (*os.Root, *os.Root, *os.Root, *os.Root, error) {"
+    },
+    {
+      "path": "internal/local/graph_store.go",
+      "line": 159,
+      "families": [
+        "graph_store"
+      ],
+      "source": "// graphStoredAt reports whether a decoded graph is the record GraphStore"
+    },
+    {
+      "path": "internal/local/inventory.go",
+      "line": 385,
+      "families": [
+        "graph_store"
+      ],
+      "source": "// GraphStore and CoordinationStore publish below their version directory."
+    },
+    {
+      "path": "internal/local/policy_readiness.go",
+      "line": 14,
+      "families": [
+        "legacy_policy"
+      ],
+      "source": "consumer, code := runtimeapplication.ConsumerFromRecord(facts.State, facts.V4)"
+    },
+    {
+      "path": "internal/local/policy_readiness.go",
+      "line": 24,
+      "families": [
+        "legacy_policy"
+      ],
+      "source": "_, blocker := runtimeapplication.EvaluatePolicy(p, consumer, request)"
+    },
+    {
+      "path": "internal/local/single_stage_store.go",
+      "line": 15,
+      "families": [
+        "single_store"
+      ],
+      "source": "// SingleStageStore persists ADR-0027 single-stage operational ledgers at"
+    },
+    {
+      "path": "internal/local/single_stage_store.go",
+      "line": 19,
+      "families": [
+        "single_store"
+      ],
+      "source": "type SingleStageStore struct {"
+    },
+    {
+      "path": "internal/local/single_stage_store.go",
+      "line": 24,
+      "families": [
+        "single_store"
+      ],
+      "source": "func NewSingleStageStore(root string) (SingleStageStore, error) {"
+    },
+    {
+      "path": "internal/local/single_stage_store.go",
+      "line": 26,
+      "families": [
+        "single_store"
+      ],
+      "source": "return SingleStageStore{}, ErrUnsafe"
+    },
+    {
+      "path": "internal/local/single_stage_store.go",
+      "line": 30,
+      "families": [
+        "single_store"
+      ],
+      "source": "return SingleStageStore{}, err"
+    },
+    {
+      "path": "internal/local/single_stage_store.go",
+      "line": 32,
+      "families": [
+        "single_store"
+      ],
+      "source": "return SingleStageStore{root: canonical}, nil"
+    },
+    {
+      "path": "internal/local/single_stage_store.go",
+      "line": 37,
+      "families": [
+        "single_store"
+      ],
+      "source": "func (s SingleStageStore) openProject(projectID string, create bool) (*os.Root, *os.Root, *os.Root, *os.Root, error) {"
+    },
+    {
+      "path": "internal/local/single_stage_store.go",
+      "line": 83,
+      "families": [
+        "single_store"
+      ],
+      "source": "func (s SingleStageStore) lock(projectID string, exclusive, create bool) (singleStageHandle, error) {"
+    },
+    {
+      "path": "internal/local/single_stage_store.go",
+      "line": 110,
+      "families": [
+        "legacy_codec"
+      ],
+      "source": "r, err := executiongraph.DecodeSingleStageRun(wire)"
+    },
+    {
+      "path": "internal/local/single_stage_store.go",
+      "line": 120,
+      "families": [
+        "single_store"
+      ],
+      "source": "func (s SingleStageStore) Load(ctx context.Context, projectID, scopeDigest string) (executiongraph.SingleStageRun, error) {"
+    },
+    {
+      "path": "internal/local/single_stage_store.go",
+      "line": 141,
+      "families": [
+        "single_store"
+      ],
+      "source": "func (s SingleStageStore) LoadAuthority(ctx context.Context, r executiongraph.SingleStageRun, ref string) (executiongraph.SingleStageAuthority, error) {"
+    },
+    {
+      "path": "internal/local/single_stage_store.go",
+      "line": 161,
+      "families": [
+        "legacy_codec"
+      ],
+      "source": "a, err := executiongraph.DecodeSingleStageAuthority(wire)"
+    },
+    {
+      "path": "internal/local/single_stage_store.go",
+      "line": 198,
+      "families": [
+        "single_store"
+      ],
+      "source": "func (s SingleStageStore) CommitAuthority(ctx context.Context, next executiongraph.SingleStageRun, a executiongraph.SingleStageAuthority, state workflow.State, lease *RunLease) error {"
+    },
+    {
+      "path": "internal/local/single_stage_store.go",
+      "line": 209,
+      "families": [
+        "legacy_codec"
+      ],
+      "source": "wire, err := executiongraph.EncodeSingleStageRun(next)"
+    },
+    {
+      "path": "internal/local/single_stage_store.go",
+      "line": 213,
+      "families": [
+        "legacy_codec"
+      ],
+      "source": "receipt, err := executiongraph.EncodeSingleStageAuthority(a)"
+    },
+    {
+      "path": "internal/local/single_stage_store.go",
+      "line": 283,
+      "families": [
+        "single_store"
+      ],
+      "source": "func (s SingleStageStore) Save(ctx context.Context, r executiongraph.SingleStageRun, lease *RunLease) (executiongraph.SingleStageRun, error) {"
+    },
+    {
+      "path": "internal/local/single_stage_store.go",
+      "line": 287,
+      "families": [
+        "single_store"
+      ],
+      "source": "func (s SingleStageStore) save(ctx context.Context, r executiongraph.SingleStageRun, lease *RunLease, reconciliation bool) (executiongraph.SingleStageRun, error) {"
+    },
+    {
+      "path": "internal/local/single_stage_store.go",
+      "line": 304,
+      "families": [
+        "legacy_codec"
+      ],
+      "source": "wire, err := executiongraph.EncodeSingleStageRun(next)"
+    },
+    {
+      "path": "internal/local/single_stage_store.go",
+      "line": 367,
+      "families": [
+        "single_store"
+      ],
+      "source": "func (s SingleStageStore) RequestCancel(ctx context.Context, r executiongraph.SingleStageRun, request executiongraph.CancelRequest) (executiongraph.SingleStageRun, error) {"
+    },
+    {
+      "path": "internal/local/single_stage_store.go",
+      "line": 385,
+      "families": [
+        "legacy_codec"
+      ],
+      "source": "wire, err := executiongraph.EncodeSingleStageRun(next)"
+    },
+    {
+      "path": "internal/local/single_stage_store.go",
+      "line": 413,
+      "families": [
+        "single_store"
+      ],
+      "source": "func (s SingleStageStore) AppendReconciliation(ctx context.Context, r executiongraph.SingleStageRun, fact executiongraph.ReconciliationFact, observe func(context.Context, executiongraph.SingleStageRun, string) (executiongraph.ReconciliationObservations, error)) (executiongraph.SingleStageRun, error) {"
+    },
+    {
+      "path": "internal/local/single_stage_store.go",
+      "line": 440,
+      "families": [
+        "single_store"
+      ],
+      "source": "func (s SingleStageStore) CommitDispatchInputs(ctx context.Context, d executiongraph.DispatchInputs) (string, error) {"
+    },
+    {
+      "path": "internal/local/single_stage_store.go",
+      "line": 444,
+      "families": [
+        "legacy_codec"
+      ],
+      "source": "wire, err := executiongraph.EncodeDispatchInputs(d)"
+    },
+    {
+      "path": "internal/local/single_stage_store.go",
+      "line": 456,
+      "families": [
+        "single_store"
+      ],
+      "source": "func (s SingleStageStore) LoadDispatchInputs(ctx context.Context, projectID, executionID, previewDigest string) (executiongraph.DispatchInputs, error) {"
+    },
+    {
+      "path": "internal/local/single_stage_store.go",
+      "line": 472,
+      "families": [
+        "legacy_codec"
+      ],
+      "source": "if a, err := executiongraph.DecodeSingleStageAuthority(wire); err == nil {"
+    },
+    {
+      "path": "internal/local/single_stage_store.go",
+      "line": 483,
+      "families": [
+        "legacy_codec"
+      ],
+      "source": "r, err := executiongraph.DecodeSingleStageRun(wire)"
+    },
+    {
+      "path": "internal/local/single_stage_store.go",
+      "line": 485,
+      "families": [
+        "legacy_codec"
+      ],
+      "source": "return versionedFailureWithin(wire, executiongraph.SingleStageRunVersion)"
+    },
+    {
+      "path": "internal/local/stage_cancel.go",
+      "line": 13,
+      "families": [
+        "graph_store"
+      ],
+      "source": "func (s GraphStore) RequestCancel(ctx context.Context, g executiongraph.SuccessorGraph, request executiongraph.CancelRequest) (executiongraph.SuccessorGraph, error) {"
+    },
+    {
+      "path": "internal/local/stage_outcome.go",
+      "line": 18,
+      "families": [
+        "workflow_store"
+      ],
+      "source": "func (s WorkflowStore) RecordStageOutcome(ctx context.Context, state workflow.State, o executiongraph.StageOutcome) (string, error) {"
+    },
+    {
+      "path": "internal/local/stage_outcome.go",
+      "line": 78,
+      "families": [
+        "workflow_store"
+      ],
+      "source": "func (s WorkflowStore) LoadStageOutcomes(ctx context.Context, projectID, executionID string) (map[string]executiongraph.StageOutcome, error) {"
+    },
+    {
+      "path": "internal/local/stage_outcome.go",
+      "line": 108,
+      "families": [
+        "workflow_store"
+      ],
+      "source": "func (s WorkflowStore) stageOutcomes(project *os.Root, executionID string) (map[string]executiongraph.StageOutcome, error) {"
+    },
+    {
+      "path": "internal/local/stage_receipts.go",
+      "line": 18,
+      "families": [
+        "graph_store"
+      ],
+      "source": "func (s GraphStore) CommitRetry(ctx context.Context, g executiongraph.SuccessorGraph, a executiongraph.RetryAuthority) (string, error) {"
+    },
+    {
+      "path": "internal/local/stage_receipts.go",
+      "line": 31,
+      "families": [
+        "graph_store"
+      ],
+      "source": "func (s GraphStore) CommitIntegrationReceipt(ctx context.Context, g executiongraph.SuccessorGraph, a executiongraph.IntegrationReceipt) (string, error) {"
+    },
+    {
+      "path": "internal/local/stage_receipts.go",
+      "line": 45,
+      "families": [
+        "graph_store"
+      ],
+      "source": "func (s GraphStore) CommitDispatchInputs(ctx context.Context, d executiongraph.DispatchInputs) (string, error) {"
+    },
+    {
+      "path": "internal/local/stage_receipts.go",
+      "line": 49,
+      "families": [
+        "legacy_codec"
+      ],
+      "source": "wire, err := executiongraph.EncodeDispatchInputs(d)"
+    },
+    {
+      "path": "internal/local/stage_receipts.go",
+      "line": 92,
+      "families": [
+        "graph_store"
+      ],
+      "source": "func (s GraphStore) LoadDispatchInputs(ctx context.Context, projectID, parentID, previewDigest string) (executiongraph.DispatchInputs, error) {"
+    },
+    {
+      "path": "internal/local/stage_receipts.go",
+      "line": 135,
+      "families": [
+        "legacy_codec"
+      ],
+      "source": "d, err := executiongraph.DecodeDispatchInputs(wire)"
+    },
+    {
+      "path": "internal/local/stage_receipts.go",
+      "line": 151,
+      "families": [
+        "graph_store"
+      ],
+      "source": "func (s GraphStore) FindStageGraph(ctx context.Context, projectID, executionID, stageID string) (string, error) {"
+    },
+    {
+      "path": "internal/local/stage_receipts.go",
+      "line": 188,
+      "families": [
+        "legacy_codec"
+      ],
+      "source": "d, err := executiongraph.DecodeDispatchInputs(wire)"
+    },
+    {
+      "path": "internal/local/stage_receipts.go",
+      "line": 220,
+      "families": [
+        "legacy_codec"
+      ],
+      "source": "d, err := executiongraph.DecodeDispatchInputs(wire)"
+    },
+    {
+      "path": "internal/local/stage_receipts.go",
+      "line": 230,
+      "families": [
+        "graph_store"
+      ],
+      "source": "func (s GraphStore) commitGraphReceipt(ctx context.Context, g executiongraph.SuccessorGraph, projectID, parentID string, wire []byte) (string, error) {"
+    },
+    {
+      "path": "internal/local/stage_receipts.go",
+      "line": 283,
+      "families": [
+        "graph_store"
+      ],
+      "source": "func (s GraphStore) LoadRetry(ctx context.Context, projectID, parentID, ref string) (executiongraph.RetryAuthority, error) {"
+    },
+    {
+      "path": "internal/local/stage_receipts.go",
+      "line": 296,
+      "families": [
+        "graph_store"
+      ],
+      "source": "func (s GraphStore) LoadIntegrationReceipt(ctx context.Context, projectID, parentID, ref string) (executiongraph.IntegrationReceipt, error) {"
+    },
+    {
+      "path": "internal/local/stage_receipts.go",
+      "line": 308,
+      "families": [
+        "graph_store"
+      ],
+      "source": "func (s GraphStore) loadGraphReceipt(ctx context.Context, projectID, parentID, ref string) ([]byte, error) {"
+    },
+    {
+      "path": "internal/local/successor_graph_store.go",
+      "line": 12,
+      "families": [
+        "graph_store"
+      ],
+      "source": "func (s GraphStore) CreateSuccessor(ctx context.Context, g executiongraph.SuccessorGraph) error {"
+    },
+    {
+      "path": "internal/local/successor_graph_store.go",
+      "line": 35,
+      "families": [
+        "graph_store"
+      ],
+      "source": "func (s GraphStore) LoadSuccessor(ctx context.Context, projectID, parentID string) (executiongraph.SuccessorGraph, error) {"
+    },
+    {
+      "path": "internal/local/successor_graph_store.go",
+      "line": 69,
+      "families": [
+        "graph_store"
+      ],
+      "source": "func (s GraphStore) SaveSuccessor(ctx context.Context, g executiongraph.SuccessorGraph, lease *RunLease) (executiongraph.SuccessorGraph, error) {"
+    },
+    {
+      "path": "internal/local/successor_graph_store.go",
+      "line": 73,
+      "families": [
+        "graph_store"
+      ],
+      "source": "func (s GraphStore) saveSuccessor(ctx context.Context, g executiongraph.SuccessorGraph, lease *RunLease, reconciliation bool) (executiongraph.SuccessorGraph, error) {"
+    },
+    {
+      "path": "internal/local/successor_graph_store.go",
+      "line": 167,
+      "families": [
+        "graph_store"
+      ],
+      "source": "func (s GraphStore) AppendReconciliation(ctx context.Context, g executiongraph.SuccessorGraph, fact executiongraph.ReconciliationFact, observer ReconciliationObserver) (executiongraph.SuccessorGraph, error) {"
+    },
+    {
+      "path": "internal/local/workflow_store.go",
+      "line": 34,
+      "families": [
+        "workflow_store"
+      ],
+      "source": "type WorkflowStore struct {"
+    },
+    {
+      "path": "internal/local/workflow_store.go",
+      "line": 60,
+      "families": [
+        "workflow_store"
+      ],
+      "source": "func NewWorkflowStore(root string) (WorkflowStore, error) {"
+    },
+    {
+      "path": "internal/local/workflow_store.go",
+      "line": 62,
+      "families": [
+        "workflow_store"
+      ],
+      "source": "return WorkflowStore{}, ErrUnsafe"
+    },
+    {
+      "path": "internal/local/workflow_store.go",
+      "line": 66,
+      "families": [
+        "workflow_store"
+      ],
+      "source": "return WorkflowStore{}, err"
+    },
+    {
+      "path": "internal/local/workflow_store.go",
+      "line": 68,
+      "families": [
+        "workflow_store"
+      ],
+      "source": "return WorkflowStore{root: canonical}, nil"
+    },
+    {
+      "path": "internal/local/workflow_store.go",
+      "line": 71,
+      "families": [
+        "workflow_store"
+      ],
+      "source": "func (s WorkflowStore) Create(ctx context.Context, state workflow.State) error {"
+    },
+    {
+      "path": "internal/local/workflow_store.go",
+      "line": 75,
+      "families": [
+        "workflow_store"
+      ],
+      "source": "func (s WorkflowStore) Save(ctx context.Context, state workflow.State) error {"
+    },
+    {
+      "path": "internal/local/workflow_store.go",
+      "line": 79,
+      "families": [
+        "workflow_store"
+      ],
+      "source": "func (s WorkflowStore) write(ctx context.Context, state workflow.State, create bool) error {"
+    },
+    {
+      "path": "internal/local/workflow_store.go",
+      "line": 130,
+      "families": [
+        "workflow_store"
+      ],
+      "source": "func (s WorkflowStore) Load(ctx context.Context, projectID, repositoryKey string, item workflow.WorkItem) (workflow.State, error) {"
+    },
+    {
+      "path": "internal/local/workflow_store.go",
+      "line": 169,
+      "families": [
+        "workflow_store"
+      ],
+      "source": "func (s WorkflowStore) List(ctx context.Context, projectID string) ([]workflow.State, error) {"
+    },
+    {
+      "path": "internal/local/workflow_store.go",
+      "line": 238,
+      "families": [
+        "workflow_store"
+      ],
+      "source": "func (s WorkflowStore) openProject(projectID string, create bool) (*os.Root, *os.Root, *os.Root, *os.Root, error) {"
+    },
+    {
+      "path": "internal/projectapp/setup.go",
+      "line": 219,
+      "families": [
+        "legacy_policy"
+      ],
+      "source": "RuntimePolicy       SetupRuntimePolicyPreview   `json:\"runtimePolicy\"`"
+    },
+    {
+      "path": "internal/projectapp/setup.go",
+      "line": 465,
+      "families": [
+        "legacy_policy"
+      ],
+      "source": "preview.RuntimePolicy = policy"
+    },
+    {
+      "path": "internal/projectapp/setup.go",
+      "line": 512,
+      "families": [
+        "legacy_policy"
+      ],
+      "source": "preview.RuntimePolicy = policy"
+    },
+    {
+      "path": "internal/runtimeadapter/authpreflight.go",
+      "line": 71,
+      "families": [
+        "legacy_auth"
+      ],
+      "source": "// AuthReport is presentation-safe Evidence. Every field is an enum, a"
+    },
+    {
+      "path": "internal/runtimeadapter/authpreflight.go",
+      "line": 75,
+      "families": [
+        "legacy_auth"
+      ],
+      "source": "type AuthReport struct {"
+    },
+    {
+      "path": "internal/runtimeadapter/authpreflight.go",
+      "line": 88,
+      "families": [
+        "legacy_auth"
+      ],
+      "source": "// DispatchAllowed reports whether the subscription scenario may dispatch."
+    },
+    {
+      "path": "internal/runtimeadapter/authpreflight.go",
+      "line": 89,
+      "families": [
+        "legacy_auth"
+      ],
+      "source": "func (r AuthReport) DispatchAllowed() bool { return r.Status == AuthSubscriptionObserved }"
+    },
+    {
+      "path": "internal/runtimeadapter/authpreflight.go",
+      "line": 91,
+      "families": [
+        "legacy_auth"
+      ],
+      "source": "// AuthTarget is the effective child invocation to inspect: the exact"
+    },
+    {
+      "path": "internal/runtimeadapter/authpreflight.go",
+      "line": 93,
+      "families": [
+        "legacy_auth"
+      ],
+      "source": "type AuthTarget struct {"
+    },
+    {
+      "path": "internal/runtimeadapter/authpreflight.go",
+      "line": 120,
+      "families": [
+        "legacy_auth"
+      ],
+      "source": "// AuthPreflight inspects vendor status surfaces and the effective invocation"
+    },
+    {
+      "path": "internal/runtimeadapter/authpreflight.go",
+      "line": 123,
+      "families": [
+        "legacy_auth"
+      ],
+      "source": "type AuthPreflight struct {"
+    },
+    {
+      "path": "internal/runtimeadapter/authpreflight.go",
+      "line": 135,
+      "families": [
+        "legacy_auth"
+      ],
+      "source": "func NewAuthPreflight(runner StatusRunner, managed ManagedConfiguration) (AuthPreflight, error) {"
+    },
+    {
+      "path": "internal/runtimeadapter/authpreflight.go",
+      "line": 137,
+      "families": [
+        "legacy_auth"
+      ],
+      "source": "return AuthPreflight{}, ErrInvalidAdapterConfiguration"
+    },
+    {
+      "path": "internal/runtimeadapter/authpreflight.go",
+      "line": 141,
+      "families": [
+        "legacy_auth"
+      ],
+      "source": "return AuthPreflight{}, ErrInvalidAdapterConfiguration"
+    },
+    {
+      "path": "internal/runtimeadapter/authpreflight.go",
+      "line": 146,
+      "families": [
+        "legacy_auth"
+      ],
+      "source": "return AuthPreflight{runner: runner, managed: managed}, nil"
+    },
+    {
+      "path": "internal/runtimeadapter/authpreflight.go",
+      "line": 164,
+      "families": [
+        "legacy_auth"
+      ],
+      "source": "func (p AuthPreflight) Check(ctx context.Context, target AuthTarget) AuthReport {"
+    },
+    {
+      "path": "internal/runtimeadapter/authpreflight.go",
+      "line": 165,
+      "families": [
+        "legacy_auth"
+      ],
+      "source": "report := AuthReport{RuntimeID: target.RuntimeID, Method: \"unknown\", Version: \"unknown\", EvidenceKind: EvidenceFake, Usability: UsabilityUnproven, Revalidation: RevalidateBeforeDispatch}"
+    },
+    {
+      "path": "internal/runtimeadapter/authpreflight.go",
+      "line": 239,
+      "families": [
+        "legacy_auth"
+      ],
+      "source": "func (r AuthReport) with(status AuthStatus, reason string) AuthReport {"
+    },
+    {
+      "path": "internal/runtimeadapter/authpreflight.go",
+      "line": 295,
+      "families": [
+        "legacy_auth"
+      ],
+      "source": "func (p AuthPreflight) configurationOverrides(runtimeID string, environment map[string]string, cwd string) ([]string, string) {"
+    },
+    {
+      "path": "internal/runtimeadapter/authpreflight.go",
+      "line": 827,
+      "families": [
+        "legacy_auth"
+      ],
+      "source": "// OSStatusRunner runs vendor status/version commands with exactly the given"
+    },
+    {
+      "path": "internal/runtimeadapter/authpreflight.go",
+      "line": 829,
+      "families": [
+        "legacy_auth"
+      ],
+      "source": "type OSStatusRunner struct{}"
+    },
+    {
+      "path": "internal/runtimeadapter/authpreflight.go",
+      "line": 831,
+      "families": [
+        "legacy_auth"
+      ],
+      "source": "func (OSStatusRunner) EvidenceKind() string { return EvidenceLocalObservation }"
+    },
+    {
+      "path": "internal/runtimeadapter/authpreflight.go",
+      "line": 833,
+      "families": [
+        "legacy_auth"
+      ],
+      "source": "func (OSStatusRunner) RunStatus(ctx context.Context, command StatusCommand) StatusResult {"
+    },
+    {
+      "path": "internal/runtimeapplication/policy.go",
+      "line": 102,
+      "families": [
+        "legacy_policy"
+      ],
+      "source": "candidate, blocker := EvaluatePolicy(snapshot.Project, consumer, request)"
+    },
+    {
+      "path": "internal/runtimeapplication/policy_v4.go",
+      "line": 13,
+      "families": [
+        "legacy_policy"
+      ],
+      "source": "// ConsumerFromRecord classifies one inspected local record state (as"
+    },
+    {
+      "path": "internal/runtimeapplication/policy_v4.go",
+      "line": 17,
+      "families": [
+        "legacy_policy"
+      ],
+      "source": "func ConsumerFromRecord(state string, cfg *runtimeprofile.ConfigurationV4) (runtimeprofile.ConsumerV4, string) {"
+    },
+    {
+      "path": "internal/runtimeapplication/policy_v4.go",
+      "line": 45,
+      "families": [
+        "legacy_policy"
+      ],
+      "source": "// EvaluatePolicy intersects portable Project policy with the consumed"
+    },
+    {
+      "path": "internal/runtimeapplication/policy_v4.go",
+      "line": 48,
+      "families": [
+        "legacy_policy"
+      ],
+      "source": "func EvaluatePolicy(p project.Project, consumer runtimeprofile.ConsumerV4, request Request) (PolicyCandidate, *runtimeprofile.Blocker) {"
+    },
+    {
+      "path": "internal/runtimeapplication/policy_v4.go",
+      "line": 154,
+      "families": [
+        "legacy_policy"
+      ],
+      "source": "// CheckPolicy re-evaluates current inputs and accepts only the exact reviewed"
+    },
+    {
+      "path": "internal/runtimeapplication/policy_v4.go",
+      "line": 157,
+      "families": [
+        "legacy_policy"
+      ],
+      "source": "func CheckPolicy(p project.Project, consumer runtimeprofile.ConsumerV4, expected PolicyCandidate) error {"
+    },
+    {
+      "path": "internal/runtimeapplication/policy_v4.go",
+      "line": 158,
+      "families": [
+        "legacy_policy"
+      ],
+      "source": "current, blocker := EvaluatePolicy(p, consumer, expected.Request)"
+    },
+    {
+      "path": "internal/runtimeapplication/policy_v4.go",
+      "line": 206,
+      "families": [
+        "legacy_policy"
+      ],
+      "source": "// ReadinessCandidates projects every enabled Runtime with its allowed"
+    },
+    {
+      "path": "internal/runtimeapplication/policy_v4.go",
+      "line": 210,
+      "families": [
+        "legacy_policy"
+      ],
+      "source": "func ReadinessCandidates(state string, cfg *runtimeprofile.ConfigurationV4) ([]RuntimeCandidate, string) {"
+    },
+    {
+      "path": "internal/runtimeapplication/policy_v4.go",
+      "line": 211,
+      "families": [
+        "legacy_policy"
+      ],
+      "source": "consumer, code := ConsumerFromRecord(state, cfg)"
+    }
+  ],
+  "producer_consumer_declarations": [
+    {
+      "path": "cmd/lingo/delivery.go",
+      "line": 26,
+      "source": "func (d deliveryEvidence) Reference(ctx context.Context, state workflow.State, ref workflow.Reference) error {"
+    },
+    {
+      "path": "cmd/lingo/delivery.go",
+      "line": 34,
+      "source": "func (d deliveryEvidence) Artifact(ctx context.Context, state workflow.State, stage workflowdefinition.Stage, output workflowdefinition.Output, ref workflow.Reference) (detailartifact.Artifact, error) {"
+    },
+    {
+      "path": "cmd/lingo/delivery.go",
+      "line": 58,
+      "source": "func (d deliveryEvidence) Stage(ctx context.Context, state workflow.State, ordinal int) (workflow.DeliveryStage, error) {"
+    },
+    {
+      "path": "cmd/lingo/delivery.go",
+      "line": 200,
+      "source": "func waivedChild(receipt executiongraph.IntegrationReceipt, child string) bool {"
+    },
+    {
+      "path": "cmd/lingo/delivery.go",
+      "line": 209,
+      "source": "func (s lifecycleService) deliveryPacket(ctx context.Context, stores stageStores, target stageTarget, in cli.WorkflowStageInput) cli.WorkflowStageResponse {"
+    },
+    {
+      "path": "cmd/lingo/runtime_policy.go",
+      "line": 36,
+      "source": "func (r runtimeObservationSources) scoped(repository string, consented bool) runtimeObservationSources {"
+    },
+    {
+      "path": "cmd/lingo/runtime_policy.go",
+      "line": 41,
+      "source": "func (s lifecycleService) runtimeObservationSources() runtimeObservationSources {"
+    },
+    {
+      "path": "cmd/lingo/runtime_policy.go",
+      "line": 45,
+      "source": "func (s runtimePolicySource) Load(ctx context.Context, id string) (runtimeapplication.Snapshot, error) {"
+    },
+    {
+      "path": "cmd/lingo/runtime_policy.go",
+      "line": 79,
+      "source": "func (r runtimeObservationSources) observer(consumer runtimeprofile.ConsumerV4) runtimeadapter.OperationalSource {"
+    },
+    {
+      "path": "cmd/lingo/runtime_policy.go",
+      "line": 83,
+      "source": "func (s lifecycleService) runtimePolicyPreview(ctx context.Context, input cli.RuntimeProfilePreviewInput) (runtimeapplication.Preview, runtimeapplication.Service, error) {"
+    },
+    {
+      "path": "cmd/lingo/runtime_policy.go",
+      "line": 87,
+      "source": "func (s lifecycleService) scopedRuntimePolicyPreview(ctx context.Context, input cli.RuntimeProfilePreviewInput, runtimes runtimeObservationSources) (runtimeapplication.Preview, runtimeapplication.Service, error) {"
+    },
+    {
+      "path": "cmd/lingo/runtime_policy.go",
+      "line": 112,
+      "source": "func (s lifecycleService) RuntimeProfilePreview(ctx context.Context, input cli.RuntimeProfilePreviewInput) cli.Result {"
+    },
+    {
+      "path": "cmd/lingo/runtime_policy.go",
+      "line": 124,
+      "source": "func (s lifecycleService) runtimeResolutionResult(preview runtimeapplication.Preview, ready bool) cli.Result {"
+    },
+    {
+      "path": "cmd/lingo/runtime_policy.go",
+      "line": 155,
+      "source": "func (s lifecycleService) runtimePolicyFailure(code string) cli.Result {"
+    },
+    {
+      "path": "cmd/lingo/runtime_policy.go",
+      "line": 159,
+      "source": "func operationalNext(code string) string {"
+    },
+    {
+      "path": "cmd/lingo/stage_publish.go",
+      "line": 15,
+      "source": "func attemptInbox(workspace, attempt string) string {"
+    },
+    {
+      "path": "cmd/lingo/stage_publish.go",
+      "line": 29,
+      "source": "func (r persistedChildResolver) ResolveChild(ctx context.Context, cwd string) (coordination.ChildContext, error) {"
+    },
+    {
+      "path": "cmd/lingo/stage_publish.go",
+      "line": 62,
+      "source": "func (r persistedChildResolver) resolveSingle(ctx context.Context, cwd string) (coordination.ChildContext, error) {"
+    },
+    {
+      "path": "cmd/lingo/stage_publish.go",
+      "line": 90,
+      "source": "func (r boundChildResolver) ResolveChild(ctx context.Context, workspace string) (coordination.ChildContext, error) {"
+    },
+    {
+      "path": "cmd/lingo/stage_publish.go",
+      "line": 100,
+      "source": "func (s lifecycleService) stagePublish(ctx context.Context, in cli.WorkflowStageInput) cli.WorkflowStageResponse {"
+    },
+    {
+      "path": "cmd/lingo/stage_service.go",
+      "line": 38,
+      "source": "func (s lifecycleService) stageStores() (stageStores, error) {"
+    },
+    {
+      "path": "cmd/lingo/stage_service.go",
+      "line": 67,
+      "source": "func (s lifecycleService) WorkflowStage(ctx context.Context, in cli.WorkflowStageInput) (out cli.WorkflowStageResponse) {"
+    },
+    {
+      "path": "cmd/lingo/stage_service.go",
+      "line": 132,
+      "source": "func (s lifecycleService) resolveStageTarget(ctx context.Context, in cli.WorkflowStageInput, operation projectapp.AdmissionOperation) (stageTarget, *cli.WorkflowStageResponse) {"
+    },
+    {
+      "path": "cmd/lingo/stage_service.go",
+      "line": 194,
+      "source": "func stageGraph(ctx context.Context, stores stageStores, r stageScope) (*executiongraph.GraphDocument, error) {"
+    },
+    {
+      "path": "cmd/lingo/stage_service.go",
+      "line": 212,
+      "source": "func canonicalRecords(ctx context.Context, stateRoot string, g executiongraph.SuccessorGraph) ([]executiongraph.AttemptRecord, error) {"
+    },
+    {
+      "path": "cmd/lingo/stage_service.go",
+      "line": 233,
+      "source": "func (s lifecycleService) stageFailure(status completion.Status, category, message, next string, payload any) cli.WorkflowStageResponse {"
+    },
+    {
+      "path": "cmd/lingo/stage_service.go",
+      "line": 243,
+      "source": "func (s lifecycleService) stageSuccess(category, message string, references []string, next string, payload any) cli.WorkflowStageResponse {"
+    },
+    {
+      "path": "cmd/lingo/stage_service.go",
+      "line": 251,
+      "source": "func (s lifecycleService) stageError(err error, payload any) cli.WorkflowStageResponse {"
+    },
+    {
+      "path": "cmd/lingo/stage_service.go",
+      "line": 279,
+      "source": "func (s lifecycleService) stageCoordinationRead(ctx context.Context, stores stageStores, t stageTarget, in cli.WorkflowStageInput) cli.WorkflowStageResponse {"
+    },
+    {
+      "path": "cmd/lingo/stage_service.go",
+      "line": 339,
+      "source": "func allocateStageID() (string, error) {"
+    },
+    {
+      "path": "cmd/lingo/stage_service.go",
+      "line": 349,
+      "source": "func stageActor() string {"
+    },
+    {
+      "path": "cmd/lingo/stage_service.go",
+      "line": 356,
+      "source": "func (s lifecycleService) stagePreview(digest, message, next string, payload any) cli.WorkflowStageResponse {"
+    },
+    {
+      "path": "cmd/lingo/stage_service.go",
+      "line": 365,
+      "source": "func stageWorkspaceRoot(g executiongraph.SuccessorGraph) (string, error) {"
+    },
+    {
+      "path": "cmd/lingo/stage_service.go",
+      "line": 379,
+      "source": "func (gi gitIntegration) manager(ctx context.Context, g executiongraph.SuccessorGraph) (*gitworkspace.Manager, executiongraph.Graph, error) {"
+    },
+    {
+      "path": "cmd/lingo/stage_service.go",
+      "line": 396,
+      "source": "func integrationProjection(projection executiongraph.Graph) (executiongraph.ChildExecution, error) {"
+    },
+    {
+      "path": "cmd/lingo/stage_service.go",
+      "line": 405,
+      "source": "func gitHead(ctx context.Context, repository string) (string, error) {"
+    },
+    {
+      "path": "internal/local/graph_store.go",
+      "line": 18,
+      "source": "func NewGraphStore(root string) (GraphStore, error) {"
+    },
+    {
+      "path": "internal/local/graph_store.go",
+      "line": 29,
+      "source": "func (s GraphStore) Create(ctx context.Context, graph executiongraph.Graph) error {"
+    },
+    {
+      "path": "internal/local/graph_store.go",
+      "line": 53,
+      "source": "func (s GraphStore) Save(ctx context.Context, graph executiongraph.Graph) (executiongraph.Graph, error) {"
+    },
+    {
+      "path": "internal/local/graph_store.go",
+      "line": 89,
+      "source": "func (s GraphStore) Load(ctx context.Context, projectID, parentID string) (executiongraph.Graph, error) {"
+    },
+    {
+      "path": "internal/local/graph_store.go",
+      "line": 121,
+      "source": "func (s GraphStore) openProject(projectID string, create bool) (*os.Root, *os.Root, *os.Root, *os.Root, error) {"
+    },
+    {
+      "path": "internal/local/graph_store.go",
+      "line": 155,
+      "source": "func graphProjectID(graph executiongraph.Graph) string {"
+    },
+    {
+      "path": "internal/local/graph_store.go",
+      "line": 162,
+      "source": "func graphStoredAt(graph executiongraph.Graph, projectID, name string) bool {"
+    },
+    {
+      "path": "internal/local/graph_store.go",
+      "line": 166,
+      "source": "func graphName(parentID string) string {"
+    },
+    {
+      "path": "internal/local/graph_store.go",
+      "line": 171,
+      "source": "func validGraphAddress(projectID, parentID string) bool {"
+    },
+    {
+      "path": "internal/local/graph_store.go",
+      "line": 175,
+      "source": "func validGraphToken(value string) bool {"
+    },
+    {
+      "path": "internal/local/single_stage_store.go",
+      "line": 24,
+      "source": "func NewSingleStageStore(root string) (SingleStageStore, error) {"
+    },
+    {
+      "path": "internal/local/single_stage_store.go",
+      "line": 35,
+      "source": "func singleStageName(scopeDigest string) string { return scopeDigest + \".json\" }"
+    },
+    {
+      "path": "internal/local/single_stage_store.go",
+      "line": 37,
+      "source": "func (s SingleStageStore) openProject(projectID string, create bool) (*os.Root, *os.Root, *os.Root, *os.Root, error) {"
+    },
+    {
+      "path": "internal/local/single_stage_store.go",
+      "line": 75,
+      "source": "func (h singleStageHandle) project() *os.Root { return h.roots[3] }"
+    },
+    {
+      "path": "internal/local/single_stage_store.go",
+      "line": 76,
+      "source": "func (h singleStageHandle) Close() {"
+    },
+    {
+      "path": "internal/local/single_stage_store.go",
+      "line": 83,
+      "source": "func (s SingleStageStore) lock(projectID string, exclusive, create bool) (singleStageHandle, error) {"
+    },
+    {
+      "path": "internal/local/single_stage_store.go",
+      "line": 98,
+      "source": "func readSingleStageFile(root *os.Root, name string) ([]byte, error) {"
+    },
+    {
+      "path": "internal/local/single_stage_store.go",
+      "line": 109,
+      "source": "func decodeStoredSingleStage(wire []byte, projectID, scopeDigest string) (executiongraph.SingleStageRun, error) {"
+    },
+    {
+      "path": "internal/local/single_stage_store.go",
+      "line": 120,
+      "source": "func (s SingleStageStore) Load(ctx context.Context, projectID, scopeDigest string) (executiongraph.SingleStageRun, error) {"
+    },
+    {
+      "path": "internal/local/single_stage_store.go",
+      "line": 141,
+      "source": "func (s SingleStageStore) LoadAuthority(ctx context.Context, r executiongraph.SingleStageRun, ref string) (executiongraph.SingleStageAuthority, error) {"
+    },
+    {
+      "path": "internal/local/single_stage_store.go",
+      "line": 174,
+      "source": "func executionGeneration(root *os.Root, state workflow.State) (string, error) {"
+    },
+    {
+      "path": "internal/local/single_stage_store.go",
+      "line": 198,
+      "source": "func (s SingleStageStore) CommitAuthority(ctx context.Context, next executiongraph.SingleStageRun, a executiongraph.SingleStageAuthority, state workflow.State, lease *RunLease) error {"
+    },
+    {
+      "path": "internal/local/single_stage_store.go",
+      "line": 283,
+      "source": "func (s SingleStageStore) Save(ctx context.Context, r executiongraph.SingleStageRun, lease *RunLease) (executiongraph.SingleStageRun, error) {"
+    },
+    {
+      "path": "internal/local/single_stage_store.go",
+      "line": 287,
+      "source": "func (s SingleStageStore) save(ctx context.Context, r executiongraph.SingleStageRun, lease *RunLease, reconciliation bool) (executiongraph.SingleStageRun, error) {"
+    },
+    {
+      "path": "internal/local/single_stage_store.go",
+      "line": 367,
+      "source": "func (s SingleStageStore) RequestCancel(ctx context.Context, r executiongraph.SingleStageRun, request executiongraph.CancelRequest) (executiongraph.SingleStageRun, error) {"
+    },
+    {
+      "path": "internal/local/single_stage_store.go",
+      "line": 413,
+      "source": "func (s SingleStageStore) AppendReconciliation(ctx context.Context, r executiongraph.SingleStageRun, fact executiongraph.ReconciliationFact, observe func(context.Context, executiongraph.SingleStageRun, string) (executiongraph.ReconciliationObservations, error)) (executiongraph.SingleStageRun, error) {"
+    },
+    {
+      "path": "internal/local/single_stage_store.go",
+      "line": 440,
+      "source": "func (s SingleStageStore) CommitDispatchInputs(ctx context.Context, d executiongraph.DispatchInputs) (string, error) {"
+    },
+    {
+      "path": "internal/local/single_stage_store.go",
+      "line": 456,
+      "source": "func (s SingleStageStore) LoadDispatchInputs(ctx context.Context, projectID, executionID, previewDigest string) (executiongraph.DispatchInputs, error) {"
+    },
+    {
+      "path": "internal/local/single_stage_store.go",
+      "line": 471,
+      "source": "func classifySingleStage(projectID, file string, wire []byte) InventoryKind {"
+    },
+    {
+      "path": "internal/local/workflow_store.go",
+      "line": 23,
+      "source": "func readExecutionFile(root *os.Root, name string) ([]byte, error) {"
+    },
+    {
+      "path": "internal/local/workflow_store.go",
+      "line": 60,
+      "source": "func NewWorkflowStore(root string) (WorkflowStore, error) {"
+    },
+    {
+      "path": "internal/local/workflow_store.go",
+      "line": 71,
+      "source": "func (s WorkflowStore) Create(ctx context.Context, state workflow.State) error {"
+    },
+    {
+      "path": "internal/local/workflow_store.go",
+      "line": 75,
+      "source": "func (s WorkflowStore) Save(ctx context.Context, state workflow.State) error {"
+    },
+    {
+      "path": "internal/local/workflow_store.go",
+      "line": 79,
+      "source": "func (s WorkflowStore) write(ctx context.Context, state workflow.State, create bool) error {"
+    },
+    {
+      "path": "internal/local/workflow_store.go",
+      "line": 130,
+      "source": "func (s WorkflowStore) Load(ctx context.Context, projectID, repositoryKey string, item workflow.WorkItem) (workflow.State, error) {"
+    },
+    {
+      "path": "internal/local/workflow_store.go",
+      "line": 169,
+      "source": "func (s WorkflowStore) List(ctx context.Context, projectID string) ([]workflow.State, error) {"
+    },
+    {
+      "path": "internal/local/workflow_store.go",
+      "line": 238,
+      "source": "func (s WorkflowStore) openProject(projectID string, create bool) (*os.Root, *os.Root, *os.Root, *os.Root, error) {"
+    },
+    {
+      "path": "internal/local/workflow_store.go",
+      "line": 270,
+      "source": "func encodeExecutionSnapshot(state workflow.State) ([]byte, error) {"
+    },
+    {
+      "path": "internal/local/workflow_store.go",
+      "line": 306,
+      "source": "func decodeExecutionSnapshot(wire []byte) (workflow.State, error) {"
+    },
+    {
+      "path": "internal/local/workflow_store.go",
+      "line": 346,
+      "source": "func sameExecutionBinding(left, right workflow.State) bool {"
+    },
+    {
+      "path": "internal/local/workflow_store.go",
+      "line": 365,
+      "source": "func parseExecutionTime(value string) (time.Time, error) {"
+    },
+    {
+      "path": "internal/local/workflow_store.go",
+      "line": 369,
+      "source": "func validExecutionAddress(projectID, repositoryKey string, item workflow.WorkItem) bool {"
+    },
+    {
+      "path": "internal/local/workflow_store.go",
+      "line": 383,
+      "source": "func executionName(repositoryKey string, item workflow.WorkItem) string {"
+    },
+    {
+      "path": "internal/local/workflow_store.go",
+      "line": 388,
+      "source": "func workflowStoreError(err error) error {"
+    },
+    {
+      "path": "internal/local/workflow_store.go",
+      "line": 406,
+      "source": "func ExecutionDigest(state workflow.State) (string, error) {"
+    },
+    {
+      "path": "internal/runtimeadapter/authpreflight.go",
+      "line": 89,
+      "source": "func (r AuthReport) DispatchAllowed() bool { return r.Status == AuthSubscriptionObserved }"
+    },
+    {
+      "path": "internal/runtimeadapter/authpreflight.go",
+      "line": 135,
+      "source": "func NewAuthPreflight(runner StatusRunner, managed ManagedConfiguration) (AuthPreflight, error) {"
+    },
+    {
+      "path": "internal/runtimeadapter/authpreflight.go",
+      "line": 151,
+      "source": "func DefaultManagedConfiguration() ManagedConfiguration {"
+    },
+    {
+      "path": "internal/runtimeadapter/authpreflight.go",
+      "line": 164,
+      "source": "func (p AuthPreflight) Check(ctx context.Context, target AuthTarget) AuthReport {"
+    },
+    {
+      "path": "internal/runtimeadapter/authpreflight.go",
+      "line": 239,
+      "source": "func (r AuthReport) with(status AuthStatus, reason string) AuthReport {"
+    },
+    {
+      "path": "internal/runtimeadapter/authpreflight.go",
+      "line": 244,
+      "source": "func bounded(values []string) []string {"
+    },
+    {
+      "path": "internal/runtimeadapter/authpreflight.go",
+      "line": 253,
+      "source": "func compactStrings(values []string) []string {"
+    },
+    {
+      "path": "internal/runtimeadapter/authpreflight.go",
+      "line": 265,
+      "source": "func environmentMap(environment []string) (map[string]string, bool) {"
+    },
+    {
+      "path": "internal/runtimeadapter/authpreflight.go",
+      "line": 281,
+      "source": "func safeName(name string) string {"
+    },
+    {
+      "path": "internal/runtimeadapter/authpreflight.go",
+      "line": 295,
+      "source": "func (p AuthPreflight) configurationOverrides(runtimeID string, environment map[string]string, cwd string) ([]string, string) {"
+    },
+    {
+      "path": "internal/runtimeadapter/authpreflight.go",
+      "line": 375,
+      "source": "func projectDirectories(cwd string) ([]string, bool) {"
+    },
+    {
+      "path": "internal/runtimeadapter/authpreflight.go",
+      "line": 405,
+      "source": "func worktreeMainCheckout(directory string) (string, bool) {"
+    },
+    {
+      "path": "internal/runtimeadapter/authpreflight.go",
+      "line": 449,
+      "source": "func readBoundedFile(path string) ([]byte, bool, error) {"
+    },
+    {
+      "path": "internal/runtimeadapter/authpreflight.go",
+      "line": 474,
+      "source": "func codexConfigOverrides(content []byte, prefix string) ([]string, bool) {"
+    },
+    {
+      "path": "internal/runtimeadapter/authpreflight.go",
+      "line": 575,
+      "source": "func multilineEnd(text, delimiter string) int {"
+    },
+    {
+      "path": "internal/runtimeadapter/authpreflight.go",
+      "line": 592,
+      "source": "func commentOnly(text string) bool {"
+    },
+    {
+      "path": "internal/runtimeadapter/authpreflight.go",
+      "line": 598,
+      "source": "func tomlHeader(line string) (string, bool) {"
+    },
+    {
+      "path": "internal/runtimeadapter/authpreflight.go",
+      "line": 617,
+      "source": "func tomlKeyValue(line string) (string, string, bool) {"
+    },
+    {
+      "path": "internal/runtimeadapter/authpreflight.go",
+      "line": 627,
+      "source": "func indexOutsideQuotes(value, needle string) int {"
+    },
+    {
+      "path": "internal/runtimeadapter/authpreflight.go",
+      "line": 650,
+      "source": "func tomlKey(raw string) ([]string, bool) {"
+    },
+    {
+      "path": "internal/runtimeadapter/authpreflight.go",
+      "line": 709,
+      "source": "func tomlScalar(value string) (string, bool) {"
+    },
+    {
+      "path": "internal/runtimeadapter/authpreflight.go",
+      "line": 733,
+      "source": "func claudeSettingsOverrides(content []byte, prefix string) ([]string, bool) {"
+    },
+    {
+      "path": "internal/runtimeadapter/authpreflight.go",
+      "line": 755,
+      "source": "func versionToken(output []byte) string {"
+    },
+    {
+      "path": "internal/runtimeadapter/authpreflight.go",
+      "line": 764,
+      "source": "func classifyCodexStatus(result StatusResult) (string, AuthStatus, string) {"
+    },
+    {
+      "path": "internal/runtimeadapter/authpreflight.go",
+      "line": 797,
+      "source": "func classifyClaudeStatus(result StatusResult) (string, AuthStatus, string) {"
+    },
+    {
+      "path": "internal/runtimeadapter/authpreflight.go",
+      "line": 831,
+      "source": "func (OSStatusRunner) EvidenceKind() string { return EvidenceLocalObservation }"
+    },
+    {
+      "path": "internal/runtimeadapter/authpreflight.go",
+      "line": 833,
+      "source": "func (OSStatusRunner) RunStatus(ctx context.Context, command StatusCommand) StatusResult {"
+    },
+    {
+      "path": "internal/runtimeadapter/authpreflight.go",
+      "line": 865,
+      "source": "func (b *boundedOutput) Write(value []byte) (int, error) {"
+    },
+    {
+      "path": "internal/runtimeapplication/policy_v4.go",
+      "line": 17,
+      "source": "func ConsumerFromRecord(state string, cfg *runtimeprofile.ConfigurationV4) (runtimeprofile.ConsumerV4, string) {"
+    },
+    {
+      "path": "internal/runtimeapplication/policy_v4.go",
+      "line": 48,
+      "source": "func EvaluatePolicy(p project.Project, consumer runtimeprofile.ConsumerV4, request Request) (PolicyCandidate, *runtimeprofile.Blocker) {"
+    },
+    {
+      "path": "internal/runtimeapplication/policy_v4.go",
+      "line": 157,
+      "source": "func CheckPolicy(p project.Project, consumer runtimeprofile.ConsumerV4, expected PolicyCandidate) error {"
+    },
+    {
+      "path": "internal/runtimeapplication/policy_v4.go",
+      "line": 167,
+      "source": "func declaresRequest(p runtimeprofile.ModelProfile, r Request) bool {"
+    },
+    {
+      "path": "internal/runtimeapplication/policy_v4.go",
+      "line": 179,
+      "source": "func contains(values []string, value string) bool {"
+    },
+    {
+      "path": "internal/runtimeapplication/policy_v4.go",
+      "line": 188,
+      "source": "func uniqueSorted(values []string) []string {"
+    },
+    {
+      "path": "internal/runtimeapplication/policy_v4.go",
+      "line": 210,
+      "source": "func ReadinessCandidates(state string, cfg *runtimeprofile.ConfigurationV4) ([]RuntimeCandidate, string) {"
+    },
+    {
+      "path": "internal/runtimeapplication/policy_v4.go",
+      "line": 233,
+      "source": "func EvaluateAvailability(p project.Project, consumer runtimeprofile.ConsumerV4) string {"
+    }
+  ],
+  "source_sha": "efff9decaafa80cda63d76e0dc61693f7fa0e0ef"
+}

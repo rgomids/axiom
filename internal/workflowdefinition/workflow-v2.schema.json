@@ -166,7 +166,7 @@
           },
           "completionCriteria": {
             "type": "array",
-            "minItems": 1,
+            "minItems": 0,
             "maxItems": 64,
             "items": {
               "type": "object",
@@ -200,7 +200,7 @@
           },
           "validators": {
             "type": "array",
-            "minItems": 1,
+            "minItems": 0,
             "maxItems": 64,
             "items": {
               "type": "object",
@@ -220,12 +220,41 @@
                   "enum": [
                     "artifact-schema",
                     "evidence-check",
-                    "human-review"
+                    "human-review",
+                    "command"
                   ]
                 },
                 "policyRef": {
                   "type": "string",
                   "pattern": "^[a-z][a-z0-9-]{0,63}$"
+                },
+                "argv": {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 64,
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 4096
+                  }
+                },
+                "timeoutSeconds": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 86400
+                },
+                "effectCeilings": {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 3,
+                  "uniqueItems": true,
+                  "items": {
+                    "enum": [
+                      "validation_command",
+                      "workspace_write",
+                      "network"
+                    ]
+                  }
                 }
               }
             }
@@ -307,7 +336,6 @@
                 "outputs",
                 "capabilities",
                 "runtimeConstraints",
-                "profileRef",
                 "timeoutSeconds",
                 "maximumAttempts",
                 "effectCeilings",
@@ -421,6 +449,28 @@
                     "medium",
                     "high"
                   ]
+                },
+                "invocation": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "minProperties": 1,
+                  "properties": {
+                    "runtime": {
+                      "type": "string",
+                      "enum": [
+                        "codex",
+                        "claude"
+                      ]
+                    },
+                    "model": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$"
+                    },
+                    "effort": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$"
+                    }
+                  }
                 }
               }
             }

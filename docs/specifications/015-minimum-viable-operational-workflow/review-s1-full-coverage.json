@@ -1,0 +1,3121 @@
+{
+  "base": "440e44a68638e08e901fd3f87f5b15cd395a6365",
+  "coverage": "REVIEW_INCOMPLETE: all production Go reviewed (line-by-line or every added line); deleted files removal-verified, not content re-audited; test/doc/data files other than those marked partial or line_by_line not individually read",
+  "depthCounts": {
+    "all_added_lines_reviewed": 45,
+    "category_level_only": 137,
+    "line_by_line_full_file": 22,
+    "partial_relevant_hunks": 3,
+    "removal_verified_not_content_reaudited": 101
+  },
+  "fileCount": 308,
+  "files": [
+    {
+      "path": "README.md",
+      "status": "M",
+      "category": "documentation",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "installed/operator docs, ADR and contract reconciliation",
+      "proof": "CI docs-offline and repository validators on pushed SHA (local run NOT_RUN: approval unavailable)",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "cmd/lingo/admission_test.go",
+      "status": "M",
+      "category": "test_go",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "executed by go test ./... at final HEAD",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "cmd/lingo/blackbox_test.go",
+      "status": "M",
+      "category": "test_go",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "executed by go test ./... at final HEAD",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "cmd/lingo/bootstrap_readiness_test.go",
+      "status": "M",
+      "category": "test_go",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "executed by go test ./... at final HEAD",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "cmd/lingo/canonical_lifecycle_test.go",
+      "status": "A",
+      "category": "test_go",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "executed by go test ./... at final HEAD",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "cmd/lingo/current_workflow_start_test.go",
+      "status": "D",
+      "category": "test_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "cmd/lingo/delivery.go",
+      "status": "D",
+      "category": "production_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "cmd/lingo/delivery_decision.go",
+      "status": "D",
+      "category": "production_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "cmd/lingo/delivery_publication.go",
+      "status": "D",
+      "category": "production_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "cmd/lingo/execution_consumers_test.go",
+      "status": "A",
+      "category": "test_go",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "executed by go test ./... at final HEAD",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "cmd/lingo/execution_lifecycle.go",
+      "status": "M",
+      "category": "production_go",
+      "diffInspected": "all_added_lines_reviewed",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build, go vet, architecture domain/application PASS; full go test ./... at final HEAD",
+      "verdict": "reviewed",
+      "findings": []
+    },
+    {
+      "path": "cmd/lingo/execution_lifecycle_test.go",
+      "status": "D",
+      "category": "test_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "cmd/lingo/execution_run.go",
+      "status": "A",
+      "category": "production_go",
+      "diffInspected": "line_by_line_full_file",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build, go vet, architecture domain/application PASS; full go test ./... at final HEAD",
+      "verdict": "reviewed",
+      "findings": [
+        "F-02",
+        "D-01",
+        "D-03"
+      ]
+    },
+    {
+      "path": "cmd/lingo/execution_run_test.go",
+      "status": "A",
+      "category": "test_go",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "executed by go test ./... at final HEAD",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "cmd/lingo/execution_target.go",
+      "status": "M",
+      "category": "production_go",
+      "diffInspected": "all_added_lines_reviewed",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build, go vet, architecture domain/application PASS; full go test ./... at final HEAD",
+      "verdict": "reviewed",
+      "findings": []
+    },
+    {
+      "path": "cmd/lingo/execution_target_test.go",
+      "status": "M",
+      "category": "test_go",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "executed by go test ./... at final HEAD",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "cmd/lingo/guided_setup_journey_test.go",
+      "status": "M",
+      "category": "test_go",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "executed by go test ./... at final HEAD",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "cmd/lingo/hierarchical_help_blackbox_test.go",
+      "status": "M",
+      "category": "test_go",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "executed by go test ./... at final HEAD",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "cmd/lingo/historical_workflow_fixture_test.go",
+      "status": "D",
+      "category": "test_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "cmd/lingo/install_bindings_test.go",
+      "status": "M",
+      "category": "test_go",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "executed by go test ./... at final HEAD",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "cmd/lingo/lifecycle_journey_test.go",
+      "status": "M",
+      "category": "test_go",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "executed by go test ./... at final HEAD",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "cmd/lingo/main.go",
+      "status": "M",
+      "category": "production_go",
+      "diffInspected": "all_added_lines_reviewed",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build, go vet, architecture domain/application PASS; full go test ./... at final HEAD",
+      "verdict": "reviewed",
+      "findings": []
+    },
+    {
+      "path": "cmd/lingo/main_test.go",
+      "status": "M",
+      "category": "test_go",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "executed by go test ./... at final HEAD",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "cmd/lingo/operator_diagnostic.go",
+      "status": "M",
+      "category": "production_go",
+      "diffInspected": "all_added_lines_reviewed",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build, go vet, architecture domain/application PASS; full go test ./... at final HEAD",
+      "verdict": "reviewed",
+      "findings": []
+    },
+    {
+      "path": "cmd/lingo/operator_diagnostic_test.go",
+      "status": "M",
+      "category": "test_go",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "executed by go test ./... at final HEAD",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "cmd/lingo/output_separation_test.go",
+      "status": "M",
+      "category": "test_go",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "executed by go test ./... at final HEAD",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "cmd/lingo/policy_edit_test.go",
+      "status": "M",
+      "category": "test_go",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "executed by go test ./... at final HEAD",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "cmd/lingo/project_context_test.go",
+      "status": "M",
+      "category": "test_go",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "executed by go test ./... at final HEAD",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "cmd/lingo/readiness.go",
+      "status": "M",
+      "category": "production_go",
+      "diffInspected": "all_added_lines_reviewed",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build, go vet, architecture domain/application PASS; full go test ./... at final HEAD",
+      "verdict": "reviewed",
+      "findings": []
+    },
+    {
+      "path": "cmd/lingo/runtime_bootstrap.go",
+      "status": "M",
+      "category": "production_go",
+      "diffInspected": "all_added_lines_reviewed",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build, go vet, architecture domain/application PASS; full go test ./... at final HEAD",
+      "verdict": "reviewed",
+      "findings": []
+    },
+    {
+      "path": "cmd/lingo/runtime_impacts_test.go",
+      "status": "M",
+      "category": "test_go",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "executed by go test ./... at final HEAD",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "cmd/lingo/runtime_policy.go",
+      "status": "M",
+      "category": "production_go",
+      "diffInspected": "all_added_lines_reviewed",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build, go vet, architecture domain/application PASS; full go test ./... at final HEAD",
+      "verdict": "reviewed",
+      "findings": []
+    },
+    {
+      "path": "cmd/lingo/runtime_policy_fixture_test.go",
+      "status": "M",
+      "category": "test_go",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "executed by go test ./... at final HEAD",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "cmd/lingo/runtime_policy_test.go",
+      "status": "M",
+      "category": "test_go",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "executed by go test ./... at final HEAD",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "cmd/lingo/s9_dogfood_blackbox_test.go",
+      "status": "M",
+      "category": "test_go",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "executed by go test ./... at final HEAD",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "cmd/lingo/skill_protocol_test.go",
+      "status": "D",
+      "category": "test_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "cmd/lingo/stage_adversarial_blackbox_test.go",
+      "status": "D",
+      "category": "test_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "cmd/lingo/stage_dispatch.go",
+      "status": "D",
+      "category": "production_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "cmd/lingo/stage_dispatch_test.go",
+      "status": "D",
+      "category": "test_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "cmd/lingo/stage_effort.go",
+      "status": "D",
+      "category": "production_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "cmd/lingo/stage_effort_test.go",
+      "status": "D",
+      "category": "test_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "cmd/lingo/stage_journey_blackbox_test.go",
+      "status": "D",
+      "category": "test_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "cmd/lingo/stage_publish.go",
+      "status": "M",
+      "category": "production_go",
+      "diffInspected": "all_added_lines_reviewed",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build, go vet, architecture domain/application PASS; full go test ./... at final HEAD",
+      "verdict": "reviewed",
+      "findings": []
+    },
+    {
+      "path": "cmd/lingo/stage_publish_test.go",
+      "status": "A",
+      "category": "test_go",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "executed by go test ./... at final HEAD",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "cmd/lingo/stage_service.go",
+      "status": "M",
+      "category": "production_go",
+      "diffInspected": "all_added_lines_reviewed",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build, go vet, architecture domain/application PASS; full go test ./... at final HEAD",
+      "verdict": "reviewed",
+      "findings": []
+    },
+    {
+      "path": "cmd/lingo/stage_single.go",
+      "status": "D",
+      "category": "production_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "cmd/lingo/stage_supervisor.go",
+      "status": "D",
+      "category": "production_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "cmd/lingo/stage_supervisor_test.go",
+      "status": "D",
+      "category": "test_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "cmd/lingo/supervisor_store.go",
+      "status": "D",
+      "category": "production_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "cmd/lingo/workflow_authoring.go",
+      "status": "M",
+      "category": "production_go",
+      "diffInspected": "all_added_lines_reviewed",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build, go vet, architecture domain/application PASS; full go test ./... at final HEAD",
+      "verdict": "reviewed",
+      "findings": [
+        "F-05"
+      ]
+    },
+    {
+      "path": "cmd/lingo/workflow_binding.go",
+      "status": "M",
+      "category": "production_go",
+      "diffInspected": "all_added_lines_reviewed",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build, go vet, architecture domain/application PASS; full go test ./... at final HEAD",
+      "verdict": "reviewed",
+      "findings": []
+    },
+    {
+      "path": "cmd/lingo/workflow_binding_test.go",
+      "status": "D",
+      "category": "test_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "cmd/lingo/workflow_gates_test.go",
+      "status": "D",
+      "category": "test_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "cmd/lingo/workflow_stage_plan.go",
+      "status": "D",
+      "category": "production_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "cmd/lingo/workflow_stage_plan_file_test.go",
+      "status": "D",
+      "category": "test_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "cmd/lingo/workflow_stage_plan_test.go",
+      "status": "D",
+      "category": "test_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "docs/README.pt-BR.md",
+      "status": "M",
+      "category": "documentation",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "installed/operator docs, ADR and contract reconciliation",
+      "proof": "CI docs-offline and repository validators on pushed SHA (local run NOT_RUN: approval unavailable)",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "docs/architecture/conceptual-model.md",
+      "status": "M",
+      "category": "documentation",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "installed/operator docs, ADR and contract reconciliation",
+      "proof": "CI docs-offline and repository validators on pushed SHA (local run NOT_RUN: approval unavailable)",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "docs/commands.md",
+      "status": "M",
+      "category": "documentation",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "installed/operator docs, ADR and contract reconciliation",
+      "proof": "CI docs-offline and repository validators on pushed SHA (local run NOT_RUN: approval unavailable)",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "docs/decisions/0009-parent-child-execution-graph.md",
+      "status": "M",
+      "category": "documentation",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "installed/operator docs, ADR and contract reconciliation",
+      "proof": "CI docs-offline and repository validators on pushed SHA (local run NOT_RUN: approval unavailable)",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "docs/decisions/0020-workflow-definition-revision-binding.md",
+      "status": "M",
+      "category": "documentation",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "installed/operator docs, ADR and contract reconciliation",
+      "proof": "CI docs-offline and repository validators on pushed SHA (local run NOT_RUN: approval unavailable)",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "docs/decisions/0024-model-profile-effort-ownership.md",
+      "status": "M",
+      "category": "documentation",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "installed/operator docs, ADR and contract reconciliation",
+      "proof": "CI docs-offline and repository validators on pushed SHA (local run NOT_RUN: approval unavailable)",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "docs/decisions/0025-public-stage-dispatch-and-capability-proof.md",
+      "status": "M",
+      "category": "documentation",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "installed/operator docs, ADR and contract reconciliation",
+      "proof": "CI docs-offline and repository validators on pushed SHA (local run NOT_RUN: approval unavailable)",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "docs/decisions/0026-successor-stage-dispatch-graph-format.md",
+      "status": "M",
+      "category": "documentation",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "installed/operator docs, ADR and contract reconciliation",
+      "proof": "CI docs-offline and repository validators on pushed SHA (local run NOT_RUN: approval unavailable)",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "docs/decisions/0027-single-stage-attempt-persistence.md",
+      "status": "M",
+      "category": "documentation",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "installed/operator docs, ADR and contract reconciliation",
+      "proof": "CI docs-offline and repository validators on pushed SHA (local run NOT_RUN: approval unavailable)",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "docs/decisions/0032-runtime-admission-without-certification.md",
+      "status": "M",
+      "category": "documentation",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "installed/operator docs, ADR and contract reconciliation",
+      "proof": "CI docs-offline and repository validators on pushed SHA (local run NOT_RUN: approval unavailable)",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "docs/decisions/0037-one-canonical-execution-for-new-runs.md",
+      "status": "A",
+      "category": "documentation",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "installed/operator docs, ADR and contract reconciliation",
+      "proof": "CI docs-offline and repository validators on pushed SHA (local run NOT_RUN: approval unavailable)",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "docs/decisions/README.md",
+      "status": "M",
+      "category": "documentation",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "installed/operator docs, ADR and contract reconciliation",
+      "proof": "CI docs-offline and repository validators on pushed SHA (local run NOT_RUN: approval unavailable)",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "docs/operational/runtime.md",
+      "status": "M",
+      "category": "documentation",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "installed/operator docs, ADR and contract reconciliation",
+      "proof": "CI docs-offline and repository validators on pushed SHA (local run NOT_RUN: approval unavailable)",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "docs/operational/workflow.md",
+      "status": "M",
+      "category": "documentation",
+      "diffInspected": "line_by_line_full_file",
+      "contractRelevance": "installed/operator docs, ADR and contract reconciliation",
+      "proof": "CI docs-offline and repository validators on pushed SHA (local run NOT_RUN: approval unavailable)",
+      "verdict": "reviewed",
+      "findings": []
+    },
+    {
+      "path": "docs/research/README.md",
+      "status": "M",
+      "category": "documentation",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "installed/operator docs, ADR and contract reconciliation",
+      "proof": "CI docs-offline and repository validators on pushed SHA (local run NOT_RUN: approval unavailable)",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "docs/research/axm-42-minimum-viable-workflow-investigation.md",
+      "status": "A",
+      "category": "documentation",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "installed/operator docs, ADR and contract reconciliation",
+      "proof": "CI docs-offline and repository validators on pushed SHA (local run NOT_RUN: approval unavailable)",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "docs/specifications/004-mvp-v1-baseline/issue-230-resource-lifecycle-matrix.md",
+      "status": "M",
+      "category": "documentation",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "installed/operator docs, ADR and contract reconciliation",
+      "proof": "CI docs-offline and repository validators on pushed SHA (local run NOT_RUN: approval unavailable)",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "docs/specifications/004-mvp-v1-baseline/issue-272-cli-subscription-auth-preflight.md",
+      "status": "M",
+      "category": "documentation",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "installed/operator docs, ADR and contract reconciliation",
+      "proof": "CI docs-offline and repository validators on pushed SHA (local run NOT_RUN: approval unavailable)",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "docs/specifications/007-configurable-workflows/amendment-276-stage-dispatch.md",
+      "status": "M",
+      "category": "documentation",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "installed/operator docs, ADR and contract reconciliation",
+      "proof": "CI docs-offline and repository validators on pushed SHA (local run NOT_RUN: approval unavailable)",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "docs/specifications/007-configurable-workflows/amendment-306-profile-effort-onboarding.md",
+      "status": "M",
+      "category": "documentation",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "installed/operator docs, ADR and contract reconciliation",
+      "proof": "CI docs-offline and repository validators on pushed SHA (local run NOT_RUN: approval unavailable)",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "docs/specifications/007-configurable-workflows/plan-tasks-276-stage-agent-execution.md",
+      "status": "M",
+      "category": "documentation",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "installed/operator docs, ADR and contract reconciliation",
+      "proof": "CI docs-offline and repository validators on pushed SHA (local run NOT_RUN: approval unavailable)",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "docs/specifications/007-configurable-workflows/spec.md",
+      "status": "M",
+      "category": "documentation",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "installed/operator docs, ADR and contract reconciliation",
+      "proof": "CI docs-offline and repository validators on pushed SHA (local run NOT_RUN: approval unavailable)",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "docs/specifications/015-minimum-viable-operational-workflow/completion-receipt-specify-correction-01.json",
+      "status": "A",
+      "category": "spec015_evidence",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "Spec 015 authority/evidence record",
+      "proof": "CI docs-offline and repository validators on pushed SHA (local run NOT_RUN: approval unavailable)",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "docs/specifications/015-minimum-viable-operational-workflow/completion-receipt-specify.json",
+      "status": "A",
+      "category": "spec015_evidence",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "Spec 015 authority/evidence record",
+      "proof": "CI docs-offline and repository validators on pushed SHA (local run NOT_RUN: approval unavailable)",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "docs/specifications/015-minimum-viable-operational-workflow/consumers-s1-05.json",
+      "status": "A",
+      "category": "spec015_evidence",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "Spec 015 authority/evidence record",
+      "proof": "CI docs-offline and repository validators on pushed SHA (local run NOT_RUN: approval unavailable)",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "docs/specifications/015-minimum-viable-operational-workflow/consumers-s1-06.json",
+      "status": "A",
+      "category": "spec015_evidence",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "Spec 015 authority/evidence record",
+      "proof": "CI docs-offline and repository validators on pushed SHA (local run NOT_RUN: approval unavailable)",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "docs/specifications/015-minimum-viable-operational-workflow/consumers-s1-08.json",
+      "status": "A",
+      "category": "spec015_evidence",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "Spec 015 authority/evidence record",
+      "proof": "CI docs-offline and repository validators on pushed SHA (local run NOT_RUN: approval unavailable)",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "docs/specifications/015-minimum-viable-operational-workflow/deletion-baseline.json",
+      "status": "A",
+      "category": "spec015_evidence",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "Spec 015 authority/evidence record",
+      "proof": "CI docs-offline and repository validators on pushed SHA (local run NOT_RUN: approval unavailable)",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "docs/specifications/015-minimum-viable-operational-workflow/deletion-s1-04.json",
+      "status": "A",
+      "category": "spec015_evidence",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "Spec 015 authority/evidence record",
+      "proof": "CI docs-offline and repository validators on pushed SHA (local run NOT_RUN: approval unavailable)",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "docs/specifications/015-minimum-viable-operational-workflow/deletion-s1-05.json",
+      "status": "A",
+      "category": "spec015_evidence",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "Spec 015 authority/evidence record",
+      "proof": "CI docs-offline and repository validators on pushed SHA (local run NOT_RUN: approval unavailable)",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "docs/specifications/015-minimum-viable-operational-workflow/deletion-s1-06.json",
+      "status": "A",
+      "category": "spec015_evidence",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "Spec 015 authority/evidence record",
+      "proof": "CI docs-offline and repository validators on pushed SHA (local run NOT_RUN: approval unavailable)",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "docs/specifications/015-minimum-viable-operational-workflow/deletion-s1-07.json",
+      "status": "A",
+      "category": "spec015_evidence",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "Spec 015 authority/evidence record",
+      "proof": "CI docs-offline and repository validators on pushed SHA (local run NOT_RUN: approval unavailable)",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "docs/specifications/015-minimum-viable-operational-workflow/deletion-s1-08.json",
+      "status": "A",
+      "category": "spec015_evidence",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "Spec 015 authority/evidence record",
+      "proof": "CI docs-offline and repository validators on pushed SHA (local run NOT_RUN: approval unavailable)",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "docs/specifications/015-minimum-viable-operational-workflow/evidence-plan.md",
+      "status": "A",
+      "category": "spec015_evidence",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "Spec 015 authority/evidence record",
+      "proof": "CI docs-offline and repository validators on pushed SHA (local run NOT_RUN: approval unavailable)",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "docs/specifications/015-minimum-viable-operational-workflow/handoff-specify-correction-04.md",
+      "status": "A",
+      "category": "spec015_evidence",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "Spec 015 authority/evidence record",
+      "proof": "CI docs-offline and repository validators on pushed SHA (local run NOT_RUN: approval unavailable)",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "docs/specifications/015-minimum-viable-operational-workflow/implementation-s1-01.md",
+      "status": "A",
+      "category": "spec015_evidence",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "Spec 015 authority/evidence record",
+      "proof": "CI docs-offline and repository validators on pushed SHA (local run NOT_RUN: approval unavailable)",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "docs/specifications/015-minimum-viable-operational-workflow/implementation-s1-02.md",
+      "status": "A",
+      "category": "spec015_evidence",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "Spec 015 authority/evidence record",
+      "proof": "CI docs-offline and repository validators on pushed SHA (local run NOT_RUN: approval unavailable)",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "docs/specifications/015-minimum-viable-operational-workflow/implementation-s1-04.md",
+      "status": "A",
+      "category": "spec015_evidence",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "Spec 015 authority/evidence record",
+      "proof": "CI docs-offline and repository validators on pushed SHA (local run NOT_RUN: approval unavailable)",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "docs/specifications/015-minimum-viable-operational-workflow/implementation-s1-05.md",
+      "status": "A",
+      "category": "spec015_evidence",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "Spec 015 authority/evidence record",
+      "proof": "CI docs-offline and repository validators on pushed SHA (local run NOT_RUN: approval unavailable)",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "docs/specifications/015-minimum-viable-operational-workflow/implementation-s1-06.md",
+      "status": "A",
+      "category": "spec015_evidence",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "Spec 015 authority/evidence record",
+      "proof": "CI docs-offline and repository validators on pushed SHA (local run NOT_RUN: approval unavailable)",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "docs/specifications/015-minimum-viable-operational-workflow/implementation-s1-07.md",
+      "status": "A",
+      "category": "spec015_evidence",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "Spec 015 authority/evidence record",
+      "proof": "CI docs-offline and repository validators on pushed SHA (local run NOT_RUN: approval unavailable)",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "docs/specifications/015-minimum-viable-operational-workflow/implementation-s1-08.md",
+      "status": "A",
+      "category": "spec015_evidence",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "Spec 015 authority/evidence record",
+      "proof": "CI docs-offline and repository validators on pushed SHA (local run NOT_RUN: approval unavailable)",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "docs/specifications/015-minimum-viable-operational-workflow/linear-comment-ready.md",
+      "status": "A",
+      "category": "spec015_evidence",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "Spec 015 authority/evidence record",
+      "proof": "CI docs-offline and repository validators on pushed SHA (local run NOT_RUN: approval unavailable)",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "docs/specifications/015-minimum-viable-operational-workflow/plan.md",
+      "status": "A",
+      "category": "spec015_evidence",
+      "diffInspected": "line_by_line_full_file",
+      "contractRelevance": "Spec 015 authority/evidence record",
+      "proof": "CI docs-offline and repository validators on pushed SHA (local run NOT_RUN: approval unavailable)",
+      "verdict": "reviewed",
+      "findings": []
+    },
+    {
+      "path": "docs/specifications/015-minimum-viable-operational-workflow/recovery-s1-04-inventory.json",
+      "status": "A",
+      "category": "spec015_evidence",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "Spec 015 authority/evidence record",
+      "proof": "CI docs-offline and repository validators on pushed SHA (local run NOT_RUN: approval unavailable)",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "docs/specifications/015-minimum-viable-operational-workflow/recovery-s1-06.json",
+      "status": "A",
+      "category": "spec015_evidence",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "Spec 015 authority/evidence record",
+      "proof": "CI docs-offline and repository validators on pushed SHA (local run NOT_RUN: approval unavailable)",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "docs/specifications/015-minimum-viable-operational-workflow/spec.md",
+      "status": "A",
+      "category": "spec015_evidence",
+      "diffInspected": "line_by_line_full_file",
+      "contractRelevance": "Spec 015 authority/evidence record",
+      "proof": "CI docs-offline and repository validators on pushed SHA (local run NOT_RUN: approval unavailable)",
+      "verdict": "reviewed",
+      "findings": []
+    },
+    {
+      "path": "docs/specifications/015-minimum-viable-operational-workflow/tasks.md",
+      "status": "A",
+      "category": "spec015_evidence",
+      "diffInspected": "line_by_line_full_file",
+      "contractRelevance": "Spec 015 authority/evidence record",
+      "proof": "CI docs-offline and repository validators on pushed SHA (local run NOT_RUN: approval unavailable)",
+      "verdict": "reviewed",
+      "findings": []
+    },
+    {
+      "path": "docs/specifications/README.md",
+      "status": "M",
+      "category": "documentation",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "installed/operator docs, ADR and contract reconciliation",
+      "proof": "CI docs-offline and repository validators on pushed SHA (local run NOT_RUN: approval unavailable)",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "internal/cli/argument_requirements.go",
+      "status": "M",
+      "category": "production_go",
+      "diffInspected": "all_added_lines_reviewed",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build, go vet, architecture domain/application PASS; full go test ./... at final HEAD",
+      "verdict": "reviewed",
+      "findings": []
+    },
+    {
+      "path": "internal/cli/cli.go",
+      "status": "M",
+      "category": "production_go",
+      "diffInspected": "all_added_lines_reviewed",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build, go vet, architecture domain/application PASS; full go test ./... at final HEAD",
+      "verdict": "reviewed",
+      "findings": []
+    },
+    {
+      "path": "internal/cli/cli_test.go",
+      "status": "M",
+      "category": "test_go",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "executed by go test ./... at final HEAD",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "internal/cli/commands.go",
+      "status": "M",
+      "category": "production_go",
+      "diffInspected": "all_added_lines_reviewed",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build, go vet, architecture domain/application PASS; full go test ./... at final HEAD",
+      "verdict": "reviewed",
+      "findings": []
+    },
+    {
+      "path": "internal/cli/documentation_test.go",
+      "status": "M",
+      "category": "test_go",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "executed by go test ./... at final HEAD",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "internal/cli/domain_skill_routing_test.go",
+      "status": "M",
+      "category": "test_go",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "executed by go test ./... at final HEAD",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "internal/cli/help.go",
+      "status": "M",
+      "category": "production_go",
+      "diffInspected": "all_added_lines_reviewed",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build, go vet, architecture domain/application PASS; full go test ./... at final HEAD",
+      "verdict": "reviewed",
+      "findings": []
+    },
+    {
+      "path": "internal/cli/help_parser_consistency_test.go",
+      "status": "M",
+      "category": "test_go",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "executed by go test ./... at final HEAD",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "internal/cli/help_requirements_test.go",
+      "status": "M",
+      "category": "test_go",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "executed by go test ./... at final HEAD",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "internal/cli/presentation_test.go",
+      "status": "M",
+      "category": "test_go",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "executed by go test ./... at final HEAD",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "internal/cli/runtime_preview_test.go",
+      "status": "M",
+      "category": "test_go",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "executed by go test ./... at final HEAD",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "internal/cli/skill_inspect.go",
+      "status": "M",
+      "category": "production_go",
+      "diffInspected": "all_added_lines_reviewed",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build, go vet, architecture domain/application PASS; full go test ./... at final HEAD",
+      "verdict": "reviewed",
+      "findings": []
+    },
+    {
+      "path": "internal/cli/skill_inspect_test.go",
+      "status": "M",
+      "category": "test_go",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "executed by go test ./... at final HEAD",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "internal/cli/strict_flags_test.go",
+      "status": "M",
+      "category": "test_go",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "executed by go test ./... at final HEAD",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "internal/cli/workflow_gates_test.go",
+      "status": "D",
+      "category": "test_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "internal/cli/workflow_preservation_303_test.go",
+      "status": "M",
+      "category": "test_go",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "executed by go test ./... at final HEAD",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "internal/cli/workflow_retired_test.go",
+      "status": "A",
+      "category": "test_go",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "executed by go test ./... at final HEAD",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "internal/cli/workflow_stage.go",
+      "status": "M",
+      "category": "production_go",
+      "diffInspected": "all_added_lines_reviewed",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build, go vet, architecture domain/application PASS; full go test ./... at final HEAD",
+      "verdict": "reviewed",
+      "findings": []
+    },
+    {
+      "path": "internal/cli/workflow_stage_plan.go",
+      "status": "D",
+      "category": "production_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "internal/cli/workflow_stage_test.go",
+      "status": "M",
+      "category": "test_go",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "executed by go test ./... at final HEAD",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "internal/codexruntime/execution_target_skills_test.go",
+      "status": "M",
+      "category": "test_go",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "executed by go test ./... at final HEAD",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "internal/codexruntime/manifest.go",
+      "status": "M",
+      "category": "production_go",
+      "diffInspected": "all_added_lines_reviewed",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build, go vet, architecture domain/application PASS; full go test ./... at final HEAD",
+      "verdict": "reviewed",
+      "findings": []
+    },
+    {
+      "path": "internal/codexruntime/runtime_test.go",
+      "status": "M",
+      "category": "test_go",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "executed by go test ./... at final HEAD",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "internal/codexruntime/shared_history_test.go",
+      "status": "M",
+      "category": "test_go",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "executed by go test ./... at final HEAD",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "internal/codexruntime/skills/axiom-runtime/SKILL.md",
+      "status": "M",
+      "category": "documentation",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "installed/operator docs, ADR and contract reconciliation",
+      "proof": "CI docs-offline and repository validators on pushed SHA (local run NOT_RUN: approval unavailable)",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "internal/codexruntime/skills/axiom-work-item/SKILL.md",
+      "status": "M",
+      "category": "documentation",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "installed/operator docs, ADR and contract reconciliation",
+      "proof": "CI docs-offline and repository validators on pushed SHA (local run NOT_RUN: approval unavailable)",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "internal/codexruntime/skills/axiom-workflow/SKILL.md",
+      "status": "M",
+      "category": "documentation",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "installed/operator docs, ADR and contract reconciliation",
+      "proof": "CI docs-offline and repository validators on pushed SHA (local run NOT_RUN: approval unavailable)",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "internal/codexruntime/workflow_skill_content_test.go",
+      "status": "M",
+      "category": "test_go",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "executed by go test ./... at final HEAD",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "internal/executiongraph/graph.go",
+      "status": "M",
+      "category": "production_go",
+      "diffInspected": "all_added_lines_reviewed",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build, go vet, architecture domain/application PASS; full go test ./... at final HEAD",
+      "verdict": "reviewed",
+      "findings": []
+    },
+    {
+      "path": "internal/executiongraph/graph_test.go",
+      "status": "M",
+      "category": "test_go",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "executed by go test ./... at final HEAD",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "internal/executiongraph/operational_proposal_test.go",
+      "status": "M",
+      "category": "test_go",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "executed by go test ./... at final HEAD",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "internal/executiongraph/planner.go",
+      "status": "M",
+      "category": "production_go",
+      "diffInspected": "all_added_lines_reviewed",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build, go vet, architecture domain/application PASS; full go test ./... at final HEAD",
+      "verdict": "reviewed",
+      "findings": []
+    },
+    {
+      "path": "internal/executiongraph/planner_test.go",
+      "status": "M",
+      "category": "test_go",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "executed by go test ./... at final HEAD",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "internal/executiongraph/scheduler.go",
+      "status": "M",
+      "category": "production_go",
+      "diffInspected": "all_added_lines_reviewed",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build, go vet, architecture domain/application PASS; full go test ./... at final HEAD",
+      "verdict": "reviewed",
+      "findings": []
+    },
+    {
+      "path": "internal/executiongraph/scheduler_test.go",
+      "status": "M",
+      "category": "test_go",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "executed by go test ./... at final HEAD",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "internal/gitworkspace/git_test.go",
+      "status": "M",
+      "category": "test_go",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "executed by go test ./... at final HEAD",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "internal/gitworkspace/validator_policy_test.go",
+      "status": "D",
+      "category": "test_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "internal/graphapplication/frozen_stage.go",
+      "status": "D",
+      "category": "production_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "internal/graphapplication/frozen_stage_test.go",
+      "status": "D",
+      "category": "test_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "internal/graphapplication/task_packet.go",
+      "status": "D",
+      "category": "production_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "internal/graphapplication/task_packet_test.go",
+      "status": "D",
+      "category": "test_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "internal/local/cutover.go",
+      "status": "A",
+      "category": "production_go",
+      "diffInspected": "line_by_line_full_file",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build, go vet, architecture domain/application PASS; full go test ./... at final HEAD",
+      "verdict": "reviewed",
+      "findings": [
+        "D-02",
+        "D-05"
+      ]
+    },
+    {
+      "path": "internal/local/cutover_test.go",
+      "status": "A",
+      "category": "test_go",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "executed by go test ./... at final HEAD",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "internal/local/delivery_decision.go",
+      "status": "M",
+      "category": "production_go",
+      "diffInspected": "all_added_lines_reviewed",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build, go vet, architecture domain/application PASS; full go test ./... at final HEAD",
+      "verdict": "reviewed",
+      "findings": []
+    },
+    {
+      "path": "internal/local/delivery_packet_test.go",
+      "status": "M",
+      "category": "test_go",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "executed by go test ./... at final HEAD",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "internal/local/delivery_publication_test.go",
+      "status": "M",
+      "category": "test_go",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "executed by go test ./... at final HEAD",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "internal/local/delivery_rework.go",
+      "status": "M",
+      "category": "production_go",
+      "diffInspected": "all_added_lines_reviewed",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build, go vet, architecture domain/application PASS; full go test ./... at final HEAD",
+      "verdict": "reviewed",
+      "findings": []
+    },
+    {
+      "path": "internal/local/delivery_rework_test.go",
+      "status": "M",
+      "category": "test_go",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "executed by go test ./... at final HEAD",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "internal/local/dispatch_authority.go",
+      "status": "D",
+      "category": "production_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "internal/local/dispatch_authority_test.go",
+      "status": "D",
+      "category": "test_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "internal/local/execution_list.go",
+      "status": "A",
+      "category": "production_go",
+      "diffInspected": "line_by_line_full_file",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build, go vet, architecture domain/application PASS; full go test ./... at final HEAD",
+      "verdict": "reviewed",
+      "findings": []
+    },
+    {
+      "path": "internal/local/execution_list_test.go",
+      "status": "A",
+      "category": "test_go",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "executed by go test ./... at final HEAD",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "internal/local/execution_outputs.go",
+      "status": "A",
+      "category": "production_go",
+      "diffInspected": "line_by_line_full_file",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build, go vet, architecture domain/application PASS; full go test ./... at final HEAD",
+      "verdict": "reviewed",
+      "findings": []
+    },
+    {
+      "path": "internal/local/execution_outputs_test.go",
+      "status": "A",
+      "category": "test_go",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "executed by go test ./... at final HEAD",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "internal/local/execution_store.go",
+      "status": "A",
+      "category": "production_go",
+      "diffInspected": "line_by_line_full_file",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build, go vet, architecture domain/application PASS; full go test ./... at final HEAD",
+      "verdict": "reviewed",
+      "findings": [
+        "F-03"
+      ]
+    },
+    {
+      "path": "internal/local/execution_store_test.go",
+      "status": "A",
+      "category": "test_go",
+      "diffInspected": "partial_relevant_hunks",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "executed by go test ./... at final HEAD",
+      "verdict": "partially_reviewed",
+      "findings": [
+        "F-03",
+        "F-04"
+      ]
+    },
+    {
+      "path": "internal/local/graph_store.go",
+      "status": "D",
+      "category": "production_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "internal/local/historical_execution_fixtures_test.go",
+      "status": "A",
+      "category": "test_go",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "executed by go test ./... at final HEAD",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "internal/local/historical_execution_formats.go",
+      "status": "A",
+      "category": "production_go",
+      "diffInspected": "line_by_line_full_file",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build, go vet, architecture domain/application PASS; full go test ./... at final HEAD",
+      "verdict": "reviewed",
+      "findings": []
+    },
+    {
+      "path": "internal/local/inventory_identity_test.go",
+      "status": "M",
+      "category": "test_go",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "executed by go test ./... at final HEAD",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "internal/local/maintenance_test.go",
+      "status": "M",
+      "category": "test_go",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "executed by go test ./... at final HEAD",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "internal/local/policy_apply_test.go",
+      "status": "M",
+      "category": "test_go",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "executed by go test ./... at final HEAD",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "internal/local/policy_edit_observation.go",
+      "status": "M",
+      "category": "production_go",
+      "diffInspected": "all_added_lines_reviewed",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build, go vet, architecture domain/application PASS; full go test ./... at final HEAD",
+      "verdict": "reviewed",
+      "findings": []
+    },
+    {
+      "path": "internal/local/policy_edit_test.go",
+      "status": "M",
+      "category": "test_go",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "executed by go test ./... at final HEAD",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "internal/local/policy_readiness.go",
+      "status": "M",
+      "category": "production_go",
+      "diffInspected": "all_added_lines_reviewed",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build, go vet, architecture domain/application PASS; full go test ./... at final HEAD",
+      "verdict": "reviewed",
+      "findings": []
+    },
+    {
+      "path": "internal/local/project_context_test.go",
+      "status": "M",
+      "category": "test_go",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "executed by go test ./... at final HEAD",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "internal/local/publication_confinement_test.go",
+      "status": "M",
+      "category": "test_go",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "executed by go test ./... at final HEAD",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "internal/local/s8_stores_test.go",
+      "status": "M",
+      "category": "test_go",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "executed by go test ./... at final HEAD",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "internal/local/single_dispatch_contract_test.go",
+      "status": "D",
+      "category": "test_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "internal/local/single_stage_store.go",
+      "status": "D",
+      "category": "production_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "internal/local/single_stage_store_test.go",
+      "status": "D",
+      "category": "test_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "internal/local/stage_cancel.go",
+      "status": "D",
+      "category": "production_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "internal/local/stage_cancel_test.go",
+      "status": "D",
+      "category": "test_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "internal/local/stage_outcome.go",
+      "status": "M",
+      "category": "production_go",
+      "diffInspected": "all_added_lines_reviewed",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build, go vet, architecture domain/application PASS; full go test ./... at final HEAD",
+      "verdict": "reviewed",
+      "findings": []
+    },
+    {
+      "path": "internal/local/stage_outcome_test.go",
+      "status": "M",
+      "category": "test_go",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "executed by go test ./... at final HEAD",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "internal/local/stage_receipts.go",
+      "status": "D",
+      "category": "production_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "internal/local/stage_receipts_test.go",
+      "status": "D",
+      "category": "test_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "internal/local/stage_retry_test.go",
+      "status": "D",
+      "category": "test_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "internal/local/state_compatibility_contract_test.go",
+      "status": "M",
+      "category": "test_go",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "executed by go test ./... at final HEAD",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "internal/local/successor_graph_store.go",
+      "status": "D",
+      "category": "production_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "internal/local/successor_graph_store_test.go",
+      "status": "D",
+      "category": "test_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "internal/local/validator_policy_store.go",
+      "status": "D",
+      "category": "production_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "internal/local/validator_policy_store_test.go",
+      "status": "D",
+      "category": "test_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "internal/local/workflow_configured_test.go",
+      "status": "D",
+      "category": "test_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "internal/local/workflow_process_test.go",
+      "status": "D",
+      "category": "test_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "internal/local/workflow_store.go",
+      "status": "M",
+      "category": "production_go",
+      "diffInspected": "all_added_lines_reviewed",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build, go vet, architecture domain/application PASS; full go test ./... at final HEAD",
+      "verdict": "reviewed",
+      "findings": []
+    },
+    {
+      "path": "internal/local/workflow_store_list_test.go",
+      "status": "D",
+      "category": "test_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "internal/local/workflow_store_test.go",
+      "status": "M",
+      "category": "test_go",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "executed by go test ./... at final HEAD",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "internal/local/workflow_store_v5_test.go",
+      "status": "D",
+      "category": "test_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "internal/project/workflow.go",
+      "status": "M",
+      "category": "production_go",
+      "diffInspected": "all_added_lines_reviewed",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build, go vet, architecture domain/application PASS; full go test ./... at final HEAD",
+      "verdict": "reviewed",
+      "findings": []
+    },
+    {
+      "path": "internal/projectapp/policy_preview.go",
+      "status": "M",
+      "category": "production_go",
+      "diffInspected": "all_added_lines_reviewed",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build, go vet, architecture domain/application PASS; full go test ./... at final HEAD",
+      "verdict": "reviewed",
+      "findings": []
+    },
+    {
+      "path": "internal/projectapp/policy_workflow.go",
+      "status": "M",
+      "category": "production_go",
+      "diffInspected": "all_added_lines_reviewed",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build, go vet, architecture domain/application PASS; full go test ./... at final HEAD",
+      "verdict": "reviewed",
+      "findings": []
+    },
+    {
+      "path": "internal/projectapp/policy_workflow_test.go",
+      "status": "M",
+      "category": "test_go",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "executed by go test ./... at final HEAD",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "internal/projectapp/readiness.go",
+      "status": "M",
+      "category": "production_go",
+      "diffInspected": "all_added_lines_reviewed",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build, go vet, architecture domain/application PASS; full go test ./... at final HEAD",
+      "verdict": "reviewed",
+      "findings": []
+    },
+    {
+      "path": "internal/projectapp/workflow_authoring.go",
+      "status": "M",
+      "category": "production_go",
+      "diffInspected": "all_added_lines_reviewed",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build, go vet, architecture domain/application PASS; full go test ./... at final HEAD",
+      "verdict": "reviewed",
+      "findings": []
+    },
+    {
+      "path": "internal/projectapp/workflow_migration_test.go",
+      "status": "M",
+      "category": "test_go",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "executed by go test ./... at final HEAD",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "internal/projectapp/workflow_profiles_v3_test.go",
+      "status": "M",
+      "category": "test_go",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "executed by go test ./... at final HEAD",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "internal/runtimeadapter/frozen_invocation.go",
+      "status": "A",
+      "category": "production_go",
+      "diffInspected": "line_by_line_full_file",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build, go vet, architecture domain/application PASS; full go test ./... at final HEAD",
+      "verdict": "reviewed",
+      "findings": []
+    },
+    {
+      "path": "internal/runtimeadapter/frozen_invocation_test.go",
+      "status": "A",
+      "category": "test_go",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "executed by go test ./... at final HEAD",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "internal/runtimeapplication/authoring.go",
+      "status": "M",
+      "category": "production_go",
+      "diffInspected": "all_added_lines_reviewed",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build, go vet, architecture domain/application PASS; full go test ./... at final HEAD",
+      "verdict": "reviewed",
+      "findings": []
+    },
+    {
+      "path": "internal/runtimeapplication/authoring_test.go",
+      "status": "M",
+      "category": "test_go",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "executed by go test ./... at final HEAD",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "internal/runtimeapplication/availability_test.go",
+      "status": "D",
+      "category": "test_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "internal/runtimeapplication/invocation.go",
+      "status": "A",
+      "category": "production_go",
+      "diffInspected": "line_by_line_full_file",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build, go vet, architecture domain/application PASS; full go test ./... at final HEAD",
+      "verdict": "reviewed",
+      "findings": []
+    },
+    {
+      "path": "internal/runtimeapplication/invocation_test.go",
+      "status": "A",
+      "category": "test_go",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "executed by go test ./... at final HEAD",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "internal/runtimeapplication/policy.go",
+      "status": "M",
+      "category": "production_go",
+      "diffInspected": "all_added_lines_reviewed",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build, go vet, architecture domain/application PASS; full go test ./... at final HEAD",
+      "verdict": "reviewed",
+      "findings": []
+    },
+    {
+      "path": "internal/runtimeapplication/policy_evaluation_test.go",
+      "status": "M",
+      "category": "test_go",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "executed by go test ./... at final HEAD",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "internal/runtimeapplication/policy_test.go",
+      "status": "D",
+      "category": "test_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "internal/runtimeapplication/policy_tuple_test.go",
+      "status": "D",
+      "category": "test_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "internal/runtimeapplication/policy_v4.go",
+      "status": "M",
+      "category": "production_go",
+      "diffInspected": "all_added_lines_reviewed",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build, go vet, architecture domain/application PASS; full go test ./... at final HEAD",
+      "verdict": "reviewed",
+      "findings": []
+    },
+    {
+      "path": "internal/runtimeprofile/runtimeprofile.go",
+      "status": "M",
+      "category": "production_go",
+      "diffInspected": "all_added_lines_reviewed",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build, go vet, architecture domain/application PASS; full go test ./... at final HEAD",
+      "verdict": "reviewed",
+      "findings": []
+    },
+    {
+      "path": "internal/runtimeprofile/v4.go",
+      "status": "M",
+      "category": "production_go",
+      "diffInspected": "all_added_lines_reviewed",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build, go vet, architecture domain/application PASS; full go test ./... at final HEAD",
+      "verdict": "reviewed",
+      "findings": []
+    },
+    {
+      "path": "internal/runtimeprofile/v4_test.go",
+      "status": "M",
+      "category": "test_go",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "executed by go test ./... at final HEAD",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "internal/stageexecution/admission.go",
+      "status": "D",
+      "category": "production_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "internal/stageexecution/admission_test.go",
+      "status": "D",
+      "category": "test_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "internal/stageexecution/admission_v4_test.go",
+      "status": "D",
+      "category": "test_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "internal/stageexecution/attempt_diagnostic.go",
+      "status": "M",
+      "category": "production_go",
+      "diffInspected": "all_added_lines_reviewed",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build, go vet, architecture domain/application PASS; full go test ./... at final HEAD",
+      "verdict": "reviewed",
+      "findings": []
+    },
+    {
+      "path": "internal/stageexecution/attempt_diagnostic_test.go",
+      "status": "D",
+      "category": "test_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "internal/stageexecution/cancel.go",
+      "status": "D",
+      "category": "production_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "internal/stageexecution/detach.go",
+      "status": "D",
+      "category": "production_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "internal/stageexecution/detach_other.go",
+      "status": "D",
+      "category": "production_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "internal/stageexecution/detach_other_test.go",
+      "status": "D",
+      "category": "test_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "internal/stageexecution/detach_posix.go",
+      "status": "D",
+      "category": "production_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "internal/stageexecution/detach_posix_test.go",
+      "status": "D",
+      "category": "test_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "internal/stageexecution/engine.go",
+      "status": "A",
+      "category": "production_go",
+      "diffInspected": "line_by_line_full_file",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build, go vet, architecture domain/application PASS; full go test ./... at final HEAD",
+      "verdict": "reviewed",
+      "findings": [
+        "F-01"
+      ]
+    },
+    {
+      "path": "internal/stageexecution/engine_ported_test.go",
+      "status": "A",
+      "category": "test_go",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "executed by go test ./... at final HEAD",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "internal/stageexecution/engine_selection_test.go",
+      "status": "A",
+      "category": "test_go",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "executed by go test ./... at final HEAD",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "internal/stageexecution/engine_test.go",
+      "status": "A",
+      "category": "test_go",
+      "diffInspected": "partial_relevant_hunks",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "executed by go test ./... at final HEAD",
+      "verdict": "partially_reviewed",
+      "findings": [
+        "F-01"
+      ]
+    },
+    {
+      "path": "internal/stageexecution/integrate.go",
+      "status": "D",
+      "category": "production_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "internal/stageexecution/integrate_test.go",
+      "status": "D",
+      "category": "test_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "internal/stageexecution/lifecycle_test.go",
+      "status": "D",
+      "category": "test_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "internal/stageexecution/preview.go",
+      "status": "D",
+      "category": "production_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "internal/stageexecution/preview_test.go",
+      "status": "D",
+      "category": "test_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "internal/stageexecution/recompiled_proposal_test.go",
+      "status": "D",
+      "category": "test_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "internal/stageexecution/reconcile.go",
+      "status": "D",
+      "category": "production_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "internal/stageexecution/reconcile_test.go",
+      "status": "D",
+      "category": "test_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "internal/stageexecution/resume.go",
+      "status": "D",
+      "category": "production_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "internal/stageexecution/retry.go",
+      "status": "D",
+      "category": "production_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "internal/stageexecution/retry_test.go",
+      "status": "D",
+      "category": "test_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "internal/stageexecution/run.go",
+      "status": "D",
+      "category": "production_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "internal/stageexecution/run_start.go",
+      "status": "A",
+      "category": "production_go",
+      "diffInspected": "line_by_line_full_file",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build, go vet, architecture domain/application PASS; full go test ./... at final HEAD",
+      "verdict": "reviewed",
+      "findings": []
+    },
+    {
+      "path": "internal/stageexecution/run_start_test.go",
+      "status": "A",
+      "category": "test_go",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "executed by go test ./... at final HEAD",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "internal/stageexecution/run_test.go",
+      "status": "D",
+      "category": "test_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "internal/stageexecution/runtime_launcher.go",
+      "status": "A",
+      "category": "production_go",
+      "diffInspected": "line_by_line_full_file",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build, go vet, architecture domain/application PASS; full go test ./... at final HEAD",
+      "verdict": "reviewed",
+      "findings": [
+        "F-01",
+        "F-02",
+        "D-04"
+      ]
+    },
+    {
+      "path": "internal/stageexecution/runtime_launcher_test.go",
+      "status": "A",
+      "category": "test_go",
+      "diffInspected": "partial_relevant_hunks",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "executed by go test ./... at final HEAD",
+      "verdict": "partially_reviewed",
+      "findings": [
+        "F-02"
+      ]
+    },
+    {
+      "path": "internal/stageexecution/runtime_output_other.go",
+      "status": "A",
+      "category": "production_go",
+      "diffInspected": "line_by_line_full_file",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build, go vet, architecture domain/application PASS; full go test ./... at final HEAD",
+      "verdict": "reviewed",
+      "findings": []
+    },
+    {
+      "path": "internal/stageexecution/runtime_output_posix.go",
+      "status": "A",
+      "category": "production_go",
+      "diffInspected": "line_by_line_full_file",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build, go vet, architecture domain/application PASS; full go test ./... at final HEAD",
+      "verdict": "reviewed",
+      "findings": []
+    },
+    {
+      "path": "internal/stageexecution/single.go",
+      "status": "D",
+      "category": "production_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "internal/stageexecution/single_lifecycle.go",
+      "status": "D",
+      "category": "production_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "internal/stageexecution/single_lifecycle_test.go",
+      "status": "D",
+      "category": "test_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "internal/stageexecution/single_test.go",
+      "status": "D",
+      "category": "test_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "internal/stageexecution/start.go",
+      "status": "D",
+      "category": "production_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "internal/stageexecution/status.go",
+      "status": "D",
+      "category": "production_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "internal/stageexecution/supervisor.go",
+      "status": "D",
+      "category": "production_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "internal/stageexecution/supervisor_preparation.go",
+      "status": "D",
+      "category": "production_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "internal/stageexecution/supervisor_preparation_test.go",
+      "status": "D",
+      "category": "test_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "internal/stageexecution/supervisor_test.go",
+      "status": "D",
+      "category": "test_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "internal/stageexecution/testdata/dispatch-rights.json",
+      "status": "D",
+      "category": "script_schema_data",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "repository automation, schema or measurement data",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "internal/stageexecution/testdata/stage-plan-v3.json",
+      "status": "D",
+      "category": "script_schema_data",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "repository automation, schema or measurement data",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "internal/stageexecution/validator_policy.go",
+      "status": "D",
+      "category": "production_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "internal/stageexecution/validator_policy_test.go",
+      "status": "D",
+      "category": "test_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "internal/stagepublication/lifecycle.go",
+      "status": "D",
+      "category": "production_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "internal/stagepublication/publisher.go",
+      "status": "D",
+      "category": "production_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "internal/stagepublication/publisher_test.go",
+      "status": "D",
+      "category": "test_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "internal/workflow/configured.go",
+      "status": "M",
+      "category": "production_go",
+      "diffInspected": "all_added_lines_reviewed",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build, go vet, architecture domain/application PASS; full go test ./... at final HEAD",
+      "verdict": "reviewed",
+      "findings": []
+    },
+    {
+      "path": "internal/workflow/configured_test.go",
+      "status": "M",
+      "category": "test_go",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "executed by go test ./... at final HEAD",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "internal/workflow/delivery_decision_test.go",
+      "status": "M",
+      "category": "test_go",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "executed by go test ./... at final HEAD",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "internal/workflow/execution.go",
+      "status": "A",
+      "category": "production_go",
+      "diffInspected": "line_by_line_full_file",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build, go vet, architecture domain/application PASS; full go test ./... at final HEAD",
+      "verdict": "reviewed",
+      "findings": []
+    },
+    {
+      "path": "internal/workflow/execution_default.go",
+      "status": "A",
+      "category": "production_go",
+      "diffInspected": "line_by_line_full_file",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build, go vet, architecture domain/application PASS; full go test ./... at final HEAD",
+      "verdict": "reviewed",
+      "findings": []
+    },
+    {
+      "path": "internal/workflow/execution_messages.go",
+      "status": "A",
+      "category": "production_go",
+      "diffInspected": "line_by_line_full_file",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build, go vet, architecture domain/application PASS; full go test ./... at final HEAD",
+      "verdict": "reviewed",
+      "findings": []
+    },
+    {
+      "path": "internal/workflow/execution_outputs.go",
+      "status": "A",
+      "category": "production_go",
+      "diffInspected": "line_by_line_full_file",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build, go vet, architecture domain/application PASS; full go test ./... at final HEAD",
+      "verdict": "reviewed",
+      "findings": []
+    },
+    {
+      "path": "internal/workflow/execution_selection_test.go",
+      "status": "A",
+      "category": "test_go",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "executed by go test ./... at final HEAD",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "internal/workflow/execution_target.go",
+      "status": "M",
+      "category": "production_go",
+      "diffInspected": "all_added_lines_reviewed",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build, go vet, architecture domain/application PASS; full go test ./... at final HEAD",
+      "verdict": "reviewed",
+      "findings": []
+    },
+    {
+      "path": "internal/workflow/execution_test.go",
+      "status": "A",
+      "category": "test_go",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "executed by go test ./... at final HEAD",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "internal/workflow/execution_transitions.go",
+      "status": "A",
+      "category": "production_go",
+      "diffInspected": "line_by_line_full_file",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build, go vet, architecture domain/application PASS; full go test ./... at final HEAD",
+      "verdict": "reviewed",
+      "findings": []
+    },
+    {
+      "path": "internal/workflow/gates.go",
+      "status": "M",
+      "category": "production_go",
+      "diffInspected": "all_added_lines_reviewed",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build, go vet, architecture domain/application PASS; full go test ./... at final HEAD",
+      "verdict": "reviewed",
+      "findings": []
+    },
+    {
+      "path": "internal/workflow/gates_test.go",
+      "status": "M",
+      "category": "test_go",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "executed by go test ./... at final HEAD",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "internal/workflow/lifecycle_test.go",
+      "status": "M",
+      "category": "test_go",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "executed by go test ./... at final HEAD",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "internal/workflow/list_test.go",
+      "status": "D",
+      "category": "test_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "internal/workflow/profile_binding_test.go",
+      "status": "M",
+      "category": "test_go",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "executed by go test ./... at final HEAD",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "internal/workflow/project_context_test.go",
+      "status": "M",
+      "category": "test_go",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "executed by go test ./... at final HEAD",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "internal/workflow/reconciliation_test.go",
+      "status": "M",
+      "category": "test_go",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "executed by go test ./... at final HEAD",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "internal/workflow/s4_contract_test.go",
+      "status": "M",
+      "category": "test_go",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "executed by go test ./... at final HEAD",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "internal/workflow/s9_dogfood_regression_test.go",
+      "status": "M",
+      "category": "test_go",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "executed by go test ./... at final HEAD",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "internal/workflow/service.go",
+      "status": "M",
+      "category": "production_go",
+      "diffInspected": "all_added_lines_reviewed",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build, go vet, architecture domain/application PASS; full go test ./... at final HEAD",
+      "verdict": "reviewed",
+      "findings": []
+    },
+    {
+      "path": "internal/workflow/stage_planning.go",
+      "status": "D",
+      "category": "production_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "internal/workflow/stage_planning_test.go",
+      "status": "D",
+      "category": "test_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "internal/workflowcompiler/compiler.go",
+      "status": "D",
+      "category": "production_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "internal/workflowcompiler/compiler_test.go",
+      "status": "D",
+      "category": "test_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "internal/workflowcompiler/profile_chain_test.go",
+      "status": "D",
+      "category": "test_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "internal/workflowcompiler/stage_plan.go",
+      "status": "D",
+      "category": "production_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "internal/workflowcompiler/stage_plan_test.go",
+      "status": "D",
+      "category": "test_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "internal/workflowcompiler/v2_test.go",
+      "status": "D",
+      "category": "test_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "internal/workflowdefinition/definition.go",
+      "status": "M",
+      "category": "production_go",
+      "diffInspected": "all_added_lines_reviewed",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build, go vet, architecture domain/application PASS; full go test ./... at final HEAD",
+      "verdict": "reviewed",
+      "findings": []
+    },
+    {
+      "path": "internal/workflowdefinition/presentation_bounds_test.go",
+      "status": "M",
+      "category": "test_go",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "executed by go test ./... at final HEAD",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "internal/workflowdefinition/v2_test.go",
+      "status": "M",
+      "category": "test_go",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "S1 technical evidence (unit/isolated stubs)",
+      "proof": "executed by go test ./... at final HEAD",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "internal/workflowdefinition/validation.go",
+      "status": "M",
+      "category": "production_go",
+      "diffInspected": "all_added_lines_reviewed",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build, go vet, architecture domain/application PASS; full go test ./... at final HEAD",
+      "verdict": "reviewed",
+      "findings": []
+    },
+    {
+      "path": "internal/workflowdefinition/workflow-v2.schema.json",
+      "status": "M",
+      "category": "script_schema_data",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "repository automation, schema or measurement data",
+      "proof": "CI docs-offline and repository validators on pushed SHA (local run NOT_RUN: approval unavailable)",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "scripts/acceptance/s9-graph-runner.go",
+      "status": "D",
+      "category": "production_go",
+      "diffInspected": "removal_verified_not_content_reaudited",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build ./... and go vet pass; production grep finds no Graph/Single/StagePlan/ValidatorPolicy store reader or writer; full go test ./... pass",
+      "verdict": "removal_consistent",
+      "findings": []
+    },
+    {
+      "path": "scripts/automation-registry.json",
+      "status": "M",
+      "category": "script_schema_data",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "repository automation, schema or measurement data",
+      "proof": "CI docs-offline and repository validators on pushed SHA (local run NOT_RUN: approval unavailable)",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "scripts/check-architecture.go",
+      "status": "M",
+      "category": "production_go",
+      "diffInspected": "all_added_lines_reviewed",
+      "contractRelevance": "S1 canonical Execution / retirement surface",
+      "proof": "go build, go vet, architecture domain/application PASS; full go test ./... at final HEAD",
+      "verdict": "reviewed",
+      "findings": []
+    },
+    {
+      "path": "scripts/test-check-project-domain.sh",
+      "status": "M",
+      "category": "script_schema_data",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "repository automation, schema or measurement data",
+      "proof": "CI docs-offline and repository validators on pushed SHA (local run NOT_RUN: approval unavailable)",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "scripts/test-check-projectapp.sh",
+      "status": "M",
+      "category": "script_schema_data",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "repository automation, schema or measurement data",
+      "proof": "CI docs-offline and repository validators on pushed SHA (local run NOT_RUN: approval unavailable)",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    },
+    {
+      "path": "scripts/test-upgrade-journeys.sh",
+      "status": "M",
+      "category": "script_schema_data",
+      "diffInspected": "category_level_only",
+      "contractRelevance": "repository automation, schema or measurement data",
+      "proof": "CI docs-offline and repository validators on pushed SHA (local run NOT_RUN: approval unavailable)",
+      "verdict": "not_reviewed_line_by_line",
+      "findings": []
+    }
+  ],
+  "review": "S1-FULL-REVIEW-CORRECTION-CLAUDE",
+  "reviewedHead": "b945ecc1f3e912b3510ee65ad7036b1c05e3ca18",
+  "schemaVersion": 1
+}

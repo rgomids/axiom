@@ -1,5 +1,5 @@
-// Package validatorpolicy owns reviewed repository commands, separate from
-// Workflow definitions, agent records and Plan documents.
+// Package validatorpolicy recognizes inert reviewed-policy history for inventory.
+// New runs use optional Workflow command validators, never this authority object.
 package validatorpolicy
 
 import (
@@ -17,8 +17,6 @@ import (
 const MaxPolicyBytes = 64 << 10
 
 var ErrInvalid = errors.New("invalid validator policy")
-var ErrAuthority = errors.New("validator policy authority denied")
-var ErrDigest = errors.New("validator policy digest drift")
 
 type Command struct {
 	Reference string   `json:"reference"`
@@ -125,8 +123,7 @@ func toCommand(c Command) gitworkspace.ValidationCommand {
 
 // portableCommand lets persisted policy structure be judged independently of
 // the reading host: argv[0] must be absolute under POSIX or Windows rules, and
-// is then checked against every other ValidationCommand rule. Commands still
-// enforces host-native validity before anything can execute.
+// is then checked against every other ValidationCommand rule without execution.
 func portableCommand(c Command) gitworkspace.ValidationCommand {
 	command := toCommand(c)
 	if len(command.Argv) == 0 || !portableAbsolute(command.Argv[0]) {
@@ -148,24 +145,4 @@ func portableAbsolute(path string) bool {
 		return true
 	}
 	return len(path) >= 3 && (path[0]|0x20) >= 'a' && (path[0]|0x20) <= 'z' && path[1] == ':' && (path[2] == '\\' || path[2] == '/')
-}
-
-// Commands binds the exact reviewed artifact referenced by a dispatch preview.
-func Commands(p Policy, expected string) ([]gitworkspace.ValidationCommand, error) {
-	actual, e := Digest(p)
-	if e != nil {
-		return nil, e
-	}
-	if !ValidDigest(expected) || actual != expected {
-		return nil, ErrDigest
-	}
-	result := make([]gitworkspace.ValidationCommand, 0, len(p.Commands))
-	for _, c := range p.Commands {
-		command := toCommand(c)
-		if !gitworkspace.ValidValidationCommand(command) {
-			return nil, ErrInvalid
-		}
-		result = append(result, command)
-	}
-	return result, nil
 }

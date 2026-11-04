@@ -89,23 +89,26 @@ type Blocker struct {
 	ProfileIDs []string `json:"profileIds,omitempty"`
 }
 
-func Validate(cfg Configuration) error {
+func Validate(cfg Configuration) error { return validateConfiguration(cfg, false) }
+
+// Optional Profiles apply only to canonical format 4, never historical formats.
+func validateConfiguration(cfg Configuration, optionalProfiles bool) error {
 	// Configuration is the format-1/2 type; format 3 is ConfigurationV3 only.
 	if cfg.FormatVersion > FormatVersionV2 {
 		return ErrUnsupportedConfigurationFormat
 	}
-	if (cfg.FormatVersion != FormatVersion && cfg.FormatVersion != FormatVersionV2) || cfg.Revision == 0 || len(cfg.Runtimes) == 0 || len(cfg.Runtimes) > maxRuntimes || len(cfg.ModelProfiles) == 0 || len(cfg.ModelProfiles) > maxProfiles {
+	if (cfg.FormatVersion != FormatVersion && cfg.FormatVersion != FormatVersionV2) || cfg.Revision == 0 || len(cfg.Runtimes) == 0 || len(cfg.Runtimes) > maxRuntimes || !optionalProfiles && len(cfg.ModelProfiles) == 0 || len(cfg.ModelProfiles) > maxProfiles {
 		return ErrInvalidConfiguration
 	}
 	runtimes := make(map[string]Runtime, len(cfg.Runtimes))
 	for _, runtime := range cfg.Runtimes {
-		if cfg.FormatVersion == FormatVersionV2 && (runtime.CredentialReference != "" || len(runtime.AllowlistedProfileIDs) == 0) {
+		if cfg.FormatVersion == FormatVersionV2 && (runtime.CredentialReference != "" || !optionalProfiles && len(runtime.AllowlistedProfileIDs) == 0) {
 			return ErrInvalidConfiguration
 		}
 		if !validToken(runtime.ID) || (runtime.Adapter != "codex" && runtime.Adapter != "claude") || runtime.ID != runtime.Adapter || !validReference(runtime.CredentialReference) || len(runtime.AllowlistedProfileIDs) > maxProfiles {
 			return ErrInvalidConfiguration
 		}
-		if _, exists := runtimes[runtime.ID]; exists || !validTokens(runtime.AllowlistedProfileIDs, false) {
+		if _, exists := runtimes[runtime.ID]; exists || !validTokens(runtime.AllowlistedProfileIDs, optionalProfiles) {
 			return ErrInvalidConfiguration
 		}
 		runtimes[runtime.ID] = runtime

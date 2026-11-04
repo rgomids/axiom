@@ -88,41 +88,6 @@ func DispatchAuthorityDigest(a DispatchAuthority) (string, error) {
 	return hex.EncodeToString(d[:]), nil
 }
 
-// ValidateGraphDispatchAuthority resolves the frozen reference and its exact
-// revision/effect scope. This does not authorize an integration attempt.
-func ValidateGraphDispatchAuthority(g SuccessorGraph, a DispatchAuthority, preview string) error {
-	d, err := DispatchAuthorityDigest(a)
-	if err != nil || ValidateSuccessorGraph(g) != nil || a.Scope != "graph-first-attempts" || a.PreviewDigest != preview || d != g.DispatchAuthorityRef || a.ParentID != g.Parent.ExecutionID || a.Revision != g.Parent.GraphRevision || a.ProposalDigest != g.Parent.ProposalDigest || a.ProjectID != g.Children[0].Envelope.Scope.ProjectID || len(a.Children) != len(g.Children) || a.RecordedAt.After(g.Parent.CreatedAt) {
-		return ErrInvalidGraph
-	}
-	for _, c := range g.Children {
-		found := false
-		for _, bound := range a.Children {
-			if bound.ChildID == c.ExecutionID && sameEffects(bound.Effects, c.Envelope.AllowedEffects) {
-				found = true
-			}
-		}
-		if !found || c.Envelope.AuthorityReference != d {
-			return ErrInvalidGraph
-		}
-	}
-	return nil
-}
-
-// CheckFirstDispatch is called immediately before starting a child. The first
-// attempt receipt cannot be reused for a retry or an integration operation.
-func CheckFirstDispatch(g SuccessorGraph, a DispatchAuthority, preview, childID string, number uint32) error {
-	if ValidateGraphDispatchAuthority(g, a, preview) != nil || number != 1 || g.CancelRequest != nil {
-		return ErrInvalidGraph
-	}
-	for _, c := range g.Children {
-		if c.ExecutionID == childID && !c.Envelope.IntegrationOwner && len(c.Attempts) == 0 {
-			return nil
-		}
-	}
-	return ErrInvalidGraph
-}
-
 func validDispatchEffects(effects []Effect) bool {
 	if len(effects) > maxListItems {
 		return false

@@ -194,6 +194,11 @@ type ProjectReadiness struct {
 // requested operation's requirement set.
 const RuntimeNotEvaluated = "not_evaluated"
 
+// RuntimeSelectedAtDispatch means no runtime prediction was performed. It
+// neither proves availability nor grants authority; the actual attempt resolves
+// its selection and records observed spawn/vendor errors.
+const RuntimeSelectedAtDispatch = "selected_at_dispatch"
+
 // Evaluate gathers read-only observations and applies EvaluateReadiness.
 func (r ProjectReadiness) Evaluate(ctx context.Context, selector string) ReadinessReport {
 	return r.evaluate(ctx, selector, true, true)
@@ -239,14 +244,10 @@ func (r ProjectReadiness) evaluate(ctx context.Context, selector string, runtime
 	}
 	input.RuntimeCode = RuntimeNotEvaluated
 	if runtime {
-		// Missing portable intent needs no machine observation.
-		input.RuntimeCode = "policy_unconfigured"
-		if project.RuntimePolicyDeclared(state) {
-			if probe, ok := r.Runtime.(SnapshotRuntimeProbe); ok && snapshotRuntime {
-				input.RuntimeCode = probe.AvailabilityFor(ctx, subject)
-			} else {
-				input.RuntimeCode = r.Runtime.Availability(ctx, state.ID)
-			}
+		if probe, ok := r.Runtime.(SnapshotRuntimeProbe); ok && snapshotRuntime {
+			input.RuntimeCode = probe.AvailabilityFor(ctx, subject)
+		} else {
+			input.RuntimeCode = r.Runtime.Availability(ctx, state.ID)
 		}
 	}
 	return EvaluateReadiness(input)
@@ -338,6 +339,8 @@ func EvaluateReadiness(in ReadinessInput) ReadinessReport {
 		runtimeCode = "policy_unconfigured"
 	}
 	switch runtimeCode {
+	case RuntimeSelectedAtDispatch:
+		report.Runtime = RuntimeReadiness{Status: RuntimeSelectedAtDispatch, Next: "Select Runtime/model/effort at workflow run; actual failures are recorded on the attempt"}
 	case "":
 		report.Runtime = RuntimeReadiness{Status: "ready"}
 	case RuntimeNotEvaluated:
@@ -351,7 +354,7 @@ func EvaluateReadiness(in ReadinessInput) ReadinessReport {
 		execution = append(execution, Finding{Code: BlockerRuntimeResolution, Detail: runtimeCode})
 	}
 
-	if runtimeCode != "" && runtimeCode != RuntimeNotEvaluated {
+	if runtimeCode != "" && runtimeCode != RuntimeNotEvaluated && runtimeCode != RuntimeSelectedAtDispatch {
 		report.Runtime.Next = PolicyRuntimeGuidance(runtimeCode)
 	}
 

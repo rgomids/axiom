@@ -56,3 +56,22 @@ func TestEncodeSchema2InvalidStructureReturnsDiagnostics(t *testing.T) {
 		t.Fatal("invalid empty definition")
 	}
 }
+
+func TestV2OutputOnlyWorkflowNeedsNoValidatorPolicy(t *testing.T) {
+	builtin, _ := BuiltinRevision(2)
+	d := builtin.Definition
+	d.Stages = d.Stages[:1]
+	d.Stages[0].Validators = []Validator{}
+	d.Stages[0].CompletionCriteria = []Criterion{}
+	doc, issues := Encode(d)
+	if len(issues) != 0 {
+		t.Fatalf("output-only v2 refused: %v", issues)
+	}
+	if len(doc.Definition.Stages[0].Outputs) == 0 {
+		t.Fatal("fixture lost required outputs")
+	}
+	d.Stages[0].CompletionCriteria = []Criterion{{ID: "bad", Description: "Must not skip a configured check", OutputRef: "result", ValidatorRef: "missing"}}
+	if _, issues := Encode(d); len(issues) == 0 {
+		t.Fatal("dangling configured validator accepted")
+	}
+}

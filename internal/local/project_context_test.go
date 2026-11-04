@@ -39,13 +39,13 @@ func TestProjectContextLocalPersistenceAndExecutionBinding(t *testing.T) {
 
 	// Existing Execution storage is ID-addressed; context updates cannot rewrite
 	// any identity, Runtime provenance, transitions or Evidence on that record.
-	executions, _ := NewWorkflowStore(root)
-	state := validExecution()
+	executions, _ := NewExecutionStore(root)
+	state := storeTestExecution(t)
 	state.ProjectID = idA
 	if err := executions.Create(ctx, state); err != nil {
 		t.Fatal(err)
 	}
-	before, err := executions.Load(ctx, idA, state.RepositoryKey, state.WorkItem)
+	before, err := executions.Load(ctx, idA, state.ExecutionID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -55,7 +55,7 @@ func TestProjectContextLocalPersistenceAndExecutionBinding(t *testing.T) {
 	if category := service.Clear(ctx, "session-one"); category != "" {
 		t.Fatal(category)
 	}
-	after, err := executions.Load(ctx, idA, state.RepositoryKey, state.WorkItem)
+	after, err := executions.Load(ctx, idA, state.ExecutionID)
 	if err != nil || !reflect.DeepEqual(before, after) {
 		t.Fatal("Execution/provenance changed", err)
 	}

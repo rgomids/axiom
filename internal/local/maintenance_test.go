@@ -71,9 +71,7 @@ func (f *cleanupFixture) execution(t *testing.T, status workflow.ExecutionStatus
 	state.WorkItem.ExternalID = fmt.Sprint(1000 + f.next)
 	state.WorkItem.URL = "https://github.com/owner/repo/issues/" + state.WorkItem.ExternalID
 	state.Transitions[0].References = references
-	if err := store.Create(context.Background(), state); err != nil {
-		t.Fatal(err)
-	}
+	seedHistoricalExecutionFixture(t, store.root, state)
 }
 
 func preservedReason(preview detailartifact.CleanupPreview, id string) string {

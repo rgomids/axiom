@@ -1,0 +1,170 @@
+{
+  "source_sha": "4de87d18a098db7518bd52d69efd159a68c246c5",
+  "baseline_sha": "0a65d9a90e907fe1904241a82878e0196418e351",
+  "scope": "All cmd/internal Go files, physical lines including comments/blanks; exported counts are explicit lexical regex declarations (not semantic reachability). Incremental S2.4, no final S3 budget/closure claim.",
+  "before": {
+    "production": {
+      "files": 307,
+      "physical_lines": 66703,
+      "exported_types_lexical": 774,
+      "exported_functions_lexical": 972
+    },
+    "tests": {
+      "files": 355,
+      "physical_lines": 74706,
+      "exported_types_lexical": 0,
+      "exported_functions_lexical": 1883
+    }
+  },
+  "after": {
+    "production": {
+      "files": 305,
+      "physical_lines": 66081,
+      "exported_types_lexical": 763,
+      "exported_functions_lexical": 956
+    },
+    "tests": {
+      "files": 350,
+      "physical_lines": 73438,
+      "exported_types_lexical": 0,
+      "exported_functions_lexical": 1854
+    }
+  },
+  "delta": {
+    "production": {
+      "files": -2,
+      "physical_lines": -622,
+      "exported_types_lexical": -11,
+      "exported_functions_lexical": -16
+    },
+    "tests": {
+      "files": -5,
+      "physical_lines": -1268,
+      "exported_types_lexical": 0,
+      "exported_functions_lexical": -29
+    }
+  },
+  "deleted_paths": [
+    "cmd/lingo/stage_fake_runtime_test.go",
+    "internal/coordination/classify_test.go",
+    "internal/coordination/coordination_test.go",
+    "internal/executiongraph/acceptance_journey_test.go",
+    "internal/executiongraph/export_test.go",
+    "internal/local/coordination_read_test.go",
+    "internal/local/coordination_store.go",
+    "internal/runtimeadapter/packet.go",
+    "internal/runtimeadapter/packet_test.go"
+  ],
+  "changed_paths": [
+    "cmd/lingo/execution_consumers_test.go",
+    "cmd/lingo/s9_dogfood_blackbox_test.go",
+    "cmd/lingo/stage_fake_runtime_test.go",
+    "internal/cli/commands.go",
+    "internal/cli/workflow_stage.go",
+    "internal/codexruntime/manifest.go",
+    "internal/codexruntime/shared_history_test.go",
+    "internal/coordination/classify_test.go",
+    "internal/coordination/coordination.go",
+    "internal/coordination/coordination_test.go",
+    "internal/coordination/history_test.go",
+    "internal/executiongraph/acceptance_journey_test.go",
+    "internal/executiongraph/export_test.go",
+    "internal/local/coordination_read_test.go",
+    "internal/local/coordination_retirement_test.go",
+    "internal/local/coordination_store.go",
+    "internal/local/inventory.go",
+    "internal/local/inventory_identity_test.go",
+    "internal/local/s8_stores_test.go",
+    "internal/local/state_compatibility_contract_test.go",
+    "internal/runtimeadapter/native_paths_test.go",
+    "internal/runtimeadapter/packet.go",
+    "internal/runtimeadapter/packet_test.go",
+    "internal/workflow/execution_test.go"
+  ],
+  "original_inventory_mapping": {
+    "cmd/lingo/execution_consumers_test.go": "expanded consumer closure outside original envelope",
+    "cmd/lingo/s9_dogfood_blackbox_test.go": "expanded consumer closure outside original envelope",
+    "cmd/lingo/stage_fake_runtime_test.go": "deletion-baseline.json",
+    "internal/cli/commands.go": "expanded consumer closure outside original envelope",
+    "internal/cli/workflow_stage.go": "deletion-baseline.json",
+    "internal/codexruntime/manifest.go": "expanded consumer closure outside original envelope",
+    "internal/codexruntime/shared_history_test.go": "expanded consumer closure outside original envelope",
+    "internal/coordination/classify_test.go": "deletion-baseline.json",
+    "internal/coordination/coordination.go": "deletion-baseline.json",
+    "internal/coordination/coordination_test.go": "deletion-baseline.json",
+    "internal/coordination/history_test.go": "expanded consumer closure outside original envelope",
+    "internal/executiongraph/acceptance_journey_test.go": "deletion-baseline.json",
+    "internal/executiongraph/export_test.go": "deletion-baseline.json",
+    "internal/local/coordination_read_test.go": "deletion-baseline.json",
+    "internal/local/coordination_retirement_test.go": "expanded consumer closure outside original envelope",
+    "internal/local/coordination_store.go": "deletion-baseline.json",
+    "internal/local/inventory.go": "expanded consumer closure outside original envelope",
+    "internal/local/inventory_identity_test.go": "expanded consumer closure outside original envelope",
+    "internal/local/s8_stores_test.go": "expanded consumer closure outside original envelope",
+    "internal/local/state_compatibility_contract_test.go": "expanded consumer closure outside original envelope",
+    "internal/runtimeadapter/native_paths_test.go": "expanded consumer closure outside original envelope",
+    "internal/runtimeadapter/packet.go": "expanded consumer closure outside original envelope",
+    "internal/runtimeadapter/packet_test.go": "expanded consumer closure outside original envelope",
+    "internal/workflow/execution_test.go": "expanded consumer closure outside original envelope"
+  },
+  "operational_messages": {
+    "before": "Execution4 Message plus obsolete format-1 Service/CoordinationStore/AcceptanceVerifier and task packet protocol",
+    "after": "workflow.Message / MessageCandidate; Execution.AcceptMessage; principal Engine.Ingest/messagePump; no alternate operational codec/store",
+    "retained_kinds": [
+      "question",
+      "answer",
+      "blocker",
+      "result"
+    ]
+  },
+  "retired_writers": [
+    "coordination.New/Service.Publish",
+    "CoordinationStore.Publish/Latest/ReadStream",
+    "coordination.AcceptanceVerifier.VerifyCoordination",
+    "coordination.ClassifierRecord",
+    "runtimeadapter.BuildTaskPacket/WithTaskPacket/PrepareTaskPacket"
+  ],
+  "retired_operational_format": "Record/Stream formatVersion 1, coordination/v1/<project>/<digest>.json; no new writes or public current-state read",
+  "survival_proofs": [
+    {
+      "path": "internal/coordination/coordination.go",
+      "invariant": "Historical released bytes recognized by upgrade inventory; no writer/store/authority verifier",
+      "removal_failure": "Removing decoder breaks compatibility TestStableCorpusResolvesToDirectUpgrade (source inspection); not executed as a destructive experiment",
+      "alternative": "Keep bounded read-only decoder; no copied replacement codec. Only production import: internal/local/inventory.go"
+    },
+    {
+      "path": "internal/workflow/gates.go, configured.go, service.go",
+      "invariant": "Historical lifecycle/delivery consumers remain until S3; canonical Execution gates are separate immutable-definition facts",
+      "alternative": "Do not remove shared legacy contracts prematurely or reopen S3; canonical message tests prove no gate/integration authority"
+    },
+    {
+      "path": "internal/executiongraph/acceptance.go",
+      "category": "G",
+      "deferred_until": "S3.4",
+      "symbols": [
+        "Evidence.CoordinationRecords",
+        "Evidence.Coordination",
+        "CoordinationVerifier",
+        "CoordinationEvidence",
+        "CoordinationQuestionRequest",
+        "CoordinationAnswer",
+        "CoordinationContractProposal",
+        "CoordinationContractAcceptance",
+        "CoordinationAccepted",
+        "BuildEvidence",
+        "verifiedCoordination",
+        "validCoordinationEvidence",
+        "coordinatedExchange"
+      ],
+      "invariant": "Retained legacy Graph Evidence format and validation, not an operational coordination owner. No production BuildEvidence caller or VerifyCoordination implementation; existing tests call BuildEvidence with nil and reject asserted/unverified coordination.",
+      "removal_failure": "Deleting the port/projection changes retained Evidence format and breaks legacy acceptance/integration evidence tests; historical removal is reserved for S3.4, not attempted destructively here.",
+      "alternative": "Keep inert code in place and accurately inventory it; no writer, codec copy, runtime wiring or test verifier presented as live evidence."
+    }
+  ],
+  "production_imports_after": [
+    "internal/local/inventory.go -> internal/coordination (historical inventory only)"
+  ],
+  "cli": "list/show read same Execution.messages; publish retained as historical refusal only, no ingress; nonzero legacy cursors refuse",
+  "graphify": "Generated graphify-out/** excluded; no generation or commit",
+  "measurement_note": "before/after/delta describe the S2.4 implementation snapshot at 08f2e0e, excluding later reconciliation corrections; current counts are reported in reconciliation-s2-integrated.md."
+}

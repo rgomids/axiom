@@ -42,7 +42,8 @@ func TestDocumentationRenderingDeterministicAndComplete(t *testing.T) {
 			}
 		})
 	})
-	if leaves != 106 || flags != 549 {
+	// S3.3 adds one human rejection leaf (7 flags) and one new-run rework input.
+	if leaves != 94 || flags != 425 {
 		t.Fatalf("public tree drifted from the accepted coverage map: leaves=%d flags=%d", leaves, flags)
 	}
 	if leaves == 0 || flags == 0 {

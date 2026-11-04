@@ -1,0 +1,90 @@
+{
+  "artifact_kind": "historical_snapshot",
+  "note": "Pre-PR / pre-Linear-linkback Specify attempt-01 receipt. True at capture time (no PR yet; linear_published false; head_sha = investigation baseline). Superseded for *current* status by PR #366, Linear comment 4ee399c9, and completion-receipt-specify-correction-01.json. Do not treat ready_to_post as an outstanding unperformed instruction. Do not rewrite this published event history.",
+  "work_item": "AXM-42",
+  "stage": "specify",
+  "attempt": "attempt-01",
+  "result": "completed",
+  "artifact_refs": [
+    "docs/research/axm-42-minimum-viable-workflow-investigation.md",
+    "docs/specifications/015-minimum-viable-operational-workflow/spec.md",
+    "docs/specifications/015-minimum-viable-operational-workflow/linear-comment-ready.md",
+    "docs/research/README.md",
+    "docs/specifications/README.md"
+  ],
+  "pr_url": null,
+  "pr_url_later": "https://github.com/rgomids/axiom/pull/366",
+  "head_sha": "440e44a68638e08e901fd3f87f5b15cd395a6365",
+  "head_sha_meaning": "investigation_baseline_not_docs_commit",
+  "docs_first_appeared_sha": "74b668460ef8f53de7323fce54f2f0adc61d646d",
+  "valid_research_permalink": "https://github.com/rgomids/axiom/blob/74b668460ef8f53de7323fce54f2f0adc61d646d/docs/research/axm-42-minimum-viable-workflow-investigation.md",
+  "invalid_historical_blob_note": "https://github.com/rgomids/axiom/blob/440e44a68638e08e901fd3f87f5b15cd395a6365/docs/research/axm-42-minimum-viable-workflow-investigation.md returns 404",
+  "published_linear_completion_comment": "https://linear.app/rgomids/issue/AXM-42#comment-4ee399c9",
+  "evidence": [
+    {
+      "kind": "source_inspection",
+      "status": "PASS",
+      "detail": "HEAD matches prompt baseline; CLI help confirms required --plan and --validator-policy"
+    },
+    {
+      "kind": "unit_test",
+      "status": "PASS",
+      "detail": "go test ./internal/stageexecution/ -run 'TestValidatorPolicy|TestAdmit'"
+    },
+    {
+      "kind": "unit_test",
+      "status": "SKIP",
+      "detail": "go test ./internal/cli/ -run TestWorkflowStage — no matching tests"
+    },
+    {
+      "kind": "live_codex_claude_e2e",
+      "status": "NOT_RUN"
+    },
+    {
+      "kind": "exploratory_29_10_repro",
+      "status": "NOT_RUN",
+      "detail": "Treated as reported; Plan+validator publisher confirmed via source; reasoning-effort-low unsupported"
+    }
+  ],
+  "technical_decisions": [
+    {
+      "id": "TD-01",
+      "summary": "Research artifacts + Proposed Spec 015 only; no product code or ADR edits as accepted",
+      "rationale": "Specify authorization bounds"
+    },
+    {
+      "id": "TD-02",
+      "summary": "A/B classified INTERNALIZE/AUTO not REMOVE",
+      "rationale": "Safety counterarguments at integrate/effects ceiling"
+    },
+    {
+      "id": "TD-03",
+      "summary": "Delegated explore inventories; Orchestrator integrated and spot-checked",
+      "rationale": "axiom-orchestrate net value for parallel code inventory"
+    }
+  ],
+  "deferred_findings": [
+    {
+      "id": "DF-01",
+      "summary": "Builtin default wire is r1 while r2 10-stage is also listed — doc/default drift",
+      "evidence": "workflowdefinition Builtin(); default-sdd-r2.json"
+    }
+  ],
+  "limitations": [
+    "At snapshot: Linear MCP authentication unavailable; later published externally as comment 4ee399c9",
+    "At snapshot: No commit/PR yet; PR #366 created afterward",
+    "Installed axiom binary revision 6ccfbfc differs from worktree HEAD — help used as UX evidence only",
+    "Live Runtime inference and full govsm repro not executed"
+  ],
+  "linear_published": false,
+  "linear_published_at_snapshot": false,
+  "linear_comment_id": null,
+  "linear_comment_url": null,
+  "linear_comment_url_later": "https://linear.app/rgomids/issue/AXM-42#comment-4ee399c9",
+  "report_pending": true,
+  "report_pending_meaning": "historical_at_capture_later_published_as_4ee399c9",
+  "ready_to_post": "docs/specifications/015-minimum-viable-operational-workflow/linear-comment-ready.md",
+  "ready_to_post_status": "historical_archived_not_current_instruction",
+  "next_gate_at_snapshot": "specification_review_and_material_architecture_decision",
+  "current_pointer": "docs/specifications/015-minimum-viable-operational-workflow/completion-receipt-specify-correction-01.json"
+}

@@ -1,13 +1,10 @@
 package main
 
 import (
-	"encoding/hex"
-	"strconv"
-
 	"github.com/rgomids/axiom/internal/cli"
 	"github.com/rgomids/axiom/internal/completion"
 	"github.com/rgomids/axiom/internal/projectapp"
-	"github.com/rgomids/axiom/internal/stageexecution"
+	"strconv"
 )
 
 // diagnosticBase uses only bounded, trusted mapper constants. Empty fields
@@ -35,7 +32,7 @@ func stageDiagnostic(category string, status completion.Status) *cli.Diagnostic 
 	case "runtime_unresolvable":
 		d.Hypotheses = []string{"Project Runtime policy, Profile intent or current executable/source observation may be unresolved; inspect the actual blocker"}
 		d.Options = []cli.DiagnosticOption{d.Options[0], {ID: "inspect-profiles", Availability: "available", Prerequisites: []string{}, Effects: []string{"read-only"}, RequiredAuthority: []string{}, Operation: "runtime profile list", Arguments: map[string]string{}, MissingArguments: []string{}, Purpose: "Inspect configured Profile intent; scoped operational preview needs its own inspection consent", Verification: cli.DiagnosticVerification{Operation: "runtime profile list", ExpectedFact: "Observe configured Profiles without inferring authentication or compatibility"}}, d.Options[1]}
-	case "stop_orphan_then_reconcile", "reconcile_lease_held":
+	case "stop_orphan_then_reconcile", "stop_orphan_then_abandon", "reconcile_lease_held":
 		d.MissingPrerequisites = []string{"Recorded process identity, observed liveness and lease ownership", "Separate stop authority where a supported stop is available"}
 		d.Options[1].Purpose = "Wait or hand off process inspection and a separately authorized stop; uncertain liveness never authorizes signaling"
 	case "confirmed_effect_reconciliation_required":
@@ -54,57 +51,10 @@ func stageDiagnostic(category string, status completion.Status) *cli.Diagnostic 
 	return d
 }
 
-func bindStageDiagnostic(d *cli.Diagnostic, t stageTarget) {
-	d.Target = map[string]string{"project": t.state.ProjectID, "execution": t.state.ExecutionID, "repository": t.state.RepositoryKey, "stage": string(t.state.Stage)}
-	if w := t.state.WorkItem; w.Provider != "" && w.Resource != "" && w.ExternalID != "" {
-		d.Target["work-item"] = w.Provider + ":" + w.Resource + "#" + w.ExternalID
-	}
-	o := &d.Options[0]
-	o.Arguments = map[string]string{"--project": t.state.ProjectID, "--execution": t.state.ExecutionID, "--repository": t.state.RepositoryKey}
-	if w := d.Target["work-item"]; w != "" && t.state.RepositoryKey != "" {
-		o.Arguments["--work-item"] = w
-		o.MissingArguments = []string{}
-		o.Availability = "available"
-		o.Prerequisites = []string{"Reobserve current state; diagnostic grants no effect authority"}
-	}
-	d.ObservedRevision = strconv.FormatUint(t.state.Revision, 10)
-	d.Observed = append(d.Observed, "Execution identity and revision observed through canonical resolution")
-	if t.single != nil && len(t.single.Attempts) > 0 {
-		d.Target["latestAttempt"] = t.single.Attempts[len(t.single.Attempts)-1].AttemptID
-	}
-	if t.request.ParentID != "" {
-		d.Target["parent"] = t.request.ParentID
-	}
-}
-
-// Partial completion requires an existing confirmed reference. Consume only
-// typed application results, never synthesize a reference from error prose.
-func stageConfirmedReferences(status completion.Status, payload any) []string {
-	if status != completion.Partial {
-		return nil
-	}
-	var ref, kind string
-	switch p := payload.(type) {
-	case stageexecution.RunResult:
-		kind = "dispatch-authority:"
-		if p.Publication.Graph != nil {
-			ref = p.Publication.Graph.DispatchAuthorityRef
-		}
-		if p.Publication.Single != nil && len(p.Publication.Single.Run.Authorities) > 0 {
-			ref = p.Publication.Single.Run.Authorities[len(p.Publication.Single.Run.Authorities)-1]
-		}
-	case stageexecution.RetryResult:
-		kind, ref = "retry-authority:", p.AuthorityRef
-	case stageexecution.SingleRetryResult:
-		kind, ref = "retry-authority:", p.AuthorityRef
-	case stageexecution.IntegrateResult:
-		kind, ref = "integration-receipt:", p.ReceiptRef
-	}
-	if wire, err := hex.DecodeString(ref); err == nil && len(wire) == 32 {
-		return []string{kind + ref}
-	}
-	return nil
-}
+// Partial completion requires an existing confirmed reference. Only the
+// retired stage dispatch produced typed partial results; no reference is
+// ever synthesized from error prose, so stage failures carry none.
+func stageConfirmedReferences(completion.Status, any) []string { return nil }
 
 func editFailureDiagnostic(f projectapp.EditFailure) *cli.Diagnostic {
 	category := "edit_invalid_intent"

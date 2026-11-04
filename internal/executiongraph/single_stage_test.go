@@ -140,7 +140,14 @@ func TestSingleStageBoundsAndScope(t *testing.T) {
 			r.Attempts = []SuccessorAttempt{finishedAttempt("00000000-0000-4000-8000-000000000002", 1, 2, AttemptFailed, ProcessFailed, r.CreatedAt)}
 		},
 	} {
-		c := CloneSingleStageRun(r)
+		wire, err := EncodeSingleStageRun(r)
+		if err != nil {
+			t.Fatal(err)
+		}
+		c, err := DecodeSingleStageRun(wire)
+		if err != nil {
+			t.Fatal(err)
+		}
 		change(&c)
 		if ValidateSingleStageRun(c) == nil {
 			t.Errorf("%s accepted", name)
@@ -148,139 +155,5 @@ func TestSingleStageBoundsAndScope(t *testing.T) {
 	}
 	if _, err := SingleStageScopeDigest(SingleStageScope{ProjectID: "p", RepositoryKey: "r", WorkItem: "w", ExecutionID: "not-a-uuid", StageID: "s"}); err == nil {
 		t.Fatal("invalid scope digested")
-	}
-}
-
-func TestSingleStageUpdateIsAppendOnly(t *testing.T) {
-	r, _ := singleStageFixture(t)
-	start := r.CreatedAt.Add(time.Second)
-	running := SuccessorAttempt{AttemptID: "00000000-0000-4000-8000-000000000002", Number: 1, Status: AttemptRunning, StartedAt: &start, LeaseEpoch: 1, PacketDigest: strings.Repeat("c", 64), Process: &ProcessCorrelation{PID: 10, StartIdentity: "s", GroupIdentity: "g"}, ReconciliationFacts: []ReconciliationFact{}}
-	withRunning := CloneSingleStageRun(r)
-	withRunning.RunEpoch = 1
-	withRunning.Attempts = []SuccessorAttempt{running}
-	if err := ValidateSingleStageUpdate(r, withRunning); err != nil {
-		t.Fatal(err)
-	}
-	done := CloneSingleStageRun(withRunning)
-	done.Attempts[0] = finishedAttempt(running.AttemptID, 1, 1, AttemptFailed, ProcessFailed, start)
-	if err := ValidateSingleStageUpdate(withRunning, done); err != nil {
-		t.Fatal(err)
-	}
-	for name, next := range map[string]func() SingleStageRun{
-		"terminal rewrite": func() SingleStageRun {
-			c := CloneSingleStageRun(done)
-			c.Attempts[0] = finishedAttempt(running.AttemptID, 1, 1, AttemptBlocked, ProcessOutcomeUnknown, start)
-			return c
-		},
-		"attempt removal": func() SingleStageRun { c := CloneSingleStageRun(done); c.Attempts = nil; return c },
-		"epoch rollback":  func() SingleStageRun { c := CloneSingleStageRun(done); c.RunEpoch = 0; return c },
-		"binding change": func() SingleStageRun {
-			c := CloneSingleStageRun(done)
-			c.Binding.PreviewDigest = strings.Repeat("e", 64)
-			return c
-		},
-		"process rewrite": func() SingleStageRun {
-			c := CloneSingleStageRun(withRunning)
-			p := *c.Attempts[0].Process
-			p.PID = 11
-			c.Attempts[0].Process = &p
-			return c
-		},
-	} {
-		base := done
-		if name == "process rewrite" {
-			base = withRunning
-		}
-		if ValidateSingleStageUpdate(base, next()) == nil {
-			t.Errorf("%s accepted", name)
-		}
-	}
-}
-
-func TestSingleStageDispatchAndRetryAuthority(t *testing.T) {
-	r, a := singleStageFixture(t)
-	if n, err := CheckSingleStageDispatch(r, a); err != nil || n != 1 {
-		t.Fatalf("first dispatch = %d %v", n, err)
-	}
-	cancelled := CloneSingleStageRun(r)
-	cancelled.CancelRequest = &CancelRequest{RequestID: "00000000-0000-4000-8000-000000000020", ParentID: r.Scope.ExecutionID, GraphRevision: 3, ActorKind: "human-operator", Actor: "op", RequestedAt: r.CreatedAt, AuthorityRef: strings.Repeat("f", 64)}
-	if _, err := CheckSingleStageDispatch(cancelled, a); err == nil {
-		t.Fatal("dispatch after cancellation")
-	}
-	drift := a
-	drift.ExecutionGeneration = strings.Repeat("0", 64)
-	if _, err := CheckSingleStageDispatch(r, drift); err == nil {
-		t.Fatal("foreign Execution3 generation dispatched")
-	}
-	failed := CloneSingleStageRun(r)
-	failed.RunEpoch = 1
-	failed.Attempts = []SuccessorAttempt{finishedAttempt("00000000-0000-4000-8000-000000000002", 1, 1, AttemptFailed, ProcessFailed, r.CreatedAt)}
-	if _, err := CheckSingleStageDispatch(failed, a); err == nil {
-		t.Fatal("consumed first-attempt receipt reused")
-	}
-	wire, _ := EncodeSingleStageRun(failed)
-	failed.StorageRevision = sha256.Sum256(wire)
-	retry := a
-	retry.AttemptNumber, retry.PriorAttemptID, retry.LedgerGeneration, retry.Disposition = 2, failed.Attempts[0].AttemptID, fmt.Sprintf("%x", failed.StorageRevision), DispositionPreserve
-	if err := CheckSingleStageRetryAuthority(failed, retry); err != nil {
-		t.Fatal(err)
-	}
-	missing := retry
-	missing.Disposition = DispositionNotRequired
-	if CheckSingleStageRetryAuthority(failed, missing) == nil {
-		t.Fatal("repository-write retry without disposition")
-	}
-	stale := retry
-	stale.LedgerGeneration = strings.Repeat("0", 64)
-	if CheckSingleStageRetryAuthority(failed, stale) == nil {
-		t.Fatal("retry on a foreign ledger generation")
-	}
-	ref, _ := SingleStageAuthorityDigest(retry)
-	pending := CloneSingleStageRun(failed)
-	pending.Authorities = append(pending.Authorities, ref)
-	if n, err := CheckSingleStageDispatch(pending, retry); err != nil || n != 2 {
-		t.Fatalf("retry dispatch = %d %v", n, err)
-	}
-	if ok, _ := SingleStageRetryEligible(pending); ok {
-		t.Fatal("second retry receipt while one is pending")
-	}
-	exhausted := CloneSingleStageRun(failed)
-	exhausted.Binding.Controls.MaximumAttempts = 1
-	if ok, _ := SingleStageRetryEligible(exhausted); ok {
-		t.Fatal("exhausted budget eligible")
-	}
-	unknown := CloneSingleStageRun(failed)
-	unknown.Attempts[0] = finishedAttempt(failed.Attempts[0].AttemptID, 1, 1, AttemptUnknown, ProcessOutcomeUnknown, r.CreatedAt)
-	unknown.Attempts[0].AmbiguousEffect = true
-	if ok, _ := SingleStageRetryEligible(unknown); ok {
-		t.Fatal("unreconciled unknown eligible")
-	}
-}
-
-func TestSingleStageReconciliationNeverChangesStatus(t *testing.T) {
-	r, _ := singleStageFixture(t)
-	r.RunEpoch = 1
-	r.Attempts = []SuccessorAttempt{finishedAttempt("00000000-0000-4000-8000-000000000002", 1, 1, AttemptUnknown, ProcessOutcomeUnknown, r.CreatedAt)}
-	o := ReconciliationObservations{ParentID: r.Scope.ExecutionID, ChildID: r.Scope.ExecutionID, GraphRevision: 3, AttemptID: r.Attempts[0].AttemptID, LeaseEpoch: 1, WorktreeDigest: strings.Repeat("1", 64), CanonicalRecordsDigest: strings.Repeat("2", 64), QuarantinedInboxDigest: strings.Repeat("3", 64)}
-	digest, _ := o.Digest()
-	f := ReconciliationFact{FactID: "00000000-0000-4000-8000-000000000030", ParentID: r.Scope.ExecutionID, ChildID: r.Scope.ExecutionID, GraphRevision: 3, AttemptID: r.Attempts[0].AttemptID, ObservationsDigest: digest, Classification: "retry_safe", AuthorityRef: strings.Repeat("4", 64), ActorKind: "human-operator", Actor: "op", RecordedAt: r.CreatedAt.Add(time.Hour)}
-	next, err := AppendSingleStageReconciliation(r, f, o)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if next.Attempts[0].Status != AttemptUnknown || len(next.Attempts[0].ReconciliationFacts) != 1 {
-		t.Fatal("reconciliation changed status")
-	}
-	if ok, _ := SingleStageRetryEligible(next); !ok {
-		t.Fatal("retry_safe unknown not eligible for explicit retry")
-	}
-	alive := o
-	alive.ProcessAlive = true
-	if _, err := AppendSingleStageReconciliation(r, f, alive); err == nil {
-		t.Fatal("retry_safe recorded with a live process")
-	}
-	f.AuthorityRef = r.Authorities[0]
-	if _, err := AppendSingleStageReconciliation(r, f, o); err == nil {
-		t.Fatal("dispatch authority reused as reconciliation authority")
 	}
 }

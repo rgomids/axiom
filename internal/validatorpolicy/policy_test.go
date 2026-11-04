@@ -3,7 +3,6 @@ package validatorpolicy
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -38,20 +37,8 @@ func TestPolicyStrictRoundTripAndDigest(t *testing.T) {
 		t.Fatal(err)
 	}
 	id, err := Digest(p)
-	if err != nil {
-		t.Fatal(err)
-	}
-	commands, err := Commands(loaded, id)
-	if err != nil || commands[0].Reference != "test" {
-		t.Fatal(commands, err)
-	}
-	commands[0].Argv[1] = "mutated"
-	commands[0].Env[0] = "changed"
-	if loaded.Commands[0].Argv[1] != "test" || loaded.Commands[0].Env[0] != "LC_ALL=C" {
-		t.Fatal("aliased commands")
-	}
-	if _, err := Commands(loaded, strings.Repeat("b", 64)); !errors.Is(err, ErrDigest) {
-		t.Fatal(err)
+	if err != nil || !ValidDigest(id) {
+		t.Fatal(id, err)
 	}
 	for _, edit := range []func(map[string]any){
 		func(m map[string]any) { m["extra"] = true }, func(m map[string]any) { m["formatVersion"] = 2 }, func(m map[string]any) { delete(m, "review") }, func(m map[string]any) { m["ProjectId"] = m["projectId"]; delete(m, "projectId") }, func(m map[string]any) { m["review"].(map[string]any)["actorKind"] = "agent-record" }, func(m map[string]any) { m["commands"].([]any)[0].(map[string]any)["argv"] = []string{"/unreviewed"} }, func(m map[string]any) { m["commands"].([]any)[0].(map[string]any)["outputMax"] = nil },

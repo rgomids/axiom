@@ -1,7 +1,6 @@
 package workflow
 
 import (
-	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -19,13 +18,6 @@ const OperationalConfiguredFormatVersion = 5
 const ProfileConfiguredWorkflowVersion = "configured-sequential-v2"
 const ConfiguredFormatVersion = 2
 const ConfiguredWorkflowVersion = "configured-sequential-v1"
-
-func sameStartContract(left, right State) bool {
-	if left.Binding == nil || right.Binding == nil {
-		return left.Binding == nil && right.Binding == nil
-	}
-	return reflect.DeepEqual(left.Binding.ResolvedProfile, right.Binding.ResolvedProfile) && reflect.DeepEqual(left.Binding.FrozenProfile, right.Binding.FrozenProfile) && left.Binding.Definition == right.Binding.Definition && left.Binding.ObservationDigest == right.Binding.ObservationDigest && left.Binding.RuntimePreview == right.Binding.RuntimePreview
-}
 
 func digestBytes(value []byte) string { sum := sha256.Sum256(value); return hex.EncodeToString(sum[:]) }
 
@@ -94,45 +86,6 @@ type ContextObservation struct {
 	Digest  string `json:"digest"`
 	Content []byte `json:"content"`
 }
-type DefinitionResolver interface {
-	ResolveDefinition(context.Context, string) (DefinitionObservation, string)
-}
-
-func validDefinitionObservation(value DefinitionObservation) bool {
-	doc, issues := workflowdefinition.Decode(value.Document.Canonical)
-	if len(issues) != 0 || doc.Ref(value.Source) != value.Document.Ref(value.Source) || !reflect.DeepEqual(doc.Definition, value.Document.Definition) || !workflowdefinition.ValidDigest(value.Digest) || !workflowdefinition.ValidDigest(value.ProjectRevision) || !workflowdefinition.ValidDigest(value.LocalRevision) {
-		return false
-	}
-	bytes := 0
-	if len(value.Contexts) > 64 {
-		return false
-	}
-	for key, c := range value.Contexts {
-		bytes += len(c.Content)
-		if !workflowdefinition.ValidKey(key) || c.Source != key || digestBytes(c.Content) != c.Digest {
-			return false
-		}
-	}
-	if bytes > workflowdefinition.MaxBytes {
-		return false
-	}
-	for _, stage := range doc.Definition.Stages {
-		for _, input := range stage.Inputs {
-			if input.Kind == "project-context" && input.Required {
-				if _, ok := value.Contexts[input.Source]; !ok {
-					return false
-				}
-			}
-		}
-	}
-	return true
-}
-
-// StageValidator is a domain-owned adapter, never an executable from a
-// definition or an agent's claimed pass flag. Unknown policies fail closed.
-type StageValidator interface {
-	ValidateStageOutput(context.Context, State, string, workflowdefinition.Stage, workflowdefinition.Output, workflowdefinition.Validator, Reference) error
-}
 type StageResult struct {
 	Inputs  map[string]Reference `json:"inputs"`
 	Outputs map[string]Reference `json:"outputs"`
@@ -149,15 +102,6 @@ type StageLedger struct {
 	Result     StageResult       `json:"result"`
 	Validators []ValidatorResult `json:"validators"`
 }
-
-func (s Service) WithDefinitions(definitions DefinitionResolver, validators StageValidator) Service {
-	s.definitions, s.validators = definitions, validators
-	return s
-}
-
-// WithProfileContract activates current admission at the production boundary.
-// Canonical historical readers and lifecycle completion keep their old meaning.
-func (s Service) WithProfileContract() Service { s.profileContract = true; return s }
 
 func bindingDocument(state State) (workflowdefinition.Document, bool) {
 	b := state.Binding
@@ -533,105 +477,4 @@ func expectedValidators(stage workflowdefinition.Stage, value StageResult) []Val
 		}
 	}
 	return results
-}
-
-func (s Service) transitionConfigured(ctx context.Context, state State, repository Repository, input TransitionInput) Result {
-	if input.ExpectedRevision != state.Revision {
-		if replayed(state, input.ExpectedRevision, digest(input)) {
-			return result(Succeeded, "workflow_transition_replayed", state)
-		}
-		return result(Denied, "stale_execution_revision", state)
-	}
-	if input.Stage != state.Stage || input.Outcome != OutcomePassed && input.Outcome != OutcomeFailed || state.Status != ExecutionActive || !validOptionalText(input.Next) || len(input.References) > maxReferences {
-		return result(ValidationFailed, "invalid_workflow_transition", state)
-	}
-	stage := CurrentStage(state)
-	action := NextGateAction(state)
-	if input.Outcome == OutcomePassed && action != nil && action.Operation == "fact" {
-		return result(Denied, "workflow_authority_required", state)
-	}
-	var ledger *StageLedger
-	if input.Outcome == OutcomePassed {
-		if input.StageResult == nil || !validStageResult(state, *stage, *input.StageResult) {
-			return result(ValidationFailed, "stage_prerequisite_missing", state)
-		}
-		for _, refs := range []map[string]Reference{input.StageResult.Inputs, input.StageResult.Outputs} {
-			for _, ref := range refs {
-				if ref.Kind == "context" {
-					continue
-				}
-				if s.references == nil || s.references.Validate(ctx, state.ExecutionID, repository.Path, ref) != nil {
-					return result(ValidationFailed, "stage_prerequisite_missing", state)
-				}
-			}
-		}
-		// Every declared output is a typed, correlated retained artifact, even
-		// when no additional completion criterion references that output.
-		for _, output := range stage.Outputs {
-			if ref, exists := input.StageResult.Outputs[output.ID]; exists {
-				if s.validators == nil || s.validators.ValidateStageOutput(ctx, state, repository.Path, *stage, output, workflowdefinition.Validator{Kind: "artifact-schema", PolicyRef: "builtin-sdd-v1"}, ref) != nil {
-					return result(ValidationFailed, "stage_validator_failed", state)
-				}
-			}
-		}
-		for _, c := range stage.CompletionCriteria {
-			for _, v := range stage.Validators {
-				if c.ValidatorRef == v.ID {
-					if v.Kind == "human-review" {
-						found := false
-						for _, event := range state.Transitions {
-							if event.From == state.Stage && event.Fact != nil && event.Fact.Kind == FactStageReview && event.Fact.ResultDigest == digest(input.StageResult) && s.references != nil && s.references.Validate(ctx, state.ExecutionID, repository.Path, event.Fact.Reference) == nil {
-								found = true
-							}
-						}
-						if !found {
-							return result(Denied, "stage_human_review_required", state)
-						}
-					}
-					var output workflowdefinition.Output
-					for _, candidate := range stage.Outputs {
-						if candidate.ID == c.OutputRef {
-							output = candidate
-						}
-					}
-					if s.validators == nil || s.validators.ValidateStageOutput(ctx, state, repository.Path, *stage, output, v, input.StageResult.Outputs[c.OutputRef]) != nil {
-						return result(ValidationFailed, "stage_validator_failed", state)
-					}
-				}
-			}
-		}
-		ledger = &StageLedger{state.StageOrdinal, stage.ID, *input.StageResult, expectedValidators(*stage, *input.StageResult)}
-	}
-	for _, ref := range input.References {
-		if !validReference(ref) || s.references == nil || s.references.Validate(ctx, state.ExecutionID, repository.Path, ref) != nil {
-			return result(ValidationFailed, "workflow_reference_unavailable", state)
-		}
-	}
-	previous := cloneState(state)
-	next := state.Stage
-	category, status := "workflow_interrupted", Interrupted
-	state.Status = ExecutionInterrupted
-	if input.Outcome == OutcomePassed {
-		category, status = "workflow_advanced", Succeeded
-		doc, _ := bindingDocument(state)
-		if state.StageOrdinal == len(doc.Definition.Stages)-1 {
-			state.Status = ExecutionCompleted
-			category = "workflow_completed"
-			state.Terminal = &Terminal{Status: completion.Success, ConfirmedEffects: []string{"local_execution_transition"}}
-		} else {
-			state.StageOrdinal++
-			next = Stage(doc.Definition.Stages[state.StageOrdinal].ID)
-			state.Status = ExecutionActive
-		}
-	}
-	event := transitionFor(state, input, next, s.now().UTC(), s.source)
-	event.Ledger = ledger
-	state.Revision++
-	state.Stage = next
-	state.UpdatedAt = event.CommittedAt
-	state.Transitions = append(state.Transitions, event)
-	if !ValidState(state) {
-		return result(ValidationFailed, "invalid_execution_state", previous)
-	}
-	return s.save(ctx, state, status, category)
 }

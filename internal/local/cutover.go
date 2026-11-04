@@ -1,0 +1,375 @@
+package local
+
+import (
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"errors"
+	"fmt"
+	"io/fs"
+	"os"
+	"path/filepath"
+	"sort"
+	"strings"
+)
+
+// Breaking cutover support (ADR-0037 §7, Plan "Breaking cutover and
+// rollback"). Everything here is read-only over the state root except the
+// backup, which writes only into a separate empty private directory. Nothing
+// converts, migrates, resumes or deletes legacy state; nothing signals a
+// process. Real installed state is inspected only under separate authority.
+
+// legacyFamilies are the pre-cutover operational roots. Their bytes are
+// preserved as inert history; they are never decoded by the new engine.
+// Capability evidence and probe envelopes have had no writer since admission
+// certification was retired (#334), so they are history too.
+var legacyFamilies = []string{
+	"executions/v1", "graphs/v1", "single-stage-runs/v1", "validator-policies/v1",
+	"run-leases/v1", "coordination", "attempt-inboxes", "delivery",
+	"capability-evidence/v1", "capability-probes",
+}
+
+// cutoverKnownRoots are the top-level names whose meaning is established.
+// Anything else makes the inventory incomplete. Roots outside legacyFamilies
+// (Projects, Work Items, workflows, Profiles, artifacts, Project context) are
+// live state that stays in place and is not part of the legacy backup.
+var cutoverKnownRoots = map[string]bool{"executions": true, "graphs": true, "single-stage-runs": true, "validator-policies": true, "run-leases": true, "coordination": true, "attempt-inboxes": true, "delivery": true, "capability-evidence": true, "capability-probes": true, "projects": true, "work-items": true, "workflows": true, "runtime-profiles": true, "artifacts": true, "project-context": true}
+
+// probeQuarantineMarker is the historical marker that preserved a probe
+// envelope's leftovers. Only directly inside an envelope is it settled history
+// rather than an interrupted publication.
+const probeQuarantineMarker = ".axiom-recovery-probe-quarantined"
+
+type CutoverFile struct {
+	Path   string `json:"path"`
+	Size   int64  `json:"size"`
+	SHA256 string `json:"sha256"`
+}
+
+type CutoverInventory struct {
+	Files    []CutoverFile `json:"files"`
+	Blockers []string      `json:"blockers"`
+}
+
+// Blocked reports whether the inventory alone forbids switching.
+func (i CutoverInventory) Blocked() bool { return len(i.Blockers) != 0 }
+
+// Digest identifies the exact inventory an operator disposition refers to.
+func (i CutoverInventory) Digest() string {
+	h := sha256.New()
+	for _, f := range i.Files {
+		fmt.Fprintf(h, "%s\x00%d\x00%s\n", f.Path, f.Size, f.SHA256)
+	}
+	return hex.EncodeToString(h.Sum(nil))
+}
+
+const maxCutoverFiles = 100_000
+
+// InspectCutover inventories legacy operational state. It BLOCKS on a held
+// runner lease (possibly active attempts), interrupted publications,
+// symlinks, unknown top-level entries or any read failure: an incomplete
+// inventory never authorizes cutover.
+func InspectCutover(ctx context.Context, stateRoot string) (CutoverInventory, error) {
+	var inv CutoverInventory
+	if err := ctx.Err(); err != nil {
+		return inv, err
+	}
+	root, err := trustedCanonical(stateRoot)
+	if err != nil {
+		return inv, err
+	}
+	directory, err := OpenOwnedDirectory(root)
+	if err != nil {
+		return inv, err
+	}
+	defer directory.Close()
+	entries, err := directory.ReadDir()
+	if err != nil {
+		return inv, err
+	}
+	for _, e := range entries {
+		if e.Type()&fs.ModeSymlink != 0 {
+			inv.Blockers = append(inv.Blockers, "symlink: "+e.Name())
+		}
+		if !e.IsDir() && e.Type()&fs.ModeSymlink == 0 {
+			inv.Blockers = append(inv.Blockers, "unexpected_state_file: "+e.Name())
+		}
+		if !cutoverKnownRoots[e.Name()] {
+			inv.Blockers = append(inv.Blockers, "unknown_state_entry: "+e.Name())
+		}
+	}
+	// These operational roots have exactly the historical v1 namespace.
+	// A new or unknown namespace cannot be omitted from a pre-switch inventory.
+	for _, family := range []string{"executions", "graphs", "single-stage-runs", "validator-policies", "run-leases", "capability-evidence"} {
+		dir, err := OpenOwnedDirectory(filepath.Join(root, family))
+		if errors.Is(err, ErrNotFound) {
+			continue
+		}
+		if err != nil {
+			inv.Blockers = append(inv.Blockers, "inventory_incomplete: "+family)
+			continue
+		}
+		versions, err := dir.ReadDir()
+		if err != nil {
+			inv.Blockers = append(inv.Blockers, "inventory_incomplete: "+family)
+		}
+		for _, version := range versions {
+			if version.Name() != "v1" || !version.IsDir() || version.Type()&fs.ModeSymlink != 0 {
+				inv.Blockers = append(inv.Blockers, "unknown_or_post_cutover_namespace: "+family+"/"+version.Name())
+			}
+		}
+		if dir.StillAtPath() != nil {
+			inv.Blockers = append(inv.Blockers, "inventory_incomplete: "+family)
+		}
+		dir.Close()
+	}
+	for _, family := range legacyFamilies {
+		base := filepath.Join(root, filepath.FromSlash(family))
+		err := filepath.WalkDir(base, func(path string, d fs.DirEntry, err error) error {
+			if err != nil {
+				if errors.Is(err, fs.ErrNotExist) && path == base {
+					return fs.SkipDir
+				}
+				return err
+			}
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
+			rel, _ := filepath.Rel(root, path)
+			rel = filepath.ToSlash(rel)
+			if d.Type()&fs.ModeSymlink != 0 {
+				inv.Blockers = append(inv.Blockers, "symlink: "+rel)
+				return nil
+			}
+			name := d.Name()
+			quarantined := family == "capability-probes" && name == probeQuarantineMarker && !d.IsDir() && filepath.Dir(filepath.Dir(path)) == base
+			if !quarantined && (strings.HasPrefix(name, ".axiom-recovery-") || strings.HasPrefix(name, ".axiom-stage-")) {
+				inv.Blockers = append(inv.Blockers, "interrupted_publication: "+rel)
+			}
+			// A cleanup intent means envelope removal stopped part-way.
+			if family == "capability-probes" && filepath.Dir(path) == base && strings.HasPrefix(name, ".probe-cleanup-") {
+				inv.Blockers = append(inv.Blockers, "interrupted_probe_cleanup: "+rel)
+			}
+			if d.IsDir() {
+				if family == "run-leases/v1" && path != base && filepath.Dir(filepath.Dir(path)) == base {
+					if held, err := probeLeaseDir(ctx, path); err != nil || held {
+						inv.Blockers = append(inv.Blockers, "runner_lease_held_or_unreadable: "+rel)
+					}
+				}
+				return nil
+			}
+			if !d.Type().IsRegular() {
+				inv.Blockers = append(inv.Blockers, "irregular_file: "+rel)
+				return nil
+			}
+			if len(inv.Files) >= maxCutoverFiles {
+				return errors.New("cutover inventory bound exceeded")
+			}
+			sum, size, err := hashFile(path)
+			if err != nil {
+				return err
+			}
+			inv.Files = append(inv.Files, CutoverFile{Path: rel, Size: size, SHA256: sum})
+			return nil
+		})
+		if err != nil && !errors.Is(err, fs.SkipDir) {
+			inv.Blockers = append(inv.Blockers, "inventory_incomplete: "+family)
+		}
+	}
+	if err := directory.StillAtPath(); err != nil {
+		return inv, err
+	}
+	sort.Slice(inv.Files, func(a, b int) bool { return inv.Files[a].Path < inv.Files[b].Path })
+	sort.Strings(inv.Blockers)
+	return inv, nil
+}
+
+// probeLeaseDir takes the lease directory lock non-blockingly without
+// changing its epoch. A held lock means a runner may own live attempts.
+func probeLeaseDir(ctx context.Context, dir string) (bool, error) {
+	if ctx.Err() != nil {
+		return false, ctx.Err()
+	}
+	r, err := os.OpenRoot(dir)
+	if err != nil {
+		return false, err
+	}
+	defer r.Close()
+	lock, err := lockDirectory(r, true)
+	if errors.Is(err, ErrConflict) {
+		return true, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return false, lock.Close()
+}
+
+func hashFile(path string) (string, int64, error) {
+	wire, err := readCutoverFile(path)
+	if err != nil {
+		return "", 0, err
+	}
+	sum := sha256.Sum256(wire)
+	return hex.EncodeToString(sum[:]), int64(len(wire)), nil
+}
+
+// readCutoverFile reuses the rooted, private, no-symlink publication reader.
+// Oversized or unreadable records block inventory rather than being skipped.
+func readCutoverFile(path string) ([]byte, error) {
+	dir, err := OpenOwnedDirectory(filepath.Dir(path))
+	if err != nil {
+		return nil, err
+	}
+	defer dir.Close()
+	wire, err := dir.ReadFile(filepath.Base(path), MaxExecutionBytes)
+	if err != nil {
+		return nil, err
+	}
+	if err := dir.StillAtPath(); err != nil {
+		return nil, err
+	}
+	return wire, nil
+}
+
+// A supplied inventory is data, never filesystem authority. Only exact relative
+// paths within legacy families can be used to read or create backup files.
+func validCutoverPath(path string) bool {
+	if !filepath.IsLocal(path) || filepath.ToSlash(filepath.Clean(path)) != path {
+		return false
+	}
+	for _, family := range legacyFamilies {
+		if strings.HasPrefix(path, family+"/") {
+			return true
+		}
+	}
+	return false
+}
+
+// BackupLegacyState copies the raw bytes of every inventoried file into an
+// empty private directory outside the state root and verifies byte identity.
+// It never decodes, converts or removes the source.
+func BackupLegacyState(ctx context.Context, stateRoot, backupDir string, inv CutoverInventory) error {
+	root, err := trustedCanonical(stateRoot)
+	if err != nil {
+		return err
+	}
+	dest, err := trustedCanonical(backupDir)
+	if err != nil {
+		return err
+	}
+	if overlap, err := RootsOverlap(root, dest); err != nil || overlap {
+		return fmt.Errorf("%w: backup must be outside the state root", ErrUnsafe)
+	}
+	info, err := os.Lstat(dest)
+	if err != nil || !info.IsDir() || info.Mode().Perm()&0o077 != 0 {
+		return fmt.Errorf("%w: backup directory must be a private directory", ErrUnsafe)
+	}
+	if entries, err := os.ReadDir(dest); err != nil || len(entries) != 0 {
+		return fmt.Errorf("%w: backup directory must be empty", ErrUnsafe)
+	}
+	if inv.Blocked() {
+		return ErrRecoveryRequired
+	}
+	for _, f := range inv.Files {
+		if !validCutoverPath(f.Path) {
+			return ErrUnsafe
+		}
+	}
+	// A caller's manifest cannot establish completeness. Re-inspect the full
+	// source before and after copying: omitted, added or changed files require
+	// a fresh operator inventory, even when each supplied hash was accurate.
+	if err := compareCutoverInventory(ctx, root, inv); err != nil {
+		return err
+	}
+	for _, f := range inv.Files {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		src := filepath.Join(root, filepath.FromSlash(f.Path))
+		wire, err := readCutoverFile(src)
+		if err != nil {
+			return err
+		}
+		sum := sha256.Sum256(wire)
+		if hex.EncodeToString(sum[:]) != f.SHA256 || int64(len(wire)) != f.Size {
+			return fmt.Errorf("%w: %s changed since inventory", ErrConflict, f.Path)
+		}
+		target := filepath.Join(dest, filepath.FromSlash(f.Path))
+		if err := os.MkdirAll(filepath.Dir(target), 0o700); err != nil {
+			return err
+		}
+		dir, err := OpenOwnedDirectory(filepath.Dir(target))
+		if err != nil {
+			return err
+		}
+		err = dir.CreateExclusive(filepath.Base(target), wire, 0o600)
+		dir.Close()
+		if err != nil {
+			return err
+		}
+	}
+	if err := compareCutoverInventory(ctx, root, inv); err != nil {
+		return err
+	}
+	return VerifyLegacyBackup(backupDir, inv)
+}
+
+func compareCutoverInventory(ctx context.Context, root string, expected CutoverInventory) error {
+	current, err := InspectCutover(ctx, root)
+	if err != nil {
+		return err
+	}
+	if current.Blocked() || len(current.Files) != len(expected.Files) || current.Digest() != expected.Digest() {
+		return fmt.Errorf("%w: cutover inventory is incomplete or changed", ErrConflict)
+	}
+	return nil
+}
+
+// VerifyLegacyBackup re-reads the complete backed-up inventory and compares its
+// bytes. Unexpected files or unsafe entries cannot be hidden by a subset manifest.
+func VerifyLegacyBackup(backupDir string, inv CutoverInventory) error {
+	for _, f := range inv.Files {
+		if !validCutoverPath(f.Path) {
+			return ErrUnsafe
+		}
+		sum, size, err := hashFile(filepath.Join(backupDir, filepath.FromSlash(f.Path)))
+		if err != nil || sum != f.SHA256 || size != f.Size {
+			return fmt.Errorf("%w: backup of %s is missing or differs", ErrConflict, f.Path)
+		}
+	}
+	return compareCutoverInventory(context.Background(), backupDir, inv)
+}
+
+// CutoverDisposition is the operator's explicit decision for one exact
+// inventory: whether a verified backup exists (or why it is infeasible) and
+// that every legacy attempt is stopped or knowingly abandoned without replay.
+type CutoverDisposition struct {
+	InventoryDigest  string
+	BackupVerified   bool
+	BackupInfeasible string
+	AttemptsDisposed bool
+	Actor            string
+}
+
+// CutoverDecision returns nil only when new-format-only starts may be
+// enabled. Every other outcome is BLOCK with the reasons to resolve.
+func CutoverDecision(inv CutoverInventory, d CutoverDisposition) error {
+	reasons := append([]string(nil), inv.Blockers...)
+	if !strings.HasPrefix(d.Actor, "human:") || strings.TrimSpace(strings.TrimPrefix(d.Actor, "human:")) == "" {
+		reasons = append(reasons, "disposition_requires_human_actor")
+	}
+	if d.InventoryDigest != inv.Digest() {
+		reasons = append(reasons, "disposition_does_not_match_inventory")
+	}
+	if !d.BackupVerified && d.BackupInfeasible == "" {
+		reasons = append(reasons, "backup_not_verified")
+	}
+	if len(inv.Files) != 0 && !d.AttemptsDisposed {
+		reasons = append(reasons, "legacy_attempt_disposition_missing")
+	}
+	if len(reasons) != 0 {
+		return fmt.Errorf("%w: cutover BLOCKED: %s", ErrRecoveryRequired, strings.Join(reasons, "; "))
+	}
+	return nil
+}

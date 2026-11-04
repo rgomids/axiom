@@ -2,9 +2,12 @@ package main
 
 import (
 	"context"
+	"sort"
+	"strings"
 
 	"github.com/rgomids/axiom/internal/cli"
 	"github.com/rgomids/axiom/internal/completion"
+	"github.com/rgomids/axiom/internal/local"
 	"github.com/rgomids/axiom/internal/projectapp"
 	"github.com/rgomids/axiom/internal/workflow"
 )
@@ -13,29 +16,113 @@ var _ cli.ExecutionListService = lifecycleService{}
 
 const executionTimeFormat = "2006-01-02T15:04:05.999999999Z07:00"
 
-// WorkflowList discovers Executions of one Project without a known identity.
-// It is classified inspection: it is admitted for an archived Project, never
-// consults a Provider and writes nothing. Sequential workflow Executions have
-// no cancellation contract, so no cancel verb exists (issue #230, F-02).
+// WorkflowList is a read-only canonical namespace observation. Legacy ledgers
+// are never read, converted or resumed by discovery.
 func (s lifecycleService) WorkflowList(ctx context.Context, input cli.ExecutionListInput) cli.ExecutionListResponse {
-	if blocked := s.gate(ctx, input.Project, projectapp.AdmitExecutionList); blocked != nil {
+	selector := input.Project
+	if selector == "" {
+		var failure cli.Result
+		selector, failure = s.EffectiveProject(ctx, "")
+		if selector == "" {
+			return cli.ExecutionListResponse{Result: failure}
+		}
+	}
+	if blocked := s.gate(ctx, selector, projectapp.AdmitExecutionList); blocked != nil {
 		return cli.ExecutionListResponse{Result: *blocked}
 	}
-	listed := s.workflows.List(ctx, workflow.Target{ProjectSelector: input.Project, RepositoryKey: input.Repository})
-	if listed.Status != workflow.Succeeded {
-		failure := workflowResult(listed, s.provenance)
-		return cli.ExecutionListResponse{Result: failure}
+	resolved := s.installation.Resolve(ctx, selector)
+	if resolved.Status != local.ResolutionFound {
+		return cli.ExecutionListResponse{Result: s.stageFailure(completion.ValidationFailure, resolved.Category, "Project could not be resolved", "Inspect project context", nil).Result}
 	}
-	views := make([]cli.ExecutionSummaryView, 0, len(listed.Executions))
-	for _, item := range listed.Executions {
-		views = append(views, cli.ExecutionSummaryView{
-			ExecutionID: item.ExecutionID, RepositoryKey: item.RepositoryKey,
-			WorkItem: cli.ExecutionWorkItemRef{Provider: item.WorkItem.Provider, Resource: item.WorkItem.Resource, ExternalID: item.WorkItem.ExternalID},
-			Status:   string(item.Status), CurrentGate: string(item.Stage), LifecycleStage: string(item.LifecycleStage), Revision: item.Revision,
-			CreatedAt: item.CreatedAt.UTC().Format(executionTimeFormat), UpdatedAt: item.UpdatedAt.UTC().Format(executionTimeFormat),
-		})
+	attached := map[string]bool{}
+	for _, r := range resolved.Project.Repositories {
+		attached[r.Key] = true
 	}
-	result := canonicalCompletion(completion.Facts{Completed: true}, "Executions listed for the Project", nil, "", s.provenance)
-	result.Category = listed.Category
+	if input.Repository != "" && !attached[input.Repository] {
+		return cli.ExecutionListResponse{Result: s.stageFailure(completion.ValidationFailure, "repository_not_configured", "Repository is not configured", "Select an attached Repository key", nil).Result}
+	}
+	store, err := local.NewExecutionStore(s.stateRoot)
+	if err != nil {
+		return cli.ExecutionListResponse{Result: s.stageFailure(completion.Failure, "invalid_state_root", "Execution state root is unsafe", "Inspect local state", nil).Result}
+	}
+	c := executionComposition{s: s, store: store, project: resolved.Project}
+	xs, err := store.List(ctx, resolved.Project.ID)
+	if err != nil {
+		return cli.ExecutionListResponse{Result: c.failure(err, nil).Result}
+	}
+	views := make([]cli.ExecutionSummaryView, 0, len(xs))
+	for _, x := range xs {
+		if !attached[x.WorkItem.RepositoryKey] || input.Repository != "" && input.Repository != x.WorkItem.RepositoryKey {
+			continue
+		}
+		resource, id := executionWorkItemIdentity(x.WorkItem)
+		stage := ""
+		for _, current := range x.Stages {
+			if current.Status != workflow.StageCompleted {
+				stage = current.StageID
+				break
+			}
+		}
+		views = append(views, cli.ExecutionSummaryView{ExecutionID: x.ExecutionID, RepositoryKey: x.WorkItem.RepositoryKey, WorkItem: cli.ExecutionWorkItemRef{Provider: x.WorkItem.Provider, Resource: resource, ExternalID: id}, Status: string(x.Status), CurrentGate: stage, Revision: x.Revision, CreatedAt: x.CreatedAt.UTC().Format(executionTimeFormat), UpdatedAt: x.UpdatedAt.UTC().Format(executionTimeFormat)})
+	}
+	sort.Slice(views, func(i, j int) bool {
+		a, b := views[i], views[j]
+		if a.RepositoryKey != b.RepositoryKey {
+			return a.RepositoryKey < b.RepositoryKey
+		}
+		if a.WorkItem.ExternalID != b.WorkItem.ExternalID {
+			return a.WorkItem.ExternalID < b.WorkItem.ExternalID
+		}
+		return a.ExecutionID < b.ExecutionID
+	})
+	result := canonicalCompletion(completion.Facts{Completed: true}, "Canonical Executions listed", nil, "", s.provenance)
+	result.Category = "executions_listed"
 	return cli.ExecutionListResponse{Result: result, Executions: views, Listed: true}
+}
+
+// executionWorkItemIdentity inverts workItemToken. Owner and repository never
+// contain ':', so a GitHub token splits into exactly three parts; the result
+// must still be a canonical selector. Anything else is never guessed into an
+// identity and therefore fails any Work Item selector comparison.
+func executionWorkItemIdentity(link workflow.WorkItemLink) (string, string) {
+	if parts := strings.Split(link.ID, ":"); link.Provider == "github" && len(parts) == 3 {
+		if _, resource, id, ok := cli.ParseWorkItemSelector("github:" + parts[0] + "/" + parts[1] + "#" + parts[2]); ok {
+			return resource, id
+		}
+	}
+	return "", link.ID
+}
+
+func (s lifecycleService) canonicalWorkflowInspection(ctx context.Context, input cli.WorkflowInput, evidence bool) cli.Result {
+	response := s.executionStage(ctx, cli.WorkflowStageInput{Operation: "status", Project: input.Project, Execution: input.Execution})
+	if response.Payload == nil {
+		return response.Result
+	}
+	view, ok := response.Payload.(executionView)
+	if !ok {
+		return response.Result
+	}
+	if input.Repository != "" && input.Repository != view.WorkItem.RepositoryKey {
+		return s.stageFailure(completion.ValidationFailure, "execution_selector_conflict", "Execution does not match Repository selector", "Inspect the exact Execution identity", nil).Result
+	}
+	resource, id := executionWorkItemIdentity(view.WorkItem)
+	if input.Provider != "" && input.Provider != view.WorkItem.Provider || input.ProviderRepository != "" && input.ProviderRepository != resource || input.ExternalID != "" && input.ExternalID != id {
+		return s.stageFailure(completion.ValidationFailure, "execution_selector_conflict", "Execution does not match Work Item selector", "Inspect the exact Execution identity", nil).Result
+	}
+	current := ""
+	for _, stage := range view.Stages {
+		if stage.Status != workflow.StageCompleted {
+			current = stage.StageID
+			break
+		}
+	}
+	result := response.Result
+	result.Workflow = &cli.WorkflowView{ExecutionKind: "canonical", ExecutionID: view.ExecutionID, WorkflowVersion: view.WorkflowRevision, Status: string(view.Status), CurrentGate: current, Revision: view.Revision, RepositoryKey: view.WorkItem.RepositoryKey, WorkItem: cli.WorkItemView{ProjectID: view.ProjectID, RepositoryKey: view.WorkItem.RepositoryKey, Provider: view.WorkItem.Provider, Resource: resource, ExternalID: id}}
+	// The bounded canonical view includes immutable attempt outcomes, artifacts
+	// and reconciliation facts; it never exposes invocation text or local paths.
+	result.Maintenance = view
+	if evidence {
+		result.Category = "workflow_evidence_ready"
+	}
+	return result
 }

@@ -1,0 +1,123 @@
+{
+  "schema_version": 1,
+  "attempt": "IMPLEMENT-S3-02-CURSOR-01",
+  "code_sha": "8dbc799bff58caaed2c954ae1c8a3b67e1daa262",
+  "baseline_sha": "d4e35c433e45208c89998118cf52da76c21cca9d",
+  "checks": [
+    {
+      "check": "focused",
+      "status": "PASS",
+      "exit_code": 0,
+      "command": "GOTOOLCHAIN=go1.26.0 go test ./internal/stageexecution ./cmd/lingo ./internal/cli ./internal/codexruntime -run 'TestExecutionDelivery|TestPublicExecutionDelivery|TestRepositoryReadiness|TestRepositoryOutcomes|TestEveryPublishedSharedRevisionStaysOwned|TestRuntimeOnlyHistoryIsFrozen|TestCanonicalRoutingContract' -count=1",
+      "source_sha": "8dbc799bff58caaed2c954ae1c8a3b67e1daa262",
+      "stdout_sha256": "71f08793c353f68befe828f30a1922fd4e2ed4663f6033e7447649af9532ce6e",
+      "qualification": "deterministic local checks"
+    },
+    {
+      "check": "full",
+      "status": "PASS",
+      "exit_code": 0,
+      "command": "GOTOOLCHAIN=go1.26.0 go test ./... -timeout=15m",
+      "source_sha": "8dbc799bff58caaed2c954ae1c8a3b67e1daa262",
+      "stdout_sha256": "833f66f11c9730d6c8b4c4bcccd0aa71ac3055b3ff44f3133c94e85f1a084f6b",
+      "qualification": "deterministic local checks"
+    },
+    {
+      "check": "quality",
+      "status": "PASS",
+      "exit_code": 0,
+      "command": "GOROOT=<cached-go1.26.0> PATH=<cached-go1.26.0>/bin:$PATH STATICCHECK=<installed-staticcheck-v0.8.1> ./scripts/check-go-quality.sh all",
+      "source_sha": "8dbc799bff58caaed2c954ae1c8a3b67e1daa262",
+      "stdout_sha256": "2fe1a814ffc2e970a8c97c008d59f20f067448e6f02fef8a42d705cc7ba1a0ea",
+      "qualification": "deterministic local checks"
+    },
+    {
+      "check": "vet",
+      "status": "PASS",
+      "exit_code": 0,
+      "command": "GOTOOLCHAIN=go1.26.0 go vet ./...",
+      "source_sha": "8dbc799bff58caaed2c954ae1c8a3b67e1daa262",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "qualification": "deterministic local checks"
+    },
+    {
+      "check": "build",
+      "status": "PASS",
+      "exit_code": 0,
+      "command": "GOTOOLCHAIN=go1.26.0 go build ./...",
+      "source_sha": "8dbc799bff58caaed2c954ae1c8a3b67e1daa262",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "qualification": "deterministic local checks"
+    },
+    {
+      "check": "governance",
+      "status": "PASS",
+      "exit_code": 0,
+      "command": "./scripts/validate-repository.sh .",
+      "source_sha": "a1e35ffe3ff30ea6f0faf738bcb85521e40e0bef",
+      "stdout_sha256": "720eb0e84d1147355dc9ac745c9a05bbea5459ecc9e9f7f291c324e16ff4a558",
+      "qualification": "deterministic local checks"
+    },
+    {
+      "check": "quality_contracts",
+      "status": "PASS",
+      "exit_code": 0,
+      "command": "GOROOT=<cached-go1.26.0> PATH=<cached-go1.26.0>/bin:<installed-staticcheck-dir>:$PATH python3 scripts/test-go-quality.py",
+      "source_sha": "a1e35ffe3ff30ea6f0faf738bcb85521e40e0bef",
+      "stdout_sha256": "6bda82e2eb0dae9d87ba2621cae58ee678cb670db6371f559543b743ac064b52",
+      "qualification": "deterministic local checks"
+    },
+    {
+      "check": "delivery_contracts",
+      "status": "PASS",
+      "exit_code": 0,
+      "command": "./scripts/test-delivery.sh",
+      "source_sha": "a1e35ffe3ff30ea6f0faf738bcb85521e40e0bef",
+      "stdout_sha256": "4c3a30e2c8d37612cd66da3af7689313d4633b3844118b771cb693e68005855d",
+      "qualification": "deterministic local checks"
+    },
+    {
+      "check": "correction_contracts",
+      "status": "PASS",
+      "exit_code": 0,
+      "command": "./scripts/test-delivery-correction.sh",
+      "source_sha": "a1e35ffe3ff30ea6f0faf738bcb85521e40e0bef",
+      "stdout_sha256": "dc0d9319386deda59f30f5d0ceaee43cced7374acc0346c3cea005970e97239a",
+      "qualification": "deterministic local checks"
+    },
+    {
+      "check": "installed_docs",
+      "status": "PASS",
+      "exit_code": 0,
+      "command": "GOTOOLCHAIN=go1.26.0 ./scripts/test-docs-offline.sh",
+      "source_sha": "a1e35ffe3ff30ea6f0faf738bcb85521e40e0bef",
+      "stdout_sha256": "fdb85e30b2b51560eaca546fcc61347d9abba0bccdae5643ab18d86bc775576a",
+      "qualification": "PARTIAL; native Runtime/network/source denial NOT_RUN"
+    }
+  ],
+  "test_names": [
+    "TestExecutionDeliveryDeniedEffectsHaveZeroCalls",
+    "TestExecutionDeliveryIntentCorrelationAndNoReplay",
+    "TestExecutionDeliveryLostResponseInspectOnlyExactTarget",
+    "TestExecutionDeliveryDriftAndRevocationBeforeEffect",
+    "TestExecutionDeliveryConcurrentLeaseStaleFenceAndHistory",
+    "TestExecutionDeliveryCrashAfterIntentNeverReeffects",
+    "TestExecutionDeliveryWrongObservedPRNeverConfirms",
+    "TestExecutionDeliveryCodecRefusesFabricatedConfirmation",
+    "TestExecutionDeliveryPushThenPRUsesSameExecution",
+    "TestPublicExecutionDeliveryExactGrantAndChildDenial"
+  ],
+  "not_run": [
+    "remote CI for local S3.2 source",
+    "race: CGO disabled and gcc unavailable",
+    "gitleaks: unavailable",
+    "real Codex/Claude vendor E2E and test battery: not authorized",
+    "real delivery push/PR, cutover, merge, release, product acceptance: not authorized"
+  ],
+  "github_published": false,
+  "remaining_scope": [
+    "publication under separate authority",
+    "independent REVIEW_S3_2",
+    "S3.3 through S3.5 untouched"
+  ]
+}

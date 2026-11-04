@@ -2,145 +2,20 @@ package main
 
 import (
 	"context"
-	"os"
-	"path/filepath"
-	"strings"
+	"errors"
 
 	"github.com/rgomids/axiom/internal/cli"
-	"github.com/rgomids/axiom/internal/coordination"
-	"github.com/rgomids/axiom/internal/executiongraph"
-	"github.com/rgomids/axiom/internal/local"
 )
 
-func attemptInbox(workspace, attempt string) string {
-	return filepath.Join(filepath.Dir(filepath.Dir(workspace)), "inboxes", filepath.Base(workspace), attempt)
-}
+var (
+	errChildContext   = errors.New("running child context required")
+	errRecordNotFound = errors.New("execution message not found")
+)
 
-// Correlation is a selector, never authority. The protected graph supplies the
-// running attempt, epoch and locations; publish has no flags for those fields.
-type persistedChildResolver struct {
-	graphs                          local.GraphStore
-	leases                          local.RunLeaseStore
-	singles                         local.SingleStageStore
-	executions                      local.WorkflowStore
-	project, parent, child, attempt string
-}
-
-func (r persistedChildResolver) ResolveChild(ctx context.Context, cwd string) (coordination.ChildContext, error) {
-	held, err := r.leases.Probe(ctx, r.project, r.parent)
-	if err != nil || !held {
-		return coordination.ChildContext{}, coordination.ErrChildContext
-	}
-	if r.parent == r.child {
-		return r.resolveSingle(ctx, cwd)
-	}
-	g, err := r.graphs.LoadSuccessor(ctx, r.project, r.parent)
-	if err != nil {
-		return coordination.ChildContext{}, coordination.ErrChildContext
-	}
-	for _, c := range g.Children {
-		if c.ExecutionID != r.child || len(c.Attempts) == 0 {
-			continue
-		}
-		a := c.Attempts[len(c.Attempts)-1]
-		if a.AttemptID != r.attempt || a.Status != executiongraph.AttemptRunning {
-			break
-		}
-		binding := coordination.ChildContext{Workspace: c.Envelope.Workspace, Inbox: attemptInbox(c.Envelope.Workspace, a.AttemptID), ParentID: r.parent, ChildID: r.child, AttemptID: r.attempt, GraphRevision: g.Parent.GraphRevision, Epoch: a.LeaseEpoch, Running: true}
-		// Read-only adapters use the inbox as their CWD. Both paths are exact
-		// persisted locations; unrelated descendants are deliberately refused.
-		if cwd != binding.Workspace && cwd != binding.Inbox {
-			break
-		}
-		return binding, nil
-	}
-	return coordination.ChildContext{}, coordination.ErrChildContext
-}
-
-// resolveSingle binds the running attempt of the Execution's current single
-// stage; the Execution is both parent and Runtime identity there.
-func (r persistedChildResolver) resolveSingle(ctx context.Context, cwd string) (coordination.ChildContext, error) {
-	states, err := r.executions.List(ctx, r.project)
-	if err != nil {
-		return coordination.ChildContext{}, coordination.ErrChildContext
-	}
-	for _, state := range states {
-		if state.ExecutionID != r.parent {
-			continue
-		}
-		run, err := loadStageSingle(ctx, r.singles, state)
-		if err != nil || run == nil || len(run.Attempts) == 0 {
-			break
-		}
-		a := run.Attempts[len(run.Attempts)-1]
-		if a.AttemptID != r.attempt || a.Status != executiongraph.AttemptRunning {
-			break
-		}
-		binding := coordination.ChildContext{Workspace: run.Binding.Workspace, Inbox: attemptInbox(run.Binding.Workspace, a.AttemptID), ParentID: r.parent, ChildID: r.child, AttemptID: r.attempt, GraphRevision: run.Binding.WorkflowRevision, Epoch: a.LeaseEpoch, Running: true}
-		if cwd != binding.Workspace && cwd != binding.Inbox {
-			break
-		}
-		return binding, nil
-	}
-	return coordination.ChildContext{}, coordination.ErrChildContext
-}
-
-type boundChildResolver struct{ context coordination.ChildContext }
-
-func (r boundChildResolver) ResolveChild(ctx context.Context, workspace string) (coordination.ChildContext, error) {
-	if ctx.Err() != nil {
-		return coordination.ChildContext{}, ctx.Err()
-	}
-	if r.context.Workspace != workspace {
-		return coordination.ChildContext{}, coordination.ErrChildContext
-	}
-	return r.context, nil
-}
-
+// No environment-provided Graph/Single identity can publish after cutover.
+// A running Codex or Claude child publishes only into its own attempt's
+// message area; the engine binds it to the attempt and fence (S2.2). This CLI
+// leaf has no attempt context and therefore always refuses.
 func (s lifecycleService) stagePublish(ctx context.Context, in cli.WorkflowStageInput) cli.WorkflowStageResponse {
-	graphs, err := local.NewGraphStore(s.stateRoot)
-	if err != nil {
-		return s.stageError(err, nil)
-	}
-	leases, err := local.NewRunLeaseStore(s.stateRoot)
-	if err != nil {
-		return s.stageError(err, nil)
-	}
-	cwd, err := os.Getwd()
-	if err != nil {
-		return s.stageError(coordination.ErrChildContext, nil)
-	}
-	singles, err := local.NewSingleStageStore(s.stateRoot)
-	if err != nil {
-		return s.stageError(err, nil)
-	}
-	executions, err := local.NewWorkflowStore(s.stateRoot)
-	if err != nil {
-		return s.stageError(err, nil)
-	}
-	resolver := persistedChildResolver{graphs: graphs, leases: leases, singles: singles, executions: executions, project: os.Getenv("AXIOM_CORRELATION_ID"), parent: os.Getenv("AXIOM_EXECUTION_ID"), child: os.Getenv("AXIOM_GRAPH_ID"), attempt: os.Getenv("AXIOM_ATTEMPT_ID")}
-	c, err := resolver.ResolveChild(ctx, cwd)
-	if err != nil {
-		return s.stageError(err, nil)
-	}
-	inbox, err := local.NewAttemptInbox(c)
-	if err != nil {
-		return s.stageError(err, nil)
-	}
-	fields := make([]coordination.Field, 0, len(in.Fields))
-	for _, field := range in.Fields {
-		name, value, ok := strings.Cut(field, "=")
-		if !ok || name == "" {
-			return s.stageError(coordination.ErrInvalidRecord, nil)
-		}
-		fields = append(fields, coordination.Field{Name: name, Value: value})
-	}
-	// Append checks the inbox's original binding, including epoch; no canonical
-	// record is published until the supervisor's fenced ingestion accepts it.
-	publisher := coordination.InboxPublisher{Resolver: boundChildResolver{c}, Inbox: inbox, AllocateID: allocateStageID}
-	candidate, err := publisher.Publish(ctx, c.Workspace, coordination.Kind(in.Kind), fields, nil, coordination.Provenance{Product: "axiom", Version: "development", Revision: "unavailable", SourceState: "child-inbox"})
-	if err != nil {
-		return s.stageError(err, nil)
-	}
-	return s.stageSuccess("coordination_candidate_published", "Coordination candidate appended to the attempt inbox", []string{"coordination-candidate:" + candidate.Record.RecordID}, "The supervisor validates and ingests this candidate into the canonical stream", candidate)
+	return s.stageError(errChildContext, nil)
 }

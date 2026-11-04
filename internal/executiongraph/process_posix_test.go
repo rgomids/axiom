@@ -331,12 +331,7 @@ func TestOSProcessRunnerStopsDescendants(t *testing.T) {
 			if mode == "completion" && result.ExitCode != 0 {
 				t.Fatalf("completion exit=%d", result.ExitCode)
 			}
-			if mode == "completion" {
-				status, reason, _ := ClassifyAttempt(result, true, AttemptCorrelation{}, nil)
-				if status != AttemptUnknown || reason != ProcessOutcomeUnknown {
-					t.Fatalf("unobserved descendant effects classified as %s/%s", status, reason)
-				}
-			}
+
 		})
 	}
 }

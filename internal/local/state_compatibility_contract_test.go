@@ -19,11 +19,13 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/rgomids/axiom/internal/executiongraph"
 	"github.com/rgomids/axiom/internal/manifest"
 	"github.com/rgomids/axiom/internal/project"
 	"github.com/rgomids/axiom/internal/projectapp"
+	"github.com/rgomids/axiom/internal/validatorpolicy"
 	"github.com/rgomids/axiom/internal/workflow"
 	"github.com/rgomids/axiom/internal/workflowdefinition"
 	"github.com/rgomids/axiom/internal/workitem"
@@ -34,7 +36,7 @@ import (
 // different gap:
 //
 //   - every top-level directory a store opens is classified by the inventory;
-//   - every v1 kind is produced by a real writer and read back as supported;
+//   - current writer output and inert historical kinds are recognized;
 //   - the frozen stable corpus (internal/compatibility/testdata/stable-v1),
 //     written by earlier writers, keeps resolving to a direct upgrade.
 
@@ -128,14 +130,14 @@ func TestEveryV1WriterIsRecognizedByInventory(t *testing.T) {
 		}
 		for _, entry := range inventory.Entries {
 			if !entry.Kind.Supported() || entry.Kind == InventoryPOCWorkflow {
-				t.Errorf("v1 writer output %s classified as %s", entry.Relative, entry.Kind)
+				t.Errorf("v1 current/historical fixture %s classified as %s", entry.Relative, entry.Kind)
 			}
 			observed[entry.Kind] = true
 		}
 	}
 	for _, kind := range append(V1Kinds(), AdditiveKinds()...) {
 		if kind != InventoryCapabilityEvidence && !observed[kind] {
-			t.Errorf("v1 kind %s is not produced by any writer in writeEveryV1Kind: exercise its store here", kind)
+			t.Errorf("v1 kind %s has no current writer or inert historical fixture in writeEveryV1Kind", kind)
 		}
 	}
 	names, err := os.ReadDir(state)
@@ -155,7 +157,7 @@ func TestEveryV1WriterIsRecognizedByInventory(t *testing.T) {
 	slices.Sort(written)
 	slices.Sort(expected)
 	if !slices.Equal(written, expected) {
-		t.Errorf("writers produced top-level directories %v, want every v1 directory %v", written, expected)
+		t.Errorf("current/historical fixtures cover directories %v, want every v1 directory %v", written, expected)
 	}
 	if label := os.Getenv(freezeCorpusEnv); label != "" {
 		corpus := filepath.Join("..", "compatibility", "testdata", "stable-v1")
@@ -173,7 +175,7 @@ func TestEveryV1WriterIsRecognizedByInventory(t *testing.T) {
 	}
 }
 
-// writeEveryV1Kind drives each v1 store's public write path into fresh roots.
+// writeEveryV1Kind exercises retained stores and frozen history in fresh roots.
 func writeEveryV1Kind(t *testing.T) (string, string) {
 	t.Helper()
 	base := privateTestRoot(t)
@@ -229,15 +231,18 @@ func writeEveryV1Kind(t *testing.T) (string, string) {
 	evidence := fixture.create(t, 800*day, evidenceDraft)
 	fixture.retire(t, evidence.ID, cleanupClock)
 
-	graphs, err := NewGraphStore(state)
-	if err != nil {
-		t.Fatal(err)
-	}
 	successor, authority := localDispatch(t)
+	failed := localSuccessor(t, "process_failed")
 	graph := executiongraph.Graph{FormatVersion: 2, Parent: successor.Parent}
 	for _, child := range successor.Children {
 		graph.Children = append(graph.Children, executiongraph.ChildExecution{ExecutionID: child.ExecutionID, ParentID: child.ParentID, GraphRevision: child.GraphRevision, NodeKey: child.NodeKey, Envelope: child.Envelope})
 	}
+	historicalFixtureWire(t, state, "graphs", authority.ProjectID, graphName(authority.ParentID), mustHistoricalWire(executiongraph.EncodeSuccessorGraph(failed)))
+	historicalFixtureWire(t, state, "graphs", authority.ProjectID, successor.DispatchAuthorityRef+".json", mustHistoricalWire(executiongraph.EncodeDispatchAuthority(authority)))
+	retry := localRetryAuthority(failed)
+	historicalFixtureDigestWire(t, state, "graphs", authority.ProjectID, mustHistoricalWire(executiongraph.EncodeRetryAuthority(retry)))
+	historicalFixtureDigestWire(t, state, "graphs", authority.ProjectID, mustHistoricalWire(executiongraph.EncodeIntegrationReceipt(localIntegrationReceipt(failed))))
+	historicalFixtureDigestWire(t, state, "graphs", authority.ProjectID, mustHistoricalWire(executiongraph.EncodeDispatchInputs(localDispatchInputs(failed, "00000000-0000-4000-8000-0000000005e1", "implementation"))))
 	leases, err := NewRunLeaseStore(state)
 	if err != nil {
 		t.Fatal(err)
@@ -246,20 +251,7 @@ func writeEveryV1Kind(t *testing.T) (string, string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := graphs.CommitDispatch(context.Background(), successor, authority, authority.PreviewDigest, lease); err != nil {
-		t.Fatal(err)
-	}
 	if err := lease.Close(); err != nil {
-		t.Fatal(err)
-	}
-	failed := failLocalFirstAttempt(t, graphs, leases, authority.ProjectID, authority.ParentID)
-	if _, err := graphs.CommitRetry(context.Background(), failed, localRetryAuthority(failed)); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := graphs.CommitIntegrationReceipt(context.Background(), failed, localIntegrationReceipt(failed)); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := graphs.CommitDispatchInputs(context.Background(), localDispatchInputs(failed, "00000000-0000-4000-8000-0000000005e1", "implementation")); err != nil {
 		t.Fatal(err)
 	}
 	ledgers, err := NewWorkflowStore(state)
@@ -268,45 +260,30 @@ func writeEveryV1Kind(t *testing.T) (string, string) {
 	}
 	v3 := createLocalOperationalExecution(t, ledgers)
 	single, singleAuthority := localSingleStage(t, v3)
-	singles, err := NewSingleStageStore(state)
-	if err != nil {
-		t.Fatal(err)
-	}
-	singleLease, err := leases.Acquire(context.Background(), single.Scope.ProjectID, single.Scope.ExecutionID, 0)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := singles.CommitAuthority(context.Background(), single, singleAuthority, v3, singleLease); err != nil {
-		t.Fatal(err)
-	}
-	if err := singleLease.Close(); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := ledgers.RecordStageOutcome(context.Background(), v3, localStageOutcome(v3, "00000000-0000-4000-8000-000000000095")); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := ledgers.RecordDeliveryPacket(context.Background(), v3, localDeliveryPacket(v3)); err != nil {
-		t.Fatal(err)
-	}
+	historicalFixtureWire(t, state, "single-stage-runs", single.Scope.ProjectID, singleStageName(single.ScopeDigest), mustHistoricalWire(executiongraph.EncodeSingleStageRun(single)))
+	historicalFixtureDigestWire(t, state, "single-stage-runs", single.Scope.ProjectID, mustHistoricalWire(executiongraph.EncodeSingleStageAuthority(singleAuthority)))
+	outcomeWire := mustHistoricalWire(executiongraph.EncodeStageOutcome(localStageOutcome(v3, "00000000-0000-4000-8000-000000000095")))
+	historicalFixtureDigestWire(t, state, "executions", v3.ProjectID, outcomeWire)
+	seedHistoricalPacket(t, ledgers, localDeliveryPacket(v3))
 	publication := workflow.DeliveryPublication{FormatVersion: 1, Kind: "delivery_publication", Preview: workflow.DeliveryPreview{Packet: localDeliveryPacket(v3), Target: workflow.DeliveryTarget{Kind: "local"}}, Status: "failure", Push: "not_requested", PR: "not_requested", Next: "inspect"}
 	publication.Preview.PacketDigest, _ = workflow.DeliveryPacketDigest(publication.Preview.Packet)
-	if err := ledgers.SaveDeliveryPublication(context.Background(), v3, publication, nil); err != nil {
-		t.Fatal(err)
-	}
+	historicalFixtureWire(t, state, "executions", v3.ProjectID, publicationName(publication.Preview.Digest()), mustHistoricalWire(workflow.EncodeDeliveryPublication(publication)))
 	original, rework := localReworkFixture(t, ledgers, v3)
-	if err := ledgers.Save(context.Background(), original); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := ledgers.ApplyDeliveryRework(context.Background(), original, rework); err != nil {
-		t.Fatal(err)
-	}
-	streams, err := NewCoordinationStore(state, authority.ProjectID)
+	projectionWire, err := json.Marshal(deliveryProjection{1, "delivery_projection", original.ProjectID, original.ExecutionID, original.DeliveryDecision.Digest(), hexDigestRevision(original.StorageRevision), original.Projections})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := streams.Publish(context.Background(), coordinationRecord(graph)); err != nil {
+	historicalFixtureWire(t, state, "executions", original.ProjectID, deliveryProjectionName(original.ExecutionID), projectionWire)
+	originalWire := mustHistoricalWire(encodeExecution(original))
+	historicalFixtureWire(t, state, "executions", original.ProjectID, retainedExecutionName(original.ExecutionID), originalWire)
+	historicalFixtureWire(t, state, "executions", original.ProjectID, reworkName(original.ExecutionID), mustHistoricalWire(workflow.EncodeReworkPreview(rework)))
+	// Frozen bytes exercise historical recognition without restoring a retired writer.
+	streamPath := filepath.Join("..", "compatibility", "testdata", "stable-v1", "snapshots", "v0.8.1-issue233", "state", "coordination", "v1", "project-1", coordinationName(graph.Parent.ExecutionID, graph.Children[0].ExecutionID))
+	streamWire, err := os.ReadFile(streamPath)
+	if err != nil {
 		t.Fatal(err)
 	}
+	historicalFixtureWire(t, state, "coordination", authority.ProjectID, filepath.Base(streamPath), streamWire)
 	profiles, err := NewRuntimeProfileStore(state)
 	if err != nil {
 		t.Fatal(err)
@@ -397,14 +374,38 @@ func writeEveryV1Kind(t *testing.T) (string, string) {
 		t.Fatal(e)
 	}
 
-	policyStore, err := NewValidatorPolicyStore(state)
+	writeHistoricalValidatorPolicy(t, state, storePolicy())
+	return portable, state
+}
+
+// storePolicy is a reviewed Validator Policy as the retired store published it.
+func storePolicy() validatorpolicy.Policy {
+	d := validatorpolicy.Definition{FormatVersion: 1, ProjectID: "project-1", Commands: []validatorpolicy.Command{{Reference: "tests", Argv: []string{"/synthetic/validator", "test"}, Env: []string{"LC_ALL=C"}, OutputMax: 4096}}}
+	preview, _ := validatorpolicy.PreviewDigest(d)
+	return validatorpolicy.Policy{Definition: d, Review: validatorpolicy.Review{PreviewDigest: preview, ActorKind: "human-operator", Actor: "operator", ReviewedAt: time.Unix(10, 0).UTC(), AuthorityRef: strings.Repeat("a", 64)}}
+}
+
+// writeHistoricalValidatorPolicy places Validator Policy bytes exactly where
+// the retired writer left them; no current writer produces them (Spec 015).
+func writeHistoricalValidatorPolicy(t *testing.T, state string, p validatorpolicy.Policy) {
+	t.Helper()
+	wire, err := validatorpolicy.Encode(p)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := policyStore.Create(context.Background(), storePolicy()); err != nil {
+	id, _ := validatorpolicy.Digest(p)
+	dir := filepath.Join(state, "validator-policies", "v1")
+	if err := os.MkdirAll(dir, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	return portable, state
+	for _, d := range []string{filepath.Dir(dir), dir} {
+		if err := os.Chmod(d, 0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(dir, id+".json"), wire, 0o600); err != nil {
+		t.Fatal(err)
+	}
 }
 
 // corpusMachineRoot replaces the temporary machine path writers record (for

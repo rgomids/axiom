@@ -62,9 +62,18 @@ printf 'PASS: application checker accepts inward domain dependency and pure UTF-
 
 check_case pass 'package projectapp; import "github.com/rgomids/axiom/internal/project"; var _ project.Project' fixture.go
 check_case pass 'package projectapp; import "time"; var _ = time.Unix(0, 0)' fixture.go
+check_case pass 'package projectapp; import "strconv"; var _ = strconv.Itoa(1)' fixture.go
+check_case fail 'package projectapp; import "strconv"; var _ = strconv.Quote("text")' fixture.go
+check_case pass 'package projectapp; import "github.com/rgomids/axiom/internal/workflowdefinition"; var _ workflowdefinition.Ref' fixture.go
+check_case fail 'package projectapp; import "github.com/rgomids/axiom/internal/workflowdefinition"; var _ = workflowdefinition.ValidDigest' fixture.go
+check_case pass 'package projectapp; import "github.com/rgomids/axiom/internal/runtimeprofile"; var _ runtimeprofile.ConsumerV4' fixture.go
+check_case fail 'package projectapp; import "github.com/rgomids/axiom/internal/runtimeprofile"; var _ = runtimeprofile.Digest' fixture.go
+check_case pass 'package projectapp_test; import "github.com/rgomids/axiom/internal/runtimeprofile/runtimeprofiletest"; var _ = runtimeprofiletest.CodexOnly'
+check_case fail 'package projectapp; import "github.com/rgomids/axiom/internal/runtimeprofile/runtimeprofiletest"; var _ = runtimeprofiletest.CodexOnly' fixture.go
+check_case fail 'package projectapp; import "fmt"; var _ = fmt.Print' fixture.go
 check_case fail 'package projectapp; import "reflect"; var _ = reflect.DeepEqual(1, 1)' fixture.go
 check_case fail 'package projectapp; import "github.com/rgomids/axiom/internal/manifest"; var _ manifest.Codec' fixture.go
-check_domain_rejects 'package project_test; import "unicode/utf8"; var _ = utf8.ValidString("text")' 'non-allowlisted domain import: unicode/utf8'
+check_domain_rejects 'package project_test; import "context"; var _ context.Context' 'non-allowlisted domain import: context'
 check_domain_rejects 'package project; import "github.com/rgomids/axiom/internal/project"; var _ project.Project' 'non-allowlisted domain import: github.com/rgomids/axiom/internal/project' fixture.go
 check_usage
 check_usage Application

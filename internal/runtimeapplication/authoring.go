@@ -480,8 +480,15 @@ func editCandidate(c *runtimeprofile.ConfigurationV4, r AuthoringRequest, instal
 			if r.Enabled != nil {
 				enabled = *r.Enabled
 			}
-			c.Runtimes = append(c.Runtimes, runtimeprofile.RuntimeV4{ID: r.RuntimeID, Adapter: r.RuntimeID, Enabled: enabled, AllowlistedProfileIDs: []string{r.ProfileID}})
-			c.ModelProfiles = append(c.ModelProfiles, runtimeprofile.ModelProfile{ID: r.ProfileID, RuntimeID: r.RuntimeID, Model: r.Model, Effort: r.Effort, Capabilities: r.Capabilities, Complexities: r.Complexities})
+			hasProfile := r.ProfileID != "" || r.Model != "" || r.Effort != (runtimeprofile.Effort{}) || r.Capabilities != nil || r.Complexities != nil
+			var allowlist []string
+			if hasProfile {
+				allowlist = []string{r.ProfileID}
+			}
+			c.Runtimes = append(c.Runtimes, runtimeprofile.RuntimeV4{ID: r.RuntimeID, Adapter: r.RuntimeID, Enabled: enabled, AllowlistedProfileIDs: allowlist})
+			if hasProfile {
+				c.ModelProfiles = append(c.ModelProfiles, runtimeprofile.ModelProfile{ID: r.ProfileID, RuntimeID: r.RuntimeID, Model: r.Model, Effort: r.Effort, Capabilities: r.Capabilities, Complexities: r.Complexities})
+			}
 		case "edit", "enable", "disable":
 			if index < 0 {
 				return fail("binding_missing")

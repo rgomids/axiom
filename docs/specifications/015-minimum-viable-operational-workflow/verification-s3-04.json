@@ -1,0 +1,476 @@
+{
+  "attempt": "IMPLEMENT-S3-04-CODEX-02",
+  "continued_attempt": "IMPLEMENT-S3-04-CODEX-01",
+  "scope": "S3.4_ONLY",
+  "runtime_used": "Codex continuation; prior implementation report records gpt-6.1-sol and two bounded units; no subagent, model battery or independent review in CODEX-02",
+  "starting_sha": "2696dcaa088b53011a197ffe278a45d1b3cbf54b",
+  "tested_go_source_sha": "cfa39d363fc6781c0ab3413653fd08781f02fab9",
+  "source_qualification": "Commands ran against working-tree Go bytes committed at tested_go_source_sha; deletion-s3-04.json generator asserts every current Go file equals that commit. Initial failures explicitly refer to intermediate trees. Final documentation/evidence SHA and exact-SHA postcommit tests/CI are in completion callback. This does not claim the initial process started on the later code commit.",
+  "source_go_manifest_sha256": "4834e7fde6541f6799d686ce8152df7ebf3b45e2d3dafd16a0675fa398f9e529",
+  "evidence": [
+    {
+      "command": "go test ./... -count=1 -timeout=15m",
+      "environment": {
+        "GOROOT": "unset",
+        "GOTOOLCHAIN": "go1.26.0",
+        "PATH_prefix": [
+          "/home/grokbot/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.0.linux-arm64/bin",
+          "/home/grokbot/go/bin"
+        ]
+      },
+      "exit_code": 0,
+      "status": "PASS",
+      "seconds": 284.373,
+      "output_sha256": "b8de20b5e49210ef4f1647122cd4b9e2232968e99688cc04c778e87f73d639c5",
+      "output_bytes": 2232,
+      "attempt": "IMPLEMENT-S3-04-CODEX-02",
+      "tested_packages": 32
+    },
+    {
+      "command": "go build ./...",
+      "environment": {
+        "GOROOT": "unset",
+        "GOTOOLCHAIN": "go1.26.0",
+        "PATH_prefix": [
+          "/home/grokbot/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.0.linux-arm64/bin",
+          "/home/grokbot/go/bin"
+        ]
+      },
+      "exit_code": 0,
+      "status": "PASS",
+      "seconds": 2.048,
+      "output_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "output_bytes": 0,
+      "attempt": "IMPLEMENT-S3-04-CODEX-02"
+    },
+    {
+      "command": "go vet ./...",
+      "environment": {
+        "GOROOT": "unset",
+        "GOTOOLCHAIN": "go1.26.0",
+        "PATH_prefix": [
+          "/home/grokbot/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.0.linux-arm64/bin",
+          "/home/grokbot/go/bin"
+        ]
+      },
+      "exit_code": 0,
+      "status": "PASS",
+      "seconds": 2.495,
+      "output_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "output_bytes": 0,
+      "attempt": "IMPLEMENT-S3-04-CODEX-02"
+    },
+    {
+      "command": "go mod verify",
+      "environment": {
+        "GOROOT": "unset",
+        "GOTOOLCHAIN": "go1.26.0",
+        "PATH_prefix": [
+          "/home/grokbot/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.0.linux-arm64/bin",
+          "/home/grokbot/go/bin"
+        ]
+      },
+      "exit_code": 0,
+      "status": "PASS",
+      "seconds": 1.68,
+      "output_sha256": "b4537ed75f533f993f371954de47e42a793b8e5b0587577de7e27fb3e50696bd",
+      "output_bytes": 21,
+      "attempt": "IMPLEMENT-S3-04-CODEX-02"
+    },
+    {
+      "command": "./scripts/check-go-quality.sh all",
+      "environment": {
+        "GOROOT": "unset",
+        "GOTOOLCHAIN": "go1.26.0",
+        "PATH_prefix": [
+          "/home/grokbot/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.0.linux-arm64/bin",
+          "/home/grokbot/go/bin"
+        ]
+      },
+      "exit_code": 0,
+      "status": "PASS",
+      "seconds": 9.401,
+      "output_sha256": "2fe1a814ffc2e970a8c97c008d59f20f067448e6f02fef8a42d705cc7ba1a0ea",
+      "output_bytes": 253,
+      "attempt": "IMPLEMENT-S3-04-CODEX-02"
+    },
+    {
+      "command": "go run ./scripts/check-architecture.go domain",
+      "environment": {
+        "GOROOT": "unset",
+        "GOTOOLCHAIN": "go1.26.0",
+        "PATH_prefix": [
+          "/home/grokbot/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.0.linux-arm64/bin",
+          "/home/grokbot/go/bin"
+        ]
+      },
+      "exit_code": 0,
+      "status": "PASS",
+      "seconds": 0.509,
+      "output_sha256": "e279763282381fff92b1bfb1b0643f78a1b0b06228fd2926a7dc19c48240e43c",
+      "output_bytes": 108,
+      "attempt": "IMPLEMENT-S3-04-CODEX-02"
+    },
+    {
+      "command": "go run ./scripts/check-architecture.go application",
+      "environment": {
+        "GOROOT": "unset",
+        "GOTOOLCHAIN": "go1.26.0",
+        "PATH_prefix": [
+          "/home/grokbot/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.0.linux-arm64/bin",
+          "/home/grokbot/go/bin"
+        ]
+      },
+      "exit_code": 0,
+      "status": "PASS",
+      "seconds": 0.328,
+      "output_sha256": "16ee2d2538988e94e9fd9698e106bc17d4e5c228d9c9d9fc6da62a707041b5df",
+      "output_bytes": 113,
+      "attempt": "IMPLEMENT-S3-04-CODEX-02"
+    },
+    {
+      "command": "./scripts/validate-repository.sh .",
+      "environment": {
+        "GOROOT": "unset",
+        "GOTOOLCHAIN": "go1.26.0",
+        "PATH_prefix": [
+          "/home/grokbot/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.0.linux-arm64/bin",
+          "/home/grokbot/go/bin"
+        ]
+      },
+      "exit_code": 0,
+      "status": "PASS",
+      "seconds": 129.129,
+      "output_sha256": "e2b2596690c9cdaad1ee1cab8d799cfbfaf1e7df5e2639916257328cf27b0a4f",
+      "output_bytes": 1168,
+      "attempt": "IMPLEMENT-S3-04-CODEX-02"
+    },
+    {
+      "command": "git diff --check",
+      "environment": {
+        "GOROOT": "unset",
+        "GOTOOLCHAIN": "go1.26.0",
+        "PATH_prefix": [
+          "/home/grokbot/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.0.linux-arm64/bin",
+          "/home/grokbot/go/bin"
+        ]
+      },
+      "exit_code": 0,
+      "status": "PASS",
+      "seconds": 0.08,
+      "output_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "output_bytes": 0,
+      "attempt": "IMPLEMENT-S3-04-CODEX-02"
+    },
+    {
+      "command": "./scripts/test-docs-offline.sh",
+      "environment": {
+        "GOROOT": "unset",
+        "GOTOOLCHAIN": "go1.26.0",
+        "PATH_prefix": [
+          "/home/grokbot/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.0.linux-arm64/bin",
+          "/home/grokbot/go/bin"
+        ]
+      },
+      "exit_code": 0,
+      "status": "PASS",
+      "seconds": 58.206,
+      "output_sha256": "a0bdd30f81ca7359c303ee3c0af5253e057060ca505640573870751360c3e04c",
+      "output_bytes": 1750,
+      "attempt": "IMPLEMENT-S3-04-CODEX-02"
+    },
+    {
+      "command": "go test ./... -count=1 -timeout=15m",
+      "environment": {
+        "GOROOT": "unset",
+        "GOTOOLCHAIN": "go1.26.0",
+        "PATH_prefix": [
+          "/home/grokbot/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.0.linux-arm64/bin",
+          "/home/grokbot/go/bin"
+        ]
+      },
+      "exit_code": 1,
+      "status": "FAIL",
+      "seconds": 424.965,
+      "output_sha256": "2ea93f4742261557768b5a435b3b823aeda3b8f745e2f6763d9dd2fed0eb6579",
+      "output_bytes": 2605,
+      "id": "initial-full-suite-skill-history-failure",
+      "attempt": "IMPLEMENT-S3-04-CODEX-01"
+    },
+    {
+      "command": "./scripts/test-docs-offline.sh",
+      "environment": {
+        "GOROOT": "unset",
+        "GOTOOLCHAIN": "go1.26.0",
+        "PATH_prefix": [
+          "/home/grokbot/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.0.linux-arm64/bin",
+          "/home/grokbot/go/bin"
+        ]
+      },
+      "exit_code": 1,
+      "status": "FAIL",
+      "seconds": 123.51,
+      "output_sha256": "d43e7147f4af8cbb09d803949fa66cd1ff121c8baa8c03c1723da0470b9abfcf",
+      "output_bytes": 211,
+      "id": "initial-installed-docs-link-failure",
+      "attempt": "IMPLEMENT-S3-04-CODEX-01"
+    },
+    {
+      "id": "initial-unused-import",
+      "command": "env -u GOROOT GOTOOLCHAIN=go1.26.0 go test ./internal/workflow ./internal/local ./internal/stageexecution ./cmd/lingo -count=1 -timeout=5m",
+      "status": "FAIL",
+      "exit_code": 1,
+      "output_sha256": "7732febc8494fcb007116f0f8a0d8df4742d2ecd7a8d087dec58c1b5c9ad9104",
+      "output_bytes": 357,
+      "source": "intermediate tree",
+      "attempt": "IMPLEMENT-S3-04-CODEX-01"
+    },
+    {
+      "id": "intermediate-concurrent-build",
+      "command": "env -u GOROOT GOTOOLCHAIN=go1.26.0 go test ./internal/local ./internal/workflow ./internal/stageexecution ./cmd/lingo -count=1 -timeout=5m",
+      "status": "FAIL",
+      "exit_code": 1,
+      "output_sha256": "ef786a192f34bdc2e429fc354a68c50a3c1bad64dc10dda043d58518791d1e2b",
+      "output_bytes": 10641,
+      "source": "intermediate delegated edits; blackbox build overlapped updates",
+      "attempt": "IMPLEMENT-S3-04-CODEX-01"
+    },
+    {
+      "id": "lineage-mutation-red",
+      "command": "env -u GOROOT GOTOOLCHAIN=go1.26.0 go test ./internal/coordination -run ^TestFrozenHistoryHeaderLineageAndDecoderRefusals/parent-lineage$ -count=1",
+      "status": "FAIL",
+      "exit_code": 1,
+      "output_sha256": "8125333b866f05ab8781f30b4d36af76af49345a19bee6de4cb62da267514e36",
+      "output_bytes": 283,
+      "expected_failure": true,
+      "mutation": "temporarily remove record.ParentID != stream.ParentID guard; restored before GREEN",
+      "attempt": "IMPLEMENT-S3-04-CODEX-01"
+    },
+    {
+      "id": "codec-green",
+      "command": "env -u GOROOT GOTOOLCHAIN=go1.26.0 go test ./internal/validatorpolicy ./internal/coordination -count=1",
+      "status": "PASS",
+      "exit_code": 0,
+      "output_sha256": "ba76742f78fee17a0aa61a56c9abf9316953873b36e9400b2293b41685b8ae37",
+      "output_bytes": 121,
+      "attempt": "IMPLEMENT-S3-04-CODEX-01"
+    },
+    {
+      "id": "retirement-green",
+      "command": "env -u GOROOT GOTOOLCHAIN=go1.26.0 go test ./internal/local -run TestLegacyLifecycleHasNoProductionMutators\\|TestHistoricalDelivery\\|TestDeliveryPacketReferencesRemainRetained -count=1",
+      "status": "PASS",
+      "exit_code": 0,
+      "output_sha256": "aca349e01285809179a2a4df89c7cdb675099fec472f3af9d45e1d7938b05907",
+      "output_bytes": 52,
+      "attempt": "IMPLEMENT-S3-04-CODEX-01"
+    },
+    {
+      "id": "shared-history-green",
+      "command": "env -u GOROOT GOTOOLCHAIN=go1.26.0 go test ./internal/codexruntime -run 'TestEveryPublishedSharedRevisionStaysOwned|TestRuntimeOnlyHistoryIsFrozen|TestCanonicalSkillRouting|TestRoutingAlone' -count=1",
+      "status": "PASS",
+      "exit_code": 0,
+      "output_sha256": "81a101a2b4cf2e28a1c4ee9db258f20ba80fc6f993d45875d9b57e32dc09a463",
+      "output_bytes": 59,
+      "attempt": "IMPLEMENT-S3-04-CODEX-01"
+    }
+  ],
+  "coverage_matrix": {
+    "P-AC1": {
+      "status": "PASS_TECHNICAL",
+      "tests": [
+        "TestPublicWorkflowRunMinimalDefaultCompletesWithoutPlanPolicyOrProfile",
+        "TestLegacyLifecycleHasNoProductionMutators"
+      ],
+      "manual_product_acceptance": "NOT_RUN"
+    },
+    "P-AC2": {
+      "status": "PASS_TECHNICAL",
+      "tests": [
+        "TestPublicWorkflowRunFailureMissingOutputRetryAndNewSelection",
+        "TestRuntimeLauncherBuildsFrozenSelectorsWithoutVendorCalls"
+      ],
+      "manual_product_acceptance": "NOT_RUN"
+    },
+    "P-AC3": {
+      "status": "PASS_TECHNICAL",
+      "tests": [
+        "TestEngineParallelReadyTasksStreamAndCommitWithoutLoss",
+        "TestExchangeCodexClaudeBidirectionalUnblocksOnlyOnValidatedResult",
+        "TestIntegrateParallelWorktreesSequentiallyWithCheckEvidence"
+      ],
+      "manual_product_acceptance": "NOT_RUN"
+    },
+    "P-AC4": {
+      "status": "PASS_TECHNICAL",
+      "tests": [
+        "TestRepositoryOutcomesTwoIndependentBindingsOneExecution",
+        "TestRepositoryReadinessRefusesUnsafeOrReboundPath",
+        "TestRepositoryReadinessRefusesSucceededAttemptWithUnknownEffect"
+      ],
+      "manual_product_acceptance": "NOT_RUN"
+    },
+    "P-AC5": {
+      "status": "PASS_TECHNICAL",
+      "tests": [
+        "TestEngineCrashWindowsBecomeUnknownAndNeverRespawn",
+        "TestEngineCancelDuringRunStopsOwnedProcessGroup",
+        "TestEngineAbandonRefusesLiveOrphanThenAllowsOneRetry",
+        "TestExecutionDeliveryConcurrentLeaseStaleFenceAndHistory"
+      ],
+      "manual_product_acceptance": "NOT_RUN"
+    },
+    "P-AC6": {
+      "status": "PASS_TECHNICAL",
+      "tests": [
+        "TestExecutionDeliveryDeniedEffectsHaveZeroCalls",
+        "TestExecutionDeliveryPushMustCreate",
+        "TestExecutionDeliveryLostResponseInspectOnlyExactTarget",
+        "TestPublicRejectedResultAndLinkedReworkUseCanonicalLifecycle"
+      ],
+      "manual_product_acceptance": "NOT_RUN"
+    },
+    "P-AC7": {
+      "status": "PASS_TECHNICAL",
+      "tests": [
+        "TestEveryV1WriterIsRecognizedByInventory",
+        "TestInventoryRejectsRecordsAwayFromTheirCanonicalLocation",
+        "TestExecutionStoreRefusesLegacyBytesInNewNamespace",
+        "TestCutoverBackupIsByteVerifiedAndSourceUntouched",
+        "TestFrozenHistoryHeaderLineageAndDecoderRefusals"
+      ],
+      "manual_product_acceptance": "NOT_RUN"
+    }
+  },
+  "technical_decisions": [
+    {
+      "id": "TD-S34-01",
+      "category": "TECHNICAL_LOCAL",
+      "scope_impact": "none",
+      "decision": "Delete dead producers/writers, preserve strict historical codecs",
+      "rationale": "Actual inventory/provenance/retention dependencies survive; no compatibility executor",
+      "tests": [
+        "TestLegacyLifecycleHasNoProductionMutators",
+        "TestDeliveryPacketReferencesRemainRetained"
+      ]
+    },
+    {
+      "id": "TD-S34-02",
+      "category": "TECHNICAL_LOCAL",
+      "scope_impact": "none",
+      "decision": "Reuse shared process/Git boundaries and port safety assertions to Integrator",
+      "rationale": "Canonical engine still depends on confinement/filter/CAS; no replacement subsystem",
+      "tests": [
+        "TestIntegrateDirtyCandidateAndCheckedOutDestinationRefuse",
+        "TestExecutionDeliveryPushMustCreate"
+      ]
+    },
+    {
+      "id": "TD-S34-03",
+      "category": "TECHNICAL_LOCAL",
+      "scope_impact": "none",
+      "decision": "Use frozen historical bytes and direct temporary fixtures",
+      "rationale": "Retired engine/writers must not survive merely to set up tests",
+      "tests": [
+        "TestHistoricalExecutionBindingRoundTripAndValidation",
+        "TestFrozenHistoryHeaderLineageAndDecoderRefusals"
+      ]
+    },
+    {
+      "id": "TD-S34-04",
+      "category": "TECHNICAL_LOCAL",
+      "scope_impact": "none",
+      "decision": "Measure full replacement union and independent whole-repo deltas",
+      "rationale": "Original candidate snapshot excludes replacement paths; assertion prevents envelope gaming",
+      "tests": [
+        "deletion-s3-04.json whole_repo_crosscheck"
+      ]
+    }
+  ],
+  "deferred_findings": [
+    {
+      "id": "D1",
+      "status": "NOT_IMPLEMENTED",
+      "summary": "Delivered HeadCommit/BaseCommit provenance",
+      "source": "implementation-s3-03.md; prior S3.2 review"
+    },
+    {
+      "id": "D2",
+      "status": "NOT_IMPLEMENTED",
+      "summary": "repositoryIdentity discoverability",
+      "source": "implementation-s3-03.md; prior S3.2 review"
+    },
+    {
+      "id": "D3",
+      "status": "NOT_IMPLEMENTED",
+      "summary": "Inspect grant equality including Actor",
+      "source": "implementation-s3-03.md; prior S3.2 review"
+    }
+  ],
+  "prior_findings_addressed": [
+    {
+      "id": "N-REV-01",
+      "status": "ADDRESSED_IN_S3_4_PENDING_REVIEW",
+      "summary": "Obsolete verifier/builder removed; dated evidence-s8 annotated without rewriting history"
+    },
+    {
+      "id": "N-REV-02",
+      "status": "ADDRESSED_IN_S3_4_PENDING_REVIEW",
+      "summary": "Direct invalid kind/ID, stream header/lineage, trailing/oversize negative tests; mutation RED/GREEN"
+    }
+  ],
+  "not_run": [
+    {
+      "check": "race",
+      "status": "NOT_RUN",
+      "reason": "CGO_ENABLED=0; gcc absent from PATH"
+    },
+    {
+      "check": "gitleaks",
+      "status": "NOT_RUN",
+      "reason": "command unavailable; staged sensitive-file scanner executed separately"
+    },
+    {
+      "check": "live vendor/model battery/product E2E",
+      "status": "NOT_RUN",
+      "reason": "outside authorized scope; no model fallback attempted"
+    },
+    {
+      "check": "native Runtime/network-source denial docs qualification",
+      "status": "NOT_RUN",
+      "reason": "offline docs script reports PARTIAL; pinned v1 installer unavailable UNVERIFIED"
+    },
+    {
+      "check": "private state inventory/backup/cutover, real product remote effects, merge/release/acceptance",
+      "status": "NOT_RUN",
+      "reason": "not authorized"
+    }
+  ],
+  "remaining_work": [
+    "ChatGPT Axiom Workflow S3.4 review only after publication",
+    "S3.5 remains pending and not implemented",
+    "Human pre-merge decisions on D1-D3 and later manual acceptance/cutover"
+  ],
+  "publication": "Final nonforced push, remote/PR SHA, exact-SHA CI and Linear readback are reported in the single AXM-42 completion callback, not inferred from local checks.",
+  "continuation": {
+    "checkpoint_sha": "cfa39d363fc6781c0ab3413653fd08781f02fab9",
+    "pending_fix_reconciliation": "sharedSkillHistory already includes 639bdbfdf235fd05cdc5b0d3cd0b5a4c18cdbe78912460fb7fcd3bbc5106ebff in preserved cfa39d3; exact historical skill bytes recovered from starting SHA and manifest independently recomputed; targeted test passed; no duplicate patch",
+    "rerun_groups": [
+      "go",
+      "quality",
+      "governance",
+      "docs"
+    ],
+    "prior_evidence_qualification": "Earlier focused tests, mutation RED and initial failure receipts recovered from retained logs and result JSON; not independently reexecuted by CODEX-02. Full suite rerun covers final source.",
+    "go_manifest_changed": false,
+    "deletion_regenerated": false,
+    "reason": "All tracked current Go bytes and manifest match measured cfa39d3; union/full-repo deltas and source-input hashes verified again"
+  },
+  "observed_utc": "2026-11-03T16:42:23.473268+00:00",
+  "docs_qualification": "PARTIAL; offline script exit 0 does not establish native Runtime/network/source denial or pinned v1 installer qualification",
+  "observed_outputs": {
+    "go_test": "ok  \tgithub.com/rgomids/axiom/cmd/axiom-archive-verify\t0.020s\n?   \tgithub.com/rgomids/axiom/cmd/axiom-docs-build\t[no test files]\nok  \tgithub.com/rgomids/axiom/cmd/lingo\t213.612s\nok  \tgithub.com/rgomids/axiom/internal/capabilityproof\t0.080s\nok  \tgithub.com/rgomids/axiom/internal/cli\t1.618s\nok  \tgithub.com/rgomids/axiom/internal/codexruntime\t12.938s\nok  \tgithub.com/rgomids/axiom/internal/compatibility\t3.113s\nok  \tgithub.com/rgomids/axiom/internal/completion\t0.009s\nok  \tgithub.com/rgomids/axiom/internal/coordination\t0.065s\n?   \tgithub.com/rgomids/axiom/internal/darwinacl\t[no test files]\nok  \tgithub.com/rgomids/axiom/internal/detailartifact\t0.143s\nok  \tgithub.com/rgomids/axiom/internal/executiongraph\t18.615s\nok  \tgithub.com/rgomids/axiom/internal/githubissues\t2.830s\nok  \tgithub.com/rgomids/axiom/internal/gitworkspace\t6.395s\nok  \tgithub.com/rgomids/axiom/internal/install\t103.904s\nok  \tgithub.com/rgomids/axiom/internal/local\t87.520s\nok  \tgithub.com/rgomids/axiom/internal/manifest\t1.472s\nok  \tgithub.com/rgomids/axiom/internal/operationaldocs\t0.070s\nok  \tgithub.com/rgomids/axiom/internal/portableconfig\t0.032s\nok  \tgithub.com/rgomids/axiom/internal/project\t0.043s\nok  \tgithub.com/rgomids/axiom/internal/projectapp\t4.700s\nok  \tgithub.com/rgomids/axiom/internal/projectdiscovery\t0.229s\nok  \tgithub.com/rgomids/axiom/internal/provenance\t0.008s\nok  \tgithub.com/rgomids/axiom/internal/runtimeadapter\t1.382s\nok  \tgithub.com/rgomids/axiom/internal/runtimeapplication\t0.092s\nok  \tgithub.com/rgomids/axiom/internal/runtimebootstrap\t0.256s\nok  \tgithub.com/rgomids/axiom/internal/runtimeprofile\t0.184s\n?   \tgithub.com/rgomids/axiom/internal/runtimeprofile/runtimeprofiletest\t[no test files]\nok  \tgithub.com/rgomids/axiom/internal/stageexecution\t56.855s\nok  \tgithub.com/rgomids/axiom/internal/strictjson\t0.036s\n?   \tgithub.com/rgomids/axiom/internal/testfs\t[no test files]\nok  \tgithub.com/rgomids/axiom/internal/validatorpolicy\t0.040s\nok  \tgithub.com/rgomids/axiom/internal/workflow\t0.276s\nok  \tgithub.com/rgomids/axiom/internal/workflowdefinition\t2.330s\nok  \tgithub.com/rgomids/axiom/internal/workitem\t0.013s\nok  \tgithub.com/rgomids/axiom/scripts/codehealth\t0.012s\n?   \tgithub.com/rgomids/axiom/scripts/dogfoodfixture\t[no test files]\n",
+    "quality": "Reproduce: ./scripts/check-go-quality.sh all\ngo version go1.26.0 linux/arm64\nCommand: go mod tidy -diff\nstaticcheck 2026.2.1 (0.8.1)\nCommand: staticcheck -checks=SA1*,SA2*,SA3*,SA4*,SA5*,SA9*,U1000,-SA1019 ./... (including tests)\nPASS: Go quality (all)\n",
+    "governance": "PASS: sensitive-file checks passed (directory)\nWARN: empty directories exist\nPASS: maintainer harness structure looks valid\nPASS: agent-package validator behavior is valid\nPASS: Claude bootstrap check behavior is valid (52 cases)\nPASS: maintainer evaluation invariants and status handling are valid\nPASS: structural: 9 canonical skills, Codex and Claude entries resolve to the same files; axiom-release -> .agents/skills/axiom-release/SKILL.md sha256=b856410b71f9872d\nSKIP: runtime behavioral scenarios not requested (UNVERIFIED); run with --runtime codex --runtime claude\nPASS: Model Advisor evaluator invariants are valid\nPASS: automation registry checker behaves as specified (33 cases)\nPASS: automation registry covers all 98 governed automation surfaces\n..............................\n----------------------------------------------------------------------\nRan 30 tests in 0.302s\n\nOK\nPASS: issue label policy tests\nPASS: ADR governance checker behaves as specified (56 cases)\nPASS: ADR governance structure is valid (38 ADRs)\nPASS: sensitive-file checker behavior is valid\nPASS: sensitive-file checks passed (worktree)\nPASS: repository bootstrap validation passed\n",
+    "installed_docs": "docs_offline_corpus: 26 files, links closed\ndocs_offline_artifact: {\"archiveSha256\": \"37fe99de5226e1b6e4b132ef840c676f8603f55081891cca0a5a6c3f1ae48eb3\", \"binarySha256\": \"3a7c6433d29a3d672c19c88b6749f31dedd5f754aecb649031df0035cbaa05ef\", \"hostRow\": \"linux-arm64\", \"installation\": {\"bindingSha256\": \"ef44c25649533a8aef3b8a211c7c3ce8db07f2f29a7622278ef2d47fdcf98b74\", \"compatibility\": \"compatible\", \"generation\": \"5a14024527c00ce367af63246894cb88b881ad65cfa2aceebc5f577895c90b6c\"}, \"integrity\": {\"bytes\": 362004, \"files\": 29, \"inventorySha256\": \"57ac01fcf5e5b2ca72c776ebd2cbb25b5756c6c167cec818031fcceb3c4913de\", \"manMapSha256\": \"da7458a5c13444e4a9033477fb0a089ca15861ba9988f795ec5699536a8ea9a2\", \"provenanceSha256\": \"fd89e2c70bea658e6ceb70ad7b9f256c42984c013a3b038f96cf16dec4151de5\"}, \"metadata\": {\"architecture\": \"arm64\", \"platform\": \"linux\", \"release\": \"false\", \"revision\": \"cfa39d363fc6\", \"sourceState\": \"dirty\", \"version\": \"0.0.0-docs.offline\"}, \"nativeRuntimes\": \"NOT_RUN\", \"networkDenial\": \"NOT_RUN\", \"sourceCommit\": \"cfa39d363fc6781c0ab3413653fd08781f02fab9\", \"sourceDenial\": \"NOT_RUN\"}\ndocs_offline_note: pinned v1 installer unavailable in this checkout (UNVERIFIED)\ndocs_offline_refused: extra-output -> bundle contents do not match documentary inventory\ndocs_offline_refused: swapped-content -> documentary inventory mismatch\ndocs_offline_refused: extra-root-file -> bundle contents do not match documentary inventory\ndocs_offline_refused: stale-metadata -> release metadata does not match bundle\ndocs_offline_refused: tampered content -> hash_mismatch\ndocs_offline_refused: modified binary -> binding_absent\ndocs_offline_success: linux-arm64\ndocs_offline_qualification: PARTIAL (network/source denial and native Runtime observation NOT_RUN)\n"
+  }
+}

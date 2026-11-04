@@ -268,7 +268,9 @@ func ApplyWorkflow(ctx context.Context, port WorkflowAuthoringPort, r WorkflowRe
 			return fail("reference_inventory_unknown")
 		}
 		for _, used := range observed.Referenced {
-			if used == ref {
+			// Canonical Executions freeze their own snapshot and record only the
+			// Workflow ID and revision; match conservatively on that identity.
+			if used.WorkflowID == ref.WorkflowID && used.Revision == ref.Revision {
 				return fail("revision_in_use")
 			}
 		}
@@ -327,7 +329,7 @@ func workflowProjectDiagnostics(p project.State, d workflowdefinition.Definition
 		field := fmt.Sprintf("stages[%d]", i)
 		for _, input := range s.Inputs {
 			if input.Kind == "project-context" {
-				found := input.Source == "business-context"
+				found := input.Source == "business-context" || input.Source == "project"
 				for _, doc := range docs {
 					found = found || doc.Key == input.Source
 				}
@@ -346,7 +348,7 @@ func workflowProjectDiagnostics(p project.State, d workflowdefinition.Definition
 			}
 		}
 		for _, agent := range s.Agents {
-			if agent.ProfileRef != "policy-default" {
+			if agent.ProfileRef != "policy-default" && !(d.SchemaVersion == 2 && agent.ProfileRef == "") {
 				found := false
 				for _, profile := range profiles {
 					found = found || profile.Key == agent.ProfileRef

@@ -413,9 +413,6 @@ func RunInteractive(ctx context.Context, args []string, service Service, source 
 	if handled, code := runWorkflowStage(ctx, mode, args, service, source, stdout); handled {
 		return code
 	}
-	if handled, code := runWorkflowStagePlan(ctx, args, service, source, mode, stdout); handled {
-		return code
-	}
 	if operation, rest, ok := maintenanceAction(args); ok {
 		return runMaintenance(ctx, mode, operation, rest, service, source, stdout)
 	}
@@ -457,8 +454,8 @@ func RunInteractive(ctx context.Context, args []string, service Service, source 
 	if len(args) >= 2 && args[0] == "workflow" && stdin != nil {
 		operation := action("workflow_" + args[1])
 		values, ok := workflowFlags(operation, args[2:])
-		needsExecution := operation != workflowStartAction
-		if knownWorkflow(operation) && ok && values.number == 0 && (values.project == "" || values.repository == "" || values.workItem == "" || needsExecution && values.execution == "") {
+		needsExecution := true
+		if knownWorkflow(operation) && ok && values.number == 0 && (values.project == "" || needsExecution && values.execution == "") {
 			return runInteractiveSelectors(ctx, mode, operation, values, service, source, stdin, stdout, stderr)
 		}
 	}
@@ -610,46 +607,38 @@ func emitResponse(writer io.Writer, mode outputMode, operation action, response 
 type action string
 
 const (
-	initAction              action = "init"
-	validateAction          action = "validate"
-	reopenAction            action = "reopen"
-	updateAction            action = "update"
-	installAction           action = "install"
-	resolveAction           action = "resolve"
-	showAction              action = "show"
-	listAction              action = "list"
-	configureAction         action = "configure"
-	workItemCreateAction    action = "work_item_create"
-	workItemSelectAction    action = "work_item_select"
-	workItemShowAction      action = "work_item_show"
-	workItemCommentAction   action = "work_item_comment"
-	workItemCompleteAction  action = "work_item_complete"
-	workItemListAction      action = "work_item_list"
-	workItemUpdateAction    action = "work_item_update"
-	workItemCloseAction     action = "work_item_close"
-	workItemReopenAction    action = "work_item_reopen"
-	workflowStartAction     action = "workflow_start"
-	workflowAdvanceAction   action = "workflow_advance"
-	workflowFactAction      action = "workflow_fact"
-	workflowResumeAction    action = "workflow_resume"
-	workflowStatusAction    action = "workflow_status"
-	workflowEvidenceAction  action = "workflow_evidence"
-	workflowReconcileAction action = "workflow_reconcile"
-	codexInstallAction      action = "runtime_codex_install"
-	codexStatusAction       action = "runtime_codex_status"
-	claudeInstallAction     action = "runtime_claude_install"
-	claudeStatusAction      action = "runtime_claude_status"
-	codexAuthAction         action = "runtime_codex_auth"
-	claudeAuthAction        action = "runtime_claude_auth"
-	firstRunAction          action = "first_run"
+	initAction             action = "init"
+	validateAction         action = "validate"
+	reopenAction           action = "reopen"
+	updateAction           action = "update"
+	installAction          action = "install"
+	resolveAction          action = "resolve"
+	showAction             action = "show"
+	listAction             action = "list"
+	configureAction        action = "configure"
+	workItemCreateAction   action = "work_item_create"
+	workItemSelectAction   action = "work_item_select"
+	workItemShowAction     action = "work_item_show"
+	workItemCommentAction  action = "work_item_comment"
+	workItemCompleteAction action = "work_item_complete"
+	workItemListAction     action = "work_item_list"
+	workItemUpdateAction   action = "work_item_update"
+	workItemCloseAction    action = "work_item_close"
+	workItemReopenAction   action = "work_item_reopen"
+	workflowStatusAction   action = "workflow_status"
+	workflowEvidenceAction action = "workflow_evidence"
+	codexInstallAction     action = "runtime_codex_install"
+	codexStatusAction      action = "runtime_codex_status"
+	claudeInstallAction    action = "runtime_claude_install"
+	claudeStatusAction     action = "runtime_claude_status"
+	codexAuthAction        action = "runtime_codex_auth"
+	claudeAuthAction       action = "runtime_claude_auth"
+	firstRunAction         action = "first_run"
 )
 
 type requestInput struct {
 	policyDraft                              string
 	policySupplied                           bool
-	actor                                    string
-	stageResultFile                          string
-	automatic                                bool
 	itemType, beneficiary, value             string
 	classification                           repositoryFlags
 	elaboratedSections                       elaboratedSectionFlags
@@ -677,15 +666,9 @@ type requestInput struct {
 	intent, problem, desiredOutcome, context string
 	scope, constraints, nonGoals, acceptance string
 	message, title                           string
-	gate, outcome, reference, next, fact     string
-	runtime                                  string
-	role, complexity, capabilities           string
-	runtimePreview                           string
 	number                                   int
-	expectedRevision                         uint64
 	authorizeExternal                        bool
 	authorizeLocal                           bool
-	active                                   bool
 }
 
 func request(args []string, service Service) (action, requestInput, *string) {
@@ -809,32 +792,15 @@ func selectorRequestIssueWithPresence(operation action, values requestInput, req
 		}
 		return ""
 	}
-	if requireInputs && missingRequiredInputs(operation, values, "number") {
-		return "missing_required_input"
-	}
-	if requireInputs && operation == workflowStartAction && missingRequiredInputs(operation, values, "role", "complexity", "capabilities") {
+	if requireInputs && missingRequiredInputs(operation, values, "execution") {
 		return "missing_required_input"
 	}
 	if values.workItem != "" {
 		if _, _, _, ok := parseWorkItemSelector(values.workItem); !ok {
 			return "invalid_input"
 		}
-		if operation == workflowStartAction && values.execution != "" {
-			return "invalid_input"
-		}
-		if requireInputs && missingRequiredInputs(operation, values, "execution") {
-			return "missing_required_input"
-		}
 	}
-	if requireInputs && missingRequiredInputs(operation, values, "expected-revision", "gate", "outcome") {
-		return "missing_required_input"
-	}
-	if operation == workflowAdvanceAction && values.automatic && (values.gate != "" || values.outcome != "" || values.reference != "" || values.next != "" || values.stageResultFile != "") {
-		return "invalid_input"
-	}
-	if requireInputs && missingRequiredInputs(operation, values, "fact", "reference") {
-		return "missing_required_input"
-	}
+
 	return ""
 }
 
@@ -1022,65 +988,19 @@ func workflowFlagSet(operation action, values *requestInput) *flag.FlagSet {
 	set := flag.NewFlagSet(string(operation), flag.ContinueOnError)
 	set.SetOutput(io.Discard)
 	set.StringVar(&values.project, "project", "", "Configured Project identity; `<uuid-or-slug>`.")
-	set.StringVar(&values.repository, "repository", "", "Project-scoped Repository selector; `<key>`.")
-	set.StringVar(&values.workItem, "work-item", "", "Exact existing Work Item; `github:<owner>/<repository>#<number>`. Alternative to --number; rejected by create.")
-	set.StringVar(&values.execution, "execution", "", "Exact Execution identity; `<execution-id>`. Required with --work-item except start; start rejects that combination.")
-	set.IntVar(&values.number, "number", 0, "Legacy Work Item number; `<positive-integer>`. Alternative to --work-item.")
-	if operation == workflowStartAction {
-		set.StringVar(&values.runtime, "runtime", "", "Optional Runtime constraint; `<codex|claude>`. Portable policy resolves omitted Runtime.")
-		runtimeRequestFlags(set, &values.role, &values.complexity, &values.capabilities)
-		set.StringVar(&values.runtimePreview, "runtime-preview", "", "Exact reviewed Runtime resolution digest; `<digest>`. Omission previews without starting.")
-		set.BoolVar(&values.authorizeLocal, "authorize-local", false, "Consent to read-only inspection of the repository's Runtime effort sources; boolean. Grants no other authority.")
-	}
-	if operation == workflowAdvanceAction || operation == workflowFactAction || operation == workflowResumeAction || operation == workflowReconcileAction {
-		set.Uint64Var(&values.expectedRevision, "expected-revision", 0, "Exact current Execution revision; `<positive-integer>`.")
-	}
-	if operation == workflowReconcileAction {
-		set.StringVar(&values.previewDigest, "preview-digest", "", "Exact reviewed preview digest; `<digest>`. Required for authorized publication.")
-		set.BoolVar(&values.authorizeExternal, "authorize-external", false, "Explicit authority for the exact reviewed Provider effect; boolean.")
-	}
-	if operation == workflowAdvanceAction {
-		set.StringVar(&values.stageResultFile, "stage-result", "", "Complete bounded input/output references for the configured stage; `<json-file>`.")
-		set.BoolVar(&values.automatic, "automatic", false, "Evaluate deterministic Intake only; boolean. Cannot combine with --gate, --outcome, --reference or --next.")
-		set.StringVar(&values.gate, "gate", "", "Target workflow gate; `<gate>`. Validated against the current Execution.")
-		set.StringVar(&values.outcome, "outcome", "", "Workflow outcome; `<outcome>`. Validated against the gate.")
-		set.StringVar(&values.reference, "reference", "", "Evidence reference; `<reference>`. Validated by the workflow.")
-		set.StringVar(&values.next, "next", "", "Next action; `<text>`.")
-	}
-	if operation == workflowFactAction {
-		set.StringVar(&values.actor, "actor", "", "Human decision actor for configured workflow facts; `<identity>`.")
-		set.StringVar(&values.stageResultFile, "stage-result", "", "Exact input/output references human-reviewed for stage-review; `<json-file>`.")
-		set.StringVar(&values.fact, "fact", "", "Workflow fact; `<fact>`. Validated by the workflow.")
-		set.BoolVar(&values.active, "active", false, "Whether the fact is active; boolean.")
-		set.StringVar(&values.reference, "reference", "", "Evidence reference; `<reference>`. Validated by the workflow.")
-		set.BoolVar(&values.authorizeLocal, "authorize-local", false, "Explicit authority for the exact local effect; boolean. Never inferred by discovery.")
-	}
+	set.StringVar(&values.execution, "execution", "", "Exact canonical Execution identity; `<execution-id>`.")
+	set.StringVar(&values.repository, "repository", "", "Optional exact Repository selector; `<key>`.")
+	set.StringVar(&values.workItem, "work-item", "", "Optional exact linked Work Item; `github:<owner>/<repository>#<number>`.")
 	return set
 }
-
 func workflowFlags(operation action, args []string) (requestInput, bool) {
 	var values requestInput
 	set := workflowFlagSet(operation, &values)
 	if invalidFlagSyntax(set, args, nil) {
 		return requestInput{}, false
 	}
-	if err := set.Parse(args); err != nil || set.NArg() != 0 || values.workItem != "" && values.number != 0 {
+	if err := set.Parse(args); err != nil || set.NArg() != 0 {
 		return requestInput{}, false
-	}
-	if values.automatic {
-		for _, name := range []string{"--gate", "--outcome", "--reference", "--next"} {
-			if flagSupplied(args, name) {
-				return requestInput{}, false
-			}
-		}
-	}
-	if operation == workflowStartAction {
-		if flagSupplied(args, "--runtime") && !workflow.SupportedRuntime(values.runtime) {
-			return requestInput{}, false
-		}
-		if values.runtimePreview != "" && !validPreviewDigest(values.runtimePreview) {
-			return requestInput{}, false
-		}
 	}
 	return values, true
 }
@@ -1122,7 +1042,7 @@ func validProviderResource(value string) bool {
 }
 
 func knownWorkflow(operation action) bool {
-	return operation != workflowListAction && operationInGroup(operation, "workflow")
+	return operation != workflowListAction && operation != workflowRunAction && operationInGroup(operation, "workflow")
 }
 
 func known(operation action) bool {
@@ -1214,35 +1134,17 @@ func dispatch(ctx context.Context, operation action, input requestInput, service
 		default:
 			return service.WorkItemComplete(ctx, value)
 		}
-	case workflowStartAction, workflowAdvanceAction, workflowFactAction, workflowResumeAction, workflowStatusAction, workflowEvidenceAction, workflowReconcileAction:
-		provider, resource, externalID, ok := parseWorkItemSelector(input.workItem)
+	case workflowStatusAction, workflowEvidenceAction:
+		provider, resource, id, ok := parseWorkItemSelector(input.workItem)
 		if input.workItem != "" && !ok {
 			return Result{Status: Failed, Category: "invalid_input"}
 		}
-		value := WorkflowInput{Project: input.project, Repository: input.repository, WorkItem: input.workItem, Provider: provider, ProviderRepository: resource, ExternalID: externalID, Execution: input.execution, Number: input.number, Gate: input.gate, Outcome: input.outcome, Reference: input.reference, Next: input.next, Fact: input.fact, Active: input.active, ExpectedRevision: input.expectedRevision, PreviewDigest: input.previewDigest, AuthorizeExternal: input.authorizeExternal, AuthorizeLocal: input.authorizeLocal, Runtime: input.runtime, Role: input.role, Complexity: input.complexity, Capabilities: strings.Split(input.capabilities, ","), RuntimePreview: input.runtimePreview}
-		value.Automatic = input.automatic
-		value.StageResultFile = input.stageResultFile
-		value.Actor = input.actor
-		switch operation {
-		case workflowStartAction:
-			return service.WorkflowStart(ctx, value)
-		case workflowAdvanceAction:
-			return service.WorkflowAdvance(ctx, value)
-		case workflowFactAction:
-			factService, ok := service.(LifecycleFactService)
-			if !ok {
-				return Result{Status: Failed, Category: "application_unavailable"}
-			}
-			return factService.WorkflowFact(ctx, value)
-		case workflowResumeAction:
-			return service.WorkflowResume(ctx, value)
-		case workflowStatusAction:
+		value := WorkflowInput{Project: input.project, Execution: input.execution, Repository: input.repository, WorkItem: input.workItem, Provider: provider, ProviderRepository: resource, ExternalID: id}
+		if operation == workflowStatusAction {
 			return service.WorkflowStatus(ctx, value)
-		case workflowReconcileAction:
-			return service.WorkflowReconcile(ctx, value)
-		default:
-			return service.WorkflowEvidence(ctx, value)
 		}
+		return service.WorkflowEvidence(ctx, value)
+
 	case codexInstallAction:
 		return service.RuntimeCodexInstall(ctx)
 	case codexStatusAction:
@@ -1383,16 +1285,20 @@ func runInteractiveSelectors(ctx context.Context, mode outputMode, operation act
 	fields := []struct {
 		value  *string
 		prompt string
-	}{
-		{&values.project, "Project UUID or slug: "},
-		{&values.repository, "Project repository key: "},
-		{&values.workItem, "Work Item selector (github:owner/repository#number): "},
-	}
-	if knownWorkflow(operation) && operation != workflowStartAction {
+	}{{&values.project, "Project UUID or slug: "}}
+	if knownWorkflow(operation) {
 		fields = append(fields, struct {
 			value  *string
 			prompt string
 		}{&values.execution, "Execution ID: "})
+	} else {
+		fields = append(fields, struct {
+			value  *string
+			prompt string
+		}{&values.repository, "Project repository key: "}, struct {
+			value  *string
+			prompt string
+		}{&values.workItem, "Work Item selector (github:owner/repository#number): "})
 	}
 	for _, field := range fields {
 		if *field.value != "" {

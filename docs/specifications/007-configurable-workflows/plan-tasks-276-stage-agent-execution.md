@@ -291,7 +291,7 @@ workspace isolation, integration, nine typed coordination record kinds and
 their stores. None of it is reachable from the installed product: the only
 caller of `internal/graphapplication` is the checkout-built, `//go:build
 ignore` acceptance runner
-([s9-graph-runner.go:1-6](../../../scripts/acceptance/s9-graph-runner.go)),
+([s9-graph-runner.go:1-6](https://github.com/rgomids/axiom/blob/f719465b3486c72676496a026f568008f0ebf718/scripts/acceptance/s9-graph-runner.go)),
 and `workflow stage plan` says its proposal is "not dispatchable in this
 release (#276)" ([workflow_stage_plan.go:112](../../../cmd/lingo/workflow_stage_plan.go)).
 In addition, the production observer proves only `axiom-skills`

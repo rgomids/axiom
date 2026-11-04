@@ -64,11 +64,10 @@ func sharedCheckoutState(t *testing.T, repository string) string {
 	return state
 }
 
-func TestManagerRejectsExecutableFilterConfigurationBeforeCheckout(t *testing.T) {
+func TestIntegratorRejectsExecutableFilterConfigurationBeforeCheckout(t *testing.T) {
 	for _, variable := range []string{"clean", "smudge", "process"} {
 		t.Run(variable, func(t *testing.T) {
 			root := canonicalTempDir(t)
-
 			controlSentinel := filepath.Join(root, "control-sentinel")
 			control := filteredRepository(t, filepath.Join(root, "control"), variable, filterCommand(controlSentinel))
 			if variable == "clean" {
@@ -78,216 +77,112 @@ func TestManagerRejectsExecutableFilterConfigurationBeforeCheckout(t *testing.T)
 				_, _ = gitAllowFailure(control.repository, "worktree", "add", "--detach", filepath.Join(root, "control-worktree"), control.revision)
 			}
 			assertSentinel(t, controlSentinel)
-
 			sentinel := filepath.Join(root, "sentinel")
 			repository := filteredRepository(t, filepath.Join(root, "repository"), variable, filterCommand(sentinel))
 			before := sharedCheckoutState(t, repository.repository)
-			workspaceRoot := filepath.Join(root, "workspaces")
-			graph := buildGraph(t, workspaceRoot, graphOptions{})
-			_, err := gitworkspace.NewManager(context.Background(), repository.repository, workspaceRoot, repository.revision, graph)
-			if !errors.Is(err, gitworkspace.ErrExecutableGitConfiguration) || !errors.Is(err, gitworkspace.ErrInvalidConfiguration) {
-				t.Fatalf("err=%v", err)
+			_, err := gitworkspace.NewIntegrator(context.Background(), repository.repository, filepath.Join(root, "workspaces"))
+			if !errors.Is(err, gitworkspace.ErrExecutableGitConfiguration) {
+				t.Fatal(err)
 			}
 			assertNoSentinel(t, sentinel)
-			if _, err := os.Lstat(graph.Children[0].Envelope.Workspace); !errors.Is(err, os.ErrNotExist) {
-				t.Fatalf("worktree created: %v", err)
-			}
 			if after := sharedCheckoutState(t, repository.repository); after != before {
-				t.Fatalf("shared checkout changed\nbefore=%s\nafter=%s", before, after)
+				t.Fatal("shared checkout changed")
 			}
 		})
 	}
 }
 
-func TestManagerRejectsFilterConfigurationIntroducedAfterPreparation(t *testing.T) {
-	t.Run("repository config before staging a child result", func(t *testing.T) {
-		fixture := newGitFixture(t, graphOptions{})
-		fixture.prepare(t)
-		graph := fixture.succeed(t, "a", "b")
-		writeFile(t, filepath.Join(fixture.childFrom(graph, "a").Envelope.Workspace, "a.txt"), "a\n")
-		writeFile(t, filepath.Join(fixture.childFrom(graph, "b").Envelope.Workspace, "b.txt"), "b\n")
-		sharedBefore := sharedCheckoutState(t, fixture.repository)
-		sentinel := filepath.Join(filepath.Dir(fixture.root), "sentinel")
-		commonDirectory := git(t, fixture.repository, "rev-parse", "--path-format=absolute", "--git-common-dir")
-		writeFile(t, filepath.Join(commonDirectory, "info", "attributes"), "*.txt filter=sentinel\n")
-		// A child can reach the shared common configuration from its worktree.
-		git(t, fixture.childFrom(graph, "a").Envelope.Workspace, "config", "filter.sentinel.clean", filterCommand(sentinel))
-
-		if _, _, _, err := fixture.manager.ObserveIntegration(context.Background(), nil); !errors.Is(err, gitworkspace.ErrExecutableGitConfiguration) {
-			t.Fatalf("observe err=%v", err)
-		}
-		if _, _, err := fixture.manager.InspectChild(context.Background(), fixture.childFrom(graph, "a")); !errors.Is(err, gitworkspace.ErrExecutableGitConfiguration) {
-			t.Fatalf("inspect err=%v", err)
-		}
-		assertNoSentinel(t, sentinel)
-		if after := sharedCheckoutState(t, fixture.repository); after != sharedBefore {
-			t.Fatalf("shared checkout changed\nbefore=%s\nafter=%s", sharedBefore, after)
-		}
-	})
-
-	t.Run("worktree-specific process driver", func(t *testing.T) {
-		fixture := newGitFixture(t, graphOptions{})
-		fixture.prepare(t)
-		sharedBefore := sharedCheckoutState(t, fixture.repository)
-		sentinel := filepath.Join(filepath.Dir(fixture.root), "sentinel")
-		workspace := fixture.child("a").Envelope.Workspace
-		git(t, workspace, "config", "extensions.worktreeConfig", "true")
-		git(t, workspace, "config", "--worktree", "filter.sentinel.process", filterCommand(sentinel))
-		if err := fixture.manager.ValidateWorkspace(context.Background(), fixture.child("a")); !errors.Is(err, gitworkspace.ErrExecutableGitConfiguration) {
-			t.Fatalf("err=%v", err)
-		}
-		assertNoSentinel(t, sentinel)
-		if after := sharedCheckoutState(t, fixture.repository); after != sharedBefore {
-			t.Fatalf("shared checkout changed\nbefore=%s\nafter=%s", sharedBefore, after)
-		}
-	})
-
-	t.Run("external diff driver", func(t *testing.T) {
-		fixture := newGitFixture(t, graphOptions{})
-		fixture.prepare(t)
-		git(t, fixture.repository, "config", "diff.external", "/usr/bin/true")
-		if err := fixture.manager.ValidateWorkspace(context.Background(), fixture.child("a")); !errors.Is(err, gitworkspace.ErrExecutableGitConfiguration) {
-			t.Fatalf("err=%v", err)
-		}
-	})
-
-	t.Run("disabled driver value is not executable", func(t *testing.T) {
-		fixture := newGitFixture(t, graphOptions{})
-		fixture.prepare(t)
-		git(t, fixture.repository, "config", "filter.lfs.smudge", "")
-		if err := fixture.manager.ValidateWorkspace(context.Background(), fixture.child("a")); err != nil {
-			t.Fatalf("err=%v", err)
-		}
-	})
-}
-
-func TestManagerRequiresPrivateWorkspaceRootAndControlPaths(t *testing.T) {
-	newManager := func(t *testing.T, prepare func(root, workspaceRoot string)) error {
-		t.Helper()
-		root := canonicalTempDir(t)
-		repository := initRepository(t, filepath.Join(root, "repository"))
-		workspaceRoot := filepath.Join(root, "workspaces")
-		prepare(root, workspaceRoot)
-		_, err := gitworkspace.NewManager(context.Background(), repository.repository, workspaceRoot, repository.revision, buildGraph(t, workspaceRoot, graphOptions{}))
-		return err
-	}
-	mkdir := func(t *testing.T, name string, mode os.FileMode) {
-		t.Helper()
-		if err := os.Mkdir(name, mode); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.Chmod(name, mode); err != nil {
-			t.Fatal(err)
-		}
-	}
-
-	t.Run("safe preexisting root", func(t *testing.T) {
-		if err := newManager(t, func(_, workspaceRoot string) { mkdir(t, workspaceRoot, 0o700) }); err != nil {
-			t.Fatalf("err=%v", err)
-		}
-	})
-
-	for _, mode := range []os.FileMode{0o755, 0o770, 0o701} {
-		t.Run("permissive root "+mode.String(), func(t *testing.T) {
-			if err := newManager(t, func(_, workspaceRoot string) { mkdir(t, workspaceRoot, mode) }); !errors.Is(err, gitworkspace.ErrInvalidConfiguration) {
-				t.Fatalf("err=%v", err)
+func TestIntegratorRejectsFilterConfigurationIntroducedAfterPreparation(t *testing.T) {
+	for _, kind := range []string{"repository", "worktree", "external-diff", "disabled"} {
+		t.Run(kind, func(t *testing.T) {
+			ctx := context.Background()
+			root := canonicalTempDir(t)
+			repository := initRepository(t, filepath.Join(root, "repository"))
+			boundary, err := gitworkspace.NewIntegrator(ctx, repository.repository, filepath.Join(root, "workspaces"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			observation, err := boundary.PrepareAgentWorktree(ctx, "agent", "refs/heads/agent", repository.revision)
+			if err != nil {
+				t.Fatal(err)
+			}
+			writeFile(t, filepath.Join(observation.Path, "a.txt"), "a\n")
+			commitAll(t, observation.Path, "candidate")
+			before := sharedCheckoutState(t, repository.repository)
+			sentinel := filepath.Join(root, "sentinel")
+			switch kind {
+			case "repository":
+				common := git(t, repository.repository, "rev-parse", "--path-format=absolute", "--git-common-dir")
+				writeFile(t, filepath.Join(common, "info", "attributes"), "*.txt filter=sentinel\n")
+				git(t, observation.Path, "config", "filter.sentinel.clean", filterCommand(sentinel))
+			case "worktree":
+				git(t, observation.Path, "config", "extensions.worktreeConfig", "true")
+				git(t, observation.Path, "config", "--worktree", "filter.sentinel.process", filterCommand(sentinel))
+			case "external-diff":
+				git(t, repository.repository, "config", "diff.external", "/usr/bin/true")
+			case "disabled":
+				git(t, repository.repository, "config", "filter.lfs.smudge", "")
+			}
+			_, err = boundary.ObserveCandidate(ctx, "agent", "refs/heads/agent", repository.revision)
+			if kind == "disabled" {
+				if err != nil {
+					t.Fatal(err)
+				}
+			} else if !errors.Is(err, gitworkspace.ErrExecutableGitConfiguration) {
+				t.Fatal(err)
+			}
+			assertNoSentinel(t, sentinel)
+			if after := sharedCheckoutState(t, repository.repository); after != before {
+				t.Fatal("shared checkout changed")
 			}
 		})
 	}
+}
 
-	t.Run("permissive owner directory", func(t *testing.T) {
-		err := newManager(t, func(_, workspaceRoot string) {
-			mkdir(t, workspaceRoot, 0o700)
-			mkdir(t, filepath.Join(workspaceRoot, ".axiom-workspace-owners"), 0o755)
+func TestIntegratorRequiresPrivateWorkspaceRoot(t *testing.T) {
+	for _, mode := range []os.FileMode{0700, 0755, 0770, 0701} {
+		t.Run(mode.String(), func(t *testing.T) {
+			root := canonicalTempDir(t)
+			repository := initRepository(t, filepath.Join(root, "repository"))
+			workspaces := filepath.Join(root, "workspaces")
+			if err := os.Mkdir(workspaces, mode); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Chmod(workspaces, mode); err != nil {
+				t.Fatal(err)
+			}
+			_, err := gitworkspace.NewIntegrator(context.Background(), repository.repository, workspaces)
+			if mode == 0700 {
+				if err != nil {
+					t.Fatal(err)
+				}
+			} else if !errors.Is(err, gitworkspace.ErrInvalidConfiguration) {
+				t.Fatal(err)
+			}
 		})
-		if !errors.Is(err, gitworkspace.ErrInvalidConfiguration) {
-			t.Fatalf("err=%v", err)
-		}
-	})
-
+	}
 	t.Run("foreign ownership", func(t *testing.T) {
 		gitworkspace.SetEffectiveUID(t, os.Geteuid()+1)
-		if err := newManager(t, func(_, workspaceRoot string) { mkdir(t, workspaceRoot, 0o700) }); !errors.Is(err, gitworkspace.ErrInvalidConfiguration) {
-			t.Fatalf("err=%v", err)
+		root := canonicalTempDir(t)
+		repository := initRepository(t, filepath.Join(root, "repository"))
+		_, err := gitworkspace.NewIntegrator(context.Background(), repository.repository, filepath.Join(root, "workspaces"))
+		if !errors.Is(err, gitworkspace.ErrInvalidConfiguration) {
+			t.Fatal(err)
 		}
 	})
-
 	t.Run("symlink root", func(t *testing.T) {
-		err := newManager(t, func(root, workspaceRoot string) {
-			target := filepath.Join(root, "target")
-			mkdir(t, target, 0o700)
-			if err := os.Symlink(target, workspaceRoot); err != nil {
-				t.Fatal(err)
-			}
-		})
+		root := canonicalTempDir(t)
+		repository := initRepository(t, filepath.Join(root, "repository"))
+		target, workspaces := filepath.Join(root, "target"), filepath.Join(root, "workspaces")
+		if err := os.Mkdir(target, 0700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Symlink(target, workspaces); err != nil {
+			t.Fatal(err)
+		}
+		_, err := gitworkspace.NewIntegrator(context.Background(), repository.repository, workspaces)
 		if !errors.Is(err, gitworkspace.ErrInvalidConfiguration) {
-			t.Fatalf("err=%v", err)
+			t.Fatal(err)
 		}
 	})
-
-	t.Run("symlink owner directory", func(t *testing.T) {
-		err := newManager(t, func(root, workspaceRoot string) {
-			mkdir(t, workspaceRoot, 0o700)
-			target := filepath.Join(root, "owners-target")
-			mkdir(t, target, 0o700)
-			if err := os.Symlink(target, filepath.Join(workspaceRoot, ".axiom-workspace-owners")); err != nil {
-				t.Fatal(err)
-			}
-		})
-		if !errors.Is(err, gitworkspace.ErrInvalidConfiguration) {
-			t.Fatalf("err=%v", err)
-		}
-	})
-}
-
-func TestManagerRejectsControlPathsWeakenedAfterPreparation(t *testing.T) {
-	ownerRecord := func(fixture *gitFixture) string {
-		return filepath.Join(fixture.root, ".axiom-workspace-owners", fixture.child("a").ExecutionID+".json")
-	}
-	tests := []struct {
-		name   string
-		weaken func(t *testing.T, fixture *gitFixture)
-	}{
-		{"permissive root", func(t *testing.T, fixture *gitFixture) { chmod(t, fixture.root, 0o755) }},
-		{"permissive owner directory", func(t *testing.T, fixture *gitFixture) {
-			chmod(t, filepath.Join(fixture.root, ".axiom-workspace-owners"), 0o750)
-		}},
-		{"permissive owner record", func(t *testing.T, fixture *gitFixture) { chmod(t, ownerRecord(fixture), 0o644) }},
-		{"hard-linked owner record", func(t *testing.T, fixture *gitFixture) {
-			if err := os.Link(ownerRecord(fixture), filepath.Join(fixture.root, "owner-alias")); err != nil {
-				t.Fatal(err)
-			}
-		}},
-		{"symlinked owner record", func(t *testing.T, fixture *gitFixture) {
-			record := ownerRecord(fixture)
-			moved := filepath.Join(fixture.root, "moved-owner.json")
-			if err := os.Rename(record, moved); err != nil {
-				t.Fatal(err)
-			}
-			if err := os.Symlink(moved, record); err != nil {
-				t.Fatal(err)
-			}
-		}},
-		{"foreign ownership", func(t *testing.T, _ *gitFixture) { gitworkspace.SetEffectiveUID(t, os.Geteuid()+1) }},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			fixture := newGitFixture(t, graphOptions{})
-			fixture.prepare(t)
-			if err := fixture.manager.ValidateWorkspace(context.Background(), fixture.child("a")); err != nil {
-				t.Fatalf("safe control paths rejected: %v", err)
-			}
-			test.weaken(t, fixture)
-			if err := fixture.manager.ValidateWorkspace(context.Background(), fixture.child("a")); !errors.Is(err, gitworkspace.ErrWorkspaceInvalid) {
-				t.Fatalf("err=%v", err)
-			}
-		})
-	}
-}
-
-func chmod(t *testing.T, name string, mode os.FileMode) {
-	t.Helper()
-	if err := os.Chmod(name, mode); err != nil {
-		t.Fatal(err)
-	}
 }

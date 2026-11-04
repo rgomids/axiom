@@ -242,7 +242,10 @@ check state-bytes-unchanged test "$(tree_digest "$STATE")" = "$state_before"
 check portable-bytes-unchanged test "$(tree_digest "$PROJECTS")" = "$portable_before"
 check state-valid-v1 test "$(classification)" = valid_v1
 check project-readable bash -c 'cd "$HOME/cwd" && axiom --json project show --selector journey | grep -q "\"status\":\"success\""'
-check execution-readable bash -c "cd \"\$HOME/cwd\" && axiom --json workflow status --project journey --repository main --number 7 | grep -q '$execution_id'"
+# Spec 015 S1 breaking cutover: the legacy Execution ledger stays inert. The
+# candidate's canonical discovery succeeds without reading, converting or
+# resuming it; byte preservation is checked by state-bytes-unchanged above.
+check legacy-execution-inert bash -c "cd \"\$HOME/cwd\" && out=\$(axiom --json workflow list --project journey) && grep -q '\"status\":\"success\"' <<<\"\$out\" && ! grep -q '$execution_id' <<<\"\$out\""
 check codex-ready bash -c 'cd "$HOME/cwd" && axiom runtime codex status'
 check first-run bash -c 'cd "$HOME/cwd" && axiom first-run'
 check first-run-no-op bash -c 'cd "$HOME/cwd" && axiom --json first-run | python3 -c "import json, sys; runtimes = {r[\"runtime\"]: r for r in json.load(sys.stdin)[\"firstRun\"][\"runtimes\"]}; assert all(runtimes[n][\"present\"] and runtimes[n][\"state\"] == \"already_configured\" for n in (\"claude\", \"codex\"))"'

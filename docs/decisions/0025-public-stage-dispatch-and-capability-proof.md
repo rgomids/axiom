@@ -56,6 +56,9 @@ Subject to human acceptance:
    attempt's inbox one last time before that attempt's terminal save, and
    quarantines inboxes from earlier epochs. Records never mutate graph state,
    authority or gates.
+
+> Superseded by [ADR-0037 — One canonical Execution for new workflow runs](0037-one-canonical-execution-for-new-runs.md#decision), accepted 2026-10-30.
+> For new runs only, decisions 1–3 are consolidated: one engine per Execution with the runner lease, attempt authority inside the Execution commit instead of a separate dispatch authority record, and one attempt-owned ingress instead of graph-owned coordination. Pre-spawn authority, lease fencing, untrusted ingress and records that never mutate authority remain in force.
 4. **Persisted classification.** At terminal save, the attempt's process
    result and drained records are classified once into existing ADR-0009
    statuses (`cancelled`, `unknown`, `blocked`, `failed`, `succeeded`).

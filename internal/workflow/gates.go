@@ -1,7 +1,5 @@
 package workflow
 
-import "context"
-
 // GateAction describes the next supported local operation. It is derived from
 // canonical state, never persisted as a second workflow or Runtime decision.
 type GateAction struct {
@@ -66,24 +64,4 @@ func NextGateAction(state State) *GateAction {
 		return &GateAction{Operation: "fact", Fact: required, Active: true, ReferenceRequired: true, AuthorityRequired: true}
 	}
 	return &GateAction{Operation: "advance", Gate: state.Stage, Automatic: state.Stage == Intake}
-}
-
-// AdvanceAutomatic only evaluates Intake: resolving the exact linked Work Item
-// and valid Execution scope already supplies its deterministic prerequisites.
-// All other gates need actual work/results or explicit authority. One invocation
-// commits at most one transition through the same revisioned path as the CLI.
-func (s Service) AdvanceAutomatic(ctx context.Context, target Target, expectedRevision uint64) Result {
-	current := s.Status(ctx, target)
-	if current.Status != Succeeded {
-		return current
-	}
-	state := current.State
-	if state.Revision != expectedRevision {
-		return result(Denied, "stale_execution_revision", state)
-	}
-	action := NextGateAction(state)
-	if action == nil || !action.Automatic {
-		return result(Denied, "workflow_action_required", state)
-	}
-	return s.Transition(ctx, target, TransitionInput{ExpectedRevision: expectedRevision, Stage: Intake, Outcome: OutcomePassed})
 }

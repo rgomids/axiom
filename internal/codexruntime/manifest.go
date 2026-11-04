@@ -373,6 +373,56 @@ var sharedSkillHistory = []skillSetRevision{
 		"axiom-work-item": "dfa0a34033dbbf4109f724085e1fed7f813d194362262e68cec683d8ffa6532a",
 		"axiom-workflow":  "899abc6a29c6ece448535f844ddaefb7a2419a9f7cfb0533b534b47af89236b7",
 	}},
+	// Shared revision before the AXM-42 canonical `workflow run` replaced the
+	// retired Stage Plan and Graph/Single stage dispatch routes.
+	{skillSetVersion: "3", binaryCompatibility: "3", skills: map[string]string{
+		"axiom-project":   "d55dbaa480404e437696e5bd534a32ebf40458a2b9d905ec43fd26d6276b6fac",
+		"axiom-runtime":   "ddf3f869d6f3fd0820775d6f488a3bbf50f50a0420d89d625addf6d0b757636e",
+		"axiom-work-item": "6984d22a126856cdd2f3ac755f29ab2c3a040e155a4423a799b1f86a70ff314a",
+		"axiom-workflow":  "8a3162a0c6afc040e121b4fd984354f5f6cb7409965b734f9f2a1e7f3481a77c",
+	}},
+	// Embedded revision before S1-05 local defaults and before-gate guidance.
+	{skillSetVersion: "3", binaryCompatibility: "3", skills: map[string]string{
+		"axiom-project":   "d55dbaa480404e437696e5bd534a32ebf40458a2b9d905ec43fd26d6276b6fac",
+		"axiom-runtime":   "ddf3f869d6f3fd0820775d6f488a3bbf50f50a0420d89d625addf6d0b757636e",
+		"axiom-work-item": "b219320fe8f1014a7d36d99b351452959b3c0056d7b44db9cff68d3b933976a3",
+		"axiom-workflow":  "8a3162a0c6afc040e121b4fd984354f5f6cb7409965b734f9f2a1e7f3481a77c",
+	}},
+	// Pre-S1.7 shared revision; retain ownership while retiring old lifecycle routes.
+	{skillSetVersion: "3", binaryCompatibility: "3", skills: map[string]string{
+		"axiom-project":   "d55dbaa480404e437696e5bd534a32ebf40458a2b9d905ec43fd26d6276b6fac",
+		"axiom-runtime":   "f0fa5949b095bfbe7bb729715e82216812ebafbf58f0b9fe1a24b0065ab32aea",
+		"axiom-work-item": "f8e57ea645ecf560db9fd0bddc35ab152b2701176dea146e2397c37fe7af30d8",
+		"axiom-workflow":  "8a3162a0c6afc040e121b4fd984354f5f6cb7409965b734f9f2a1e7f3481a77c",
+	}},
+	// Pre-S2.4 message guidance; preserve shared installed skill ownership.
+	{skillSetVersion: "3", binaryCompatibility: "3", skills: map[string]string{
+		"axiom-project":   "d55dbaa480404e437696e5bd534a32ebf40458a2b9d905ec43fd26d6276b6fac",
+		"axiom-runtime":   "d0be5bd58771921dca829db190d57606828d3be7274d6e197d3413fbd05d61da",
+		"axiom-work-item": "c2f948abd3fb51b759797c392ac34cfdcd180d3d1e4ae58bed75feab384d0b8a",
+		"axiom-workflow":  "ccf211835d605cf271fe47e30bf28850b5d29fbe609c2ca5965e8784bd0f68f6",
+	}},
+	// Pre-S3.2 delivery guidance; retain ownership across the installed skill update.
+	{skillSetVersion: "3", binaryCompatibility: "3", skills: map[string]string{
+		"axiom-project":   "d55dbaa480404e437696e5bd534a32ebf40458a2b9d905ec43fd26d6276b6fac",
+		"axiom-runtime":   "d0be5bd58771921dca829db190d57606828d3be7274d6e197d3413fbd05d61da",
+		"axiom-work-item": "c7e9c880b07b4b9ccbf1710c6e19ca953f75a31f1bc913204849d5ecf068b518",
+		"axiom-workflow":  "ccf211835d605cf271fe47e30bf28850b5d29fbe609c2ca5965e8784bd0f68f6",
+	}},
+	// Pre-S3.3 rejection/rework guidance; preserve both Runtime ownership histories.
+	{skillSetVersion: "3", binaryCompatibility: "3", skills: map[string]string{
+		"axiom-project":   "d55dbaa480404e437696e5bd534a32ebf40458a2b9d905ec43fd26d6276b6fac",
+		"axiom-runtime":   "d0be5bd58771921dca829db190d57606828d3be7274d6e197d3413fbd05d61da",
+		"axiom-work-item": "5290dca673b198949f8599eefb86296c19f1e8b3805df6e805e7841ebaea564c",
+		"axiom-workflow":  "ccf211835d605cf271fe47e30bf28850b5d29fbe609c2ca5965e8784bd0f68f6",
+	}},
+	// Pre-S3.4 historical-reader guidance; preserve ownership for both Runtimes.
+	{skillSetVersion: "3", binaryCompatibility: "3", skills: map[string]string{
+		"axiom-project":   "d55dbaa480404e437696e5bd534a32ebf40458a2b9d905ec43fd26d6276b6fac",
+		"axiom-runtime":   "d0be5bd58771921dca829db190d57606828d3be7274d6e197d3413fbd05d61da",
+		"axiom-work-item": "28befbc0923a7cd5103e2fcfff368cbbd54c315ea3c6b0bda7b6b63ada2a6d0c",
+		"axiom-workflow":  "ccf211835d605cf271fe47e30bf28850b5d29fbe609c2ca5965e8784bd0f68f6",
+	}},
 }
 
 // currentRevision is the skill set embedded in this binary.

@@ -1,5 +1,16 @@
 # Specification 007 amendment — #276 public stage dispatch, capability proof and coordination state
 
+> **AXM-42 prospective reconciliation — 2026-10-30.**
+> [ADR-0037](../../decisions/0037-one-canonical-execution-for-new-runs.md#supersedes)
+> records the [human material decision](https://github.com/rgomids/axiom/pull/366#pullrequestreview-5720318529)
+> approving [Spec 015](../015-minimum-viable-operational-workflow/spec.md). For **new** runs only:
+> A1 graph/single public dispatch split, A4 separate dispatch authority record,
+> A5 standalone Validator Policy publication and the graph/single persistence
+> contracts consumed here are replaced by one Execution, one run action and
+> attempt-owned ingress. Pre-spawn authorization, current-target checks,
+> cancellation, unknown effects and untrusted ingress remain. Historical text
+> and Evidence below are preserved.
+
 > **AXM-36 prospective reconciliation — 2026-10-19.**
 > [ADR-0032](../../decisions/0032-runtime-admission-without-certification.md#supersedes)
 > was [accepted at `b4baf106`](https://github.com/rgomids/axiom/pull/334#issuecomment-6278024276).

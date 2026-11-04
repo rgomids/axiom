@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
+	"errors"
 	"os/exec"
 	"strings"
 
@@ -104,10 +105,10 @@ func (g DeliveryGit) safeRemote(ctx context.Context, t workflow.DeliveryTarget) 
 }
 func (g DeliveryGit) PushDelivery(ctx context.Context, p workflow.DeliveryPreview) error {
 	if p.Observation.RemoteHead != "" && p.Observation.RemoteHead != p.Target.HeadCommit {
-		return ErrWorkspaceInvalid
+		return errors.Join(workflow.ErrDeliveryRefused, ErrWorkspaceInvalid)
 	}
 	if err := g.safeRemote(ctx, p.Target); err != nil {
-		return err
+		return errors.Join(workflow.ErrDeliveryRefused, err)
 	}
 	_, err := g.manager.gitOutput(ctx, g.manager.repository, nil, g.authentication, "-c", "protocol.allow=never", "-c", "protocol.file.allow="+map[bool]string{true: "always", false: "never"}[g.allowFile], "-c", "protocol.https.allow=always", "push", "--porcelain", "--force-with-lease="+p.Target.HeadRef+":"+p.Observation.RemoteHead, "--", p.Target.Remote, p.Target.HeadCommit+":"+p.Target.HeadRef)
 	if err != nil {

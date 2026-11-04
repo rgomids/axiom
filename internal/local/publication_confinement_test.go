@@ -49,11 +49,11 @@ func TestEveryT03StorePreservesOutsideRootHash(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	workflows, err := NewWorkflowStore(filepath.Join(base, "workflows"))
+	workflows, err := NewExecutionStore(filepath.Join(base, "workflows"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := workflows.Create(context.Background(), validExecution()); err != nil {
+	if err := workflows.Create(context.Background(), storeTestExecution(t)); err != nil {
 		t.Fatal(err)
 	}
 

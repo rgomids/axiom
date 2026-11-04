@@ -35,28 +35,39 @@ func (s *stageRecorder) WorkflowStage(_ context.Context, in WorkflowStageInput) 
 
 const stageSelectors = "--project alpha --repository main --work-item github:owner/repo#7 --execution e-1"
 
+// executionSelectors address a canonical Execution after start.
+const executionSelectors = "--project alpha --execution e-1"
+
 func TestWorkflowStageCommandsRouteExactInputs(t *testing.T) {
 	cases := map[string]struct {
 		args  string
 		check func(WorkflowStageInput) bool
 	}{
-		"run preview": {"workflow stage run " + stageSelectors + " --expected-revision 3 --stage implementation --plan p.json --validator-policy v --workspace-root /w", func(in WorkflowStageInput) bool {
-			return in.Operation == "run" && in.ExpectedRevision == 3 && !in.AuthorizeLocal && !in.AuthorizeExternal && in.PreviewDigest == ""
+		"run start": {"workflow run --project alpha --repository main --work-item github:owner/repo#7 --select agent.runtime=codex --select work/agent.effort=runtime-default --authorize-external", func(in WorkflowStageInput) bool {
+			return in.Operation == "execution-run" && in.Repository == "main" && len(in.Selections) == 2 && in.AuthorizeExternal && in.Execution == "" && !in.AuthorizeHuman
 		}},
-		"run apply": {"workflow stage run " + stageSelectors + " --expected-revision 3 --stage implementation --plan p.json --validator-policy v --workspace-root /w --preview-digest d --authorize-local --authorize-external", func(in WorkflowStageInput) bool {
-			return in.PreviewDigest == "d" && in.AuthorizeLocal && in.AuthorizeExternal
+		"run continue with gate": {"workflow run " + executionSelectors + " --approve-gate review --authorize-human --authorize-external", func(in WorkflowStageInput) bool {
+			return in.Operation == "execution-run" && in.ApproveGate == "review" && in.AuthorizeHuman && in.Repository == ""
 		}},
-		"delivery packet": {"workflow delivery packet " + stageSelectors + " --packet digest", func(in WorkflowStageInput) bool { return in.Operation == "delivery-packet" && in.Record == "digest" }},
-		"status":          {"workflow stage status " + stageSelectors, func(in WorkflowStageInput) bool { return in.Operation == "status" && in.Execution == "e-1" }},
-		"cancel": {"workflow stage cancel " + stageSelectors + " --preview-digest d --authorize-local", func(in WorkflowStageInput) bool {
+		"run minimal": {"workflow run --repository main --work-item github:owner/repo#7 --project alpha --workflow minimal", func(in WorkflowStageInput) bool {
+			return in.Workflow == "minimal" && !in.AuthorizeExternal
+		}},
+		"delivery packet": {"workflow delivery packet " + stageSelectors, func(in WorkflowStageInput) bool {
+			return in.Operation == "delivery-packet" && in.Record == "" && !in.AuthorizeLocal && in.PreviewDigest == ""
+		}},
+		"status": {"workflow stage status " + executionSelectors, func(in WorkflowStageInput) bool { return in.Operation == "status" && in.Execution == "e-1" }},
+		"cancel": {"workflow stage cancel " + executionSelectors + " --authorize-local", func(in WorkflowStageInput) bool {
 			return in.Operation == "cancel" && in.AuthorizeLocal && !in.AuthorizeExternal
 		}},
-		"retry": {"workflow stage retry " + stageSelectors + " --expected-revision 3 --stage implementation --plan p.json --validator-policy v --child c-1 --disposition preserve", func(in WorkflowStageInput) bool {
-			return in.Operation == "retry" && in.Child == "c-1" && in.Disposition == "preserve"
+		"retry": {"workflow stage retry " + executionSelectors + " --stage implementation --agent owner --authorize-external", func(in WorkflowStageInput) bool {
+			return in.Operation == "retry" && in.Stage == "implementation" && in.Agent == "owner" && !in.NewSelection
 		}},
-		"reconcile": {"workflow stage reconcile " + stageSelectors + " --child c-1 --attempt a-1", func(in WorkflowStageInput) bool { return in.Operation == "reconcile" && in.Attempt == "a-1" }},
-		"integrate": {"workflow stage integrate " + stageSelectors + " --expected-revision 3 --stage implementation --validator-policy v --waive c-2=waiver:1 --waive c-3=waiver:2", func(in WorkflowStageInput) bool {
-			return in.Operation == "integrate" && len(in.Waivers) == 2 && in.Waivers["c-3"] == "waiver:2"
+		"retry new selection": {"workflow stage retry " + executionSelectors + " --stage s --agent a --new-selection --select a.model=m --authorize-external", func(in WorkflowStageInput) bool {
+			return in.NewSelection && len(in.Selections) == 1
+		}},
+		"reconcile": {"workflow stage reconcile " + executionSelectors, func(in WorkflowStageInput) bool { return in.Operation == "reconcile" && in.Abandon == "" }},
+		"reconcile abandon": {"workflow stage reconcile " + executionSelectors + " --abandon a-1 --authorize-human", func(in WorkflowStageInput) bool {
+			return in.Abandon == "a-1" && in.AuthorizeHuman
 		}},
 		"coord list": {"workflow coordination list " + stageSelectors + " --child c-1 --kind result --wait 2s", func(in WorkflowStageInput) bool {
 			return in.Operation == "coordination-list" && in.Kind == "result" && in.Wait.Seconds() == 2
@@ -80,18 +91,22 @@ func TestWorkflowStageCommandsRouteExactInputs(t *testing.T) {
 
 func TestWorkflowStageParserRefusals(t *testing.T) {
 	for _, args := range []string{
-		"workflow stage run " + stageSelectors + " --stage implementation --plan p.json --validator-policy v",            // missing revision
-		"workflow stage retry " + stageSelectors + " --expected-revision 3 --stage s --plan p.json --validator-policy v", // missing child
-		"workflow stage reconcile " + stageSelectors + " --child c-1",                                                    // missing attempt
-		"workflow stage integrate " + stageSelectors + " --expected-revision 3 --stage s --validator-policy v --waive bad",
-		"workflow stage integrate " + stageSelectors + " --expected-revision 3 --stage s --validator-policy v --waive c=1 --waive c=2",
+		"workflow run --project alpha --work-item github:owner/repo#7",                                 // missing repository at start
+		"workflow run --project alpha --repository main --work-item github:owner/repo#7 --plan p.json", // retired input
+		"workflow stage retry " + executionSelectors + " --stage s",                                    // missing agent
+		"workflow stage retry " + executionSelectors + " --stage s --agent a --validator-policy v",     // retired input
+		"workflow stage reconcile " + executionSelectors + " --child c-1 --attempt a-1",                // retired input
 		"workflow coordination list " + stageSelectors + " --wait 31s",
 		"workflow coordination show " + stageSelectors + " --child c-1",
 		"workflow coordination publish --kind result --project alpha", // lineage never comes from flags
 		"workflow coordination publish --field outcome=succeeded",
-		"workflow stage cancel " + stageSelectors + " --authorize-external",
-		"workflow stage status " + stageSelectors + " --preview-digest d",
-		"workflow stage status " + stageSelectors + " --execution e-2",
+		"workflow stage cancel " + executionSelectors + " --authorize-external",
+		"workflow stage status " + executionSelectors + " --preview-digest d",
+		"workflow stage status " + executionSelectors + " --execution e-2",
+		"workflow stage status " + stageSelectors,
+		"workflow delivery packet " + stageSelectors + " --authorize-local",  // read-only readiness
+		"workflow delivery packet " + stageSelectors + " --packet digest",    // no legacy packet read
+		"workflow delivery packet " + stageSelectors + " --preview-digest d", // no packet mutation
 	} {
 		t.Run(args, func(t *testing.T) {
 			service := &stageRecorder{status: completion.Facts{Completed: true}, source: completionProvenance(t)}
@@ -114,7 +129,7 @@ func TestWorkflowCancelRemainsInvalidCommand(t *testing.T) {
 }
 
 func TestWorkflowStageJSONAndHumanParity(t *testing.T) {
-	args := strings.Fields("workflow stage status " + stageSelectors)
+	args := strings.Fields("workflow stage status " + executionSelectors)
 	service := &stageRecorder{status: completion.Facts{Completed: true}, source: completionProvenance(t)}
 	var jsonOut, humanOut bytes.Buffer
 	if code := Run(context.Background(), args, service, completionProvenance(t), &jsonOut); code != ExitSuccess {
@@ -145,23 +160,34 @@ func TestWorkflowStageExitCodesFollowCanonicalStatus(t *testing.T) {
 	}{{completion.Facts{Completed: true}, ExitSuccess}, {completion.Facts{AuthorityDenied: true}, ExitFailure}, {completion.Facts{ValidationFailed: true}, ExitFailure}} {
 		service := &stageRecorder{status: tt.facts, source: completionProvenance(t)}
 		var out bytes.Buffer
-		if code := Run(context.Background(), strings.Fields("workflow stage status "+stageSelectors), service, completionProvenance(t), &out); code != tt.code {
+		if code := Run(context.Background(), strings.Fields("workflow stage status "+executionSelectors), service, completionProvenance(t), &out); code != tt.code {
 			t.Fatalf("facts %+v exit %d, want %d: %s", tt.facts, code, tt.code, &out)
 		}
 	}
 }
 
 func TestWorkflowStageHelpAndUnavailableApplication(t *testing.T) {
-	for _, path := range []string{"workflow stage run", "workflow stage status", "workflow stage cancel", "workflow stage retry", "workflow stage reconcile", "workflow stage integrate", "workflow coordination list", "workflow coordination show", "workflow coordination publish"} {
+	for _, path := range []string{"workflow run", "workflow stage status", "workflow stage cancel", "workflow stage retry", "workflow stage reconcile", "workflow coordination list", "workflow coordination show", "workflow coordination publish"} {
 		var help bytes.Buffer
 		if handled, code := HandleHelp(append(strings.Fields(path), "--help"), completionProvenance(t), &help); !handled || code != ExitSuccess || !strings.Contains(help.String(), "axiom "+path) {
 			t.Fatalf("%s help: handled=%v code=%d %s", path, handled, code, &help)
 		}
 	}
 	var out bytes.Buffer
-	code := Run(context.Background(), strings.Fields("workflow stage status "+stageSelectors), &recordingService{}, completionProvenance(t), &out)
+	code := Run(context.Background(), strings.Fields("workflow stage status "+executionSelectors), &recordingService{}, completionProvenance(t), &out)
 	if code == ExitSuccess || !strings.Contains(out.String(), "application_unavailable") {
 		t.Fatalf("missing service = %d %s", code, &out)
+	}
+}
+
+func TestRetiredStageCommandsNeverReachTheApplication(t *testing.T) {
+	for _, name := range []string{"plan", "run", "integrate"} {
+		service := &stageRecorder{status: completion.Facts{Completed: true}, source: completionProvenance(t)}
+		var out bytes.Buffer
+		code := Run(context.Background(), strings.Fields("workflow stage "+name+" "+stageSelectors+" --expected-revision 3 --stage s --plan p.json"), service, completionProvenance(t), &out)
+		if code == ExitSuccess || len(service.inputs) != 0 || !strings.Contains(out.String(), "command_retired") || !strings.Contains(out.String(), "axiom workflow run") {
+			t.Fatalf("%s: code=%d %s", name, code, &out)
+		}
 	}
 }
 
@@ -193,10 +219,10 @@ func TestDeliveryPacketJSONAndHumanExposeSameReadiness(t *testing.T) {
 // Synthetic service spy: rendering both views must call the service once per
 // request and preserve single/Graph payload paths, completion and category.
 func TestOperatorStageDiagnosticUsesCanonicalEmitter(t *testing.T) {
-	d := &Diagnostic{SchemaVersion: 1, Operation: "workflow stage run", Category: "capability_unknown", Capability: "unknown", Options: []DiagnosticOption{{ID: "handoff", Availability: "available"}}}
+	d := &Diagnostic{SchemaVersion: 1, Operation: "workflow run", Category: "capability_unknown", Capability: "unknown", Options: []DiagnosticOption{{ID: "handoff", Availability: "available"}}}
 	service := &stageRecorder{status: completion.Facts{ValidationFailed: true}, source: completionProvenance(t), diagnostic: d}
 	var structured bytes.Buffer
-	args := strings.Fields("workflow stage status " + stageSelectors)
+	args := strings.Fields("workflow stage status " + executionSelectors)
 	if code := Run(context.Background(), args, service, completionProvenance(t), &structured); code != ExitFailure || len(service.inputs) != 1 {
 		t.Fatalf("code=%d calls=%d", code, len(service.inputs))
 	}

@@ -10,7 +10,6 @@ import (
 	"testing"
 
 	"github.com/rgomids/axiom/internal/cli"
-	"github.com/rgomids/axiom/internal/workflowdefinition"
 )
 
 // Issue #230 I230-T08 bounded end-to-end maintenance journey (AC-51, AC-53,
@@ -104,7 +103,7 @@ printf '{"number":7,"html_url":"https://github.com/acme/core/issues/7","state":"
 	}
 	j.run(cli.ExitSuccess, "project", "show", "--selector", "journey")
 	validated := j.run(cli.ExitSuccess, "project", "validate", "--project", "journey")
-	if text(validated, "readiness", "effective") != "partial" || text(validated, "readiness", "runtime", "detail") != "inventory_unavailable" {
+	if text(validated, "readiness", "effective") != "ready" || text(validated, "readiness", "runtime", "status") != "selected_at_dispatch" {
 		t.Fatalf("validate = %v", validated["readiness"])
 	}
 
@@ -148,22 +147,12 @@ printf '{"number":7,"html_url":"https://github.com/acme/core/issues/7","state":"
 	change := j.run(cli.ExitSuccess, update...)
 	j.run(cli.ExitSuccess, append(update, "--preview-digest", text(change, "change", "digest"), "--authorize-external")...)
 
-	// Execution: reviewed start, then discovery without a known identity.
-	currentBuiltin, _ := workflowdefinition.BuiltinRevision(2)
-	ref := currentBuiltin.Ref("builtin")
-	selectWorkflow := []string{"project", "workflow", "select", "--project", "journey", "--workflow", ref.WorkflowID, "--revision", "2", "--digest", ref.Digest, "--source", ref.Source}
-	workflowPreview := j.run(cli.ExitSuccess, selectWorkflow...)
-	j.run(cli.ExitSuccess, append(selectWorkflow, "--expected-revision", text(workflowPreview, "workflowAuthoring", "projectRevision"), "--preview-digest", text(workflowPreview, "workflowAuthoring", "previewDigest"), "--authorize-local")...)
-	start := append(append([]string{"workflow", "start"}, selector...), "--role", "implementation", "--complexity", "high", "--capabilities", "axiom-skills", "--runtime", "claude")
-	resolution := j.run(cli.ExitSuccess, start...)
-	j.run(cli.ExitSuccess, append(start, "--runtime-preview", text(resolution, "previewDigest"))...)
+	// Canonical discovery needs no Runtime policy preview and never creates work.
 	executions := j.run(cli.ExitSuccess, "workflow", "list", "--project", "journey")
 	listedExecutions, _ := executions["executions"].([]any)
-	if len(listedExecutions) != 1 {
-		t.Fatalf("workflow list = %v", executions["executions"])
+	if len(listedExecutions) != 0 {
+		t.Fatalf("inspection allocated an Execution: %v", executions["executions"])
 	}
-	executionID := text(listedExecutions[0].(map[string]any), "executionId")
-	j.run(cli.ExitSuccess, append(append([]string{"workflow", "status"}, selector...), "--execution", executionID)...)
 
 	// Archive blocks evolution, not inspection or administration.
 	archive := []string{"project", "archive", "--project", "journey"}
@@ -178,10 +167,11 @@ printf '{"number":7,"html_url":"https://github.com/acme/core/issues/7","state":"
 	patches := j.patches()
 	for _, denied := range [][]string{
 		update,
-		append(append([]string{"workflow", "advance"}, selector...), "--execution", executionID, "--expected-revision", "1", "--gate", "specification", "--outcome", "pass", "--reference", "evidence:spec.md:abc"),
+		append(append([]string{"workflow", "run"}, selector...), "--workflow", "minimal", "--select", "agent.runtime=claude", "--select", "agent.model=synthetic-model", "--select", "agent.effort=runtime-default"),
 		append([]string{"work-item", "close"}, selector...),
 	} {
-		if event := j.run(cli.ExitFailure, denied...); text(event, "admission", "code") != "project_archived" {
+		// Canonical run renders its admission refusal as the stage category.
+		if event := j.run(cli.ExitFailure, denied...); text(event, "admission", "code") != "project_archived" && text(event, "category") != "project_archived" {
 			t.Fatalf("%v while archived = %v", denied, event)
 		}
 	}

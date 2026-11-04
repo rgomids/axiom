@@ -79,33 +79,47 @@ var domainPolicy = policy{
 // of ambient I/O.
 // ---------------------------------------------------------------------------
 
+// The consumed helpers below only transform supplied values: the Workflow and
+// Runtime/Profile domain codecs/selectors do not resolve executables, inspect
+// ambient files, or run vendors. Test fixture constructors remain test-only.
+// Keep symbol-level review: importing these packages never permits their other
+// exported symbols, and stdlib I/O (including fmt.Print and time.Now) stays denied.
 var applicationPolicy = policy{
 	label: "application",
 	dir:   "internal/projectapp",
 	allowed: map[string]string{
-		"context":         "Context Background WithCancel Canceled DeadlineExceeded",
-		"crypto/sha256":   "Sum256",
+		"context":         "Context Background WithCancel WithoutCancel WithValue Canceled DeadlineExceeded",
+		"crypto/sha256":   "Sum256 Size",
 		"encoding/binary": "BigEndian",
-		"encoding/hex":    "EncodeToString",
-		"encoding/json":   "Marshal",
-		"errors":          "Is New",
+		"encoding/hex":    "EncodeToString DecodeString",
+		"encoding/json":   "Marshal Unmarshal RawMessage",
+		"errors":          "Is As New",
 		"sort":            "Slice SliceStable Strings",
-		"strings":         "ContainsAny HasPrefix Split Contains Join TrimSpace IndexFunc Repeat Trim",
+		"strings":         "ContainsAny HasPrefix Split Contains Join TrimSpace IndexFunc Repeat Trim Replace",
 		"sync":            "Mutex",
 		"sync/atomic":     "Bool",
 		"path/filepath":   "Clean IsAbs",
 		"time":            "Time Unix",
 		"reflect":         "DeepEqual",
 		"testing":         "T",
+		"bytes":           "Contains Equal",
+		"fmt":             "Sprint Sprintf",
+		"slices":          "Contains DeleteFunc Equal",
+		"strconv":         "Itoa",
 		"unicode/utf8":    "ValidString",
 		"unicode":         "IsControl",
 		"regexp":          "MustCompile",
-		"github.com/rgomids/axiom/internal/project":  "ContextValue DocumentationSource GlossaryEntry LocalFileSource MaxDocumentationSources MaxGlossaryDefinitionLen MaxGlossaryTermBytes MaxTechnologyFacts MaxTechnologyValueBytes NormalizeLocator Present RepositoryRelativePath RepositorySource RuntimePolicyDeclared RuntimePreference TechnologyFact ValidContextKey PortableContextValue MaxBusinessContextBytes Project State Issue New Configured BusinessContext Declaration Repository Provider Runtime Integration ModelProfile CredentialReference Intent Set ValidSlug Absent NotConfigured Unconfigured",
-		"github.com/rgomids/axiom/internal/manifest": "Codec Decode",
-		"github.com/rgomids/axiom/internal/testfs":   "Path",
+		"github.com/rgomids/axiom/internal/project":                           "ContextValue DocumentationSource GlossaryEntry LocalFileSource MaxDocumentationSources MaxGlossaryDefinitionLen MaxGlossaryTermBytes MaxTechnologyFacts MaxTechnologyValueBytes NormalizeLocator Present RepositoryRelativePath RepositorySource RuntimePolicyDeclared RuntimePreference TechnologyFact ValidContextKey PortableContextValue MaxBusinessContextBytes Project State Issue New Configured BusinessContext Declaration Repository Provider Runtime Integration ModelProfile CredentialReference Intent Set AllowedRuntimes ValidateIdentity WorkflowSelection Form ValidSlug Absent NotConfigured Unconfigured",
+		"github.com/rgomids/axiom/internal/manifest":                          "Codec Decode Encode",
+		"github.com/rgomids/axiom/internal/testfs":                            "Path",
+		"github.com/rgomids/axiom/internal/portableconfig":                    "SafeValue",
+		"github.com/rgomids/axiom/internal/strictjson":                        "Decode",
+		"github.com/rgomids/axiom/internal/workflowdefinition":                "Agent Builtin BuiltinRevision Catalog Decode Definition Diagnostic Document Effort Encode Entry Index Ref ValidKey",
+		"github.com/rgomids/axiom/internal/runtimeprofile":                    "ConfigurationV3 ConsumerV4 Effort FormatVersionV3 ModelProfile NewConsumerV4 ProfileIntent RuntimeV3 SafeIdentifier ValidEffort",
+		"github.com/rgomids/axiom/internal/runtimeprofile/runtimeprofiletest": "ClaudeRuntimeID CodexDefaultProfileID CodexHighProfileID CodexOnly CodexRuntimeID CodexUnlistedProfileID Consumer Current CurrentDigest ExplicitEffort MultiRuntime RuntimeDefaultEffort UnknownProfileID WithRuntimeDisabled",
 	},
 	testSelfImport:     "github.com/rgomids/axiom/internal/projectapp",
-	testOnlyImports:    []string{"testing", "reflect", "sync", "github.com/rgomids/axiom/internal/manifest", "github.com/rgomids/axiom/internal/testfs"},
+	testOnlyImports:    []string{"testing", "reflect", "sync", "github.com/rgomids/axiom/internal/manifest", "github.com/rgomids/axiom/internal/testfs", "github.com/rgomids/axiom/internal/runtimeprofile/runtimeprofiletest"},
 	testOnlyMessage:    "test-only helper imported by production application",
 	forbiddenSelectors: []string{"TempDir", "Setenv", "Chdir", "Output", "Attr"},
 }

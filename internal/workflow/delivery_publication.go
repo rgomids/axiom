@@ -3,7 +3,6 @@ package workflow
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"reflect"
 	"strings"
 
@@ -82,25 +81,10 @@ type DeliveryPublication struct {
 	Next          string          `json:"next"`
 }
 
-type DeliveryPublicationStore interface {
-	LoadDeliveryPublication(context.Context, string, string) (DeliveryPublication, error)
-	SaveDeliveryPublication(context.Context, State, DeliveryPublication, *DeliveryPublication) error
-}
-
 type DeliveryEffects interface {
 	ObserveDelivery(context.Context, DeliveryPreview) (DeliveryObservation, error)
 	PushDelivery(context.Context, DeliveryPreview) error
 	CreateDeliveryPR(context.Context, DeliveryPreview) error
-}
-
-type DeliveryAuthority struct {
-	Digest          string
-	Local, Push, PR bool
-}
-
-type DeliveryPublisher struct {
-	Store   DeliveryPublicationStore
-	Effects DeliveryEffects
 }
 
 func validDeliveryTarget(t DeliveryTarget) bool {
@@ -126,191 +110,11 @@ func deliveryPacketCurrent(s State, p DeliveryPacket) bool {
 	return s.Binding != nil && p.ProjectID == s.ProjectID && p.RepositoryKey == s.RepositoryKey && p.WorkItem == s.WorkItem && p.ExecutionID == s.ExecutionID && p.ExecutionRevision == s.Revision && p.LedgerDigest == fmtDigest(s.StorageRevision) && p.BindingDigest == digest(s.Binding) && p.Definition == s.Binding.Definition
 }
 
-func (d DeliveryPublisher) Preview(ctx context.Context, s State, p DeliveryPacket, t DeliveryTarget) (DeliveryPreview, error) {
-	ref, err := DeliveryPacketDigest(p)
-	if err != nil || !deliveryPacketCurrent(s, p) || !validDeliveryTarget(t) {
-		return DeliveryPreview{}, ErrDelivery
-	}
-	v := DeliveryPreview{Packet: p, PacketDigest: ref, Target: t}
-	if t.Kind == "local" {
-		return v, nil
-	}
-	found := false
-	var tree, diff string
-	for _, stage := range p.Stages {
-		if stage.ResultTree != "" {
-			found = true
-			tree, diff = stage.ResultTree, stage.DiffDigest
-		}
-	}
-	if found && (tree != t.Tree || diff != t.DiffDigest) {
-		return v, ErrDelivery
-	}
-	if !found || d.Effects == nil {
-		return v, ErrDelivery
-	}
-	v.Observation, err = d.Effects.ObserveDelivery(ctx, v)
-	if err != nil || !validDeliveryObservation(v) {
-		return v, ErrDelivery
-	}
-	if err = d.validateRetry(ctx, v); err != nil {
-		return v, err
-	}
-	return v, nil
-}
-func validDeliveryObservation(p DeliveryPreview) bool {
-	o, t := p.Observation, p.Target
-	return o.Conclusive && o.BaseCommit == t.BaseCommit && o.HeadCommit == t.HeadCommit && o.Tree == t.Tree && o.DiffDigest == t.DiffDigest && o.RemoteBase == t.BaseCommit && (o.RemoteHead == "" || o.RemoteHead == t.HeadCommit) && len(o.Candidates) == 0
-}
 func exactDeliveryPR(p DeliveryPreview, r DeliveryPR) bool {
 	t := p.Target
 	return validText(r.ID) && r.URL == "https://github.com/"+t.Repository+"/pull/"+r.ID && r.Repository == t.Repository && r.BaseRef == t.BaseRef && r.HeadRef == t.HeadRef && r.BaseCommit == t.BaseCommit && r.HeadCommit == t.HeadCommit && r.Title == t.Title && r.Body == p.PRBody() && reflect.DeepEqual(r.Metadata, t.Metadata)
 }
 
-func (d DeliveryPublisher) validateRetry(ctx context.Context, p DeliveryPreview) error {
-	if p.Target.RetryOf == "" {
-		return nil
-	}
-	prior, err := d.Store.LoadDeliveryPublication(ctx, p.Packet.ProjectID, p.Target.RetryOf)
-	if err != nil || prior.Status == "success" || prior.Preview.PacketDigest != p.PacketDigest || !p.Observation.Conclusive || len(p.Observation.Candidates) != 0 {
-		return ErrDelivery
-	}
-	old, next := prior.Preview.Target, p.Target
-	old.RetryOf = ""
-	next.RetryOf = ""
-	if old.Push && !next.Push {
-		if p.Observation.RemoteHead != next.HeadCommit {
-			return ErrDelivery
-		}
-		old.Push = false
-	}
-	if !reflect.DeepEqual(old, next) {
-		return ErrDelivery
-	}
-	return nil
-}
-
-func (d DeliveryPublisher) Apply(ctx context.Context, s State, p DeliveryPreview, a DeliveryAuthority) (DeliveryPublication, error) {
-	ref, err := DeliveryPacketDigest(p.Packet)
-	if err != nil || ref != p.PacketDigest || !deliveryPacketCurrent(s, p.Packet) || !p.Packet.Ready || !validDeliveryTarget(p.Target) || a.Digest != p.Digest() || !a.Local || p.Target.Push && !a.Push || p.Target.PR && !a.PR {
-		return DeliveryPublication{}, ErrDelivery
-	}
-	prior, err := d.Store.LoadDeliveryPublication(ctx, s.ProjectID, p.Digest())
-	if err == nil {
-		if prior.Status != "success" {
-			return prior, ErrRecoveryRequired
-		}
-		return prior, nil
-	}
-	if !errors.Is(err, ErrNotFound) {
-		return prior, err
-	}
-	if s.DeliveryDecision != nil {
-		return prior, ErrDelivery
-	}
-	if p.Target.Kind != "local" {
-		observed, e := d.Effects.ObserveDelivery(ctx, p)
-		if e != nil || !reflect.DeepEqual(observed, p.Observation) || !validDeliveryObservation(p) {
-			return prior, ErrDelivery
-		}
-	}
-	if err = d.validateRetry(ctx, p); err != nil {
-		return prior, err
-	}
-	r := DeliveryPublication{FormatVersion: 1, Kind: "delivery_publication", Preview: p, Status: "failure", Push: "not_requested", PR: "not_requested", Next: "inspect/reconcile publication; never retry an uncertain effect"}
-	if p.Target.Push {
-		r.Push = "unknown"
-	}
-	if p.Target.PR {
-		r.PR = "unknown"
-	}
-	if err = d.Store.SaveDeliveryPublication(ctx, s, r, nil); err != nil {
-		return r, err
-	}
-	if p.Target.Kind == "local" {
-		next := r
-		next.Status = "success"
-		next.Artifact = "delivery-packet:" + p.PacketDigest
-		next.Next = "record explicit human delivery decision"
-		return d.save(ctx, s, r, next)
-	}
-	if p.Target.Push {
-		if err = d.Effects.PushDelivery(ctx, p); err != nil {
-			return r, err
-		}
-		o, e := d.Effects.ObserveDelivery(ctx, p)
-		if e != nil || o.RemoteHead != p.Target.HeadCommit {
-			return r, ErrRecoveryRequired
-		}
-		next := r
-		next.Push = "confirmed"
-		next.Artifact = p.Target.Remote + "#" + p.Target.HeadRef + "@" + p.Target.HeadCommit
-		next.Status = "partial"
-		r, err = d.save(ctx, s, r, next)
-		if err != nil {
-			return r, err
-		}
-		if o.RemoteBase != p.Target.BaseCommit || len(o.Candidates) != 0 {
-			return r, ErrRecoveryRequired
-		}
-	}
-	if p.Target.PR {
-		if !p.Target.Push && p.Observation.RemoteHead != p.Target.HeadCommit {
-			return r, ErrDelivery
-		}
-		if err = d.Effects.CreateDeliveryPR(ctx, p); err != nil {
-			return r, err
-		}
-	}
-	return d.Reconcile(ctx, s, r)
-}
-func (d DeliveryPublisher) save(ctx context.Context, s State, prior, next DeliveryPublication) (DeliveryPublication, error) {
-	if err := d.Store.SaveDeliveryPublication(ctx, s, next, &prior); err != nil {
-		return next, ErrRecoveryRequired
-	}
-	return next, nil
-}
-func (d DeliveryPublisher) Reconcile(ctx context.Context, s State, r DeliveryPublication) (DeliveryPublication, error) {
-	if !deliveryPacketCurrent(s, r.Preview.Packet) || r.Preview.Target.Kind != "github" {
-		return r, ErrDelivery
-	}
-	o, err := d.Effects.ObserveDelivery(ctx, r.Preview)
-	if err != nil || !o.Conclusive {
-		return r, ErrRecoveryRequired
-	}
-	next := r
-	if r.Preview.Target.Push && o.RemoteHead == r.Preview.Target.HeadCommit {
-		next.Push = "confirmed"
-		next.Artifact = r.Preview.Target.Remote + "#" + r.Preview.Target.HeadRef + "@" + o.RemoteHead
-	}
-	if r.Preview.Target.PR {
-		if len(o.Candidates) != 1 || !exactDeliveryPR(r.Preview, o.Candidates[0]) {
-			if next.Push == "confirmed" {
-				next.Status = "partial"
-				if !reflect.DeepEqual(r, next) {
-					saved, e := d.save(ctx, s, r, next)
-					if e != nil {
-						return saved, e
-					}
-					return saved, ErrRecoveryRequired
-				}
-			}
-			return r, ErrRecoveryRequired
-		}
-		pr := o.Candidates[0]
-		next.PR = "confirmed"
-		next.ConfirmedPR = &pr
-		next.Artifact = pr.URL
-	}
-	if (!r.Preview.Target.Push || next.Push == "confirmed") && (!r.Preview.Target.PR || next.PR == "confirmed") {
-		next.Status = "success"
-		next.Next = "record explicit human delivery decision"
-	}
-	if reflect.DeepEqual(r, next) {
-		return r, nil
-	}
-	return d.save(ctx, s, r, next)
-}
 func EncodeDeliveryPublication(r DeliveryPublication) ([]byte, error) {
 	ref, err := DeliveryPacketDigest(r.Preview.Packet)
 	if err != nil || r.FormatVersion != 1 || r.Kind != "delivery_publication" || ref != r.Preview.PacketDigest || !validDeliveryTarget(r.Preview.Target) || !validText(r.Next) {

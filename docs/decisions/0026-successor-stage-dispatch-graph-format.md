@@ -63,6 +63,9 @@ Runtime capability proof; #306's 23 completed Tasks are not reopened.
    paths, after #306 Execution3/Workflow2/Profile-v2 and effort checks,
    capability proof, authentication, preview-bound authorities and lease
    gates. Unknown/disallowed versions never fall back.
+
+> Superseded by [ADR-0037 — One canonical Execution for new workflow runs](0037-one-canonical-execution-for-new-runs.md#decision), accepted 2026-10-30.
+> Decisions 1, 3 and 5 are superseded for new runs only: no new operational Graph is written, Execution aggregate CAS replaces graph CAS and admission. Same-attempt correlation, unknown classification, no fallback and immutable Graph1–4 evidence remain.
 6. **Compatibility:** T37 verifies old/new round-trips and exact digests,
    unsupported-reader refusals, strict unknown/duplicate fields, recovery
    crash windows, torn multi-object commits, restart, wrong-attempt results,

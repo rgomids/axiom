@@ -96,6 +96,9 @@ func TestPolicyWorkflowHistoricalPreferencePrecedence(t *testing.T) {
 	if !report.Compatible || report.Inventory != "unknown_uninspected" || len(report.Scopes) != 4 {
 		t.Fatalf("invalid default impact %+v", report)
 	}
+	if report.Scopes[0] != "canonical_run_resolves_explicit_agent_inputs_and_current_authority" || report.Scopes[1] != "existing_attempts_immutable_ordinary_retry_preserves_frozen_invocation" {
+		t.Fatalf("obsolete execution scope: %v", report.Scopes)
+	}
 	for _, row := range report.Impact {
 		if len(row.After.Profiles) != 2 {
 			t.Fatal("multiple admissible Profiles silently selected")

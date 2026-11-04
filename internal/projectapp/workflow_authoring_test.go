@@ -60,6 +60,11 @@ func TestWorkflowRetirementRequiresCompleteReferenceInventory(t *testing.T) {
 	if out := projectapp.ApplyWorkflow(ctx, p, r); out.Category != "revision_in_use" || p.writes != 0 {
 		t.Fatalf("referenced retirement: %+v", out)
 	}
+	// A canonical Execution reference carries no source or definition digest.
+	p.observed.Referenced = []workflowdefinition.Ref{{WorkflowID: r.Ref.WorkflowID, Revision: r.Ref.Revision}}
+	if out := projectapp.ApplyWorkflow(ctx, p, r); out.Category != "revision_in_use" || p.writes != 0 {
+		t.Fatalf("canonical Execution reference ignored: %+v", out)
+	}
 	p.observed.Referenced = nil
 	p.observed.ReferencesChecked = false
 	if out := projectapp.ApplyWorkflow(ctx, p, r); out.Category != "reference_inventory_unknown" || p.writes != 0 {

@@ -53,6 +53,9 @@ under the Work Item domain surface.
   lineage, authority, dependencies, isolation, integration, attempts and coordination.
   Stage compilation adds correlation, not a second scheduler. A one-agent stage
   may use the sequential executor and does not invent a graph/integration agent.
+
+> Superseded by [ADR-0037 — One canonical Execution for new workflow runs](0037-one-canonical-execution-for-new-runs.md#decision), accepted 2026-10-30.
+> Only the separate sequential/graph executor assertion is superseded for new runs; Project-owned immutable definition identities, pinned snapshots and rework linkage remain in force.
 - ADR-0005/0006/0007 continue to own filesystem confinement, artifact retention and
   publication/recovery. This proposal cannot strengthen unsupported durability claims.
 

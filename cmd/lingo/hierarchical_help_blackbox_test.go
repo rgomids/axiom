@@ -58,7 +58,7 @@ func TestHierarchicalHelpBlackboxPrecedesComposition(t *testing.T) {
 			before := snapshotTrees(t, base)
 			for _, path := range [][]string{
 				nil, {"project"}, {"project", "configure"}, {"project", "context"}, {"project", "context", "session-set"},
-				{"work-item", "create"}, {"workflow", "start"}, {"integration", "remove"},
+				{"work-item", "create"}, {"workflow", "run"}, {"integration", "remove"},
 				{"runtime"}, {"runtime", "codex", "install"}, {"runtime", "claude", "install"}, {"runtime", "profile", "preview"},
 				{"first-run"}, {"skill", "inspect"}, {"artifact", "cleanup"}, {"recovery", "apply"}, {"upgrade"}, {"version"},
 			} {

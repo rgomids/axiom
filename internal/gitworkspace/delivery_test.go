@@ -2,6 +2,7 @@ package gitworkspace
 
 import (
 	"context"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -9,7 +10,6 @@ import (
 	"testing"
 
 	"github.com/rgomids/axiom/internal/workflow"
-	"github.com/rgomids/axiom/internal/workflowdefinition"
 )
 
 func TestDeliveryGitLocalBareConfirmationAndNoForce(t *testing.T) {
@@ -38,19 +38,10 @@ func TestDeliveryGitLocalBareConfirmationAndNoForce(t *testing.T) {
 	}
 	g.allowFile = true
 	tree := run(repo, "rev-parse", "HEAD^{tree}")
-	packet := workflow.DeliveryPacket{FormatVersion: 1, Kind: "delivery_packet", ProjectID: "fixture-project", RepositoryKey: "main", WorkItem: workflow.WorkItem{Provider: "github", Resource: "fixture/repository", ExternalID: "1", URL: "https://github.com/fixture/repository/issues/1", State: "OPEN"}, ExecutionID: "00000000-0000-4000-8000-000000000001", ExecutionRevision: 1, LedgerDigest: strings.Repeat("a", 64), BindingDigest: strings.Repeat("b", 64), Definition: workflowdefinition.Builtin().Ref("builtin"), Stages: []workflow.DeliveryStage{{Ordinal: 0, StageID: "implementation", ResultTree: tree}}, Blockers: []string{}, Ready: true, Next: "preview", Provenance: workflow.Identity{Product: "Axiom", Version: "fixture", Revision: "fixture", SourceState: "unknown"}}
-	proposal, err := g.PreviewDeliveryCommit(ctx, packet, workflow.DeliveryTarget{Kind: "github", Tree: tree, BaseCommit: base, BaseRef: "refs/heads/main", HeadRef: "refs/heads/delivery"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err = g.ApplyDeliveryCommit(ctx, packet, proposal, proposal.Digest(), false); err == nil {
-		t.Fatal("commit without authority")
-	}
-	prepared, err := g.ApplyDeliveryCommit(ctx, packet, proposal, proposal.Digest(), true)
-	if err != nil {
-		t.Fatal(err)
-	}
-	head := prepared.HeadCommit
+	// The canonical path delivers an existing reviewed commit; no packet commit owner.
+	run(repo, "switch", "-c", "delivery")
+	run(repo, "-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid", "commit", "--allow-empty", "-m", "reviewed delivery")
+	head := run(repo, "rev-parse", "HEAD")
 	p := workflow.DeliveryPreview{Target: workflow.DeliveryTarget{Repository: "fixture/repository", Remote: remote, BaseRef: "refs/heads/main", HeadRef: "refs/heads/delivery", BaseCommit: base, HeadCommit: head}}
 	observed, err := g.ObserveDeliveryGit(ctx, p)
 	if err != nil || observed.RemoteBase != base || observed.RemoteHead != "" || observed.Tree != tree {
@@ -73,8 +64,8 @@ func TestDeliveryGitLocalBareConfirmationAndNoForce(t *testing.T) {
 		t.Fatal(observed, err)
 	}
 	g.allowFile = false
-	if err = g.PushDelivery(ctx, p); err == nil {
-		t.Fatal("product path accepted file transport")
+	if err = g.PushDelivery(ctx, p); !errors.Is(err, workflow.ErrDeliveryRefused) {
+		t.Fatal("product path failed to classify file transport refusal", err)
 	}
 }
 
@@ -87,5 +78,13 @@ func TestDeliveryGitCredentialIsTransientAndBoundToGitHub(t *testing.T) {
 		if _, err = g.WithGitHubCredential(invalid); err == nil {
 			t.Fatal("invalid credential")
 		}
+	}
+}
+
+func TestDeliveryGitPreEffectRefusal(t *testing.T) {
+	// A nil manager would panic if validation reached Git.
+	p := workflow.DeliveryPreview{Target: workflow.DeliveryTarget{HeadCommit: strings.Repeat("a", 40)}, Observation: workflow.DeliveryObservation{RemoteHead: strings.Repeat("b", 40)}}
+	if err := (DeliveryGit{}).PushDelivery(context.Background(), p); !errors.Is(err, workflow.ErrDeliveryRefused) {
+		t.Fatal(err)
 	}
 }

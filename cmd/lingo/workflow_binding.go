@@ -22,19 +22,6 @@ type workflowDefinitions struct {
 	portable     local.PortableStore
 }
 
-func readStageResult(path string, value *workflow.StageResult) error {
-	f, err := os.Open(path)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	b, err := io.ReadAll(io.LimitReader(f, 64<<10+1))
-	if err != nil || len(b) > 64<<10 {
-		return workflowdefinition.ErrInvalid
-	}
-	return workflowdefinition.StrictJSON(b, value)
-}
-
 func (r workflowDefinitions) ResolveDefinition(ctx context.Context, selector string) (workflow.DefinitionObservation, string) {
 	resolved := r.installation.Resolve(ctx, selector)
 	if resolved.Status != local.ResolutionFound {
@@ -114,6 +101,17 @@ func (r workflowDefinitions) ResolveDefinition(ctx context.Context, selector str
 }
 
 func readWorkflowContext(ctx context.Context, resolved local.ResolvedProject, state project.State, key string) ([]byte, error) {
+	if key == "project" {
+		revision, ok := resolved.PortableRevision.Digest()
+		if !ok {
+			return nil, workflowdefinition.ErrInvalid
+		}
+		p := workflow.ProjectInput{ID: state.ID, Slug: state.Slug, PortableRevision: "sha256:" + hex.EncodeToString(revision[:])}
+		for _, r := range resolved.Repositories {
+			p.Repositories = append(p.Repositories, workflow.RepositoryBinding{Key: r.Key, Identity: repositoryIdentity(r)})
+		}
+		return json.Marshal(p)
+	}
 	if key == "business-context" {
 		business, ok := state.BusinessContext.Value()
 		if !ok {

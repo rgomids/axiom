@@ -4,7 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"sort"
+
 	"time"
 
 	"github.com/rgomids/axiom/internal/strictjson"
@@ -33,58 +33,6 @@ type StageRollup struct {
 	IntegrationChildID   string              `json:"integrationChildId"`
 	IntegrationAttemptID string              `json:"integrationAttemptId,omitempty"`
 	Children             []StageChildOutcome `json:"children"`
-}
-
-// RollupSuccessor derives the roll-up from persisted fields only. Waivers name
-// optional children the authorized integration preview excluded.
-func RollupSuccessor(g SuccessorGraph, waivers []OptionalWaiver) (StageRollup, error) {
-	if ValidateSuccessorGraph(g) != nil {
-		return StageRollup{}, ErrInvalidGraph
-	}
-	waived := map[string]bool{}
-	for _, w := range waivers {
-		waived[w.ChildID] = true
-	}
-	r := StageRollup{Status: "partial", ParentID: g.Parent.ExecutionID, GraphRevision: g.Parent.GraphRevision, IntegrationChildID: g.Parent.IntegrationChild}
-	complete := true
-	var integration *SuccessorAttempt
-	for _, c := range g.Children {
-		o := StageChildOutcome{ChildID: c.ExecutionID, Status: AttemptNotStarted, Required: !c.Envelope.Optional}
-		if len(c.Attempts) > 0 {
-			a := c.Attempts[len(c.Attempts)-1]
-			o.AttemptID, o.Status, o.Reason = a.AttemptID, a.Status, a.ClassificationReason
-			if c.Envelope.IntegrationOwner {
-				copy := a
-				integration = &copy
-			}
-		}
-		if c.Envelope.IntegrationOwner {
-			r.Children = append(r.Children, o)
-			continue
-		}
-		if waived[c.ExecutionID] {
-			if !c.Envelope.Optional {
-				return StageRollup{}, ErrInvalidGraph
-			}
-			o.Waived = true
-		} else if o.Status != AttemptSucceeded || o.Reason != ResultRecorded {
-			complete = false
-		}
-		r.Children = append(r.Children, o)
-	}
-	sort.Slice(r.Children, func(i, j int) bool { return r.Children[i].ChildID < r.Children[j].ChildID })
-	if integration != nil {
-		r.IntegrationAttemptID = integration.AttemptID
-		switch {
-		case integration.Status == AttemptSucceeded && integration.ClassificationReason == IntegrationApplied && complete:
-			r.Status = "success"
-		case integration.Status == AttemptFailed:
-			r.Status = "failure"
-		case integration.Status == AttemptUnknown || integration.Status == AttemptRunning:
-			r.Status = "recovery_required"
-		}
-	}
-	return r, nil
 }
 
 // IntegrationReceipt is the separate, single-use local authority for one
@@ -157,28 +105,6 @@ func IntegrationReceiptDigest(a IntegrationReceipt) (string, error) {
 	return hex.EncodeToString(d[:]), nil
 }
 
-// CheckIntegrationDispatch is called under the run lease immediately before
-// the running integration attempt is saved. A receipt authorizes exactly the
-// next integration attempt of the graph revision it observed.
-func CheckIntegrationDispatch(g SuccessorGraph, a IntegrationReceipt) error {
-	if ValidateIntegrationReceipt(a) != nil || ValidateSuccessorGraph(g) != nil || g.StorageRevision == ([32]byte{}) || hex.EncodeToString(g.StorageRevision[:]) != a.GraphDigest || a.ParentID != g.Parent.ExecutionID || a.Revision != g.Parent.GraphRevision || a.ProjectID != g.Children[0].Envelope.Scope.ProjectID || a.IntegrationChildID != g.Parent.IntegrationChild {
-		return ErrInvalidGraph
-	}
-	available, err := SuccessorIntegrationAttemptAvailable(g)
-	if err != nil || !available {
-		return ErrIntegrationBlocked
-	}
-	for _, c := range g.Children {
-		if c.ExecutionID == a.IntegrationChildID {
-			if !c.Envelope.IntegrationOwner || uint32(len(c.Attempts))+1 != a.AttemptNumber {
-				return ErrInvalidGraph
-			}
-			return nil
-		}
-	}
-	return ErrInvalidGraph
-}
-
 // StageOutcome projects one terminal integration attempt into the Execution
 // ledger without changing the Execution3 codec: it binds the exact ledger
 // generation, graph storage revision and integration receipt. It records an
@@ -243,34 +169,6 @@ func ValidateStageOutcome(o StageOutcome) error {
 	return nil
 }
 
-// BuildStageOutcome derives the projection only from the persisted graph, its
-// terminal integration attempt and that attempt's own integration receipt.
-func BuildStageOutcome(g SuccessorGraph, receiptRef string, receipt IntegrationReceipt, recordedAt time.Time) (StageOutcome, error) {
-	if ValidateIntegrationReceipt(receipt) != nil || receipt.ParentID != g.Parent.ExecutionID || receipt.Revision != g.Parent.GraphRevision {
-		return StageOutcome{}, ErrInvalidGraph
-	}
-	r, err := RollupSuccessor(g, receipt.OptionalWaivers)
-	if err != nil {
-		return StageOutcome{}, err
-	}
-	var attempt *SuccessorAttempt
-	for _, c := range g.Children {
-		if c.ExecutionID == receipt.IntegrationChildID && len(c.Attempts) > 0 {
-			a := c.Attempts[len(c.Attempts)-1]
-			attempt = &a
-		}
-	}
-	if attempt == nil || attempt.PacketDigest != receiptRef || attempt.Number != receipt.AttemptNumber {
-		return StageOutcome{}, ErrInvalidGraph
-	}
-	executionID := receipt.ExecutionID
-	if receipt.FormatVersion == 1 {
-		executionID = receipt.ParentID
-	}
-	o := StageOutcome{FormatVersion: 1, ProjectID: receipt.ProjectID, ExecutionID: executionID, ExecutionRevision: receipt.ExecutionRevision, LedgerDigest: receipt.LedgerDigest, StageID: receipt.StageID, StageOrdinal: receipt.StageOrdinal, GraphDigest: hex.EncodeToString(g.StorageRevision[:]), IntegrationReceiptRef: receiptRef, ValidatorPolicyDigest: receipt.ValidatorPolicyDigest, Rollup: r, IntegrationResultReference: attempt.ResultReference, ValidationOutputDigest: attempt.OutputDigest, RecordedAt: recordedAt.UTC()}
-	return o, ValidateStageOutcome(o)
-}
-
 func EncodeStageOutcome(o StageOutcome) ([]byte, error) {
 	if ValidateStageOutcome(o) != nil {
 		return nil, ErrInvalidGraph
@@ -297,11 +195,4 @@ func StageOutcomeDigest(o StageOutcome) (string, error) {
 	}
 	d := sha256.Sum256(b)
 	return hex.EncodeToString(d[:]), nil
-}
-
-// IntegrationResultDigest is the successor attempt ResultReference for an
-// applied integration tree; the tree itself is retained by the stage outcome.
-func IntegrationResultDigest(resultTree string) string {
-	d := sha256.Sum256([]byte(IntegrationResultReference(resultTree)))
-	return hex.EncodeToString(d[:])
 }
