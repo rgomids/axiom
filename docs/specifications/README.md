@@ -3,7 +3,9 @@
 ## 015 — Minimum viable operational workflow
 
 [Issue #369 pre-spawn amendment](015-minimum-viable-operational-workflow/amendment-369-pre-spawn-launch.md):
-Specify revision 1; A/B/C ready for Plan, prospective retry-budget decision pending.
+Specify revision 1; [HD-369-D approved](https://github.com/rgomids/axiom/issues/369#issuecomment-6621938832).
+[Plan #369](015-minimum-viable-operational-workflow/plan-369-pre-spawn-launch.md) and
+[Plan Evidence](015-minimum-viable-operational-workflow/evidence-plan-369.md) cover A–D; no runtime implementation.
 
 [Specification correction-04](015-minimum-viable-operational-workflow/spec.md)
 for [AXM-42](https://linear.app/rgomids/issue/AXM-42) / [PR #366](https://github.com/rgomids/axiom/pull/366).
