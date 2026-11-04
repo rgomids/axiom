@@ -159,6 +159,17 @@ func checkCommand(script string, timeout int64) []workflow.CommandCheck {
 	return []workflow.CommandCheck{{ID: "post-merge", Argv: []string{shell, "-c", script}, TimeoutSeconds: timeout, Effects: []string{"validation_command"}}}
 }
 
+// realTempDir resolves t.TempDir: launcher and Git roots refuse symlinked
+// components, and darwin temp dirs live under the /var symlink.
+func realTempDir(t *testing.T) string {
+	t.Helper()
+	dir, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	return dir
+}
+
 func newIntegrationFixture(t *testing.T, edits map[string]edit) *integrationFixture {
 	t.Helper()
 	if _, err := exec.LookPath("git"); err != nil {
@@ -167,7 +178,7 @@ func newIntegrationFixture(t *testing.T, edits map[string]edit) *integrationFixt
 	if _, err := gitE(t.TempDir(), "merge-tree", "-h"); err != nil && !strings.Contains(err.Error(), "write-tree") {
 		t.Skip("git merge-tree --write-tree unavailable")
 	}
-	tmp := t.TempDir()
+	tmp := realTempDir(t)
 	repo := filepath.Join(tmp, "repo")
 	if err := os.Mkdir(repo, 0o700); err != nil {
 		t.Fatal(err)
@@ -865,7 +876,7 @@ func TestIntegrationCheckObservationSemantics(t *testing.T) {
 			e := Engine{Runner: &fakeRunner{run: func(context.Context, executiongraph.Invocation, func(*executiongraph.ProcessCorrelation) error) executiongraph.ProcessResult {
 				return tc.result
 			}}}
-			got := e.runIntegrationCheck(context.Background(), t.TempDir(), checkCommand("exit 0", 10)[0], func() error { return nil })
+			got := e.runIntegrationCheck(context.Background(), realTempDir(t), checkCommand("exit 0", 10)[0], func() error { return nil })
 			if got.Status != tc.want {
 				t.Fatalf("got %+v, want %s", got, tc.want)
 			}

@@ -27,7 +27,7 @@ n=0; while [ "$n" -lt 600 ] && alive; do /bin/sleep 0.2; n=$((n+1)); done; exit 
 
 func runtimeLauncherFixture(t *testing.T, runtimeID, effort string) (RuntimeLauncher, LaunchRequest) {
 	t.Helper()
-	root := t.TempDir()
+	root := realTempDir(t)
 	for _, dir := range []string{"repo", "inbox", "home", "bin", "managed"} {
 		if err := os.Mkdir(filepath.Join(root, dir), 0700); err != nil {
 			t.Fatal(err)
@@ -481,7 +481,7 @@ func TestCommandGateRefusesPublicationFailureWithoutEffects(t *testing.T) {
 }
 
 func TestCommandGateEOFDoesNotExecuteConfiguredArgv(t *testing.T) {
-	root := t.TempDir()
+	root := realTempDir(t)
 	marker := filepath.Join(root, "effect")
 	inv := executiongraph.Invocation{Argv: []string{commandGateShell, "-c", commandGateScript, "axiom-command-gate", "/bin/sh", "-c", "printf effect > effect"}, CWD: root, OutputMax: 1024}
 	result := (executiongraph.OSProcessRunner{}).RunObserved(context.Background(), inv, func(*executiongraph.ProcessCorrelation) error { return nil })

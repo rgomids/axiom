@@ -168,7 +168,7 @@ export AXIOM_FAKE_PROVIDER_LABEL="$provider_label"
 export AXIOM_FAKE_PROVIDER_COMMENT="$provider_comment"
 
 # project configure publishes Projects without a Runtime/Profile policy; this
-# one proves the guided setup and, later, that workflow start never falls back.
+# one proves the guided setup and, later, that workflow run never falls back.
 configured_repository="$temporary/configured-repository"
 mkdir -p "$configured_repository"
 axiom --json project configure --slug dogfood-configured --name "Dogfood Configured" \
@@ -312,29 +312,25 @@ assert_no_execution() {
     exit 1
   fi
 }
-assert_runtime_blocked() {
+# Spec 015: `workflow run` replaced the retired `workflow start` policy
+# resolution. A refused run names its category and persists no Execution.
+assert_run_refused() {
   local label=$1
-  local code=$2
-  shift 2
-  local output="$temporary/runtime-blocked-$label.json"
+  local status=$2
+  local category=$3
+  shift 3
+  local output="$temporary/run-refused-$label.json"
   if observed_axiom "$@" >"$output"; then
     exit 1
   fi
-  assert_canonical "$output" validation_failure "Project Runtime policy resolution blocked"
-  grep -Fq '"blocker":{"code":"'"$code"'"' "$output"
-  if grep -Fq '"choice":' "$output"; then
-    exit 1
-  fi
+  grep -Fq '"status":"'"$status"'"' "$output"
+  grep -Fq '"category":"'"$category"'"' "$output"
   assert_no_execution
 }
-policy_inputs=(--role implementation --complexity high --capabilities axiom-skills)
-# As the axiom-work-item skill prescribes, --runtime names the Runtime that
-# conducts the workflow; it narrows the policy and never widens it.
-start_args=(workflow start --project dogfood-project --repository main --number 7 "${policy_inputs[@]}" --runtime codex)
+run_args=(workflow run --repository main --work-item github:owner/repo#7)
 
-# Target validation now precedes Runtime policy review (#137). Link the explicit
-# synthetic issue into this second Project before testing its absent policy;
-# otherwise the test would stop at work_item_not_linked instead of policy.
+# Link the explicit synthetic issue into this second Project too, so its run
+# refusal is about Runtime selection, not an unlinked Work Item.
 selection_args=(work-item select --project dogfood-configured --repository main --provider-repository owner/repo --number 7)
 axiom --json "${selection_args[@]}" >"$temporary/unconfigured-selection-preview.json"
 assert_canonical "$temporary/unconfigured-selection-preview.json" success "GitHub Work Item selection ready for review"
@@ -343,7 +339,7 @@ selection_digest=$(sed -n 's/.*"digest":"\([0-9a-f]*\)".*/\1/p' "$temporary/unco
 axiom --json "${selection_args[@]}" --preview-digest "$selection_digest" --authorize-local >"$temporary/unconfigured-selection.json"
 assert_canonical "$temporary/unconfigured-selection.json" success "GitHub Work Item linked"
 
-# Select the builtin revision explicitly before reviewing Runtime policy.
+# Select the builtin revision explicitly before any run.
 "$temporary/dogfoodfixture" definition >"$temporary/definition.json"
 read -r workflow_id workflow_digest < <(python3 -c 'import json,sys; w=json.load(open(sys.argv[1])); print(w["workflowId"],w["digest"])' "$temporary/definition.json")
 for selected_project in dogfood-project dogfood-configured; do
@@ -353,21 +349,15 @@ for selected_project in dogfood-project dogfood-configured; do
   run_success applied "$temporary/workflow-selected.json" "${workflow_selection[@]}" --expected-revision "$project_revision" --preview-digest "$selection_preview" --authorize-local
 done
 
-# No configured policy, no explicitly allowed-and-observed Runtime and no
-# capability Lingo cannot prove ever falls back to Codex.
-assert_runtime_blocked unconfigured policy_unconfigured \
-  workflow start --project dogfood-configured --repository main --number 7 "${policy_inputs[@]}"
-assert_runtime_blocked claude-unobserved executable_unavailable \
-  workflow start --project dogfood-project --repository main --number 7 "${policy_inputs[@]}" --runtime claude
-assert_runtime_blocked unprovable no_allowed_match \
-  workflow start --project dogfood-project --repository main --number 7 \
-  --role implementation --complexity high --capabilities go
-
-# Two configured, allowed Runtimes are never resolved by machine availability.
-assert_runtime_blocked implicit ambiguous_match \
-  workflow start --project dogfood-project --repository main --number 7 "${policy_inputs[@]}"
-
-assert_runtime_blocked historical-inspection inspection_consent_required "${start_args[@]}"
+# Spawning needs explicit external authority; with it, no Runtime, model or
+# effort is ever inferred (no LINGO_INVOCATION_DEFAULTS, no Codex fallback),
+# even with two allowed Runtimes configured and observable.
+for selected_project in dogfood-configured dogfood-project; do
+  assert_run_refused "authority-$selected_project" denied_authority authority_required \
+    "${run_args[@]}" --project "$selected_project"
+  assert_run_refused "selection-$selected_project" validation_failure invocation_selection_missing \
+    "${run_args[@]}" --project "$selected_project" --authorize-external
+done
 
 "$temporary/dogfoodfixture" definition-current >"$temporary/definition-current.json"
 read -r current_id current_revision current_digest < <(python3 -c 'import json,sys; w=json.load(open(sys.argv[1])); print(w["workflowId"],w["revision"],w["digest"])' "$temporary/definition-current.json")
@@ -375,7 +365,8 @@ current_selection=(project workflow select --project dogfood-project --workflow 
 run_success previewed "$temporary/current-selection-preview.json" "${current_selection[@]}"
 read -r project_revision selection_preview < <(python3 -c 'import json,sys; w=json.load(open(sys.argv[1]))["workflowAuthoring"]; print(w["projectRevision"],w["previewDigest"])' "$temporary/current-selection-preview.json")
 run_success applied "$temporary/current-selected.json" "${current_selection[@]}" --expected-revision "$project_revision" --preview-digest "$selection_preview" --authorize-local
-assert_runtime_blocked current-inspection inspection_consent_required "${start_args[@]}"
+assert_run_refused current-selection validation_failure invocation_selection_missing \
+  "${run_args[@]}" --project dogfood-project --authorize-external
 run_success inspected "$temporary/current-profiles.json" runtime profile list
 python3 - "$temporary/current-profiles.json" <<'PYJSON'
 import json,sys
@@ -385,7 +376,7 @@ assert r["authentication"] == "unknown" and r["modelSupport"] == "unconfirmed" a
 assert all(p["effort"] == {"mode":"runtime-default","value":"default"} for p in r["profiles"])
 PYJSON
 
-(cd "$repository_root" && env -u OPENAI_API_KEY -u CODEX_API_KEY -u CLAUDE_CODE_EFFORT_LEVEL go test ./cmd/lingo -run 'TestExecutableMinimalLifecycleAndFailurePaths|TestExecutableDeclarationAuthoringWithoutMigration|TestCurrentWorkflowStartFreezesReviewedV2ProfileWithoutModelRun|TestWorkflowStagePlanPublicJourneySingleAndMixedRuntimeGraph|TestProductionEffortInspectorComposition' -count=1)
+(cd "$repository_root" && env -u OPENAI_API_KEY -u CODEX_API_KEY -u CLAUDE_CODE_EFFORT_LEVEL go test ./cmd/lingo -run 'TestExecutableMinimalLifecycleAndFailurePaths|TestExecutableDeclarationAuthoringWithoutMigration|TestPublicWorkflowRunMinimalDefaultCompletesWithoutPlanPolicyOrProfile|TestPublicWorkflowRunTwoStagesProgressWithoutManualIntervention' -count=1)
 (cd "$repository_root" && env -u CLAUDE_CODE_EFFORT_LEVEL go test ./internal/runtimeadapter -run 'TestOperationalEffortHasNoVersionOrDeclarationPrerequisite|TestStageEffort|TestTrustedEffortAnchorAbsentManaged|TestVerifyChildEquivalence' -count=1)
 # AXM-22 PM-6: a preview issued before a failed, rolled-back or recovered
 # Runtime/Profile publication never becomes valid again.

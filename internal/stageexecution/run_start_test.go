@@ -18,7 +18,7 @@ func startFixture(t *testing.T, output string) (*engineFixture, local.ExecutionS
 	t.Helper()
 	// Reuse the engine fixture's wiring, but start from an empty store.
 	f := newEngineFixture(t, twoStages(false), succeed(output))
-	root := t.TempDir()
+	root := realTempDir(t)
 	if err := os.Chmod(root, 0o700); err != nil {
 		t.Fatal(err)
 	}

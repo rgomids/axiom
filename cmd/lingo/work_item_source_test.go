@@ -33,9 +33,9 @@ type workItemSourceEnvironment struct {
 func newWorkItemSourceEnvironment(t *testing.T) workItemSourceEnvironment {
 	t.Helper()
 	env := workItemSourceEnvironment{
-		root:      filepath.Join(t.TempDir(), "projects"),
-		state:     filepath.Join(t.TempDir(), "state"),
-		elsewhere: filepath.Join(t.TempDir(), "elsewhere"),
+		root:      filepath.Join(resolvedTempDir(t), "projects"),
+		state:     filepath.Join(resolvedTempDir(t), "state"),
+		elsewhere: filepath.Join(resolvedTempDir(t), "elsewhere"),
 	}
 	// Both portable roots exist so every resolution can prove it wrote nothing.
 	for _, path := range []string{env.root, env.elsewhere} {
