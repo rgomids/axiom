@@ -151,14 +151,14 @@ func TestEffortSourcesDropInUnknownAndSymlinkRefusal(t *testing.T) {
 	}
 }
 
-func TestEffortSourcesTOMLNarrowGrammar(t *testing.T) {
-	invalid := []string{`a = [`, `a = arbitrary-bare-text`, `a = { x = 1 }`, `a = [1,2]`, `a = 1` + "\n" + `a = 2`, `a.b = 1` + "\n" + `[a]` + "\n" + `b = 2`, `[a]` + "\n" + `[a]`, `a = 1` + "\n" + `[a]`, `[[array]]`, `a = 'closed' trailing`, `a = "\x61"`, `a = 2026-10-11`, `"\x61" = true`, `[profiles.test]`}
+func TestEffortSourcesTOMLGrammar(t *testing.T) {
+	invalid := []string{`a = [`, `a = arbitrary-bare-text`, `a = 1` + "\n" + `a = 2`, `a.b = 1` + "\n" + `[a]` + "\n" + `b = 2`, `[a]` + "\n" + `[a]`, `a = 1` + "\n" + `[a]`, `a = 'closed' trailing`, `[profiles.test]`}
 	for _, wire := range invalid {
 		if _, err := tomlEffortSelectorsBounded([]byte(wire), false); !errors.Is(err, ErrEffortConfigurationUnsafe) {
 			t.Fatalf("malformed/unsupported TOML accepted %q: %v", wire, err)
 		}
 	}
-	for _, wire := range []string{`a = "valid"`, `a = 'literal'`, `a = true`, `a = -12`, `a = 1.25e+2`, `[a]` + "\n" + `b = 2`, `a = "# literal" # comment`} {
+	for _, wire := range []string{`a = "\x61"`, `"\x61" = true`, `a = { x = 1 }`, `a = [1,2]`, `[[array]]`, `a = 2026-10-11`, `a = "valid"`, `a = 'literal'`, `a = true`, `a = -12`, `a = 1.25e+2`, `[a]` + "\n" + `b = 2`, `a = "# literal" # comment`} {
 		if _, err := tomlEffortSelectorsBounded([]byte(wire), false); err != nil {
 			t.Fatalf("scalar refused %q: %v", wire, err)
 		}

@@ -10,4 +10,7 @@ require (
 	golang.org/x/sys v0.44.0
 )
 
-require golang.org/x/text v0.14.0 // indirect
+require (
+	github.com/BurntSushi/toml v1.6.1-0.20260818200445-d733fc535e4a
+	golang.org/x/text v0.14.0 // indirect
+)

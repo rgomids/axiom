@@ -117,8 +117,8 @@ func TestEffortSourcesOverridesStillRefusedUnderEffortPaths(t *testing.T) {
 		}},
 		{"codex", "symlinked-source", ErrEffortConfigurationUnsafe, symlinkUser},
 		{"claude", "symlinked-source", ErrEffortConfigurationUnsafe, symlinkUser},
-		{"codex", "unsupported-toml", ErrEffortConfigurationUnsafe, func(t *testing.T, f *effortInspectorFixture) {
-			writeFixtureFile(t, f.source(t, "managed"), "[[array]]\n")
+		{"codex", "invalid-toml", ErrEffortConfigurationUnsafe, func(t *testing.T, f *effortInspectorFixture) {
+			writeFixtureFile(t, f.source(t, "managed"), "a = [\n")
 		}},
 		{"claude", "ambiguous-json", ErrEffortConfigurationUnsafe, func(t *testing.T, f *effortInspectorFixture) {
 			writeFixtureFile(t, f.source(t, "managed"), `{"effortLevel":1,"effortLevel":2}`)

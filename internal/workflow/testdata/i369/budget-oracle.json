@@ -1,0 +1,18 @@
+{
+  "policy": "spawn-boundary-v1",
+  "maximumAttempts": [1, 2, 10],
+  "maximumLifetimeRefusals": 2,
+  "pendingConsumesChargedSlot": true,
+  "prepareRequires": "chargedIncludingPending < maximumAttempts && lifetimeRefusals < 2",
+  "maximumRecords": "maximumAttempts + 2",
+  "examples": [
+    {"maximumAttempts":1,"chargedIncludingPending":0,"lifetimeRefusals":0,"prepare":true},
+    {"maximumAttempts":1,"chargedIncludingPending":0,"lifetimeRefusals":1,"prepare":true},
+    {"maximumAttempts":1,"chargedIncludingPending":0,"lifetimeRefusals":2,"prepare":false},
+    {"maximumAttempts":1,"chargedIncludingPending":1,"lifetimeRefusals":0,"prepare":false},
+    {"maximumAttempts":2,"chargedIncludingPending":1,"lifetimeRefusals":1,"prepare":true},
+    {"maximumAttempts":2,"chargedIncludingPending":2,"lifetimeRefusals":0,"prepare":false},
+    {"maximumAttempts":10,"chargedIncludingPending":9,"lifetimeRefusals":1,"prepare":true},
+    {"maximumAttempts":10,"chargedIncludingPending":10,"lifetimeRefusals":2,"prepare":false}
+  ]
+}
