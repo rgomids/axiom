@@ -110,3 +110,19 @@ Fixtures include joined causes, private path/value canaries, unknown builder,
 source class, cancelled Build/engine, persisted reconciliation, strict codec,
 CLI projection, clone isolation and rejected history rewrite. Full integration,
 all platform variants and final review remain P6; no vendor processes ran.
+
+## I369-P4a — pure invocation inspection (completed)
+
+RuntimeLauncher.Inspect assembles the planned argv/environment/stdin and runs the
+same frozen selector checks, reading only existing inputs and safe output-path
+ancestors. It never creates directories or calls a runner/store/provider. Missing
+output directories are not certified as writable. Build performs inspection,
+materializes its private areas, then inspects again against the actual paths.
+No reusable admission token is produced. Command composition's pure public route
+is P4b work; ordinary composition still creates its output parent for dispatch.
+
+PASS: `go test ./internal/stageexecution -count=1` (54.161s), including
+TestI369InspectionDoesNotMaterialize for both adapters, exact inspection/Build
+invocation equality and absent parent preservation; existing symlink/identity,
+selector and command tests. Self-review: no blocking finding identified at this
+boundary. Final engine reservation rechecks and public-route purity await P5b/P4b.

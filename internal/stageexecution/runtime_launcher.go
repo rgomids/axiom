@@ -60,6 +60,29 @@ func (l RuntimeLauncher) inbox(r LaunchRequest) (string, error) {
 }
 
 func (l RuntimeLauncher) Build(ctx context.Context, r LaunchRequest) (executiongraph.Invocation, error) {
+	if _, err := l.Inspect(ctx, r); err != nil {
+		return executiongraph.Invocation{}, err
+	}
+	root, err := os.OpenRoot(l.InboxRoot)
+	if err != nil {
+		return refuseLaunch(ctx, err, "invocation_build", "")
+	}
+	defer root.Close()
+	if err = root.Mkdir(r.Attempt.AttemptID, 0700); err != nil {
+		return refuseLaunch(ctx, err, "invocation_build", "")
+	}
+	for _, area := range []string{sendArea, receiveArea} {
+		if err = root.Mkdir(filepath.Join(r.Attempt.AttemptID, area), 0700); err != nil {
+			return refuseLaunch(ctx, err, "invocation_build", "")
+		}
+	}
+	// Inspect again against materialized paths; a preview is never admission.
+	return l.Inspect(ctx, r)
+}
+
+// Inspect constructs and checks one planned invocation without materializing it.
+// Absent output directories are not permission-tested or certified as writable.
+func (l RuntimeLauncher) Inspect(ctx context.Context, r LaunchRequest) (executiongraph.Invocation, error) {
 	fail := func() (executiongraph.Invocation, error) {
 		return refuseLaunch(ctx, ErrRuntimeLaunch, "invocation_build", "builder_failed")
 	}
@@ -74,35 +97,23 @@ func (l RuntimeLauncher) Build(ctx context.Context, r LaunchRequest) (executiong
 	if err != nil {
 		return fail()
 	}
-	// Reject symlinks in every machine-local path before constructing argv.
-	for _, path := range []string{l.Workspace, l.InboxRoot, l.AxiomPath} {
+	// Existing inputs require exact identities; planned outputs allow absent leaves.
+	for _, path := range []string{l.Workspace, l.AxiomPath} {
 		if !cleanRuntimePath(path) {
 			return refuseLaunch(ctx, ErrRuntimeLaunch, "invocation_build", "path_unsafe")
 		}
 	}
-	info, err := os.Lstat(l.InboxRoot)
-	if err != nil {
-		return refuseLaunch(ctx, err, "invocation_build", "")
-	}
-	if !info.IsDir() || info.Mode().Perm()&0o077 != 0 {
+	if !plannedRuntimePath(l.InboxRoot) || !plannedRuntimePath(inbox) || !filepath.IsAbs(frozen.Executable) {
 		return refuseLaunch(ctx, ErrRuntimeLaunch, "invocation_build", "path_unsafe")
 	}
-	if !filepath.IsAbs(frozen.Executable) {
-		return refuseLaunch(ctx, ErrRuntimeLaunch, "invocation_build", "path_unsafe")
-	}
-	root, err := os.OpenRoot(l.InboxRoot)
-	if err != nil {
-		return refuseLaunch(ctx, err, "invocation_build", "")
-	}
-	defer root.Close()
-	if err := root.Mkdir(r.Attempt.AttemptID, 0o700); err != nil {
-		return refuseLaunch(ctx, err, "invocation_build", "")
-	}
-	for _, area := range []string{sendArea, receiveArea} {
-		if err := root.Mkdir(filepath.Join(r.Attempt.AttemptID, area), 0o700); err != nil {
-			return refuseLaunch(ctx, err, "invocation_build", "")
+	if info, err := os.Lstat(l.InboxRoot); err == nil {
+		if !info.IsDir() || info.Mode().Perm()&0077 != 0 {
+			return refuseLaunch(ctx, ErrRuntimeLaunch, "invocation_build", "path_unsafe")
 		}
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return refuseLaunch(ctx, err, "invocation_build", "")
 	}
+
 	inv, err := runtimeadapter.BuildStageInvocation(runtimeadapter.StageInvocationRequest{
 		Profile:   runtimeadapter.CommandProfile{RuntimeID: frozen.Runtime, Executable: frozen.Executable, Model: frozen.Model},
 		Workspace: l.Workspace, Inbox: inbox, AxiomPath: l.AxiomPath,
@@ -396,4 +407,19 @@ func attemptOutputs(r LaunchRequest) []string {
 		return r.Agent.Outputs
 	}
 	return append(append([]string(nil), r.Stage.Outputs...), r.Stage.OptionalOutputs...)
+}
+
+func plannedRuntimePath(path string) bool {
+	if !filepath.IsAbs(path) || filepath.Clean(path) != path {
+		return false
+	}
+	for current := path; ; current = filepath.Dir(current) {
+		info, err := os.Lstat(current)
+		if err == nil {
+			return info.IsDir() && cleanRuntimePath(current)
+		}
+		if !errors.Is(err, os.ErrNotExist) || current == filepath.Dir(current) {
+			return false
+		}
+	}
 }
