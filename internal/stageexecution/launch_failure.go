@@ -13,8 +13,10 @@ import (
 
 // Causes remain in memory for Is/As; Error never formats the cause.
 type launchError struct {
-	failure workflow.LaunchFailure
-	cause   error
+	failure         workflow.LaunchFailure
+	cause           error
+	deterministic   bool
+	materialization string
 }
 
 func (e *launchError) Error() string        { return "launch_refused: " + e.failure.Reason }
@@ -61,4 +63,9 @@ func refuseLaunch(ctx context.Context, err error, phase, reason string) (executi
 		failure.Reason = reason
 	}
 	return executiongraph.Invocation{}, &launchError{failure: failure, cause: err}
+}
+
+// InspectLaunchFailure projects a local inspection error without exposing causes.
+func InspectLaunchFailure(err error) workflow.LaunchFailure {
+	return launchFailure(err, "invocation_build")
 }

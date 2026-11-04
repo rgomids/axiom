@@ -25,7 +25,7 @@ func (s lifecycleService) WorkflowStage(ctx context.Context, in cli.WorkflowStag
 			switch in.Operation {
 			case "execution-run":
 				d.Operation = "workflow run"
-			case "status", "cancel", "retry", "reconcile", "reject":
+			case "diagnose", "status", "cancel", "retry", "reconcile", "reject":
 				d.Operation = "workflow stage " + in.Operation
 			case "coordination-list", "coordination-show", "coordination-publish":
 				d.Operation = "workflow coordination " + strings.TrimPrefix(in.Operation, "coordination-")
@@ -41,7 +41,7 @@ func (s lifecycleService) WorkflowStage(ctx context.Context, in cli.WorkflowStag
 	switch in.Operation {
 	case "delivery-advance":
 		return s.executionDelivery(ctx, in)
-	case "execution-run", "status", "cancel", "retry", "reconcile", "reject":
+	case "execution-run", "diagnose", "status", "cancel", "retry", "reconcile", "reject":
 		return s.executionStage(ctx, in)
 	case "coordination-publish":
 		return s.stagePublish(ctx, in)

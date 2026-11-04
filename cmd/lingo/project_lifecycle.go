@@ -162,7 +162,7 @@ func (s lifecycleService) ProjectValidateInstalled(ctx context.Context, input cl
 	}
 	var response cli.Result
 	if report.Structure == "valid" {
-		next := ""
+		next := "Structural validation only; invocation, authentication and inference are not evaluated. Use workflow stage diagnose for one selected invocation."
 		if state != nil && (state.Status == string(projectapp.ProjectInvalid) || state.Status == string(projectapp.ProjectRecoveryRequired)) {
 			next = "Inspect preserved local operational state; it is never treated as active"
 		}

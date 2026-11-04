@@ -77,12 +77,26 @@ func (l RuntimeLauncher) Build(ctx context.Context, r LaunchRequest) (executiong
 		}
 	}
 	// Inspect again against materialized paths; a preview is never admission.
-	return l.Inspect(ctx, r)
+	inv, err := l.Inspect(ctx, r)
+	if err != nil {
+		var typed *launchError
+		if errors.As(err, &typed) {
+			typed.materialization = "prepared"
+		}
+	}
+	return inv, err
 }
 
 // Inspect constructs and checks one planned invocation without materializing it.
 // Absent output directories are not permission-tested or certified as writable.
-func (l RuntimeLauncher) Inspect(ctx context.Context, r LaunchRequest) (executiongraph.Invocation, error) {
+func (l RuntimeLauncher) Inspect(ctx context.Context, r LaunchRequest) (result executiongraph.Invocation, resultErr error) {
+	defer func() {
+		var typed *launchError
+		if errors.As(resultErr, &typed) {
+			typed.deterministic = typed.failure.Valid() && typed.failure.Reason != "builder_failed"
+			typed.materialization = "none"
+		}
+	}()
 	fail := func() (executiongraph.Invocation, error) {
 		return refuseLaunch(ctx, ErrRuntimeLaunch, "invocation_build", "builder_failed")
 	}

@@ -117,19 +117,22 @@ type OperationReadiness struct {
 // ReadinessReport is bounded and deterministic. It carries validated logical
 // keys only: no local path, credential value, document content or raw error.
 type ReadinessReport struct {
-	ProjectID     string                    `json:"projectId,omitempty"`
-	SchemaVersion int                       `json:"schemaVersion,omitempty"`
-	Structure     string                    `json:"structure"`
-	Effective     string                    `json:"effective"`
-	Repositories  []RepositoryReadiness     `json:"repositories"`
-	Capabilities  []CapabilityReadinessView `json:"capabilities"`
-	Runtime       RuntimeReadiness          `json:"runtime"`
-	Documentation []DocumentationReadiness  `json:"documentation"`
-	Context       ContextReadiness          `json:"context"`
-	Authority     AuthorityExpectations     `json:"authority"`
-	Operations    []OperationReadiness      `json:"operations"`
-	Blockers      []Finding                 `json:"blockers"`
-	Warnings      []Finding                 `json:"warnings"`
+	InvocationAdmissibility string                    `json:"invocationAdmissibility"`
+	Authentication          string                    `json:"authentication"`
+	Inference               string                    `json:"inference"`
+	ProjectID               string                    `json:"projectId,omitempty"`
+	SchemaVersion           int                       `json:"schemaVersion,omitempty"`
+	Structure               string                    `json:"structure"`
+	Effective               string                    `json:"effective"`
+	Repositories            []RepositoryReadiness     `json:"repositories"`
+	Capabilities            []CapabilityReadinessView `json:"capabilities"`
+	Runtime                 RuntimeReadiness          `json:"runtime"`
+	Documentation           []DocumentationReadiness  `json:"documentation"`
+	Context                 ContextReadiness          `json:"context"`
+	Authority               AuthorityExpectations     `json:"authority"`
+	Operations              []OperationReadiness      `json:"operations"`
+	Blockers                []Finding                 `json:"blockers"`
+	Warnings                []Finding                 `json:"warnings"`
 }
 
 // Operation returns the requirement-specific projection used before effects.
@@ -277,7 +280,7 @@ func blockedReport(code string) ReadinessReport {
 }
 
 func emptyReport() ReadinessReport {
-	return ReadinessReport{Repositories: []RepositoryReadiness{}, Capabilities: []CapabilityReadinessView{}, Documentation: []DocumentationReadiness{}, Authority: readinessAuthority, Operations: []OperationReadiness{}, Blockers: []Finding{}, Warnings: []Finding{}, Runtime: RuntimeReadiness{Status: "blocked"}}
+	return ReadinessReport{InvocationAdmissibility: "not_evaluated", Authentication: "not_evaluated", Inference: "not_run", Repositories: []RepositoryReadiness{}, Capabilities: []CapabilityReadinessView{}, Documentation: []DocumentationReadiness{}, Authority: readinessAuthority, Operations: []OperationReadiness{}, Blockers: []Finding{}, Warnings: []Finding{}, Runtime: RuntimeReadiness{Status: "blocked"}}
 }
 
 // EvaluateReadiness derives per-operation readiness from observed input.

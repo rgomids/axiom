@@ -68,7 +68,7 @@ func (s lifecycleService) executionStage(ctx context.Context, in cli.WorkflowSta
 		return s.stageFailure(completion.ValidationFailure, "invalid_selection", "Only the built-in minimal Workflow overrides the Project selection", "Use --workflow minimal or select the Project Workflow with project workflow select", nil)
 	}
 	operation := projectapp.AdmitExecutionAdvance
-	if in.Operation == "status" {
+	if in.Operation == "status" || in.Operation == "diagnose" {
 		operation = projectapp.AdmitExecutionStatus
 	}
 	selector := in.Project
@@ -92,6 +92,8 @@ func (s lifecycleService) executionStage(ctx context.Context, in cli.WorkflowSta
 	}
 	c := executionComposition{s: s, store: store, project: resolved.Project, authorizeCommands: in.AuthorizeCommands}
 	switch in.Operation {
+	case "diagnose":
+		return c.diagnose(ctx, in)
 	case "execution-run":
 		ctx, stop := interruptibleRun(ctx)
 		defer stop()
@@ -324,7 +326,7 @@ func (c executionComposition) admit(ctx context.Context, x workflow.Execution) e
 
 // launcher binds the machine-local workspace, private output root and Axiom
 // path. Outputs live under the state root, never inside the repository.
-func (c executionComposition) launcher(executionID, repositoryKey string) (stageexecution.RuntimeLauncher, error) {
+func (c executionComposition) plannedLauncher(executionID, repositoryKey string) (stageexecution.RuntimeLauncher, error) {
 	if !workflow.ValidExecutionID(executionID) {
 		return stageexecution.RuntimeLauncher{}, errExecutionProjectMissing
 	}
@@ -347,23 +349,29 @@ func (c executionComposition) launcher(executionID, repositoryKey string) (stage
 	if err != nil {
 		return stageexecution.RuntimeLauncher{}, err
 	}
-	// Created through the state root so no path component can redirect it
-	// outside; Build still refuses any symlinked component before spawning.
+	return stageexecution.RuntimeLauncher{Workspace: workspace, InboxRoot: filepath.Join(c.s.stateRoot, "executions", "v2-attempt-outputs", c.project.ID, executionID), AxiomPath: axiom, Environment: os.Environ()}, nil
+}
+
+func (c executionComposition) launcher(executionID, repositoryKey string) (stageexecution.RuntimeLauncher, error) {
+	launcher, err := c.plannedLauncher(executionID, repositoryKey)
+	if err != nil {
+		return launcher, err
+	}
 	relative := filepath.Join("executions", "v2-attempt-outputs", c.project.ID, executionID)
 	state, err := os.OpenRoot(c.s.stateRoot)
 	if err != nil {
-		return stageexecution.RuntimeLauncher{}, err
+		return launcher, err
 	}
 	defer state.Close()
-	if err := state.MkdirAll(relative, 0o700); err != nil {
-		return stageexecution.RuntimeLauncher{}, err
+	if err = state.MkdirAll(relative, 0700); err != nil {
+		return launcher, err
 	}
-	inbox := filepath.Join(c.s.stateRoot, relative)
 	artifacts, err := local.NewArtifactStore(c.s.stateRoot)
 	if err != nil {
-		return stageexecution.RuntimeLauncher{}, err
+		return launcher, err
 	}
-	return stageexecution.RuntimeLauncher{Workspace: workspace, InboxRoot: inbox, AxiomPath: axiom, Environment: os.Environ(), ValidateOutput: local.NewWorkflowReferenceValidator(artifacts).ValidateExecutionOutput}, nil
+	launcher.ValidateOutput = local.NewWorkflowReferenceValidator(artifacts).ValidateExecutionOutput
+	return launcher, nil
 }
 
 // existingLauncher binds the launcher to a persisted Execution's repository.

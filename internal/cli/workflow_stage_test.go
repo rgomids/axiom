@@ -243,3 +243,14 @@ func TestOperatorStageDiagnosticUsesCanonicalEmitter(t *testing.T) {
 		t.Fatal("canonical views or call count diverged")
 	}
 }
+
+func TestI369DiagnoseRoute(t *testing.T) {
+	for _, extra := range []string{"", " --new-selection --select a.model=m"} {
+		service := &stageRecorder{status: completion.Facts{Completed: true}, source: completionProvenance(t)}
+		var out bytes.Buffer
+		args := strings.Fields("workflow stage diagnose --project alpha --execution e-1 --stage s --agent a" + extra)
+		if code := Run(context.Background(), args, service, completionProvenance(t), &out); code != ExitSuccess || len(service.inputs) != 1 || service.inputs[0].Operation != "diagnose" || service.inputs[0].AuthorizeExternal || service.inputs[0].AuthorizeLocal {
+			t.Fatal(code, out.String())
+		}
+	}
+}

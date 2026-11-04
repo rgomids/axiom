@@ -646,6 +646,7 @@ func TestCanonicalReadOnlyCatalogDispatch(t *testing.T) {
 		"axiom workflow status":            {"workflow", "status", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--execution", "e-1"},
 		"axiom workflow evidence":          {"workflow", "evidence", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--execution", "e-1"},
 		"axiom workflow delivery packet":   {"workflow", "delivery", "packet", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--execution", "e-1"},
+		"axiom workflow stage diagnose":    {"workflow", "stage", "diagnose", "--project", "alpha", "--execution", "e-1", "--stage", "s", "--agent", "a"},
 		"axiom workflow stage status":      {"workflow", "stage", "status", "--project", "alpha", "--execution", "e-1"},
 		"axiom workflow coordination list": {"workflow", "coordination", "list", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--execution", "e-1"},
 		"axiom workflow coordination show": {"workflow", "coordination", "show", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--execution", "e-1", "--child", "c-1", "--record", "r-1"},

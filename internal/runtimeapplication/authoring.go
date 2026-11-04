@@ -46,11 +46,15 @@ type AuthoringRequest struct {
 	AuthorizeLocal                               bool
 }
 type ProfileView struct {
-	ID        string                `json:"id"`
-	RuntimeID string                `json:"runtimeId"`
-	Model     string                `json:"model"`
-	Effort    runtimeprofile.Effort `json:"effort"`
-	Eligible  bool                  `json:"eligible"`
+	EligibilityScope        string                `json:"eligibilityScope"`
+	InvocationAdmissibility string                `json:"invocationAdmissibility"`
+	Authentication          string                `json:"authentication"`
+	Inference               string                `json:"inference"`
+	ID                      string                `json:"id"`
+	RuntimeID               string                `json:"runtimeId"`
+	Model                   string                `json:"model"`
+	Effort                  runtimeprofile.Effort `json:"effort"`
+	Eligible                bool                  `json:"eligible"`
 }
 type RuntimeView struct {
 	ID      string `json:"id"`
@@ -665,7 +669,7 @@ func projectLocal(out *AuthoringReport, runtimes []localRuntime, profiles []runt
 		if !runtimeprofile.ValidEffort(effort) {
 			effort = runtimeprofile.Effort{Mode: "unconfigured", Value: "unconfigured"}
 		}
-		out.Profiles = append(out.Profiles, ProfileView{ID: safeView(p.ID), RuntimeID: safeView(p.RuntimeID), Model: model, Effort: effort, Eligible: eligible})
+		out.Profiles = append(out.Profiles, ProfileView{EligibilityScope: "configuration_only", InvocationAdmissibility: "not_evaluated", Authentication: "not_evaluated", Inference: "not_run", ID: safeView(p.ID), RuntimeID: safeView(p.RuntimeID), Model: model, Effort: effort, Eligible: eligible})
 	}
 	sort.Slice(out.Profiles, func(i, j int) bool { return strings.Compare(out.Profiles[i].ID, out.Profiles[j].ID) < 0 })
 	sort.Slice(out.Runtimes, func(i, j int) bool { return out.Runtimes[i].ID < out.Runtimes[j].ID })
