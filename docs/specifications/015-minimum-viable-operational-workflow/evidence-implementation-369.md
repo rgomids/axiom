@@ -65,19 +65,14 @@ PASS: repository validator and sensitive-file directory check.
 Self-review under Axiom review/Ponytail-review found no blocking parser finding.
 P3 completed; cross-package/full-suite P6 validation remains pending.
 
-## Remaining task status
+## Task status (attempt-01 checkpoint, superseded by attempt-02 below)
 
-I369-P4a, I369-P4b, I369-P5a, I369-P5b, I369-P6: NOT_STARTED.
-AC-A: parser integration validation in progress. AC-B: typed implementation targeted/full checks passed; final integration pending.
-AC-C/D: NOT_IMPLEMENTED.
+At the attempt-01 stop P1, P2, P3, P4a and P5a were committed (`059cf1c`, `df86dfb`,
+`ff4ff24`, `f4dc732`); P4b/P5b/P6 remained uncommitted work in progress.
 
 technical_decisions[]:
 - TD-369-I1 (TECHNICAL_LOCAL): use the decoder's two concrete array representations
   directly; no reflection or generic traversal framework.
-
-deferred_findings[]: empty.
-No real vendor/auth/inference, private config, external Projects, merge, release,
-deploy, acceptance or closure performed. Full suite/race/final review remain pending.
 
 ## I369-P2 — typed launch failure (completed)
 
@@ -156,3 +151,123 @@ examples drive TestI369FrozenAccountingOracle. Launch/restart test preserves bot
 refusals. Strict codec and store tests reject missing/unknown metadata, refunds
 and policy stripping. Actual writer-byte old-reader replay precedes activation
 and will be recorded next; no partially supported writer enabled.
+
+P5a activation gate: **PASS** actual new writer-byte replay. Archive `f4dc732`,
+copy `testdata/i369/new_writer.go` into `cmd/i369-writer/main.go`, execute
+`go run ./cmd/i369-writer` in that isolated module. It uses the real NewExecution,
+PrepareAttempt, MarkLaunchRefused and EncodeExecution; no manual JSON encoding.
+Then the pinned old-reader command accepts additional `new:/tmp/i369-new-policy.json`
+and `new:/tmp/i369-new-refusal.json` arguments. Real old decoder/store/Run/reconcile
+reject both before effects, lease namespace or directory/byte changes. This
+completes P5a; operational policy selection remains disabled until P5b completes.
+
+## Attempt-02 continuation (Claude runtime)
+
+Attempt-01 (Codex) stopped on a usage limit with uncommitted P4b/P5b work in
+progress at local = remote HEAD `f4dc732`. Attempt-02 read and preserved that work
+(no reset, stash or force), completed the pending parts and committed them as
+`396aa3a` (P4b) and `c903ec1` (P5b); this Evidence is the P6 commit.
+
+## I369-P4b — read-only diagnose route (completed, `396aa3a`)
+
+`workflow stage diagnose --project --execution --stage --agent [--new-selection
+--select ...]` reuses the existing WorkflowStageService and status admission. It
+loads the canonical Execution, uses the latest frozen attempt invocation (or the
+current resolution before any attempt), and resolves a prospective tuple only
+with explicit `--new-selection` (labelled `prospective_preview`; `--select`
+without it is refused as frozen). It calls only `RuntimeLauncher.Inspect` on a
+planned launcher: no MkdirAll, artifact store, Build, Runner, store write or lease.
+Five dimensions: structuralReadiness, profileConfigurationEligibility,
+invocationAdmissibility (admissible/refused/not_evaluated), authentication
+`not_evaluated`, inference `not_run`; output directory materialization
+`not_evaluated`. Refusals carry only the closed typed launchFailure.
+`project validate` next action and Profile views disclose the same scopes
+(`eligibilityScope: configuration_only`). Help, catalog, lifecycle matrix,
+`docs/commands.md` and the installed axiom-work-item skill (with retained
+pre-#369 shared skill history) were updated.
+
+PASS: TestI369PublicDiagnosisReadOnly (actual CLI entry; unrelated TOML
+admissible, equal-valued effort selector refused with `selector_conflict`, frozen
+and prospective; full Project/state/elsewhere tree snapshot byte-identical; no
+HOME path in output), TestI369DiagnoseRoute, TestDocumentationRenderingDeterministicAndComplete
+(95 leaves / 431 flags), TestSkillDiscoveryExactCommands, TestCanonicalReadOnlyCatalogDispatch,
+TestCanonicalReadOnlySurfacesDoNotMutateState, TestEveryPublishedSharedRevisionStaysOwned.
+
+## I369-P5b — fenced reservation and activation (completed, `c903ec1`)
+
+After Build the engine rechecks cancel, executable identity, admission and a
+second pure `Inspect` against the materialized paths; then, under
+`spawn-boundary-v1`, a fenced `ReserveLaunch` (pending → charged) commits before
+the only `RunObserved` call. A failed reservation returns without calling the
+Runner. Only the engine-owned `RuntimeLauncher` with a closed deterministic typed
+failure records `MarkLaunchRefused` (materialization `none`/`prepared`); every
+other launcher, `builder_failed`, cancellation or admission revocation stays
+charged. `Engine.Start` — the sole operational Execution writer — now freezes
+`spawn-boundary-v1`; `ValidReworkStart` accepts the policy. Persisted absent-policy
+Executions keep legacy accounting. No automatic retry or scheduler loop added.
+
+Crash timeline: before prepare commit → no attempt (existing); after prepare,
+before resolution → pending, counted as charged, becomes unknown at next claim
+(existing interruption path; P5a no-refund validation); after reservation, before
+start callback → charged + unknown (`TestI369ReservationPrecedesRunner`); confirmed
+spawn/runtime failure → charged (P5a transitions).
+
+PASS: TestI369ReservationPrecedesRunner (Runner observes durable `charged`; one
+call; unknown stays charged, NoSpawn false), TestI369LostFenceBeforeReservationPermitsNoCall
+(generation moved before reservation → error, zero Runner calls),
+TestI369ForeignLauncherFailureStaysCharged, TestI369LifetimeRefusalsThroughEngine
+(real RuntimeLauncher, selector conflict: refusal 1, retry without `preserve`
+refused, explicit retry → refusal 2 with parent lineage, third retry denied with
+no record, zero Runner calls, counts charged 0 / refusals 2). Updated
+TestPublicReconcileAbandonRefusesLiveOrphanWithoutWriting: its simulated runner
+now reserves before MarkStarted, as the new protocol requires.
+
+## I369-P6 — integration, compatibility and final Evidence
+
+Actual old reader on actual new writer bytes, rerun at `c903ec1`: detached
+temporary worktrees of `c903ec1` and `9fad368ded09fc2f70e0b88d23fef5c4588869e7`;
+`go run ./cmd/i369-writer` (testdata/i369/new_writer.go), then
+`go run ./cmd/i369-reader <legacy-active.json> <legacy-terminal.json>
+new:/tmp/i369-new-policy.json new:/tmp/i369-new-refusal.json`. All four PASS:
+legacy bytes round trip; candidates and both actual new-writer records rejected
+by the real old decoder/store/engine/reconcile before effects, lease or byte
+changes. Temporary worktrees removed afterwards.
+
+| Command | Result |
+| --- | --- |
+| `go build ./...`, `go vet ./...` | PASS |
+| `go test ./internal/runtimeadapter -count=1` | PASS |
+| `go test ./internal/workflow ./internal/stageexecution -count=1` | PASS |
+| `go test ./internal/local ./internal/strictjson ./internal/compatibility -count=1` | PASS |
+| `go test ./internal/projectapp ./internal/runtimeapplication ./internal/cli ./cmd/lingo -count=1` | PASS (after the orphan-fixture reservation fix) |
+| `go test ./internal/install ./internal/codexruntime -count=1` | PASS |
+| `go test ./... -count=1` | PASS |
+| `go test -race ./internal/workflow ./internal/stageexecution ./internal/local -count=1` | NOT_RUN locally: no C compiler for cgo on this host; CI observation required |
+| `./scripts/validate-repository.sh .` | NOT_RUN: script execution not permitted in this non-interactive runtime |
+| `./scripts/check-sensitive-files.sh .` / `--staged .` | NOT_RUN (same cause); manual added-line scan for home paths/secret patterns found none |
+| `gofmt -l` | NOT_RUN (same cause); CI quality check required |
+| `git diff --cached --check` | PASS |
+
+## Final AC matrix
+
+| AC | Evidence | Status |
+| --- | --- | --- |
+| A — bounded TOML vs selectors | P3 tests (pinned decoder, MaxDepth 64, semantic bounds); diagnose admits unrelated TOML, refuses equal-valued selector | PASS |
+| B — closed redacted typed failures | P2 tests, engine refusal persists closed reason/phase/source; diagnose/status show codes only | PASS |
+| C — pure effective diagnosis | P4a inspection tests; P4b CLI tree snapshot, five dimensions, frozen vs prospective | PASS |
+| D — prospective lifetime accounting | P5a aggregate tables; P5b reservation/fence/foreign/lifetime engine tests; activation in Engine.Start; old-reader replay | PASS (race NOT_RUN locally) |
+
+technical_decisions[] (attempt-02):
+- TD-369-I2 (TECHNICAL_LOCAL): activate the policy in `Engine.Start`, the only
+  operational writer, rather than `NewExecution`, so test/legacy constructors and
+  historical bytes keep absent-policy semantics.
+- TD-369-I3 (TECHNICAL_LOCAL): deterministic qualification is computed inside
+  `RuntimeLauncher.Inspect` and honoured only when the engine's launcher is that
+  owned type; no new interface.
+
+deferred_findings[]: empty.
+
+Limitations: race detector, repository validator, sensitive-file scripts and
+gofmt were not executed locally; they rely on CI. No real vendor, authentication,
+inference, private configuration, network or external Project was used. No merge,
+release, deploy, acceptance or Issue closure was performed.
