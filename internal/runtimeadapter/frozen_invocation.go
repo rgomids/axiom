@@ -17,7 +17,12 @@ const RuntimeDefaultEffort = "runtime-default"
 // that would silently override the frozen Runtime/model/effort, with redacted
 // diagnostics. It never probes authentication or predicts vendor support;
 // those failures are observed when the authorized attempt runs.
-func CheckFrozenSelectors(ctx context.Context, runtimeID, model, effort string, roots EffortSourceRoots, inv executiongraph.Invocation) error {
+func CheckFrozenSelectors(ctx context.Context, runtimeID, model, effort string, roots EffortSourceRoots, inv executiongraph.Invocation) (result error) {
+	defer func() {
+		if ctx.Err() != nil {
+			result = ctx.Err()
+		}
+	}()
 	if ctx.Err() != nil || len(inv.Argv) == 0 || (runtimeID != "codex" && runtimeID != "claude") {
 		return ErrEffortConfigurationUnsafe
 	}

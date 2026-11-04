@@ -18,7 +18,7 @@ names, `requiredWhen` conditions and accepted forms. Never invent a flag. On a
 refusal, read `details` (`<code>` or `<code>:--<flag>`) and change only the
 named input; never repeat an unchanged command.
 
-Supported domain operations are `create`, `run`, `status`, `list`, `show`, `update`, `comment`, `close`, `reopen`, `execution.run`, `delivery.advance`, `stage.reject`, `delivery.packet`, `stage.status`, `stage.cancel`, `stage.retry`, `stage.reconcile`, `coordination.list`, and `coordination.show`.
+Supported domain operations are `create`, `run`, `status`, `list`, `show`, `update`, `comment`, `close`, `reopen`, `execution.run`, `delivery.advance`, `stage.reject`, `delivery.packet`, `stage.diagnose`, `stage.status`, `stage.cancel`, `stage.retry`, `stage.reconcile`, `coordination.list`, and `coordination.show`.
 Any other operation, such as `delete` or Execution `cancel`, is unsupported:
 report that it is not available and do not run a Lingo command for it. Work
 Items are closed or reopened, never deleted. Canonical Executions use
@@ -49,6 +49,7 @@ Login and successful process exit do not prove successful Stage output.
 | `delivery.advance` | - | `axiom --json workflow delivery advance` | external mutation | exact `--grant`; `--authorize-local` `--authorize-human` and `--authorize-push` OR `--authorize-pr`; `--inspect` only records exact-target observations | only for unambiguous delivery intent |
 | `stage.reject` | - | `axiom --json workflow stage reject` | local mutation | exact stage/result/Evidence; `--authorize-human` `--authorize-local`; operator context only | only for unambiguous stage reject intent |
 | `delivery.packet` | - | `axiom --json workflow delivery packet` | read-only | none; readiness grants no delivery authority | allowed |
+| `stage.diagnose` | - | `axiom --json workflow stage diagnose` | read-only | one selected invocation; `--new-selection` previews prospectively and grants no retry authority; no auth/inference | allowed |
 | `stage.status` | - | `axiom --json workflow stage status` | read-only | none; persisted state only, never a stop or success claim | allowed |
 | `stage.cancel` | - | `axiom --json workflow stage cancel` | local mutation | `--authorize-local` records cancel intent only; the runner reports requested versus observed stop | only for unambiguous stage cancel intent |
 | `stage.retry` | - | `axiom --json workflow stage retry` | external mutation | one new attempt with `--authorize-external`; prior writable workspace requires `--disposition` set to `preserve`; `--new-selection` authorizes fresh invocation values | only for unambiguous stage retry intent |
@@ -513,3 +514,27 @@ delivery grants, messages or invocation snapshots transfer. Unknown effects
 must first follow the existing explicit recovery path; they cannot be rejected
 or linked to bypass recovery. Retry limits, timeouts, fencing and explicit
 `--new-selection` remain those of the shared engine. No close/merge/release.
+
+
+`workflow stage diagnose --project <project> --execution <id> --stage <stage>
+--agent <agent>` is optional read-only local inspection. Report structural
+readiness, configuration eligibility, invocation admissibility, authentication
+`not_evaluated` and inference `not_run` separately. A frozen attempt remains
+frozen; `--new-selection` previews a prospective selection only. Missing output
+directories stay absent and their creation permissions are not evaluated.
+Inspection is not a reusable admission proof; dispatch rechecks. Never infer
+authentication/inference from structural ready, Profile eligible or admissible.
+Launch failures contain closed redacted reason/phase/source codes; do not request
+or repeat raw configuration, private paths, values, credentials or child output.
+
+New operational Executions use prospective `spawn-boundary-v1`: maximumAttempts
+bounds charged launch attempts, including spawn/runtime failure and uncertain
+outcomes; it is never proof of inference. At most two deterministic pre-spawn
+refusals per task lifetime are allowed separately. Neither selection changes,
+restart nor successful launch reset this allowance. Retrying requires explicit
+external authority, a new attempt/parent/frozen provenance and `--disposition
+preserve`. Two refusals require a fresh explicitly authorized Execution; never
+retry automatically or inherit authority. Unknown outcomes need explicit existing
+reconciliation/disposition. Historical absent-policy budgets are unchanged and
+cannot be refunded. Older binaries refuse new metadata: retain a capable reader
+or stop affected Executions; never strip fields or rewrite history to downgrade.

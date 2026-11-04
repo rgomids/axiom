@@ -2210,3 +2210,46 @@ described above. Technical completion and retained Evidence do not accept the
 product or close its Work Item. Historical delivery
 contracts remain recorded in [Spec 007](specifications/007-configurable-workflows/spec.md);
 they are not an alternative operational engine.
+
+## Inspect one planned Runtime invocation
+
+`project validate` reports structural readiness. Profile `eligible` means
+configuration eligibility only; neither proves that an invocation will be admitted.
+Both projections disclose invocation `not_evaluated`, authentication
+`not_evaluated` and inference `not_run`.
+
+```bash
+axiom --json workflow stage diagnose --project my-project --execution <execution-id> \
+  --stage <stage-id> --agent <agent-id>
+axiom --json workflow stage diagnose --project my-project --execution <execution-id> \
+  --stage <stage-id> --agent <agent-id> --new-selection --select <agent-id>.model=<model>
+```
+
+Diagnosis is read-only and inspects only one effective selection. Attempted work
+uses its frozen invocation. `--new-selection` is a prospective preview, never a
+change to a frozen attempt or retry authority. Five separate dimensions report
+structural readiness, Profile configuration eligibility, invocation admissibility,
+authentication (`not_evaluated`) and inference (`not_run`). An absent output
+directory remains uncreated and its creation permissions remain `not_evaluated`.
+A local admissible result grants no admission token; dispatch rechecks the sources,
+paths, selection and authority. No vendor status/authentication/inference runs.
+Unknown or missing context remains `not_evaluated`.
+
+A typed `launchFailure` reports only closed reason/phase/source codes and static
+remediation. Valid bounded unrelated TOML arrays/tables are accepted; real effort
+selectors (even equal-valued ones) remain conflicts. Claude model-specific effort
+settings remain conservative conflicts: cross-model noninterference is unproved.
+
+New operational Executions freeze `attemptPolicy: spawn-boundary-v1`.
+`maximumAttempts` bounds charged launches, including spawn/runtime failures and
+unresolved outcomes, and never proves inference. Pending reservations consume
+budget conservatively. Separately, each task has two lifetime deterministic
+pre-spawn refusal records. Selection changes, restart/resume and a successful
+launch do not reset that allowance. Further preparation is denied after either
+bound; two refusals require a fresh explicitly authorized Execution with no
+inherited authority. Nothing retries automatically. Explicit retry appends a new
+attempt ID/parent, actor/time, generation, frozen invocation/provenance and authority,
+requiring `--disposition preserve`. Unknown effects still need explicit resolution.
+Historical Executions retain their original record-count budget and bytes.
+Older binaries reject the new metadata before effects. Downgrade must retain a
+capable reader or stop affected runs; stripping fields/refunding history is unsafe.

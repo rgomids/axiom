@@ -83,6 +83,10 @@ type engineFixture struct {
 }
 
 func newEngineFixture(t *testing.T, stages []workflow.StageSpec, run func(context.Context, executiongraph.Invocation, func(*executiongraph.ProcessCorrelation) error) executiongraph.ProcessResult) *engineFixture {
+	return newEngineFixturePolicy(t, stages, run, "")
+}
+
+func newEngineFixturePolicy(t *testing.T, stages []workflow.StageSpec, run func(context.Context, executiongraph.Invocation, func(*executiongraph.ProcessCorrelation) error) executiongraph.ProcessResult, policy string) *engineFixture {
 	t.Helper()
 	root := realTempDir(t)
 	if err := os.Chmod(root, 0o700); err != nil {
@@ -99,6 +103,7 @@ func newEngineFixture(t *testing.T, stages []workflow.StageSpec, run func(contex
 	if err != nil {
 		t.Fatal(err)
 	}
+	x.AttemptPolicy = policy
 	if err := store.Create(context.Background(), x); err != nil {
 		t.Fatal(err)
 	}

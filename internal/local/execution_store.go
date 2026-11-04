@@ -280,6 +280,9 @@ func preservesExecutionHistory(prior, next workflow.Execution) bool {
 			return false
 		}
 	}
+	if prior.AttemptPolicy != next.AttemptPolicy {
+		return false
+	}
 	if prior.ExecutionID != next.ExecutionID || prior.ProjectID != next.ProjectID || prior.WorkItem != next.WorkItem || !prior.CreatedAt.Equal(next.CreatedAt) || !reflect.DeepEqual(prior.Repositories, next.Repositories) || !reflect.DeepEqual(prior.Workflow, next.Workflow) || !reflect.DeepEqual(prior.Selections, next.Selections) || len(prior.Stages) != len(next.Stages) {
 		return false
 	}
@@ -339,6 +342,12 @@ func preservesExecutionHistory(prior, next workflow.Execution) bool {
 			for k, attempt := range task.Attempts {
 				changed := updated.Attempts[k]
 				if attempt.AttemptID != changed.AttemptID || attempt.Number != changed.Number || attempt.RunnerGeneration != changed.RunnerGeneration || !attempt.PreparedAt.Equal(changed.PreparedAt) || attempt.WorkspaceDisposition != changed.WorkspaceDisposition || !reflect.DeepEqual(attempt.Invocation, changed.Invocation) || !reflect.DeepEqual(attempt.Authority, changed.Authority) {
+					return false
+				}
+				if attempt.ParentAttemptID != changed.ParentAttemptID || attempt.Accounting != workflow.AccountingPending && attempt.Accounting != changed.Accounting || attempt.NoSpawn && !changed.NoSpawn || attempt.Materialization != "" && attempt.Materialization != changed.Materialization {
+					return false
+				}
+				if attempt.LaunchFailure != nil && !reflect.DeepEqual(attempt.LaunchFailure, changed.LaunchFailure) {
 					return false
 				}
 				if len(changed.Commands) < len(attempt.Commands) {
@@ -420,6 +429,12 @@ func cloneExecutionStages(stages []workflow.StageRun) []workflow.StageRun {
 		for j, t := range s.Tasks {
 			out[i].Tasks[j] = t
 			out[i].Tasks[j].Attempts = append([]workflow.Attempt(nil), t.Attempts...)
+			for k, a := range t.Attempts {
+				if a.LaunchFailure != nil {
+					f := *a.LaunchFailure
+					out[i].Tasks[j].Attempts[k].LaunchFailure = &f
+				}
+			}
 		}
 	}
 	return out

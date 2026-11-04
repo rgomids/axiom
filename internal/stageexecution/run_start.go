@@ -69,6 +69,9 @@ func (e Engine) Start(ctx context.Context, store creator, r StartRequest) (workf
 		return workflow.Execution{}, err
 	}
 	x.ReworkOf = r.ReworkOf
+	// Only new operational Executions freeze the prospective policy (#369);
+	// persisted absent-policy records keep their legacy budget.
+	x.AttemptPolicy = workflow.SpawnBoundaryPolicy
 	if err := x.Validate(); err != nil {
 		return workflow.Execution{}, err
 	}

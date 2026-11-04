@@ -2,6 +2,14 @@
 
 ## 015 — Minimum viable operational workflow
 
+[Issue #369 pre-spawn amendment](015-minimum-viable-operational-workflow/amendment-369-pre-spawn-launch.md):
+Specify revision 1; [HD-369-D approved](https://github.com/rgomids/axiom/issues/369#issuecomment-6621938832).
+[Plan #369](015-minimum-viable-operational-workflow/plan-369-pre-spawn-launch.md) and
+[Plan Evidence](015-minimum-viable-operational-workflow/evidence-plan-369.md) cover A–D.
+[Tasks revision 1](015-minimum-viable-operational-workflow/tasks-369-pre-spawn-launch.md)
+decomposes P1–P6 into eight planned tasks; [Tasks Evidence](015-minimum-viable-operational-workflow/evidence-tasks-369.md).
+No runtime implementation.
+
 [Specification correction-04](015-minimum-viable-operational-workflow/spec.md)
 for [AXM-42](https://linear.app/rgomids/issue/AXM-42) / [PR #366](https://github.com/rgomids/axiom/pull/366).
 [Subsequent human approval](https://github.com/rgomids/axiom/pull/366#pullrequestreview-5720318529)

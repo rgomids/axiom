@@ -158,8 +158,8 @@ func TestInspectEffortSourcesRefusals(t *testing.T) {
 				"selector-in-source": {ErrEffortOverrideConflict, func(t *testing.T, f *effortInspectorFixture) {
 					writeFixtureFile(t, f.source(t, "user"), map[bool]string{true: `model_reasoning_effort = "private-canary"`, false: `{"effortLevel":"private-canary"}`}[id == "codex"])
 				}},
-				"unsupported-source-grammar": {ErrEffortConfigurationUnsafe, func(t *testing.T, f *effortInspectorFixture) {
-					writeFixtureFile(t, f.source(t, "project"), map[bool]string{true: "[[array]]\n", false: `[]`}[id == "codex"])
+				"invalid-source-grammar": {ErrEffortConfigurationUnsafe, func(t *testing.T, f *effortInspectorFixture) {
+					writeFixtureFile(t, f.source(t, "project"), map[bool]string{true: "a = [\n", false: `[]`}[id == "codex"])
 				}},
 				"argv-effort-override": {ErrEffortOverrideConflict, func(t *testing.T, f *effortInspectorFixture) {
 					f.request.Invocation.Argv = append(f.request.Invocation.Argv, "--effort", "high")

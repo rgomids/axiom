@@ -281,6 +281,11 @@ type CommandResult struct {
 	ExitCode   int              `json:"exitCode"`
 }
 type Attempt struct {
+	Accounting           string           `json:"accounting,omitempty"`
+	ParentAttemptID      string           `json:"parentAttemptId,omitempty"`
+	NoSpawn              bool             `json:"noSpawn,omitempty"`
+	Materialization      string           `json:"materialization,omitempty"`
+	LaunchFailure        *LaunchFailure   `json:"launchFailure,omitempty"`
 	Commands             []CommandResult  `json:"commands,omitempty"`
 	WorkspaceDisposition string           `json:"workspaceDisposition,omitempty"`
 	AttemptID            string           `json:"attemptId"`
@@ -327,6 +332,7 @@ type CancelIntent struct {
 }
 
 type Execution struct {
+	AttemptPolicy    string              `json:"attemptPolicy,omitempty"`
 	Rejection        *ResultRejection    `json:"rejection,omitempty"`
 	ReworkOf         *RejectedSource     `json:"reworkOf,omitempty"`
 	Kind             string              `json:"kind"`
@@ -569,6 +575,9 @@ func boundedText(value string, limit int) bool {
 }
 
 func (e Execution) Validate() error {
+	if e.AttemptPolicy != "" && e.AttemptPolicy != SpawnBoundaryPolicy {
+		return invalid("attempt policy")
+	}
 	if e.Kind != ExecutionKind || e.FormatVersion != ExecutionFormatVersion {
 		return invalid("discriminator")
 	}
@@ -619,8 +628,11 @@ func (e Execution) Validate() error {
 			}
 		}
 		for j, task := range run.Tasks {
-			if task.AgentID != spec.Agents[j].ID || len(task.Attempts) > spec.Agents[j].AttemptLimit() {
+			if task.AgentID != spec.Agents[j].ID {
 				return invalid("task %q", task.AgentID)
+			}
+			if err := e.validateAccounting(task, spec.Agents[j]); err != nil {
+				return err
 			}
 			for k, attempt := range task.Attempts {
 				if err := validateAttempt(attempt, k+1, e.RunnerGeneration, repos); err != nil {
@@ -950,6 +962,9 @@ func validEffectKinds(kinds []string) error {
 }
 
 func validateAttempt(a Attempt, number int, generation uint64, repos map[string]bool) error {
+	if a.LaunchFailure != nil && (!a.LaunchFailure.Valid() || a.Status != AttemptFailed || a.StartedAt != nil || a.Process != nil) {
+		return invalid("launch failure")
+	}
 	if a.WorkspaceDisposition != "" && (number == 1 || a.WorkspaceDisposition != "preserve") {
 		return invalid("workspace disposition")
 	}

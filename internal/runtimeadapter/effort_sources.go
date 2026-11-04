@@ -9,10 +9,11 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"regexp"
 	"sort"
 	"strings"
 	"unicode/utf8"
+
+	"github.com/BurntSushi/toml"
 
 	"github.com/rgomids/axiom/internal/executiongraph"
 	"github.com/rgomids/axiom/internal/runtimeprofile"
@@ -143,15 +144,15 @@ func observeEffortFacts(ctx context.Context, p effortIntent, d effortRules, inv 
 	seen := map[string]bool{}
 	for _, source := range d.Sources {
 		if ctx.Err() != nil {
-			return nil, ErrEffortConfigurationUnsafe
+			return nil, &SourceError{Source: source.Scope, Cause: ErrEffortConfigurationUnsafe}
 		}
 		if !recognizedEffortSource(p.RuntimeID, source) || seen[source.Scope+"\x00"+source.Root+"\x00"+source.Relative] {
-			return nil, ErrEffortConfigurationUnsafe
+			return nil, &SourceError{Source: source.Scope, Cause: ErrEffortConfigurationUnsafe}
 		}
 		seen[source.Scope+"\x00"+source.Root+"\x00"+source.Relative] = true
 		wires, present, binding, e := observeEffortSource(source)
 		if e != nil {
-			return nil, ErrEffortConfigurationUnsafe
+			return nil, &SourceError{Source: source.Scope, Cause: ErrEffortConfigurationUnsafe}
 		}
 		selectors := []string{}
 		for _, wire := range wires {
@@ -162,7 +163,7 @@ func observeEffortFacts(ctx context.Context, p effortIntent, d effortRules, inv 
 				selected, e = jsonEffortSelectors(wire, d.JSONKeys)
 			}
 			if e != nil {
-				return nil, ErrEffortConfigurationInvalid
+				return nil, &SourceError{Source: source.Scope, Cause: ErrEffortConfigurationInvalid}
 			}
 			selectors = append(selectors, selected...)
 		}
@@ -173,7 +174,7 @@ func observeEffortFacts(ctx context.Context, p effortIntent, d effortRules, inv 
 
 		// Native no-selector semantics, not value merging or invented precedence.
 		if len(selectors) != 0 {
-			return nil, ErrEffortOverrideConflict
+			return nil, &SourceError{Source: source.Scope, Cause: ErrEffortOverrideConflict}
 		}
 	}
 	// Require explicit complete scope declaration; absent files are facts, while
@@ -430,134 +431,66 @@ func observeEffortSource(s EffortSource) ([][]byte, bool, string, error) {
 	return wires, true, effortHash([]byte(facts)), nil
 }
 
-var effortTOMLNumber = regexp.MustCompile(`^[+-]?(0|[1-9][0-9]*)(\.[0-9]+)?([eE][+-]?[0-9]+)?$`)
-
-func validEffortTOMLScalar(value string) bool {
-	value = strings.TrimSpace(value)
-	if !utf8.ValidString(value) || strings.ContainsAny(value, "\x00\r\n") {
-		return false
-	}
-	if value == "true" || value == "false" || effortTOMLNumber.MatchString(value) {
-		return true
-	}
-	if len(value) < 2 {
-		return false
-	}
-	if value[0] == '\'' {
-		return value[len(value)-1] == '\'' && !strings.ContainsAny(value[1:len(value)-1], "'\x00\r\n")
-	}
-	if value[0] != '"' || strings.Contains(value, `\/`) {
-		return false
-	}
-	var decoded string
-	return json.Unmarshal([]byte(value), &decoded) == nil && !strings.ContainsAny(decoded, "\x00\r\n")
-}
-
-// Only TOML basic/literal/bare keys whose quoting is fully validated enter
-// the narrow parser; Go-only escapes accepted by the historic helper refuse.
-func effortTOMLKey(raw string) ([]string, bool) {
-	parts, ok := tomlKey(raw)
-	if !ok || !utf8.ValidString(raw) {
-		return nil, false
-	}
-	for _, part := range parts {
-		for _, r := range part {
-			if r < 0x20 || r == 0x7f {
-				return nil, false
-			}
-		}
-	}
-	quote := byte(0)
-	start := 0
-	for index := 0; index < len(raw); index++ {
-		char := raw[index]
-		if quote == '"' && char == '\\' {
-			index++
-			continue
-		}
-		if quote != 0 && char == quote {
-			if quote == '"' {
-				literal := raw[start : index+1]
-				var decoded string
-				if strings.Contains(literal, `\/`) || json.Unmarshal([]byte(literal), &decoded) != nil {
-					return nil, false
-				}
-			}
-			quote = 0
-			continue
-		}
-		if quote == 0 && (char == '"' || char == '\'') {
-			quote = char
-			start = index
-		}
-	}
-	return parts, quote == 0
-}
-
+// Parsing is bounded before decoding; traversal separately bounds semantic work.
 func tomlEffortSelectorsBounded(w []byte, nestedProfiles bool) ([]string, error) {
-	keys := []string{}
-	table := []string{}
-	seen := map[string]bool{}
-	tables := map[string]bool{}
-	identity := func(parts []string) string { wire, _ := json.Marshal(parts); return string(wire) }
-	conflicts := func(parts []string) bool {
-		for n := 1; n <= len(parts); n++ {
-			if seen[identity(parts[:n])] {
-				return true
-			}
-		}
-		for key := range seen {
-			var existing []string
-			json.Unmarshal([]byte(key), &existing)
-			if len(existing) > len(parts) && identity(existing[:len(parts)]) == identity(parts) {
-				return true
-			}
-		}
-		return false
-	}
-	if !utf8.Valid(w) {
+	if len(w) > maxConfigFileBytes || !utf8.Valid(w) {
 		return nil, ErrEffortConfigurationUnsafe
 	}
-	for _, raw := range strings.Split(string(w), "\n") {
-		line := strings.TrimSpace(raw)
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-		comment := indexOutsideQuotes(line, "#")
-		if comment == -2 {
+	var document map[string]any
+	decoder := toml.NewDecoder(bytes.NewReader(w))
+	decoder.MaxDepth(64)
+	if _, err := decoder.Decode(&document); err != nil {
+		return nil, ErrEffortConfigurationUnsafe
+	}
+	type node struct {
+		value any
+		depth int
+	}
+	stack := []node{{document, 0}}
+	keys := []string{}
+	count := 0
+	for len(stack) > 0 {
+		current := stack[len(stack)-1]
+		stack = stack[:len(stack)-1]
+		count++
+		if current.depth > 32 || count > 65536 {
 			return nil, ErrEffortConfigurationUnsafe
 		}
-		if comment >= 0 {
-			line = strings.TrimSpace(line[:comment])
-		}
-		if header, ok := tomlHeader(line); ok {
-			segments, valid := effortTOMLKey(header)
-			if !valid || strings.HasPrefix(line, "[[") || !nestedProfiles && containsKey(segments, "profiles") || tables[identity(segments)] || conflicts(segments) {
-				return nil, ErrEffortConfigurationUnsafe
+		push := func(value any) bool {
+			if count+len(stack) >= 65536 {
+				return false
 			}
-			table = segments
-			tables[identity(segments)] = true
-			continue
+			stack = append(stack, node{value, current.depth + 1})
+			return true
 		}
-		key, value, ok := tomlKeyValue(line)
-		if !ok || !validEffortTOMLScalar(value) {
-			return nil, ErrEffortConfigurationUnsafe
-		}
-		segments, ok := effortTOMLKey(key)
-		if !ok {
-			return nil, ErrEffortConfigurationUnsafe
-		}
-		full := append(append([]string(nil), table...), segments...)
-		if conflicts(full) || tables[identity(full)] {
-			return nil, ErrEffortConfigurationUnsafe
-		}
-		seen[identity(full)] = true
-		for _, k := range full {
-			if k == "model_reasoning_effort" {
-				keys = append(keys, k)
+		switch value := current.value.(type) {
+		case map[string]any:
+			for key, child := range value {
+				if !nestedProfiles && key == "profiles" {
+					return nil, ErrEffortConfigurationUnsafe
+				}
+				if key == "model_reasoning_effort" {
+					keys = append(keys, key)
+				}
+				if !push(child) {
+					return nil, ErrEffortConfigurationUnsafe
+				}
+			}
+		case []map[string]any:
+			for _, child := range value {
+				if !push(child) {
+					return nil, ErrEffortConfigurationUnsafe
+				}
+			}
+		case []any:
+			for _, child := range value {
+				if !push(child) {
+					return nil, ErrEffortConfigurationUnsafe
+				}
 			}
 		}
 	}
+	sort.Strings(keys)
 	return keys, nil
 }
 func jsonEffortSelectors(w []byte, declared []string) ([]string, error) {
