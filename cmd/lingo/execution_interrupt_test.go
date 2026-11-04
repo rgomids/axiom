@@ -65,6 +65,9 @@ func TestPublicReconcileAbandonRefusesLiveOrphanWithoutWriting(t *testing.T) {
 		if err := x.PrepareAttempt(workflow.PrepareInput{Ref: workflow.TaskRef{StageID: "work", AgentID: "agent"}, AttemptID: "orphan-attempt", Generation: gen, Invocation: last.Invocation, Authority: last.Authority, Now: time.Now(), Retry: true, WorkspaceDisposition: "preserve"}); err != nil {
 			return err
 		}
+		if err := x.ReserveLaunch("orphan-attempt", gen, time.Now()); err != nil {
+			return err
+		}
 		return x.MarkStarted("orphan-attempt", gen, workflow.ProcessIdentity{PID: identity.PID, StartIdentity: identity.StartIdentity, GroupIdentity: identity.GroupIdentity}, time.Now())
 	}); err != nil {
 		t.Fatal(err)

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/rgomids/axiom/internal/executiongraph"
+	"github.com/rgomids/axiom/internal/runtimeadapter"
 	"github.com/rgomids/axiom/internal/workflow"
 )
 
@@ -269,19 +270,37 @@ func (e Engine) runAttempt(ctx context.Context, lease workflow.RunnerFence, requ
 	if ctx.Err() != nil || e.cancelPersisted(ctx, projectID, executionID) {
 		return cancelBeforeSpawn()
 	}
+	refuse := func(cause error) (workflow.Execution, error) {
+		return update(func(x *workflow.Execution) error {
+			if x.Cancel != nil {
+				return x.MarkCancelled(attemptID, gen, "cancelled_before_spawn", e.now())
+			}
+			var typed *launchError
+			_, owned := e.Launcher.(RuntimeLauncher)
+			if owned && x.AttemptPolicy == workflow.SpawnBoundaryPolicy && errors.As(cause, &typed) && typed.deterministic {
+				return x.MarkLaunchRefused(attemptID, gen, typed.failure, typed.materialization, e.now())
+			}
+			return x.MarkLaunchFailed(attemptID, gen, launchFailure(cause, "invocation_build"), e.now())
+		})
+	}
 	built, err := e.Launcher.Build(ctx, request)
 	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 		return cancelBeforeSpawn()
 	}
 	if err != nil && ctx.Err() == nil {
-		return update(func(x *workflow.Execution) error {
-			return x.MarkLaunchFailed(attemptID, gen, launchFailure(err, "invocation_build"), e.now())
-		})
+		return refuse(err)
 	}
 	// Build may read configuration or prepare local output paths. Cancel intent
 	// arriving during that work still prevents any process from being spawned.
 	if ctx.Err() != nil || e.cancelPersisted(ctx, projectID, executionID) {
 		return cancelBeforeSpawn()
+	}
+	expectedExecutable := ""
+	if _, owned := e.Launcher.(RuntimeLauncher); owned && len(built.Argv) > 0 {
+		expectedExecutable, err = runtimeadapter.ExecutableIdentity(built.Argv[0])
+		if err != nil {
+			return refuse(err)
+		}
 	}
 	if e.Admit != nil {
 		if err := e.Admit(ctx, prepared); err != nil {
@@ -292,6 +311,32 @@ func (e Engine) runAttempt(ctx context.Context, lease workflow.RunnerFence, requ
 				return refused, commitErr
 			}
 			return refused, err
+		}
+	}
+	if launcher, owned := e.Launcher.(RuntimeLauncher); owned {
+		checked, checkErr := launcher.Inspect(ctx, request)
+		if checkErr != nil {
+			var typed *launchError
+			if errors.As(checkErr, &typed) {
+				typed.materialization = "prepared"
+			}
+			if ctx.Err() != nil {
+				return cancelBeforeSpawn()
+			}
+			return refuse(checkErr)
+		}
+		actual, identityErr := runtimeadapter.ExecutableIdentity(checked.Argv[0])
+		if identityErr != nil || expectedExecutable == "" || actual != expectedExecutable {
+			cause := &launchError{failure: workflow.LaunchFailure{Reason: "identity_unsafe", Phase: "invocation_build"}, cause: identityErr, deterministic: true, materialization: "prepared"}
+			return refuse(cause)
+		}
+	}
+	if ctx.Err() != nil || e.cancelPersisted(ctx, projectID, executionID) {
+		return cancelBeforeSpawn()
+	}
+	if prepared.AttemptPolicy == workflow.SpawnBoundaryPolicy {
+		if _, err = update(func(x *workflow.Execution) error { return x.ReserveLaunch(attemptID, gen, e.now()) }); err != nil {
+			return workflow.Execution{}, err
 		}
 	}
 	stage := request.Stage

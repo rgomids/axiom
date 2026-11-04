@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"encoding/json"
 	"fmt"
 	"io/fs"
 	"os"
@@ -98,6 +99,22 @@ func reject(candidate []byte, original workflow.Execution) {
 }
 func main() {
 	for _, path := range os.Args[1:] {
+		if len(path) > 4 && path[:4] == "new:" {
+			wire, err := os.ReadFile(path[4:])
+			if err != nil {
+				panic(err)
+			}
+			var address struct {
+				ProjectID   string `json:"projectId"`
+				ExecutionID string `json:"executionId"`
+			}
+			if json.Unmarshal(wire, &address) != nil {
+				panic("new writer malformed")
+			}
+			reject(wire, workflow.Execution{ProjectID: address.ProjectID, ExecutionID: address.ExecutionID})
+			fmt.Println(filepath.Base(path[4:]), "PASS actual new writer rejected before effects")
+			continue
+		}
 		wire, err := os.ReadFile(path)
 		if err != nil {
 			panic(err)

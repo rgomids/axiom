@@ -112,5 +112,8 @@ func ValidReworkStart(source, next Execution) bool {
 		return false
 	}
 	clean.ReworkOf = next.ReworkOf
+	if next.AttemptPolicy == SpawnBoundaryPolicy {
+		clean.AttemptPolicy = next.AttemptPolicy
+	}
 	return reflect.DeepEqual(clean, next)
 }
