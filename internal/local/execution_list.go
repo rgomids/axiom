@@ -15,8 +15,9 @@ import (
 // (executions/v2-attempt-outputs), and that namespace is still a private,
 // non-symlinked directory below root. Only Workflow-reference observation may
 // set these entries aside: List strictly scans executions/v2/<project> itself
-// and attempt outputs carry no Workflow reference. Cutover and every other
-// inventory consumer keep refusing them.
+// and attempt outputs carry no Workflow reference. compatibility.Inspect also
+// reports them as InventoryCanonicalExecution so an owned upgrade between
+// releases that write them is not refused; cutover keeps refusing them.
 func ExecutionReferenceNamespace(root string, entry InventoryEntry) bool {
 	var name string
 	switch {

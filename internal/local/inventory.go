@@ -66,19 +66,23 @@ const (
 	InventoryProjectContext          InventoryKind = "project_context_preference"
 	InventoryPortableManifest        InventoryKind = "portable_manifest"
 	InventoryOperational             InventoryKind = "project_operational_state"
-	InventoryPOCWorkflow             InventoryKind = "poc_workflow"
-	InventoryRecovery                InventoryKind = "recovery_state"
-	InventoryNewer                   InventoryKind = "unsupported_newer"
-	InventoryOlder                   InventoryKind = "unsupported_older"
-	InventoryMalformed               InventoryKind = "malformed"
-	InventoryUnsafe                  InventoryKind = "unsafe"
-	InventoryUnknown                 InventoryKind = "unknown"
+	// InventoryCanonicalExecution is one exact private canonical Execution
+	// namespace (ADR-0037). InspectStateInventory never emits it: only the
+	// compatibility report assigns it, through ExecutionReferenceNamespace.
+	InventoryCanonicalExecution InventoryKind = "canonical_execution"
+	InventoryPOCWorkflow        InventoryKind = "poc_workflow"
+	InventoryRecovery           InventoryKind = "recovery_state"
+	InventoryNewer              InventoryKind = "unsupported_newer"
+	InventoryOlder              InventoryKind = "unsupported_older"
+	InventoryMalformed          InventoryKind = "malformed"
+	InventoryUnsafe             InventoryKind = "unsafe"
+	InventoryUnknown            InventoryKind = "unknown"
 )
 
 // V1Only reports kinds that no historical POC revision could have written.
 func (k InventoryKind) V1Only() bool {
 	switch k {
-	case InventoryDispatchAuthority, InventoryRetryAuthority, InventoryDeliveryProjection, InventoryDeliveryDecision, InventoryDeliveryRework, InventoryRetainedExecution, InventoryDeliveryPublication, InventoryDeliveryPacket, InventoryStageOutcome, InventoryIntegrationAuthority, InventoryDispatchInputs, InventorySingleStageRun, InventorySingleStageAuthority, InventoryRunLease, InventoryValidatorPolicy, InventoryCapabilityEvidence, InventoryCreateAttempt, InventoryExecution, InventoryArtifact, InventoryCleanupRecord, InventoryRetirementRecord, InventoryGraph, InventoryCoordination, InventoryRuntimeProfile, InventoryRuntimeProfilePreStable, InventoryProjectContext, InventoryOperational:
+	case InventoryDispatchAuthority, InventoryRetryAuthority, InventoryDeliveryProjection, InventoryDeliveryDecision, InventoryDeliveryRework, InventoryRetainedExecution, InventoryDeliveryPublication, InventoryDeliveryPacket, InventoryStageOutcome, InventoryIntegrationAuthority, InventoryDispatchInputs, InventorySingleStageRun, InventorySingleStageAuthority, InventoryRunLease, InventoryValidatorPolicy, InventoryCapabilityEvidence, InventoryCreateAttempt, InventoryExecution, InventoryArtifact, InventoryCleanupRecord, InventoryRetirementRecord, InventoryGraph, InventoryCoordination, InventoryRuntimeProfile, InventoryRuntimeProfilePreStable, InventoryProjectContext, InventoryOperational, InventoryCanonicalExecution:
 		return true
 	}
 	return false
@@ -108,7 +112,7 @@ func AdditiveKinds() []InventoryKind { return append([]InventoryKind(nil), addit
 // A pre-stable Runtime/Profile record is supported for application upgrade
 // only (PM-11, B1); no current writer produces it.
 func (k InventoryKind) Supported() bool {
-	return k == InventoryPOCWorkflow || k == InventoryRuntimeProfilePreStable || slices.Contains(v1Kinds, k) || slices.Contains(additiveKinds, k)
+	return k == InventoryPOCWorkflow || k == InventoryRuntimeProfilePreStable || k == InventoryCanonicalExecution || slices.Contains(v1Kinds, k) || slices.Contains(additiveKinds, k)
 }
 
 type InventoryEntry struct {
