@@ -34,6 +34,13 @@
   Projects created by `project configure` carry no policy and block until an
   authored policy is installed.
 
+## [0.23.2](https://github.com/rgomids/axiom/compare/v0.23.1...v0.23.2) (2026-11-05)
+
+
+### Bug Fixes
+
+* **install:** accept canonical Execution state on owned upgrade ([#374](https://github.com/rgomids/axiom/issues/374)) ([d9fb899](https://github.com/rgomids/axiom/commit/d9fb89925b6305681b3bfa9b81f18f6f6c1b4c6e))
+
 ## [0.23.1](https://github.com/rgomids/axiom/compare/v0.23.0...v0.23.1) (2026-11-04)
 
 
