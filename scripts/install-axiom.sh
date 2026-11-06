@@ -8,6 +8,17 @@ binary_root=${AXIOM_BIN_DIR:-"${HOME}/.local/bin"}
 state_root=${AXIOM_INSTALL_STATE_ROOT:-"${XDG_STATE_HOME:-${HOME}/.local/state}/axiom/install"}
 source_url=https://github.com/rgomids/axiom
 
+# --replace-release: maintainer dev loop. Backs up a verified release install
+# (binary + installation.receipt), installs this checkout over it and refreshes
+# the Runtime skills with `axiom first-run`. --restore-release puts it back.
+mode=install
+case "$#:${1:-}" in
+  0:) ;;
+  1:--replace-release) mode=replace ;;
+  1:--restore-release) mode=restore ;;
+  *) printf '%s\n' 'usage: install-axiom.sh [--replace-release | --restore-release]' >&2; exit 2 ;;
+esac
+
 path_configured=false
 case ":${PATH:-}:" in
   *":$binary_root:"*) path_configured=true ;;
@@ -45,6 +56,27 @@ ensure_private_directory "$state_root"
 
 destination="$binary_root/axiom"
 receipt="$state_root/axiom.receipt"
+release_receipt="$state_root/installation.receipt"
+backup_root="$state_root/release-backup"
+
+if [[ "$mode" == restore ]]; then
+  if [[ ! -f "$backup_root/axiom" || -L "$backup_root/axiom" || ! -f "$backup_root/installation.receipt" || -L "$backup_root/installation.receipt" ]]; then
+    printf '%s\n' 'install_error: no release backup to restore' >&2
+    exit 1
+  fi
+  backup_checksum=$(shasum -a 256 "$backup_root/axiom" | awk '{print $1}')
+  if [[ "$(awk -F= '$1 == "sha256" {print $2; exit}' "$backup_root/installation.receipt")" != "$backup_checksum" ]]; then
+    printf '%s\n' 'install_error: release backup does not match its receipt' >&2
+    exit 1
+  fi
+  mv -f -- "$backup_root/axiom" "$destination"
+  mv -f -- "$backup_root/installation.receipt" "$release_receipt"
+  rm -f -- "$receipt"
+  rmdir -- "$backup_root"
+  "$destination" first-run >/dev/null
+  printf '{"event":"axiom_install","result":"restored","sha256":"%s"}\n' "$backup_checksum"
+  exit 0
+fi
 stage=$(mktemp "$binary_root/.axiom-source-stage.XXXXXX")
 receipt_stage=$(mktemp "$state_root/.axiom-source-receipt-stage.XXXXXX")
 cleanup() {
@@ -75,16 +107,29 @@ if [[ -e "$destination" || -L "$destination" ]]; then
     report_result unchanged
     exit 0
   fi
-  if [[ ! -f "$receipt" || -L "$receipt" ]]; then
+  owner_receipt=$receipt
+  if [[ "$mode" == replace && ! -e "$receipt" ]]; then
+    owner_receipt=$release_receipt
+  fi
+  if [[ ! -f "$owner_receipt" || -L "$owner_receipt" ]]; then
     printf '%s\n' 'install_error: unowned destination refused' >&2
     exit 1
   fi
-  recorded_destination=$(awk -F= '$1 == "destination" {sub(/^[^=]*=/, ""); print; exit}' "$receipt")
-  recorded_checksum=$(awk -F= '$1 == "sha256" {print $2; exit}' "$receipt")
+  recorded_destination=$(awk -F= '$1 == "destination" {sub(/^[^=]*=/, ""); print; exit}' "$owner_receipt")
+  recorded_checksum=$(awk -F= '$1 == "sha256" {print $2; exit}' "$owner_receipt")
   current_checksum=$(shasum -a 256 "$destination" | awk '{print $1}')
   if [[ "$recorded_destination" != "$destination" || "$recorded_checksum" != "$current_checksum" ]]; then
     printf '%s\n' 'install_error: existing destination differs from owned install' >&2
     exit 1
+  fi
+  if [[ "$owner_receipt" == "$release_receipt" ]]; then
+    if [[ -e "$backup_root" ]]; then
+      printf '%s\n' 'install_error: release backup already exists' >&2
+      exit 1
+    fi
+    ensure_private_directory "$backup_root"
+    cp -p -- "$destination" "$backup_root/axiom"
+    mv -f -- "$release_receipt" "$backup_root/installation.receipt"
   fi
 fi
 
@@ -102,4 +147,7 @@ chmod 600 "$receipt_stage"
 mv -f -- "$receipt_stage" "$receipt"
 receipt_stage=
 
+if [[ "$mode" == replace ]]; then
+  "$destination" first-run >/dev/null
+fi
 report_result installed

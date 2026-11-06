@@ -90,4 +90,52 @@ if ! grep -Fq 'dirty=true' "$AXIOM_INSTALL_STATE_ROOT/axiom.receipt"; then
   exit 1
 fi
 
-printf '%s\n' 'PASS: Axiom installer reports PATH setup, dirty metadata, idempotence, and conflicts'
+rm -f -- "$dirty_probe"
+
+# --replace-release: a verified release install is backed up, replaced by the
+# checkout build with refreshed skills, and restored byte-for-byte.
+export AXIOM_BIN_DIR="$temporary/release-bin"
+export AXIOM_INSTALL_STATE_ROOT="$temporary/release-state"
+mkdir -p "$AXIOM_BIN_DIR" "$AXIOM_INSTALL_STATE_ROOT" "$temporary/release-home" "$temporary/fake-runtime"
+chmod 700 "$AXIOM_BIN_DIR" "$AXIOM_INSTALL_STATE_ROOT"
+printf '#!/bin/sh\necho release\n' >"$AXIOM_BIN_DIR/axiom"
+chmod 700 "$AXIOM_BIN_DIR/axiom"
+release_sha=$(shasum -a 256 "$AXIOM_BIN_DIR/axiom" | awk '{print $1}')
+printf 'formatVersion=1\ndestination=%s\nsha256=%s\nrelease=true\n' "$AXIOM_BIN_DIR/axiom" "$release_sha" >"$AXIOM_INSTALL_STATE_ROOT/installation.receipt"
+printf '#!/bin/sh\nexit 0\n' >"$temporary/fake-runtime/claude"
+chmod 700 "$temporary/fake-runtime/claude"
+release_env=(env HOME="$temporary/release-home" PATH="$temporary/fake-runtime:/usr/bin:/bin:$(dirname "$(command -v go)")" AXIOM_BIN_DIR="$AXIOM_BIN_DIR" AXIOM_INSTALL_STATE_ROOT="$AXIOM_INSTALL_STATE_ROOT")
+
+if "$repository_root/scripts/install-axiom.sh" >/dev/null 2>&1; then
+  exit 1 # plain mode still refuses a release-owned destination
+fi
+replaced=$("${release_env[@]}" "$repository_root/scripts/install-axiom.sh" --replace-release 2>/dev/null)
+case "$replaced" in
+  *'"result":"installed"'*) ;;
+  *) exit 1 ;;
+esac
+case "$("$AXIOM_BIN_DIR/axiom" --json version)" in
+  *'"version":"development"'*) ;;
+  *) exit 1 ;;
+esac
+if [[ ! -f "$AXIOM_INSTALL_STATE_ROOT/release-backup/axiom" || -e "$AXIOM_INSTALL_STATE_ROOT/installation.receipt" || ! -f "$AXIOM_INSTALL_STATE_ROOT/axiom.receipt" ]]; then
+  exit 1
+fi
+if [[ ! -f "$temporary/release-home/.claude/skills/axiom-project/SKILL.md" ]]; then
+  exit 1
+fi
+# A second dev install goes through the owned-source path; no second backup.
+"${release_env[@]}" "$repository_root/scripts/install-axiom.sh" --replace-release >/dev/null 2>&1
+restored=$("${release_env[@]}" "$repository_root/scripts/install-axiom.sh" --restore-release 2>/dev/null || true)
+case "$restored" in
+  *'"result":"restored"'*) ;;
+  *) exit 1 ;;
+esac
+if [[ $(shasum -a 256 "$AXIOM_BIN_DIR/axiom" | awk '{print $1}') != "$release_sha" || ! -f "$AXIOM_INSTALL_STATE_ROOT/installation.receipt" || -e "$AXIOM_INSTALL_STATE_ROOT/axiom.receipt" || -e "$AXIOM_INSTALL_STATE_ROOT/release-backup" ]]; then
+  exit 1
+fi
+if "${release_env[@]}" "$repository_root/scripts/install-axiom.sh" --restore-release >/dev/null 2>&1; then
+  exit 1 # nothing left to restore
+fi
+
+printf '%s\n' 'PASS: Axiom installer reports PATH setup, dirty metadata, idempotence, conflicts, and release replace/restore'
