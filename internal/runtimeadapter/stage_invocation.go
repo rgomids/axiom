@@ -94,7 +94,9 @@ func BuildStageInvocation(request StageInvocationRequest) (executiongraph.Invoca
 			cwd = request.Inbox
 		}
 		tools += ",Bash(" + request.AxiomPath + ":*)"
-		if request.Process {
+		// Model shell access requires workspace-write authority; controlled
+		// validation commands run separately through the engine.
+		if request.Process && request.RepositoryWrite {
 			tools = strings.TrimSuffix(tools, ",Bash("+request.AxiomPath+":*)") + ",Bash"
 		}
 		argv = append(argv, "--print", "--model", p.Model, "--input-format", "text", "--permission-prompts", "none", "--permission-mode", "dontAsk", "--allowedTools", tools, "--add-dir", request.Inbox)

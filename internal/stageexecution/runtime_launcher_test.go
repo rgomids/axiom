@@ -569,19 +569,64 @@ func TestRuntimeLauncherCommandCarriesAttemptCorrelation(t *testing.T) {
 // A writable attempt needs a shell to build, test and wait for messages; a
 // read-only Claude attempt keeps only the Axiom CLI.
 func TestRuntimeLauncherShellFollowsWorkspaceWrite(t *testing.T) {
-	for _, write := range []bool{true, false} {
-		l, r := runtimeLauncherFixture(t, "claude", "runtime-default")
-		if !write {
-			r.Attempt.Authority.Effects = nil
-		}
-		inv, err := l.Build(context.Background(), r)
-		if err != nil {
-			t.Fatal(err)
-		}
-		i := slices.Index(inv.Argv, "--allowedTools")
-		if got := strings.HasSuffix(inv.Argv[i+1], ",Bash"); got != write {
-			t.Fatalf("write=%v tools %q", write, inv.Argv[i+1])
-		}
+	for _, tc := range []struct {
+		name    string
+		effects []string
+		write   bool
+	}{
+		{"empty", nil, false},
+		{"validation only", []string{"validation_command"}, false},
+		{"write only", []string{"workspace_write"}, true},
+		{"write and validation", []string{"workspace_write", "validation_command"}, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			l, r := runtimeLauncherFixture(t, "claude", "runtime-default")
+			r.Attempt.Authority.Effects = tc.effects
+			inv, err := l.Build(context.Background(), r)
+			if err != nil {
+				t.Fatal(err)
+			}
+			tools := inv.Argv[slices.Index(inv.Argv, "--allowedTools")+1]
+			if got := slices.Contains(strings.Split(tools, ","), "Bash"); got != tc.write {
+				t.Fatalf("effects=%v tools=%q", tc.effects, tools)
+			}
+			if !tc.write && (!strings.Contains(tools, "Bash("+l.AxiomPath+":*)") || inv.CWD == l.Workspace || !slices.Contains(inv.Argv, "Edit(/"+l.Workspace+"/**)")) {
+				t.Fatalf("read-only tool boundary lost: %+v", inv)
+			}
+		})
+	}
+}
+
+// Validation authority still runs the frozen command through the engine,
+// without granting the model a general shell or workspace-write authority.
+func TestRuntimeLauncherValidationOnlyCommand(t *testing.T) {
+	l, r := runtimeLauncherFixture(t, "claude", "runtime-default")
+	command := filepath.Join(filepath.Dir(r.Attempt.Invocation.Executable), "local-check")
+	if err := os.WriteFile(command, []byte("#!/bin/sh\nexit 0\n"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	r.Attempt.Authority.Effects = []string{"validation_command"}
+	r.Stage.Commands = []workflow.CommandCheck{{ID: "check", Argv: []string{command}, TimeoutSeconds: 5, Effects: []string{"validation_command"}}}
+	r.Stage.Outputs = nil
+	var record workflow.CommandResult
+	r.PrepareCommand = func(id string) error {
+		record = workflow.CommandResult{ID: id, Status: "prepared"}
+		return nil
+	}
+	r.StartCommand = func(id string, p workflow.ProcessIdentity) error {
+		record.Process, record.Status = &p, "running"
+		return nil
+	}
+	r.FinishCommand = func(id string, code int) (workflow.CommandResult, error) {
+		record.ExitCode, record.Status = code, "completed"
+		return record, nil
+	}
+	if _, err := l.Build(context.Background(), r); err != nil {
+		t.Fatal(err)
+	}
+	out, err := l.Collect(context.Background(), r, executiongraph.ProcessResult{ExitCode: 0})
+	if err != nil || len(out.Commands) != 1 || out.Commands[0].ExitCode != 0 || out.Commands[0].Status != "completed" || out.Commands[0].Process == nil {
+		t.Fatalf("validation-only command: %+v %v", out, err)
 	}
 }
 

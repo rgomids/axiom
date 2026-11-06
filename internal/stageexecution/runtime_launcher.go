@@ -155,7 +155,7 @@ func (l RuntimeLauncher) Inspect(ctx context.Context, r LaunchRequest) (result e
 		RepositoryWrite: slices.Contains(r.Attempt.Authority.Effects, "workspace_write"),
 		// A writable attempt may already change the repository, so it also gets a
 		// shell to build, test and wait; "process" is not an attempt effect kind.
-		Process:           slices.Contains(r.Attempt.Authority.Effects, "workspace_write") || slices.Contains(r.Attempt.Authority.Effects, "validation_command"),
+		Process:           slices.Contains(r.Attempt.Authority.Effects, "workspace_write"),
 		ParentEnvironment: l.Environment,
 		// The child's own attempt context marks it as a Runtime child, so it
 		// cannot record human authority through the Axiom CLI it may invoke.

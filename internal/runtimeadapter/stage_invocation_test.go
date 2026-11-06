@@ -161,13 +161,21 @@ func TestStagePathAndProcessBoundary(t *testing.T) {
 			t.Fatal(inbox)
 		}
 	}
-	request.Process = true
-	invocation, err := BuildStageInvocation(request)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !slices.Contains(invocation.Argv, "Read,Glob,Grep,Write,Bash") {
-		t.Fatal(invocation.Argv)
+	for _, write := range []bool{false, true} {
+		for _, process := range []bool{false, true} {
+			request.RepositoryWrite, request.Process = write, process
+			inv, err := BuildStageInvocation(request)
+			if err != nil {
+				t.Fatal(err)
+			}
+			tools := inv.Argv[slices.Index(inv.Argv, "--allowedTools")+1]
+			if got := slices.Contains(strings.Split(tools, ","), "Bash"); got != (write && process) {
+				t.Fatalf("write=%v process=%v tools=%q", write, process, tools)
+			}
+			if !write && (!strings.Contains(tools, "Bash("+request.AxiomPath+":*)") || inv.CWD != request.Inbox || !slices.Contains(inv.Argv, "Edit(/"+request.Workspace+"/**)")) {
+				t.Fatalf("read-only tool boundary lost: %+v", inv)
+			}
+		}
 	}
 	if _, err := StageEnvironment("codex", []string{"LC_BAD-NAME=C"}); err == nil {
 		t.Fatal("invalid key")
