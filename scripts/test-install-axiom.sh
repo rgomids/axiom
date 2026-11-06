@@ -126,6 +126,35 @@ if [[ ! -f "$temporary/release-home/.claude/skills/axiom-project/SKILL.md" ]]; t
 fi
 # A second dev install goes through the owned-source path; no second backup.
 "${release_env[@]}" "$repository_root/scripts/install-axiom.sh" --replace-release >/dev/null 2>&1
+
+# --restore-release refuses a drifted, unowned, or symlinked destination and
+# leaves both the destination and the release backup untouched (CR-376-F2).
+cp -p -- "$AXIOM_BIN_DIR/axiom" "$temporary/dev-axiom"
+refuses_restore() {
+  local before
+  before=$(ls -l "$AXIOM_BIN_DIR/axiom"; shasum -a 256 "$AXIOM_BIN_DIR/axiom" 2>/dev/null || true)
+  if "${release_env[@]}" "$repository_root/scripts/install-axiom.sh" --restore-release >/dev/null 2>&1; then
+    exit 1
+  fi
+  if [[ "$(ls -l "$AXIOM_BIN_DIR/axiom"; shasum -a 256 "$AXIOM_BIN_DIR/axiom" 2>/dev/null || true)" != "$before" ]]; then
+    exit 1
+  fi
+  if [[ $(shasum -a 256 "$AXIOM_INSTALL_STATE_ROOT/release-backup/axiom" | awk '{print $1}') != "$release_sha" || ! -f "$AXIOM_INSTALL_STATE_ROOT/release-backup/installation.receipt" ]]; then
+    exit 1
+  fi
+}
+printf 'drift\n' >>"$AXIOM_BIN_DIR/axiom"
+refuses_restore
+cp -p -- "$temporary/dev-axiom" "$AXIOM_BIN_DIR/axiom"
+mv -- "$AXIOM_INSTALL_STATE_ROOT/axiom.receipt" "$temporary/axiom.receipt"
+refuses_restore
+mv -- "$temporary/axiom.receipt" "$AXIOM_INSTALL_STATE_ROOT/axiom.receipt"
+rm -f -- "$AXIOM_BIN_DIR/axiom"
+ln -s -- "$temporary/dev-axiom" "$AXIOM_BIN_DIR/axiom"
+refuses_restore
+rm -f -- "$AXIOM_BIN_DIR/axiom"
+cp -p -- "$temporary/dev-axiom" "$AXIOM_BIN_DIR/axiom"
+
 restored=$("${release_env[@]}" "$repository_root/scripts/install-axiom.sh" --restore-release 2>/dev/null || true)
 case "$restored" in
   *'"result":"restored"'*) ;;

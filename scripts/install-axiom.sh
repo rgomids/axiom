@@ -59,6 +59,26 @@ receipt="$state_root/axiom.receipt"
 release_receipt="$state_root/installation.receipt"
 backup_root="$state_root/release-backup"
 
+# Refuses unless $destination is the regular file the given receipt recorded.
+require_owned_destination() {
+  local owner_receipt=$1 recorded_destination recorded_checksum current_checksum
+  if [[ -L "$destination" || ! -f "$destination" ]]; then
+    printf '%s\n' 'install_error: existing destination is not a regular file' >&2
+    exit 1
+  fi
+  if [[ ! -f "$owner_receipt" || -L "$owner_receipt" ]]; then
+    printf '%s\n' 'install_error: unowned destination refused' >&2
+    exit 1
+  fi
+  recorded_destination=$(awk -F= '$1 == "destination" {sub(/^[^=]*=/, ""); print; exit}' "$owner_receipt")
+  recorded_checksum=$(awk -F= '$1 == "sha256" {print $2; exit}' "$owner_receipt")
+  current_checksum=$(shasum -a 256 "$destination" | awk '{print $1}')
+  if [[ "$recorded_destination" != "$destination" || "$recorded_checksum" != "$current_checksum" ]]; then
+    printf '%s\n' 'install_error: existing destination differs from owned install' >&2
+    exit 1
+  fi
+}
+
 if [[ "$mode" == restore ]]; then
   if [[ ! -f "$backup_root/axiom" || -L "$backup_root/axiom" || ! -f "$backup_root/installation.receipt" || -L "$backup_root/installation.receipt" ]]; then
     printf '%s\n' 'install_error: no release backup to restore' >&2
@@ -68,6 +88,10 @@ if [[ "$mode" == restore ]]; then
   if [[ "$(awk -F= '$1 == "sha256" {print $2; exit}' "$backup_root/installation.receipt")" != "$backup_checksum" ]]; then
     printf '%s\n' 'install_error: release backup does not match its receipt' >&2
     exit 1
+  fi
+  # Only the dev install this script recorded may be replaced; drift is refused, never overwritten.
+  if [[ -e "$destination" || -L "$destination" ]]; then
+    require_owned_destination "$receipt"
   fi
   mv -f -- "$backup_root/axiom" "$destination"
   mv -f -- "$backup_root/installation.receipt" "$release_receipt"
@@ -111,17 +135,7 @@ if [[ -e "$destination" || -L "$destination" ]]; then
   if [[ "$mode" == replace && ! -e "$receipt" ]]; then
     owner_receipt=$release_receipt
   fi
-  if [[ ! -f "$owner_receipt" || -L "$owner_receipt" ]]; then
-    printf '%s\n' 'install_error: unowned destination refused' >&2
-    exit 1
-  fi
-  recorded_destination=$(awk -F= '$1 == "destination" {sub(/^[^=]*=/, ""); print; exit}' "$owner_receipt")
-  recorded_checksum=$(awk -F= '$1 == "sha256" {print $2; exit}' "$owner_receipt")
-  current_checksum=$(shasum -a 256 "$destination" | awk '{print $1}')
-  if [[ "$recorded_destination" != "$destination" || "$recorded_checksum" != "$current_checksum" ]]; then
-    printf '%s\n' 'install_error: existing destination differs from owned install' >&2
-    exit 1
-  fi
+  require_owned_destination "$owner_receipt"
   if [[ "$owner_receipt" == "$release_receipt" ]]; then
     if [[ -e "$backup_root" ]]; then
       printf '%s\n' 'install_error: release backup already exists' >&2
