@@ -20,6 +20,9 @@ import (
 var ErrRuntimeLaunch = errors.New("runtime_launch_refused: check configured executable, frozen selectors and local paths")
 var ErrRuntimeOutput = errors.New("runtime_output_unsafe: declared output could not be read safely")
 
+// ErrInvalidRuntimeOutput is a declared output that was read but fails its check.
+var ErrInvalidRuntimeOutput = errors.New("runtime_output_invalid: declared output failed its check")
+
 // A started validation command whose terminal result was not committed reports
 // either a confirmed end (exit observed or group stop confirmed) or an
 // unconfirmed stop. The engine treats anything else as unconfirmed.
@@ -44,7 +47,10 @@ const (
 type RuntimeLauncher struct {
 	// ValidateOutput resolves a bounded retained-artifact reference using the
 	// frozen contract. Nil refuses configured validation, never skips it.
-	ValidateOutput                  func(context.Context, workflow.OutputSubject, []byte) (workflow.ArtifactRef, error)
+	ValidateOutput func(context.Context, workflow.OutputSubject, []byte) (workflow.ArtifactRef, error)
+	// RetainOutput retains delivered content for a checked output when it is
+	// not already a typed reference, then validates it with the same check.
+	RetainOutput                    func(context.Context, workflow.OutputSubject, []byte) (workflow.ArtifactRef, error)
 	Workspace, InboxRoot, AxiomPath string
 	Environment                     []string
 	// Tests replace only the machine-local root lookup, keeping the real
@@ -323,9 +329,17 @@ func (l RuntimeLauncher) Collect(ctx context.Context, r LaunchRequest, p executi
 			if l.ValidateOutput == nil {
 				return Outcome{}, ErrRuntimeOutput
 			}
-			artifact, err = l.ValidateOutput(ctx, workflow.OutputSubject{ExecutionID: r.Execution.ExecutionID, AttemptID: r.Attempt.AttemptID, StageID: r.Ref.StageID, DefinitionDigest: r.Stage.DefinitionDigest, RepositoryKey: r.Attempt.Authority.RepositoryKey, Check: check}, data)
+			subject := workflow.OutputSubject{ExecutionID: r.Execution.ExecutionID, AttemptID: r.Attempt.AttemptID, StageID: r.Ref.StageID, DefinitionDigest: r.Stage.DefinitionDigest, RepositoryKey: r.Attempt.Authority.RepositoryKey, Check: check}
+			artifact, err = l.ValidateOutput(ctx, subject, data)
+			// A reference-shaped file must validate as a reference: retaining it as
+			// content would launder a forged or stale reference.
+			if err != nil && l.RetainOutput != nil && !artifactReferenceShaped(data) {
+				artifact, err = l.RetainOutput(ctx, subject, data)
+			}
 			if err != nil || artifact.Name != name || artifact.RepositoryKey != r.Attempt.Authority.RepositoryKey || !workflow.ValidToken(artifact.RetainedID) || artifact.Size < 0 {
-				return Outcome{}, ErrRuntimeOutput
+				// The file exists but fails its check: a deterministic attempt
+				// failure, not an unknown effect.
+				return Outcome{}, ErrInvalidRuntimeOutput
 			}
 		}
 		out.Artifacts = append(out.Artifacts, artifact)
@@ -448,5 +462,13 @@ func plannedRuntimePath(path string) bool {
 const stageContract = "You are an Axiom stage agent running non-interactively. Do the work in Instructions using Inputs. " +
 	"Deliver it as files: for each name in Outputs, write one regular file with exactly that name directly inside OutputDirectory " +
 	"(no extension, no subdirectory, no symlink). The stage completes only when every declared output file exists; " +
-	"text printed to stdout is discarded and does not count. If OutputChecks names an output, its content must satisfy that check. " +
+	"text printed to stdout is discarded and does not count. Write the content itself (Markdown or text) for every output, " +
+	"including those in OutputChecks: Axiom retains and checks it; never invent artifact references. " +
 	"MessageSendDirectory and MessageReceiveDirectory are optional coordination areas. Exit when the files are written."
+
+func artifactReferenceShaped(data []byte) bool {
+	var ref struct {
+		Kind string `json:"kind"`
+	}
+	return json.Unmarshal(data, &ref) == nil && ref.Kind == "artifact"
+}

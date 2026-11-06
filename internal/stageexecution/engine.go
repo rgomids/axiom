@@ -438,6 +438,9 @@ func (e Engine) runAttempt(ctx context.Context, lease workflow.RunnerFence, requ
 		case result.TimedOut:
 			return x.CompleteAttempt(attemptID, gen, workflow.AttemptResult{ExitCode: -1, Diagnostic: "attempt_timeout", Now: now})
 		}
+		if errors.Is(collectErr, ErrInvalidRuntimeOutput) {
+			return x.CompleteAttempt(attemptID, gen, workflow.AttemptResult{ExitCode: result.ExitCode, Diagnostic: "invalid_output: declared output failed its check", Fault: exchangeFault, Now: now})
+		}
 		if collectErr != nil {
 			return x.MarkUnknown(attemptID, gen, "output_collection_failed", now)
 		}

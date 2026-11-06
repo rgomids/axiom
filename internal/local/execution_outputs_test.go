@@ -205,3 +205,31 @@ func TestObserveExecutionArtifactRechecksRetainedEvidence(t *testing.T) {
 		t.Fatal("missing retained Evidence ready")
 	}
 }
+
+// A child delivers plain content; the engine retains it with the exact
+// correlation, so the same typed check accepts it, bound to that attempt only.
+func TestRetainExecutionOutputCorrelatesDeliveredContent(t *testing.T) {
+	ctx := context.Background()
+	store, err := NewArtifactStore(filepath.Join(t.TempDir(), "state"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	v := NewWorkflowReferenceValidator(store)
+	source, _ := provenance.FromBuild(provenance.Build{Version: provenance.Development, Revision: "abc123", SourceState: provenance.Clean}, nil)
+	for _, evidence := range []bool{false, true} {
+		subject := workflow.OutputSubject{ExecutionID: "123e4567-e89b-42d3-a456-426614174000", AttemptID: "attempt-1", StageID: "work", DefinitionDigest: "sha256:" + strings.Repeat("a", 64), RepositoryKey: "main", Check: workflow.OutputCheck{Name: "result", Kind: "artifact", Evidence: evidence}}
+		ref, err := v.RetainExecutionOutput(ctx, subject, []byte("# Intake\n\nBounded intent.\n"), source)
+		if err != nil || ref.Name != "result" || ref.RepositoryKey != "main" || ref.RetainedID == "" {
+			t.Fatal(ref, err)
+		}
+		wire, _ := json.Marshal(map[string]string{"kind": "artifact", "id": ref.RetainedID, "digest": strings.TrimPrefix(ref.Digest, "sha256:")})
+		other := subject
+		other.AttemptID = "attempt-2"
+		if _, err := v.ValidateExecutionOutput(ctx, other, wire); err == nil {
+			t.Fatal("retained output replayed into another attempt")
+		}
+	}
+	if _, err := v.RetainExecutionOutput(ctx, workflow.OutputSubject{ExecutionID: "123e4567-e89b-42d3-a456-426614174000", AttemptID: "attempt-1", StageID: "work", DefinitionDigest: "sha256:" + strings.Repeat("a", 64), RepositoryKey: "main", Check: workflow.OutputCheck{Name: "result", Kind: "artifact"}}, []byte("api_key: leaked\n"), source); err == nil {
+		t.Fatal("unsafe content retained")
+	}
+}
