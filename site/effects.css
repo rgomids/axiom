@@ -1,0 +1,425 @@
+/* Owned variant source. Original bundle and brand assets remain immutable. */
+:root {
+  --lab-orb-core: var(--axion-semantic-marketing-palette-goldLight);
+  --lab-orb-light: color-mix(in srgb, white 70%, var(--axion-semantic-marketing-palette-sand));
+  --lab-orb-aura: var(--gold);
+  --lab-orb-aura-wide: color-mix(
+    in srgb,
+    var(--axion-semantic-marketing-palette-sand) 28%,
+    transparent
+  );
+}
+.story-wash,
+.figure-opening {
+  background: var(--gold);
+}
+.story-stage {
+  background: var(--axion-semantic-marketing-surface-canvas);
+}
+.story-work,
+.story-tool,
+.story-context,
+.axiom-core,
+.story-continuity {
+  background: linear-gradient(
+    145deg,
+    var(--axion-semantic-marketing-surface-nodeStart),
+    var(--axion-semantic-marketing-surface-nodeEnd)
+  );
+}
+.story-work {
+  border-color: color-mix(in srgb, var(--gold) 72%, transparent);
+}
+.story-links path {
+  stroke: var(--gold);
+}
+.story-wave path {
+  stroke: color-mix(in srgb, var(--gold) 27%, transparent);
+}
+.story-navigation {
+  background-color: var(--bg);
+}
+.story-motion .story-navigation {
+  background-color: transparent;
+}
+.orb-surface {
+  isolation: isolate;
+  background: radial-gradient(
+    circle at 32% 25%,
+    var(--lab-orb-light),
+    var(--lab-orb-core) 12%,
+    var(--gold) 44%,
+    color-mix(in srgb, var(--gold) 42%, var(--bg)) 84%
+  );
+  box-shadow:
+    0 0 22px color-mix(in srgb, var(--lab-orb-core) 80%, transparent),
+    0 0 76px color-mix(in srgb, var(--lab-orb-aura) 50%, transparent),
+    0 0 140px var(--lab-orb-aura-wide),
+    inset 0 0 24px color-mix(in srgb, var(--lab-orb-core) 70%, transparent);
+}
+.orb-surface::before,
+.orb-surface::after {
+  content: '';
+  position: absolute;
+  pointer-events: none;
+  border-radius: 50%;
+}
+.orb-surface::before {
+  inset: -75%;
+  z-index: -1;
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--lab-orb-light) 30%, transparent) 8%,
+    color-mix(in srgb, var(--lab-orb-aura) 52%, transparent) 25%,
+    color-mix(in srgb, var(--lab-orb-core) 14%, transparent) 44%,
+    transparent 69%
+  );
+  filter: blur(12px);
+  opacity: 0.7;
+  transform: scale(1.05);
+}
+.orb-surface::after {
+  inset: -28%;
+  background:
+    radial-gradient(
+      ellipse at 27% 24%,
+      var(--lab-orb-light) 0%,
+      color-mix(in srgb, var(--lab-orb-light) 65%, transparent) 2%,
+      transparent 12%
+    ),
+    radial-gradient(ellipse at 81% 72%, var(--lab-orb-core) 0%, transparent 9%);
+  mix-blend-mode: screen;
+  filter: blur(1px);
+  opacity: 0.66;
+}
+.live-world[data-ambient='true'] .orb-surface::before {
+  animation: gold-dominant-bloom 5.6s ease-in-out infinite;
+}
+.live-world[data-ambient='true'] .orb-surface::after {
+  animation: gold-dominant-shine 9s linear infinite;
+}
+@keyframes gold-dominant-bloom {
+  0%,
+  100% {
+    opacity: 0.42;
+    transform: scale(0.92);
+  }
+  50% {
+    opacity: 0.9;
+    transform: scale(1.18);
+  }
+}
+@keyframes gold-dominant-shine {
+  0% {
+    transform: rotate(0deg);
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 0.85;
+  }
+  100% {
+    transform: rotate(360deg);
+    opacity: 0.4;
+  }
+}
+body.static-motion .orb-surface::before,
+body.static-motion .orb-surface::after {
+  animation: none !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  .orb-surface::before,
+  .orb-surface::after {
+    animation: none !important;
+  }
+}
+
+/* On the dark canvas, soften the opening burst into haze rather than a large hard ring. */
+.story-supernova {
+  mix-blend-mode: screen;
+}
+.story-supernova i {
+  box-shadow: none;
+}
+.story-supernova i + i {
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--lab-orb-core) 14%, transparent),
+    transparent 66%
+  );
+  filter: blur(20px);
+}
+
+/* Solar reference: translucent interior, sharp incandescent rim and broad orbit. */
+:root {
+  --lab-orb-rim: var(--axion-semantic-marketing-decoration-orbRim);
+  --lab-orb-ember: var(--axion-semantic-marketing-decoration-orbEmber);
+  --lab-orb-light: var(--axion-semantic-marketing-decoration-orbLight);
+  --lab-orb-depth: var(--axion-semantic-marketing-decoration-orbDepth);
+}
+.idea-core .orb-surface {
+  inset: calc(-8% + var(--idea-card) * 26%) calc(-8% + var(--idea-card) * 39%)
+    calc(-8% + var(--idea-card) * 57%);
+  background: none;
+  border: 0;
+  box-shadow: none;
+}
+.orb-surface::before {
+  inset: -70%;
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--lab-orb-ember) 35%, transparent),
+    color-mix(in srgb, var(--lab-orb-ember) 10%, transparent) 38%,
+    transparent 65%
+  );
+  filter: blur(8px);
+}
+.orb-surface::after {
+  display: none;
+}
+.orb-ring {
+  display: none;
+}
+.solar-art {
+  position: absolute;
+  width: 360%;
+  height: 360%;
+  left: -130%;
+  top: -130%;
+  overflow: visible;
+  pointer-events: none;
+}
+.solar-art g {
+  transform-origin: 0 0;
+}
+.solar-orbits,
+.solar-filaments,
+.solar-dust {
+  opacity: calc(1 - var(--idea-card, 0));
+}
+.solar-star {
+  fill: var(--lab-orb-light);
+  stroke: var(--lab-orb-ember);
+  stroke-width: 0.4;
+  filter: drop-shadow(0 0 1.5px var(--lab-orb-rim));
+}
+.solar-trace {
+  stroke: var(--lab-orb-light);
+  stroke-width: 0.65;
+  stroke-dasharray: 3 97;
+  opacity: 0.65;
+}
+.live-world[data-ambient='true'] .solar-corona {
+  animation: solar-turn 28s linear infinite;
+}
+.live-world[data-ambient='true'] .solar-grain {
+  animation: solar-turn 65s linear infinite reverse;
+}
+.live-world[data-ambient='true'] .solar-orbits {
+  animation: solar-turn 100s linear infinite;
+}
+.live-world[data-ambient='true'] .solar-filament {
+  animation: solar-flicker 7s ease-in-out var(--filament-delay) infinite;
+}
+.live-world[data-ambient='true'] .solar-trace {
+  animation: solar-signal 6s linear var(--filament-delay) infinite;
+}
+.live-world[data-ambient='true'] .solar-drift {
+  animation: solar-drift var(--spark-duration) ease-out var(--spark-delay) infinite;
+}
+@keyframes solar-turn {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes solar-flicker {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  40% {
+    opacity: 0.95;
+  }
+  65% {
+    opacity: 0.55;
+  }
+}
+@keyframes solar-signal {
+  from {
+    stroke-dashoffset: 0;
+    opacity: 0;
+  }
+  15%,
+  65% {
+    opacity: 0.8;
+  }
+  to {
+    stroke-dashoffset: -100;
+    opacity: 0;
+  }
+}
+@keyframes solar-drift {
+  0% {
+    transform: translate(0, 0);
+    opacity: 0;
+  }
+  20% {
+    opacity: 0.8;
+  }
+  100% {
+    transform: translate(var(--spark-x), var(--spark-y));
+    opacity: 0;
+  }
+}
+body.static-motion .solar-art * {
+  animation: none !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  .solar-art * {
+    animation: none !important;
+  }
+}
+
+/* Give the introduction sentence room without crowding the diagram above it. */
+.story-copy[data-story-copy='7'] h2 {
+  max-width: 840px;
+  margin-inline: auto;
+  font-size: clamp(24px, 3vw, 40px);
+  font-weight: 600;
+  line-height: 1.18;
+  text-wrap: balance;
+}
+.story-copy[data-story-copy='7'] .story-lead {
+  max-width: 640px;
+  text-wrap: balance;
+}
+
+/* The final scene presents one idea and one possibility, with no stacked layers. */
+.story-continuity {
+  box-shadow: none;
+  background: var(--axion-semantic-marketing-surface-card);
+  border-color: var(--gold);
+  border-radius: 16px;
+}
+.idea-core::before {
+  background: var(--axion-semantic-marketing-surface-card);
+  box-shadow: none;
+}
+.idea-core .orb-surface {
+  inset: calc(-8% + var(--idea-card) * 25%) auto auto calc(-8% + var(--idea-card) * 39%);
+  width: calc(116% - var(--idea-card) * 78%);
+  height: calc(116% - var(--idea-card) * 78%);
+}
+.idea-core .idea-label {
+  position: absolute;
+  top: calc(120% - var(--idea-card) * 57%);
+  left: calc(50% - var(--idea-card) * 42%);
+  width: calc(var(--idea-card) * 84%);
+  height: calc(var(--idea-card) * 26%);
+  transform: translateX(calc(-50% + var(--idea-card) * 50%));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text);
+  font-size: calc(10px + var(--idea-card) * 8px);
+  font-weight: 500;
+  line-height: 1.3;
+  text-align: center;
+}
+.story-continuity strong {
+  position: absolute;
+  top: 63%;
+  left: 8%;
+  right: 8%;
+  height: 26%;
+  width: auto;
+  transform: none;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: var(--text);
+  font-size: 18px;
+  font-weight: 500;
+  line-height: 1.3;
+  text-align: center;
+}
+.story-continuity .story-icon {
+  position: absolute;
+  top: 26%;
+  left: 40%;
+  width: 20%;
+  height: 20%;
+}
+.continuity-pair {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 90px 20px;
+}
+.continuity-pair > div {
+  position: relative;
+  width: 200px;
+  aspect-ratio: 1;
+  border: 1px solid var(--gold);
+  border-radius: 16px;
+  background: var(--axion-semantic-marketing-surface-card);
+}
+.continuity-pair strong {
+  position: absolute;
+  inset: 63% 8% 11%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-size: 17px;
+  font-weight: 500;
+  line-height: 1.3;
+  white-space: pre-line;
+}
+.continuity-static-orb {
+  position: absolute;
+  inset: 17% auto auto 31%;
+  width: 38%;
+  height: 38%;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 35% 30%,
+    var(--lab-orb-light),
+    var(--gold) 40%,
+    var(--lab-orb-depth)
+  );
+  border: 1px solid var(--lab-orb-rim);
+  box-shadow: 0 0 18px color-mix(in srgb, var(--gold) 35%, transparent);
+}
+.continuity-next svg {
+  position: absolute;
+  inset: 26% auto auto 40%;
+  width: 20%;
+  height: 20%;
+  color: var(--gold);
+}
+.continuity-static-link {
+  flex: 0 0 36px;
+  height: 1px;
+  background: var(--gold);
+}
+@media (max-width: 760px) {
+  .idea-core .idea-label {
+    font-size: calc(10px + var(--idea-card) * 4px);
+  }
+  .story-continuity strong {
+    font-size: 14px;
+  }
+  .continuity-pair {
+    padding: 80px 12px;
+  }
+  .continuity-static-link {
+    flex-basis: 24px;
+  }
+  .continuity-pair > div {
+    width: min(156px, calc((100% - 24px) / 2));
+  }
+  .continuity-pair strong {
+    font-size: 13px;
+  }
+}

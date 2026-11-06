@@ -1,0 +1,1316 @@
+:root {
+  color-scheme: dark;
+  --bg: var(--axion-semantic-marketing-surface-canvas);
+  --panel: var(--axion-semantic-marketing-surface-panel);
+  --text: var(--axion-semantic-marketing-text-primary);
+  --muted: var(--axion-semantic-marketing-text-secondary);
+  --gold: var(--axion-semantic-marketing-action-accent);
+  --blue: var(--axion-semantic-marketing-status-available);
+  --border: color-mix(
+    in srgb,
+    var(--axion-semantic-marketing-surface-white) 10.98039%,
+    transparent
+  );
+  --sans: var(--axion-semantic-marketing-typography-family);
+  --mono: var(--axion-semantic-marketing-typography-mono);
+  --logo-scale: 40;
+  --wash: 1;
+  --intro-copy: 1;
+  --final-copy: 0;
+  --logo-opacity: 1;
+  --page-progress: 0;
+}
+* {
+  box-sizing: border-box;
+}
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 90px;
+}
+body {
+  margin: 0;
+  background: var(--axion-semantic-marketing-surface-canvas);
+  color: var(--text);
+  font: 16px/1.6 var(--sans);
+  -webkit-font-smoothing: antialiased;
+}
+h1,
+h2,
+h3,
+p,
+figure {
+  margin: 0;
+}
+h1,
+h2,
+h3 {
+  font-weight: 650;
+  letter-spacing: -0.055em;
+  line-height: 1.05;
+}
+h2 em {
+  font-style: normal;
+  color: var(--muted);
+}
+a {
+  color: inherit;
+  text-decoration: none;
+}
+button {
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  border: 0;
+}
+a,
+button {
+  -webkit-tap-highlight-color: transparent;
+}
+a:focus-visible,
+button:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 6px;
+}
+img {
+  display: block;
+  max-width: 100%;
+}
+a:hover {
+  color: var(--gold);
+}
+.skip {
+  position: fixed;
+  z-index: 100;
+  left: 20px;
+  top: -90px;
+  background: white;
+  color: black;
+  padding: 12px;
+}
+.skip:focus {
+  top: 10px;
+}
+.header {
+  height: 68px;
+  position: fixed;
+  z-index: 30;
+  top: 0;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 25px;
+  padding: 0 5%;
+  background: color-mix(
+    in srgb,
+    var(--axion-semantic-marketing-surface-canvas) 73.33333%,
+    transparent
+  );
+  backdrop-filter: blur(18px);
+  border-bottom: 1px solid
+    color-mix(in srgb, var(--axion-semantic-marketing-surface-white) 7.05882%, transparent);
+  transition:
+    color 0.2s,
+    background 0.2s;
+}
+.brand {
+  font-size: 25px;
+  font-weight: 700;
+  letter-spacing: -1.3px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.brand-diamond {
+  font-size: 20px;
+  color: var(--gold);
+}
+.header nav {
+  display: flex;
+  gap: 30px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--axion-semantic-marketing-text-navigation);
+}
+.header-tools {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  font-size: 11px;
+}
+.header-tools button {
+  background: transparent;
+  padding: 6px;
+  font-size: 11px;
+  color: inherit;
+}
+.header-tools #motion {
+  font-size: 16px;
+}
+.nav-cta {
+  background: var(--gold);
+  color: var(--axion-semantic-marketing-text-onAccent);
+  padding: 7px 17px;
+  border-radius: var(--axion-semantic-marketing-radius-pill);
+  font-weight: 600;
+  font-size: 11px;
+}
+.nav-cta:hover {
+  background: var(--axion-semantic-marketing-action-hover);
+  color: black;
+}
+.gold-start .header {
+  color: var(--axion-semantic-marketing-text-onIntro);
+  background: color-mix(
+    in srgb,
+    var(--axion-semantic-marketing-action-accent) 31.37255%,
+    transparent
+  );
+  backdrop-filter: none;
+  border-color: color-mix(
+    in srgb,
+    var(--axion-semantic-marketing-text-onIntro) 12.54902%,
+    transparent
+  );
+}
+.gold-start .header nav {
+  color: var(--axion-semantic-marketing-text-navigationOnIntro);
+}
+.gold-start .brand-diamond {
+  color: inherit;
+}
+.gold-start .nav-cta {
+  background: var(--axion-semantic-marketing-surface-inverseAction);
+  color: var(--axion-semantic-marketing-text-inverseAction);
+}
+.reading-progress {
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  width: calc(var(--page-progress) * 100%);
+  height: 1px;
+  background: var(--gold);
+}
+.eyebrow {
+  font: 10px var(--mono);
+  letter-spacing: 2px;
+  color: var(--gold);
+  margin-bottom: 26px;
+}
+.opening {
+  height: 250svh;
+  position: relative;
+}
+.opening-stage {
+  position: sticky;
+  top: 0;
+  height: 100svh;
+  overflow: hidden;
+  background: var(--axion-semantic-marketing-surface-canvas);
+  isolation: isolate;
+}
+.gold-wash {
+  position: absolute;
+  inset: 0;
+  background: var(--gold);
+  opacity: var(--wash);
+  z-index: 2;
+  pointer-events: none;
+}
+.opening-light {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    ellipse at 50% 45%,
+    color-mix(in srgb, var(--axion-semantic-marketing-action-accent) 7.05882%, transparent),
+    transparent 50%
+  );
+  opacity: var(--final-copy);
+}
+.logo-camera {
+  position: absolute;
+  left: 50%;
+  top: 29%;
+  width: min(48vw, 410px);
+  transform-origin: 50% 28.5%;
+  transform: translate(-50%, -28.5%) scale(var(--logo-scale));
+  will-change: transform;
+  opacity: var(--logo-opacity);
+  filter: drop-shadow(
+    0 0 50px color-mix(in srgb, var(--axion-semantic-marketing-action-accent) 4.31373%, transparent)
+  );
+}
+.logo-camera img {
+  width: 100%;
+  height: auto;
+}
+.opening-first {
+  position: absolute;
+  z-index: 3;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 90%;
+  text-align: center;
+  opacity: var(--intro-copy);
+  color: var(--axion-semantic-marketing-text-intro);
+  pointer-events: none;
+}
+.opening-first h1 {
+  font-size: clamp(55px, 6.8vw, 100px);
+  line-height: 1.03;
+  letter-spacing: -0.065em;
+}
+.opening-first .eyebrow {
+  color: inherit;
+  margin-bottom: 30px;
+}
+.opening-first > p:last-child {
+  font-size: 17px;
+  margin-top: 30px;
+  opacity: 0.7;
+}
+.opening-final {
+  position: absolute;
+  z-index: 4;
+  left: 5%;
+  right: 5%;
+  bottom: 13%;
+  text-align: center;
+  opacity: var(--final-copy);
+  transform: translateY(calc((1 - var(--final-copy)) * 30px));
+}
+.opening-final .eyebrow {
+  font-size: 9px;
+  margin-bottom: 17px;
+}
+.opening-final h2 {
+  font-size: clamp(35px, 4vw, 57px);
+}
+.opening-final > p:last-child {
+  font-size: 15px;
+  color: var(--muted);
+  margin-top: 20px;
+}
+.opening-bottom {
+  position: absolute;
+  z-index: 5;
+  left: 5%;
+  right: 5%;
+  bottom: 27px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font: 8px var(--mono);
+  letter-spacing: 1.1px;
+  color: var(--axion-semantic-marketing-text-progress);
+}
+.gold-start .opening-bottom {
+  color: var(--axion-semantic-marketing-text-progressOnIntro);
+}
+.opening-number {
+  opacity: 0.5;
+}
+.section {
+  padding: 140px max(9vw, 24px);
+  max-width: 1600px;
+  margin: auto;
+}
+.manifesto {
+  padding-top: 150px;
+  padding-bottom: 150px;
+}
+.manifesto-title {
+  font-size: clamp(46px, 6.2vw, 90px);
+  letter-spacing: -0.055em;
+  line-height: 1.08;
+  max-width: 1000px;
+}
+.manifesto-title em {
+  color: var(--gold);
+  background: linear-gradient(
+    110deg,
+    var(--axion-semantic-marketing-text-gradientStart),
+    var(--axion-semantic-marketing-text-gradientEnd)
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.manifesto-bottom {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 65px;
+  max-width: 870px;
+  margin: 60px 0 30px;
+}
+.manifesto-bottom p {
+  font-size: 18px;
+  line-height: 1.7;
+  color: var(--muted);
+  letter-spacing: -0.3px;
+}
+.inline-link {
+  font-size: 13px;
+  color: var(--gold);
+  display: inline-block;
+  margin-top: 18px;
+}
+.inline-link:hover {
+  color: var(--axion-semantic-marketing-action-linkHover);
+}
+.base-wires {
+  stroke: color-mix(in srgb, var(--axion-semantic-marketing-surface-white) 7.05882%, transparent);
+}
+.lit-wires {
+  stroke: var(--gold);
+}
+.lit-wires path {
+  stroke-dasharray: 600;
+  stroke-dashoffset: calc(600 * (1 - var(--wire, 0)));
+  opacity: var(--wire, 0);
+}
+.node-number {
+  font: 9px var(--mono);
+  color: var(--gold);
+  align-self: flex-start;
+  margin-top: 3px;
+}
+.node-icon {
+  font: 20px var(--mono);
+  margin-left: auto;
+  color: var(--gold);
+}
+.workflow-transcript {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 35px;
+  padding-top: 65px;
+  padding-bottom: 90px;
+  border-top: 1px solid var(--border);
+}
+.workflow-transcript article > span {
+  font: 10px var(--mono);
+  color: var(--gold);
+}
+.workflow-transcript h3 {
+  font-size: 20px;
+  letter-spacing: -0.5px;
+  margin: 20px 0 16px;
+}
+.workflow-transcript p {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.85;
+}
+.human {
+  padding-top: 100px;
+  padding-bottom: 130px;
+}
+.human h2,
+.installation h2,
+.reality h2,
+.closing h2 {
+  font-size: clamp(40px, 5vw, 72px);
+  line-height: 1.08;
+}
+.human-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+  gap: 80px;
+  margin-top: 75px;
+}
+.runtime-visual {
+  position: relative;
+  height: 300px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.runtime-orbit {
+  position: absolute;
+  width: 250px;
+  height: 250px;
+  border: 1px solid
+    color-mix(in srgb, var(--axion-semantic-marketing-action-accent) 14.5098%, transparent);
+  border-radius: 50%;
+  background: radial-gradient(
+    ellipse,
+    color-mix(in srgb, var(--axion-semantic-marketing-action-accent) 3.52941%, transparent),
+    transparent 65%
+  );
+}
+.runtime-name {
+  position: absolute;
+  top: 50%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 24px;
+  color: var(--gold);
+  transform: translateY(-50%);
+}
+.runtime-name b {
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--text);
+}
+.runtime-name small {
+  position: absolute;
+  top: 38px;
+  left: 35px;
+  letter-spacing: 1.8px;
+  font: 7px var(--mono);
+  color: var(--muted);
+}
+.codex {
+  left: 0;
+}
+.claude {
+  right: 0;
+}
+.human-center {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  align-items: center;
+  color: var(--gold);
+  font-size: 48px;
+}
+.human-center > span {
+  font: 7px var(--mono);
+  letter-spacing: 1.5px;
+  color: var(--muted);
+}
+.human-copy p {
+  font-size: 18px;
+  color: var(--muted);
+  line-height: 1.8;
+}
+.human-copy p + p {
+  margin-top: 25px;
+}
+.installation {
+  max-width: none;
+  background: var(--axion-semantic-marketing-surface-card);
+  padding-top: 130px;
+  padding-bottom: 120px;
+}
+.install-heading {
+  max-width: 1000px;
+}
+.install-heading > p:last-child {
+  font-size: 19px;
+  color: var(--muted);
+  margin-top: 30px;
+  line-height: 1.7;
+}
+.install-layout {
+  display: grid;
+  grid-template-columns: 0.8fr 1.2fr;
+  gap: 85px;
+  align-items: center;
+  margin-top: 65px;
+}
+.setup-steps {
+  display: flex;
+  flex-direction: column;
+}
+.setup-steps > button {
+  display: flex;
+  gap: 20px;
+  text-align: left;
+  align-items: center;
+  padding: 25px 0;
+  background: transparent;
+  border-top: 1px solid var(--border);
+  opacity: 0.95;
+  transition: opacity 0.2s;
+}
+.setup-steps > button[aria-selected='true'] {
+  opacity: 1;
+}
+.setup-steps > button > span:first-child {
+  font: 10px var(--mono);
+  color: var(--gold);
+}
+.setup-steps strong {
+  display: block;
+  font-size: 19px;
+  font-weight: 500;
+  letter-spacing: -0.6px;
+}
+.setup-steps small {
+  font-size: 11px;
+  color: var(--muted);
+  display: block;
+  margin-top: 6px;
+}
+.setup-steps b {
+  font-size: 18px;
+  font-weight: 400;
+  color: var(--gold);
+  margin-left: auto;
+}
+.terminal {
+  border: 1px solid
+    color-mix(in srgb, var(--axion-semantic-marketing-surface-white) 12.54902%, transparent);
+  background: linear-gradient(
+    150deg,
+    var(--axion-semantic-marketing-surface-terminalStart),
+    var(--axion-semantic-marketing-surface-terminalEnd)
+  );
+  border-radius: var(--axion-semantic-marketing-radius-terminal);
+  box-shadow: 0 40px 80px
+    color-mix(in srgb, var(--axion-semantic-marketing-surface-canvas) 33.33333%, transparent);
+  overflow: hidden;
+  min-width: 0;
+}
+.terminal-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 25px;
+  border-bottom: 1px solid
+    color-mix(in srgb, var(--axion-semantic-marketing-surface-white) 6.27451%, transparent);
+  font: 10px var(--mono);
+  color: var(--axion-semantic-marketing-text-terminalChrome);
+}
+.terminal-bar > div {
+  display: flex;
+  gap: 6px;
+}
+.terminal-bar i {
+  height: 6px;
+  width: 6px;
+  border-radius: 50%;
+  background: var(--axion-semantic-marketing-decoration-terminalDot);
+}
+.terminal-bar i:first-child {
+  background: var(--axion-semantic-marketing-decoration-terminalAccent);
+}
+.os-tabs {
+  display: flex;
+  gap: 20px;
+  padding: 20px 25px 0;
+}
+.os-tabs button {
+  background: transparent;
+  padding: 5px 0 10px;
+  font-size: 11px;
+  color: var(--muted);
+  border-bottom: 1px solid transparent;
+}
+.os-tabs button[aria-pressed='true'] {
+  color: var(--gold);
+  border-color: var(--gold);
+}
+.terminal-body {
+  padding: 24px 25px;
+}
+.terminal-comment {
+  font: 10px/1.7 var(--mono);
+  color: var(--axion-semantic-marketing-text-terminalComment);
+}
+.terminal pre {
+  margin: 24px 0 20px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: 12px/1.9 var(--mono);
+  color: var(--axion-semantic-marketing-text-command);
+  min-height: 110px;
+}
+.terminal pre code {
+  font: inherit;
+}
+
+#copy-status {
+  font-size: 10px;
+  color: var(--gold);
+  min-height: 16px;
+  margin-top: 10px;
+}
+.terminal-foot {
+  display: flex;
+  justify-content: space-between;
+  padding: 17px 25px;
+  border-top: 1px solid
+    color-mix(in srgb, var(--axion-semantic-marketing-surface-white) 6.27451%, transparent);
+  font: 8px/1.6 var(--mono);
+  color: var(--axion-semantic-marketing-text-terminalFoot);
+}
+.setup-note {
+  max-width: 800px;
+  font-size: 11px;
+  line-height: 1.9;
+  color: var(--axion-semantic-marketing-text-note);
+  margin-top: 40px;
+}
+.reality {
+  padding-top: 130px;
+  padding-bottom: 110px;
+}
+.reality-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 40px;
+  margin-top: 60px;
+}
+.reality-grid article {
+  padding: 25px 0;
+  border-top: 1px solid var(--border);
+}
+.status {
+  font: 8px var(--mono);
+  letter-spacing: 1.3px;
+  color: var(--muted);
+}
+.status:before {
+  content: '●';
+  margin-right: 7px;
+  font-size: 7px;
+}
+.status.gold {
+  color: var(--gold);
+}
+.status.blue {
+  color: var(--blue);
+}
+.reality-grid h3 {
+  font-size: 22px;
+  letter-spacing: -0.6px;
+  margin: 25px 0 18px;
+}
+.reality-grid p {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.9;
+}
+.closing {
+  text-align: center;
+  border-top: 1px solid
+    color-mix(in srgb, var(--axion-semantic-marketing-surface-white) 7.05882%, transparent);
+  padding-top: 80px;
+  padding-bottom: 120px;
+}
+.closing > .logo-lockup {
+  margin: 0 auto 35px;
+  width: 125px;
+  height: auto;
+}
+.closing .eyebrow {
+  font-size: 8px;
+}
+.closing h2 em {
+  color: var(--gold);
+}
+.closing-actions {
+  display: flex;
+  justify-content: center;
+  gap: 15px;
+  margin-top: 45px;
+}
+.button {
+  font-size: 12px;
+  padding: 13px 24px;
+  border: 1px solid
+    color-mix(in srgb, var(--axion-semantic-marketing-surface-white) 14.5098%, transparent);
+  border-radius: 40px;
+}
+.button.primary {
+  background: var(--gold);
+  color: var(--axion-semantic-marketing-surface-inverseAction);
+  border-color: var(--gold);
+}
+.button.primary:hover {
+  background: var(--axion-semantic-marketing-action-hover);
+}
+.button.secondary:hover {
+  background: color-mix(
+    in srgb,
+    var(--axion-semantic-marketing-surface-white) 4.31373%,
+    transparent
+  );
+}
+footer {
+  padding: 30px 5%;
+  border-top: 1px solid
+    color-mix(in srgb, var(--axion-semantic-marketing-surface-white) 7.84314%, transparent);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 25px;
+  color: var(--muted);
+  font-size: 10px;
+}
+footer .brand {
+  font-size: 22px;
+  color: var(--text);
+}
+footer p {
+  font-size: 10px;
+}
+.static-motion .opening {
+  height: auto;
+}
+.static-motion .opening-stage {
+  position: relative;
+  min-height: 760px;
+  height: 100svh;
+}
+.static-motion .opening-first {
+  display: none;
+}
+.static-motion .opening-bottom a {
+  color: var(--muted);
+}
+@media (min-width: 1600px) {
+  .opening-final {
+    bottom: 12%;
+  }
+  .opening-final h2 {
+    font-size: 60px;
+  }
+}
+@media (max-width: 1100px) {
+  .install-layout {
+    gap: 45px;
+  }
+  .human-layout {
+    gap: 50px;
+  }
+  .runtime-name {
+    font-size: 20px;
+  }
+  .runtime-name b {
+    font-size: 16px;
+  }
+  .manifesto-bottom {
+    gap: 35px;
+  }
+  .header nav {
+    gap: 20px;
+  }
+  .header {
+    padding: 0 4%;
+  }
+  .section {
+    padding-left: 7%;
+    padding-right: 7%;
+  }
+  .node-icon {
+    font-size: 17px;
+  }
+}
+@media (max-width: 760px) {
+  html {
+    scroll-padding-top: 80px;
+  }
+  .header {
+    height: 60px;
+    padding: 0 20px;
+    gap: 12px;
+  }
+  .header .brand {
+    font-size: 22px;
+  }
+  .brand-diamond {
+    font-size: 16px;
+  }
+  .header nav {
+    display: none;
+  }
+  .header-tools {
+    gap: 9px;
+  }
+  .nav-cta {
+    font-size: 10px;
+    padding: 6px 14px;
+  }
+  .header-tools button {
+    font-size: 10px;
+    padding: 6px;
+  }
+  .opening {
+    height: 220svh;
+  }
+  .opening-first h1 {
+    font-size: clamp(43px, 10vw, 68px);
+  }
+  .opening-first .eyebrow {
+    font-size: 8px;
+    margin-bottom: 25px;
+  }
+  .opening-first > p:last-child {
+    font-size: 14px;
+    margin-top: 25px;
+  }
+  .logo-camera {
+    width: min(78vw, 340px);
+    top: 29%;
+  }
+  .opening-final {
+    bottom: 19%;
+  }
+  .opening-final h2 {
+    font-size: 33px;
+    letter-spacing: -1.5px;
+  }
+  .opening-final .eyebrow {
+    font-size: 6px;
+    letter-spacing: 1.3px;
+    margin-bottom: 16px;
+  }
+  .opening-final > p:last-child {
+    font-size: 11px;
+    margin-top: 16px;
+  }
+  .opening-bottom {
+    left: 20px;
+    right: 20px;
+    bottom: 24px;
+    gap: 20px;
+    font-size: 6px;
+    letter-spacing: 0.6px;
+    flex-wrap: wrap;
+  }
+  .opening-bottom > span:first-child {
+    max-width: 160px;
+    line-height: 1.8;
+  }
+  .opening-number {
+    display: none;
+  }
+  .section {
+    padding: 85px 24px;
+  }
+  .manifesto-title {
+    font-size: clamp(39px, 8.7vw, 62px);
+    letter-spacing: -2px;
+    line-height: 1.12;
+  }
+  .eyebrow {
+    font-size: 8px;
+    letter-spacing: 1.5px;
+    margin-bottom: 24px;
+  }
+  .manifesto-bottom {
+    grid-template-columns: 1fr;
+    gap: 22px;
+    margin: 35px 0 18px;
+  }
+  .manifesto-bottom p {
+    font-size: 16px;
+    line-height: 1.8;
+  }
+  .inline-link {
+    font-size: 11px;
+  }
+  .node-number {
+    font-size: 6px;
+    margin-top: 2px;
+  }
+  .node-icon {
+    display: none;
+  }
+  .workflow-transcript {
+    grid-template-columns: 1fr 1fr;
+    gap: 30px 25px;
+    padding-top: 45px;
+    padding-bottom: 55px;
+  }
+  .workflow-transcript h3 {
+    font-size: 18px;
+    margin: 14px 0;
+  }
+  .workflow-transcript p {
+    font-size: 11px;
+    line-height: 1.8;
+  }
+  .human h2,
+  .installation h2,
+  .reality h2,
+  .closing h2 {
+    font-size: clamp(35px, 8.5vw, 55px);
+    line-height: 1.12;
+    letter-spacing: -1.8px;
+  }
+  .human-layout {
+    grid-template-columns: 1fr;
+    gap: 35px;
+    margin-top: 30px;
+  }
+  .runtime-visual {
+    height: 240px;
+  }
+  .runtime-orbit {
+    height: 200px;
+    width: 200px;
+  }
+  .runtime-name b {
+    font-size: 15px;
+  }
+  .runtime-name {
+    font-size: 19px;
+    gap: 6px;
+  }
+  .runtime-name small {
+    font-size: 6px;
+    left: 28px;
+    top: 32px;
+  }
+  .human-center {
+    font-size: 40px;
+  }
+  .human-center > span {
+    font-size: 5px;
+    letter-spacing: 1px;
+  }
+  .human-copy p {
+    font-size: 16px;
+    line-height: 1.8;
+  }
+  .human-copy p + p {
+    margin-top: 20px;
+  }
+  .install-heading > p:last-child {
+    font-size: 15px;
+    margin-top: 25px;
+  }
+  .install-layout {
+    grid-template-columns: 1fr;
+    gap: 30px;
+    margin-top: 40px;
+  }
+  .setup-steps > button {
+    padding: 19px 0;
+    gap: 15px;
+  }
+  .setup-steps strong {
+    font-size: 17px;
+  }
+  .setup-steps small {
+    font-size: 10px;
+  }
+  .terminal {
+    border-radius: var(--axion-semantic-marketing-radius-mobileTerminal);
+  }
+  .terminal-bar {
+    padding: 17px 19px;
+    font-size: 8px;
+  }
+  .os-tabs {
+    padding: 17px 19px 0;
+  }
+  .os-tabs button {
+    font-size: 10px;
+  }
+  .terminal-body {
+    padding: 20px 19px;
+  }
+  .terminal pre {
+    font-size: 10px;
+    min-height: 100px;
+    line-height: 1.9;
+  }
+  .terminal-comment {
+    font-size: 9px;
+  }
+  .terminal-foot {
+    font-size: 7px;
+    padding: 15px 19px;
+  }
+  .setup-note {
+    font-size: 10px;
+    margin-top: 25px;
+  }
+  .reality-grid {
+    grid-template-columns: 1fr;
+    gap: 17px;
+    margin-top: 35px;
+  }
+  .reality-grid article {
+    padding: 23px 0;
+  }
+  .reality-grid h3 {
+    font-size: 22px;
+    margin: 18px 0 15px;
+  }
+  .reality-grid p {
+    font-size: 12px;
+  }
+  .closing > .logo-lockup {
+    width: 110px;
+    margin-bottom: 25px;
+  }
+  .closing-actions {
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+    margin-top: 35px;
+  }
+  .button {
+    font-size: 11px;
+    padding: 12px 22px;
+  }
+  footer {
+    flex-wrap: wrap;
+    padding: 25px 24px;
+    gap: 20px;
+    font-size: 8px;
+  }
+  footer p {
+    flex-basis: 100%;
+    order: 4;
+    font-size: 9px;
+  }
+  .static-motion .opening-stage {
+    min-height: 650px;
+    height: 90svh;
+  }
+}
+@media (max-height: 720px) and (min-width: 761px) {
+  .logo-camera {
+    width: 320px;
+    top: 28%;
+  }
+  .opening-final {
+    bottom: 12%;
+  }
+  .opening-final h2 {
+    font-size: 38px;
+  }
+}
+@media (max-height: 720px) and (max-width: 760px) {
+  .opening-final {
+    bottom: 15%;
+  }
+  .logo-camera {
+    width: 240px;
+    top: 28%;
+  }
+}
+.logo-camera {
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transform: none;
+  filter: none;
+  will-change: auto;
+}
+.logo-camera svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.os-tabs[hidden] {
+  display: none;
+}
+.reveal-ready {
+  opacity: 0;
+  transform: translateY(25px);
+  transition:
+    opacity 0.9s ease,
+    transform 0.9s cubic-bezier(0.2, 0.65, 0.3, 1);
+}
+.reveal-ready.is-visible,
+.static-motion .reveal-ready {
+  opacity: 1;
+  transform: none;
+}
+@font-face {
+  font-family: Manrope;
+  src: url('assets/Manrope.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 200 800;
+  font-display: swap;
+}
+:root {
+  --sans: var(--axion-semantic-marketing-typography-family);
+}
+h1,
+h2,
+h3 {
+  font-weight: 500;
+  letter-spacing: -0.045em;
+  line-height: 1.12;
+}
+.opening-first h1 {
+  font-weight: 550;
+  letter-spacing: -0.05em;
+  line-height: 1.08;
+}
+.manifesto-title {
+  font-weight: 500;
+  letter-spacing: -0.045em;
+  line-height: 1.15;
+}
+.human h2,
+.installation h2,
+.reality h2,
+.closing h2 {
+  letter-spacing: -0.04em;
+  line-height: 1.14;
+}
+.brand,
+footer .brand {
+  font-size: 20px;
+  letter-spacing: 2.5px;
+  font-weight: 700;
+  gap: 11px;
+}
+.brand-original {
+  height: 30px;
+  width: 30px;
+  display: block;
+  flex-shrink: 0;
+  background: none;
+  border: 0;
+  border-radius: 0;
+  overflow: hidden;
+}
+.closing > .logo-lockup {
+  width: 165px;
+  object-fit: contain;
+}
+@media (max-width: 760px) {
+  .header .brand,
+  footer .brand {
+    font-size: 16px;
+    letter-spacing: 2px;
+    gap: 8px;
+  }
+  .brand-original {
+    height: 25px;
+    width: 25px;
+    border-radius: 0;
+  }
+  .closing > .logo-lockup {
+    width: 145px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *:before,
+  *:after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+/* Preserve the original gold detail; theme only the mascot silhouette. */
+.brand-original,
+.logo-artwork {
+  filter: none;
+}
+.gold-start .header .brand-original,
+.gold-start .logo-camera .logo-artwork {
+  filter: url(#logo-dark-gold);
+}
+.logo-lockup {
+  display: block;
+  overflow: hidden;
+}
+
+.command-list {
+  display: grid;
+  gap: 12px;
+  margin: 24px 0 16px;
+}
+.command-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: start;
+  padding: 15px;
+  border: 1px solid
+    color-mix(in srgb, var(--axion-semantic-marketing-surface-white) 7.84314%, transparent);
+  border-radius: var(--axion-semantic-marketing-radius-command);
+  background: color-mix(
+    in srgb,
+    var(--axion-semantic-marketing-surface-white) 1.17647%,
+    transparent
+  );
+}
+.terminal .command-row pre {
+  margin: 0;
+  min-height: 0;
+  font-size: 12px;
+  line-height: 1.8;
+}
+.copy-command {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  min-width: 78px;
+  padding: 8px 11px;
+  background: color-mix(
+    in srgb,
+    var(--axion-semantic-marketing-surface-white) 3.52941%,
+    transparent
+  );
+  border: 1px solid
+    color-mix(in srgb, var(--axion-semantic-marketing-surface-white) 12.54902%, transparent);
+  border-radius: var(--axion-semantic-marketing-radius-copy);
+  color: var(--axion-semantic-marketing-text-copy);
+  font: 11px var(--sans);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.copy-command:hover {
+  background: color-mix(
+    in srgb,
+    var(--axion-semantic-marketing-surface-white) 8.62745%,
+    transparent
+  );
+  border-color: color-mix(
+    in srgb,
+    var(--axion-semantic-marketing-text-command) 50.19608%,
+    transparent
+  );
+}
+.copy-command:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 3px;
+}
+@media (max-width: 760px) {
+  .command-row {
+    gap: 10px;
+    padding: 12px;
+  }
+  .terminal .command-row pre {
+    font-size: 10px;
+  }
+  .copy-command {
+    min-width: 65px;
+    font-size: 10px;
+    padding: 8px;
+  }
+}
+
+[hidden] {
+  display: none !important;
+}
+body[data-preview] .header {
+  position: relative;
+}
+body[data-preview] .section {
+  padding-top: 64px;
+  padding-bottom: 64px;
+}
+body[data-preview] footer {
+  margin: 0;
+}
+body[data-preview='hero'] .opening {
+  height: 100svh;
+}
+
+.gold-start .header a:focus-visible,
+.gold-start .header button:focus-visible {
+  outline-color: var(--axion-semantic-marketing-text-onIntro);
+}
