@@ -32,7 +32,10 @@ type exchangePacket struct {
 // It runs in-process (no OS process, binary, credential or network) and uses
 // only the two message areas and output directory from its own packet.
 type stubChild struct {
-	t      *testing.T
+	t *testing.T
+	// ctx is the attempt's run context, bounded by the stage timeout: a child
+	// waits as long as the engine would let the real process run.
+	ctx    context.Context
 	packet exchangePacket
 	argv0  string
 	failed bool
@@ -55,8 +58,7 @@ func (c *stubChild) send(id, recipient string, kind workflow.MessageKind, replyT
 }
 
 func (c *stubChild) await(id string) deliveredMessage {
-	deadline := time.Now().Add(5 * time.Second)
-	for time.Now().Before(deadline) {
+	for c.ctx.Err() == nil {
 		wire, err := os.ReadFile(filepath.Join(c.packet.MessageReceiveDirectory, id+".json"))
 		if err == nil {
 			var m deliveredMessage
@@ -98,11 +100,12 @@ type spawnObservation struct {
 
 // collaborationStages: Codex and Claude work in parallel in one stage; the
 // reviewer depends on that stage and may start only after both validated
-// results exist.
+// results exist. The timeout is only a bound: under a loaded race-enabled run
+// each message commit can wait seconds for the store lock.
 func collaborationStages(gate bool) []workflow.StageSpec {
 	return []workflow.StageSpec{
-		{ID: "build", Agents: []workflow.AgentSpec{{ID: "codex", OutputScope: true, Outputs: []string{"codex-result"}}, {ID: "claude", OutputScope: true, Outputs: []string{"claude-result"}}}, Outputs: []string{"codex-result", "claude-result"}, HumanGate: gate, TimeoutSeconds: 10},
-		{ID: "integrate", DependsOn: []string{"build"}, Agents: []workflow.AgentSpec{{ID: "reviewer"}}, TimeoutSeconds: 10},
+		{ID: "build", Agents: []workflow.AgentSpec{{ID: "codex", OutputScope: true, Outputs: []string{"codex-result"}}, {ID: "claude", OutputScope: true, Outputs: []string{"claude-result"}}}, Outputs: []string{"codex-result", "claude-result"}, HumanGate: gate, TimeoutSeconds: 60},
+		{ID: "integrate", DependsOn: []string{"build"}, Agents: []workflow.AgentSpec{{ID: "reviewer"}}, TimeoutSeconds: 60},
 	}
 }
 
@@ -114,8 +117,8 @@ func newExchangeFixture(t *testing.T, stages []workflow.StageSpec, script func(*
 		t.Fatal(err)
 	}
 	x := &exchangeFixture{launcher: l}
-	x.engineFixture = newEngineFixture(t, stages, func(_ context.Context, inv executiongraph.Invocation, started func(*executiongraph.ProcessCorrelation) error) executiongraph.ProcessResult {
-		child := &stubChild{t: t, argv0: inv.Argv[0]}
+	x.engineFixture = newEngineFixture(t, stages, func(ctx context.Context, inv executiongraph.Invocation, started func(*executiongraph.ProcessCorrelation) error) executiongraph.ProcessResult {
+		child := &stubChild{t: t, ctx: ctx, argv0: inv.Argv[0]}
 		if err := json.Unmarshal(inv.Stdin, &child.packet); err != nil {
 			t.Error(err)
 			return executiongraph.ProcessResult{SpawnFailed: true, FailureCode: "packet"}
@@ -215,7 +218,7 @@ func TestExchangeCodexClaudeBidirectionalUnblocksOnlyOnValidatedResult(t *testin
 			c.send("a2", "claude", workflow.MessageAnswer, "q2", "yes")
 			select {
 			case <-replayed:
-			case <-time.After(5 * time.Second):
+			case <-c.ctx.Done():
 				c.fail("replay not observed")
 			}
 			c.send("r1", "reviewer", workflow.MessageResult, "", "codex done")
@@ -681,7 +684,7 @@ func TestExchangeFailureIsSurfacedOnTheAttempt(t *testing.T) {
 					// Sent only after the plant, so q1 is never delivered first.
 					select {
 					case <-planted:
-					case <-time.After(5 * time.Second):
+					case <-c.ctx.Done():
 						c.fail("conflict never planted")
 					}
 					c.send("q1", "claude", workflow.MessageQuestion, "", "ready?")
