@@ -91,4 +91,17 @@ func TestPublicExecutionDeliveryExactGrantAndChildDenial(t *testing.T) {
 	if len(status.Stage.Deliveries) != 1 || status.Stage.Deliveries[0].Request.Digest() != r.Digest() || strings.Contains(result.Raw, f.env.state) {
 		t.Fatalf("status %s", status.Raw)
 	}
+	// A PR request with empty metadata is normalized to the pull-request
+	// metadata preview; the grant binds the filled request, not the raw one.
+	latest, err := store.Load(context.Background(), x.ProjectID, x.ExecutionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pr := r
+	pr.Revision, pr.Target.Push, pr.Target.PR, pr.ExpectedRemoteHead = latest.Revision, false, true, r.Target.HeadCommit
+	wire, _ = json.Marshal(pr)
+	prPreview := f.run(t, cli.ExitSuccess, "workflow", "delivery", "advance", "--project", "external", "--execution", x.ExecutionID, "--request", string(wire))
+	if !strings.Contains(prPreview.Raw, `"surface":"pull_request"`) || strings.Contains(prPreview.Raw, pr.Digest()) || d.prs != 0 {
+		t.Fatalf("pr metadata not normalized: %s", prPreview.Raw)
+	}
 }

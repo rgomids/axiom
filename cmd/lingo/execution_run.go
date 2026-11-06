@@ -28,6 +28,7 @@ import (
 	"github.com/rgomids/axiom/internal/strictjson"
 	"github.com/rgomids/axiom/internal/workflow"
 	"github.com/rgomids/axiom/internal/workflowdefinition"
+	"github.com/rgomids/axiom/internal/workitem"
 )
 
 // Canonical Execution operations (ADR-0037, Spec 015 S1). One run action
@@ -231,6 +232,9 @@ func (c executionComposition) run(ctx context.Context, in cli.WorkflowStageInput
 	if err = c.freezeInputs(ctx, request.Stages, in.Inputs, target.Repository.Key); err != nil {
 		return c.failure(err, nil)
 	}
+	if failed := c.freezeWorkItem(ctx, request.Stages, target); failed.Category != "" {
+		return c.s.stageFailure(failed.Status, failed.Category, "Work Item content could not be read", "Check Provider access to the linked Work Item; nothing was written", nil)
+	}
 	if in.ReworkSource != "" {
 		source, loadErr := c.store.Load(ctx, c.project.ID, in.ReworkSource)
 		if loadErr != nil {
@@ -370,7 +374,12 @@ func (c executionComposition) launcher(executionID, repositoryKey string) (stage
 	if err != nil {
 		return launcher, err
 	}
-	launcher.ValidateOutput = local.NewWorkflowReferenceValidator(artifacts).ValidateExecutionOutput
+	validator := local.NewWorkflowReferenceValidator(artifacts)
+	launcher.ValidateOutput = validator.ValidateExecutionOutput
+	launcher.ReadInput = validator.ReadExecutionArtifact
+	launcher.RetainOutput = func(ctx context.Context, subject workflow.OutputSubject, content []byte) (workflow.ArtifactRef, error) {
+		return validator.RetainExecutionOutput(ctx, subject, content, c.s.provenance)
+	}
 	return launcher, nil
 }
 
@@ -1204,4 +1213,32 @@ func freezeCommands(stages []workflow.StageSpec, authorized bool) error {
 		}
 	}
 	return nil
+}
+
+// freezeWorkItem reads the linked Work Item once at start and freezes its title
+// and body, with a digest, into every stage input that names the target. Stage
+// children have no Provider access, so without it they only see an identifier.
+func (c executionComposition) freezeWorkItem(ctx context.Context, stages []workflow.StageSpec, target workflow.ResolvedTarget) workitem.Result {
+	needed := false
+	for _, stage := range stages {
+		needed = needed || len(stage.WorkItemInputs) != 0
+	}
+	if !needed {
+		return workitem.Result{}
+	}
+	document, failed := c.s.workItems.ReadDocument(ctx, workitem.Target{ProjectSelector: c.project.ID, RepositoryKey: target.Repository.Key, ProviderResource: target.WorkItem.Resource}, target.WorkItem.ExternalID)
+	if failed.Category != "" {
+		return failed
+	}
+	content := "# " + document.Title + "\n\n" + document.Body
+	if len(content) > workflow.MaxInstructionBytes {
+		return workitem.Result{Status: completion.ValidationFailure, Category: "work_item_too_large"}
+	}
+	for i := range stages {
+		for _, name := range stages[i].WorkItemInputs {
+			stages[i].FrozenInputs = append(stages[i].FrozenInputs, workflow.FrozenInput{Name: name, Kind: "work-item", Source: "target", Required: true, Content: content, Digest: workflow.DigestText([]byte(content))})
+		}
+		stages[i].WorkItemInputs = nil
+	}
+	return workitem.Result{}
 }

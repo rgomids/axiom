@@ -30,12 +30,20 @@ func TestEffortSourcesConsentAndNoOverride(t *testing.T) {
 			if e = os.WriteFile(path, []byte(content), 0o600); e != nil {
 				t.Fatal(e)
 			}
-			if _, e = f.digest(); !errors.Is(e, ErrEffortOverrideConflict) || strings.Contains(e.Error(), "private-canary") {
-				t.Fatal("override/redaction", e)
+			// A personal selector never blocks the run; the Profile override wins.
+			if personal, e := f.digest(); e != nil || personal == before {
+				t.Fatal("personal selector refused or unrecorded", e)
 			}
 			after, _ := os.ReadFile(path)
 			if string(after) != content {
 				t.Fatal("inspection mutated configuration")
+			}
+			managed := f.source(t, "managed")
+			if e = os.WriteFile(managed, []byte(content), 0o600); e != nil {
+				t.Fatal(e)
+			}
+			if _, e = f.digest(); !errors.Is(e, ErrEffortOverrideConflict) || strings.Contains(e.Error(), "private-canary") {
+				t.Fatal("managed override/redaction", e)
 			}
 		})
 	}

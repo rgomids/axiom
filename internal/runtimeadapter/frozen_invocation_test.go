@@ -30,12 +30,17 @@ func TestCheckFrozenSelectorsRefusesInheritedOverridesWithoutLeaking(t *testing.
 			if err := CheckFrozenSelectors(context.Background(), id, model, "high", roots, inv); err == nil {
 				t.Fatal("frozen explicit effort accepted an argv without that selector")
 			}
-			path := f.source(t, "user")
 			content := `model_reasoning_effort = "private-canary"`
 			if id == "claude" {
 				content = `{"effortLevel":"private-canary"}`
 			}
-			if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+			if err := os.WriteFile(f.source(t, "user"), []byte(content), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			if err := CheckFrozenSelectors(context.Background(), id, model, RuntimeDefaultEffort, roots, inv); err != nil {
+				t.Fatalf("personal configuration selector blocked the run: %v", err)
+			}
+			if err := os.WriteFile(f.source(t, "managed"), []byte(content), 0o600); err != nil {
 				t.Fatal(err)
 			}
 			err := CheckFrozenSelectors(context.Background(), id, model, RuntimeDefaultEffort, roots, inv)

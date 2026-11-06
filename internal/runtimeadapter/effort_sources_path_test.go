@@ -110,10 +110,10 @@ func TestEffortSourcesOverridesStillRefusedUnderEffortPaths(t *testing.T) {
 			f.request.Invocation = executiongraph.WithExactEnvironment(f.request.Invocation, append(f.request.Invocation.Env, "CLAUDE_CODE_EFFORT_LEVEL=low"))
 		}},
 		{"codex", "configured-selector", ErrEffortOverrideConflict, func(t *testing.T, f *effortInspectorFixture) {
-			writeFixtureFile(t, f.source(t, "project"), `model_reasoning_effort = "low"`)
+			writeFixtureFile(t, f.source(t, "managed"), `model_reasoning_effort = "low"`)
 		}},
 		{"claude", "configured-selector", ErrEffortOverrideConflict, func(t *testing.T, f *effortInspectorFixture) {
-			writeFixtureFile(t, f.source(t, "project"), `{"effortLevel":"low"}`)
+			writeFixtureFile(t, f.source(t, "managed"), `{"effortLevel":"low"}`)
 		}},
 		{"codex", "symlinked-source", ErrEffortConfigurationUnsafe, symlinkUser},
 		{"claude", "symlinked-source", ErrEffortConfigurationUnsafe, symlinkUser},

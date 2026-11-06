@@ -101,8 +101,12 @@ func TestOperationalEffortConflictsAtEveryFixedSource(t *testing.T) {
 					path = filepath.Join(path, "policy.json")
 				}
 				write(t, path, content)
-				if _, err := InspectEffortSourcesV4(context.Background(), f.request); !errors.Is(err, ErrEffortOverrideConflict) {
-					t.Fatal("equal-valued competing source accepted", source.Scope, err)
+				_, err := InspectEffortSourcesV4(context.Background(), f.request)
+				if managedEffortScope(source.Scope) && !errors.Is(err, ErrEffortOverrideConflict) {
+					t.Fatal("managed competing source accepted", source.Scope, err)
+				}
+				if !managedEffortScope(source.Scope) && err != nil {
+					t.Fatal("personal source blocked the Profile override", source.Scope, err)
 				}
 			})
 		}
@@ -115,7 +119,7 @@ func TestOperationalEffortConflictsAtEveryFixedSource(t *testing.T) {
 	} {
 		t.Run("claude/"+name, func(t *testing.T) {
 			f := newOperationalEffortFixture(t, "claude", true)
-			write(t, filepath.Join(f.request.Roots.User, ".claude", "settings.json"), content)
+			write(t, filepath.Join(f.request.Roots.Managed, "managed-settings.json"), content)
 			if _, err := InspectEffortSourcesV4(context.Background(), f.request); !errors.Is(err, ErrEffortOverrideConflict) {
 				t.Fatal("reachable selector accepted", err)
 			}
@@ -123,7 +127,7 @@ func TestOperationalEffortConflictsAtEveryFixedSource(t *testing.T) {
 	}
 	for _, content := range []string{"[profiles.fixture]\nmodel_reasoning_effort = \"high\"", "[models.new_thread]\nmodel_reasoning_effort = \"high\"", "profiles.fixture.model_reasoning_effort = \"high\""} {
 		f := newOperationalEffortFixture(t, "codex", true)
-		write(t, filepath.Join(f.request.Roots.User, ".codex", "config.toml"), content)
+		write(t, filepath.Join(f.request.Roots.Managed, "config.toml"), content)
 		if _, err := InspectEffortSourcesV4(context.Background(), f.request); !errors.Is(err, ErrEffortOverrideConflict) {
 			t.Fatal("nested Codex selector accepted", err)
 		}
@@ -237,7 +241,8 @@ func TestOperationalReadOnlyEffortInspectsActualInbox(t *testing.T) {
 		}
 		f.request.Roots.Project = roots.Project
 		f.request.Invocation = inv
-		if _, err := InspectEffortSourcesV4(context.Background(), f.request); err != nil {
+		baseline, err := InspectEffortSourcesV4(context.Background(), f.request)
+		if err != nil {
 			t.Fatal("read-only observation needs no qualification", err)
 		}
 		source := fixedEffortRules(runtimeID, f.request.Roots).Sources[1]
@@ -246,7 +251,7 @@ func TestOperationalReadOnlyEffortInspectsActualInbox(t *testing.T) {
 			content = `{"effortLevel":"future-effort"}`
 		}
 		write(t, filepath.Join(source.Root, source.Relative), content)
-		if _, err := InspectEffortSourcesV4(context.Background(), f.request); !errors.Is(err, ErrEffortOverrideConflict) {
+		if observed, err := InspectEffortSourcesV4(context.Background(), f.request); err != nil || observed == baseline {
 			t.Fatal("inbox selector was not observed", err)
 		}
 		roots, err = (StageEffortRoots{Repository: f.child}).ResolveOperational(context.Background(), inv, true)
@@ -272,8 +277,15 @@ func TestOperationalBuilderRefusesInheritedEffortBeforeEnvironmentFiltering(t *t
 		for _, variable := range []string{"CLAUDE_CODE_EFFORT_LEVEL", "claude_code_effort_level"} {
 			request := f.stage
 			request.ParentEnvironment = append(append([]string(nil), request.ParentEnvironment...), variable+"=future-effort")
-			if _, err := BuildStageInvocation(request); !errors.Is(err, ErrEffortOverrideConflict) {
-				t.Fatal("equal-valued inherited effort was silently removed", variable, err)
+			// An inherited effort never reaches the child: it is filtered, not refused.
+			inv, err := BuildStageInvocation(request)
+			if err != nil {
+				t.Fatal("inherited effort blocked the Profile selection", variable, err)
+			}
+			for _, entry := range inv.Env {
+				if strings.HasPrefix(strings.ToUpper(entry), "CLAUDE_CODE_EFFORT_LEVEL=") {
+					t.Fatal("inherited effort reached the child", entry)
+				}
 			}
 		}
 	}

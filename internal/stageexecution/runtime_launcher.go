@@ -20,6 +20,9 @@ import (
 var ErrRuntimeLaunch = errors.New("runtime_launch_refused: check configured executable, frozen selectors and local paths")
 var ErrRuntimeOutput = errors.New("runtime_output_unsafe: declared output could not be read safely")
 
+// ErrInvalidRuntimeOutput is a declared output that was read but fails its check.
+var ErrInvalidRuntimeOutput = errors.New("runtime_output_invalid: declared output failed its check")
+
 // A started validation command whose terminal result was not committed reports
 // either a confirmed end (exit observed or group stop confirmed) or an
 // unconfirmed stop. The engine treats anything else as unconfirmed.
@@ -44,7 +47,12 @@ const (
 type RuntimeLauncher struct {
 	// ValidateOutput resolves a bounded retained-artifact reference using the
 	// frozen contract. Nil refuses configured validation, never skips it.
-	ValidateOutput                  func(context.Context, workflow.OutputSubject, []byte) (workflow.ArtifactRef, error)
+	ValidateOutput func(context.Context, workflow.OutputSubject, []byte) (workflow.ArtifactRef, error)
+	// RetainOutput retains delivered content for a checked output when it is
+	// not already a typed reference, then validates it with the same check.
+	RetainOutput func(context.Context, workflow.OutputSubject, []byte) (workflow.ArtifactRef, error)
+	// ReadInput returns a predecessor output's exact bytes for the packet.
+	ReadInput                       func(context.Context, workflow.Execution, string, workflow.ArtifactRef) ([]byte, error)
 	Workspace, InboxRoot, AxiomPath string
 	Environment                     []string
 	// Tests replace only the machine-local root lookup, keeping the real
@@ -225,7 +233,15 @@ func (l RuntimeLauncher) Inspect(ctx context.Context, r LaunchRequest) (result e
 				return fail()
 			}
 			if selected != nil {
-				inputs[name] = inputValue{Artifact: selected, Provenance: provenance}
+				value := inputValue{Artifact: selected, Provenance: provenance}
+				if l.ReadInput != nil {
+					content, err := l.ReadInput(ctx, r.Execution, provenance.AttemptID, *selected)
+					if err != nil {
+						return fail()
+					}
+					value.Content = string(content)
+				}
+				inputs[name] = value
 			}
 		}
 		for _, input := range r.Stage.FrozenInputs {
@@ -238,7 +254,11 @@ func (l RuntimeLauncher) Inspect(ctx context.Context, r LaunchRequest) (result e
 					return fail()
 				}
 				if input.Project != nil || input.Artifact != nil || input.Content != "" {
-					inputs[name] = inputValue{Provenance: input.Provenance, Project: input.Project, Artifact: input.Artifact, Source: input.Source, Content: input.Content, Digest: input.Digest}
+					value := inputValue{Provenance: input.Provenance, Project: input.Project, Artifact: input.Artifact, Source: input.Source, Content: input.Content, Digest: input.Digest}
+					if input.Kind == "work-item" {
+						value.WorkItem = &r.Execution.WorkItem
+					}
+					inputs[name] = value
 				}
 			}
 		}
@@ -246,17 +266,25 @@ func (l RuntimeLauncher) Inspect(ctx context.Context, r LaunchRequest) (result e
 			return fail()
 		}
 	}
+	repositoryWritable := slices.Contains(r.Attempt.Authority.Effects, "workspace_write")
 	// Message areas are the same for both Runtimes. Their contents are data:
 	// a message never completes a task, satisfies a gate or grants authority.
+	// Contract is the engine's delivery protocol, read first by the child. Without
+	// it a model can answer on stdout and exit 0, which is missing_output.
 	packet := struct {
+		Contract                                                                string
 		ExecutionID, AttemptID, StageID, AgentID, Instructions, OutputDirectory string
-		MessageSendDirectory, MessageReceiveDirectory                           string
-		RunnerGeneration                                                        uint64
-		Outputs                                                                 []string
-		DefinitionDigest                                                        string
-		OutputChecks                                                            []workflow.OutputCheck
-		Inputs                                                                  map[string]inputValue
-	}{r.Execution.ExecutionID, r.Attempt.AttemptID, r.Ref.StageID, r.Ref.AgentID, frozen.Instructions, inbox, filepath.Join(inbox, sendArea), filepath.Join(inbox, receiveArea), r.Attempt.RunnerGeneration, attemptOutputs(r), r.Stage.DefinitionDigest, r.Stage.OutputChecks, inputs}
+		// RepositoryKey is a Project label, not a directory name. RepositoryRoot
+		// is the bound repository; writable only when RepositoryWritable.
+		RepositoryKey, RepositoryRoot                 string
+		RepositoryWritable                            bool
+		MessageSendDirectory, MessageReceiveDirectory string
+		RunnerGeneration                              uint64
+		Outputs                                       []string
+		DefinitionDigest                              string
+		OutputChecks                                  []workflow.OutputCheck
+		Inputs                                        map[string]inputValue
+	}{stageContract, r.Execution.ExecutionID, r.Attempt.AttemptID, r.Ref.StageID, r.Ref.AgentID, frozen.Instructions, inbox, r.Attempt.Authority.RepositoryKey, l.Workspace, repositoryWritable, filepath.Join(inbox, sendArea), filepath.Join(inbox, receiveArea), r.Attempt.RunnerGeneration, attemptOutputs(r), r.Stage.DefinitionDigest, r.Stage.OutputChecks, inputs}
 	inv.Stdin, err = json.Marshal(packet)
 	if err != nil || len(inv.Stdin) > executiongraph.MaxStdinBytes {
 		return fail()
@@ -316,9 +344,17 @@ func (l RuntimeLauncher) Collect(ctx context.Context, r LaunchRequest, p executi
 			if l.ValidateOutput == nil {
 				return Outcome{}, ErrRuntimeOutput
 			}
-			artifact, err = l.ValidateOutput(ctx, workflow.OutputSubject{ExecutionID: r.Execution.ExecutionID, AttemptID: r.Attempt.AttemptID, StageID: r.Ref.StageID, DefinitionDigest: r.Stage.DefinitionDigest, RepositoryKey: r.Attempt.Authority.RepositoryKey, Check: check}, data)
+			subject := workflow.OutputSubject{ExecutionID: r.Execution.ExecutionID, AttemptID: r.Attempt.AttemptID, StageID: r.Ref.StageID, DefinitionDigest: r.Stage.DefinitionDigest, RepositoryKey: r.Attempt.Authority.RepositoryKey, Check: check}
+			artifact, err = l.ValidateOutput(ctx, subject, data)
+			// A reference-shaped file must validate as a reference: retaining it as
+			// content would launder a forged or stale reference.
+			if err != nil && l.RetainOutput != nil && !artifactReferenceShaped(data) {
+				artifact, err = l.RetainOutput(ctx, subject, data)
+			}
 			if err != nil || artifact.Name != name || artifact.RepositoryKey != r.Attempt.Authority.RepositoryKey || !workflow.ValidToken(artifact.RetainedID) || artifact.Size < 0 {
-				return Outcome{}, ErrRuntimeOutput
+				// The file exists but fails its check: a deterministic attempt
+				// failure, not an unknown effect.
+				return Outcome{}, ErrInvalidRuntimeOutput
 			}
 		}
 		out.Artifacts = append(out.Artifacts, artifact)
@@ -436,4 +472,23 @@ func plannedRuntimePath(path string) bool {
 			return false
 		}
 	}
+}
+
+const stageContract = "You are an Axiom stage agent running non-interactively. Do the work in Instructions using Inputs. " +
+	"Deliver it as files: for each name in Outputs, write one regular file with exactly that name directly inside OutputDirectory " +
+	"(no extension, no subdirectory, no symlink). The stage completes only when every declared output file exists; " +
+	"text printed to stdout is discarded and does not count. Write the content itself (Markdown or text) for every output, " +
+	"including those in OutputChecks: Axiom retains and checks it; never invent artifact references. " +
+	"RepositoryKey is the Project's label for the bound repository, not a directory name: never search for it. " +
+	"RepositoryRoot is the repository root. When RepositoryWritable is true it is your working directory and you make repository changes there; " +
+	"otherwise it is read-only: read and verify it, never modify it. " +
+	"If you cannot complete the stage, do not write the output files: explain why on stdout and exit, so the attempt fails instead of passing. " +
+	"Use only the tools you are given; a check you cannot run with them (for example a shell command) is reported in the output as not run and does not block the stage. " +
+	"MessageSendDirectory and MessageReceiveDirectory are optional coordination areas. Exit when the files are written."
+
+func artifactReferenceShaped(data []byte) bool {
+	var ref struct {
+		Kind string `json:"kind"`
+	}
+	return json.Unmarshal(data, &ref) == nil && ref.Kind == "artifact"
 }

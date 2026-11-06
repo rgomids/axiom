@@ -8,6 +8,8 @@ import (
 	"os"
 	"strings"
 
+	"github.com/rgomids/axiom/internal/detailartifact"
+	"github.com/rgomids/axiom/internal/provenance"
 	"github.com/rgomids/axiom/internal/strictjson"
 	"github.com/rgomids/axiom/internal/workflow"
 )
@@ -124,4 +126,76 @@ func (v WorkflowReferenceValidator) ObserveExecutionArtifact(ctx context.Context
 		return ErrUnsafe
 	}
 	return ctx.Err()
+}
+
+// RetainExecutionOutput retains a child's delivered content for a checked
+// output, correlated to the exact attempt, stage, output and repository, then
+// validates it as a typed reference. Stage children cannot mint this
+// correlation themselves; only the engine that collected the bytes does.
+func (v WorkflowReferenceValidator) RetainExecutionOutput(ctx context.Context, subject workflow.OutputSubject, content []byte, source provenance.Value) (workflow.ArtifactRef, error) {
+	retention := detailartifact.Active
+	if subject.Check.Evidence {
+		retention = detailartifact.Evidence
+	}
+	artifact, err := v.artifacts.Create(ctx, detailartifact.Draft{
+		ExecutionID: subject.ExecutionID,
+		References: []detailartifact.Reference{
+			{Kind: "workflow-stage", Value: subject.StageID},
+			{Kind: "workflow-definition", Value: strings.TrimPrefix(subject.DefinitionDigest, "sha256:")},
+			{Kind: "workflow-output", Value: subject.Check.Name},
+			{Kind: "workflow-attempt", Value: subject.AttemptID},
+			{Kind: "workflow-repository", Value: subject.RepositoryKey},
+		},
+		Category: subject.Check.Kind, Outcome: "success", Retention: retention, Markdown: content, Provenance: source,
+	})
+	if err != nil {
+		return workflow.ArtifactRef{}, err
+	}
+	wire, err := json.Marshal(map[string]string{"kind": "artifact", "id": artifact.ID, "digest": hex.EncodeToString(artifact.Digest[:])})
+	if err != nil {
+		return workflow.ArtifactRef{}, err
+	}
+	return v.ValidateExecutionOutput(ctx, subject, wire)
+}
+
+// ReadExecutionArtifact returns the exact bytes of one recorded stage output,
+// so a successor stage receives its predecessor's content and not only a
+// reference it cannot open. Digest and Execution binding are re-checked.
+func (v WorkflowReferenceValidator) ReadExecutionArtifact(ctx context.Context, x workflow.Execution, attemptID string, artifact workflow.ArtifactRef) ([]byte, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if artifact.RetainedID != "" {
+		retained, err := v.artifacts.Read(ctx, artifact.RetainedID)
+		if err != nil || retained.ExecutionID != x.ExecutionID || "sha256:"+hex.EncodeToString(retained.Digest[:]) != artifact.Digest {
+			return nil, ErrUnsafe
+		}
+		return retained.Markdown, nil
+	}
+	if !workflow.ValidToken(attemptID) || !workflow.ValidToken(artifact.Name) {
+		return nil, ErrUnsafe
+	}
+	root, err := existingPrivateRoot(v.artifacts.root)
+	if err != nil {
+		return nil, err
+	}
+	for _, name := range []string{"executions", "v2-attempt-outputs", x.ProjectID, x.ExecutionID, attemptID} {
+		child, err := existingPrivateChild(root, name)
+		root.Close()
+		if err != nil {
+			return nil, err
+		}
+		root = child
+	}
+	defer root.Close()
+	file, err := root.OpenFile(artifact.Name, os.O_RDONLY|noFollow, 0)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+	data, err := io.ReadAll(io.LimitReader(file, maxWorkflowEvidenceBytes+1))
+	if err != nil || len(data) > maxWorkflowEvidenceBytes || workflow.DigestText(data) != artifact.Digest {
+		return nil, ErrUnsafe
+	}
+	return data, nil
 }

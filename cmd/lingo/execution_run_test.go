@@ -106,6 +106,13 @@ func newExecutionRunFixtureRepositories(t *testing.T, keys ...string) (*executio
 	t.Setenv("PATH", bin)
 	t.Setenv("TMPDIR", temp)
 	f := &executionRunFixture{env: newWorkItemSourceEnvironment(t)}
+	// workflow run freezes the linked Work Item document once at start.
+	gh := filepath.Join(t.TempDir(), "gh")
+	if err := os.WriteFile(gh, []byte("#!/bin/sh\ncase \"$*\" in *repos/owner/repo/issues/7*) ;; *) exit 1 ;; esac\nprintf '%s\\n' '{\"number\":7,\"html_url\":\"https://github.com/owner/repo/issues/7\",\"state\":\"open\",\"title\":\"Fixture title\",\"body\":\"Fixture body\"}'\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("AXIOM_GH_BIN", gh)
+	f.env.service = compose()
 	paths := installLinkedTargetRepositories(t, f.env, keys...)
 	publishRuntimeProfileV3(t, f.env.state, singleRuntimeV3("codex", "profile-codex", "stub-model", []string{"read"}, []string{"medium"}))
 	return f, paths
@@ -364,6 +371,15 @@ func TestPublicWorkflowRunSelectedWorkflowStopsAtRealGate(t *testing.T) {
 	first := f.run(t, cli.ExitSuccess, args...)
 	if first.Stage.Status != workflow.RunAwaitingGate || first.Stage.Stages[0].Status != workflow.StageCompleted || first.Stage.Stages[1].Status != workflow.StageAwaitingGate {
 		t.Fatalf("gate: %s", first.Raw)
+	}
+	// The Work Item document is frozen once at start for stage children.
+	stored := f.executions(t)
+	if len(stored) != 1 {
+		t.Fatal(stored)
+	}
+	wire, _ := os.ReadFile(stored[0])
+	if !strings.Contains(string(wire), `"kind":"work-item"`) || !strings.Contains(string(wire), `# Fixture title\n\nFixture body`) {
+		t.Fatalf("work item document not frozen: %s", wire)
 	}
 	second := f.run(t, cli.ExitSuccess, "workflow", "run", "--project", "external", "--execution", first.Stage.ExecutionID, "--approve-gate", "specification", "--authorize-human", "--authorize-external")
 	if second.Stage.Status != workflow.RunCompleted || second.Stage.Stages[1].Gate == nil || !strings.HasPrefix(second.Stage.Stages[1].Gate.Actor, "human:") {

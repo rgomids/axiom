@@ -218,8 +218,9 @@ func TestVerifyChildEquivalence(t *testing.T) {
 			os.Remove(f.projectSource(t, f.request.Roots.Project))
 		}, ErrEffortConfigurationUnsafe},
 		"child-selector": {"codex", func(t *testing.T, f *effortInspectorFixture, child string) {
+			// A child that diverges from the repository is drift, not a selector conflict.
 			writeFixtureFile(t, f.projectSource(t, child), "model_reasoning_effort = \"low\"\n")
-		}, ErrEffortOverrideConflict},
+		}, ErrEffortConfigurationUnsafe},
 		"child-symlink": {"codex", func(t *testing.T, f *effortInspectorFixture, child string) {
 			path := f.projectSource(t, child)
 			os.Remove(path)
@@ -336,10 +337,6 @@ func TestStageEffortInspector(t *testing.T) {
 			os.Remove(f.projectSource(t, f.child))
 		},
 		"child-selector": func(t *testing.T, f *stageInspectorFixture, _ *executiongraph.Invocation) {
-			writeFixtureFile(t, f.projectSource(t, f.child), "model_reasoning_effort = \"low\"\n")
-		},
-		"read-only-selector": func(t *testing.T, f *stageInspectorFixture, _ *executiongraph.Invocation) {
-			f.inspector.Workspaces = nil
 			writeFixtureFile(t, f.projectSource(t, f.child), "model_reasoning_effort = \"low\"\n")
 		},
 	}

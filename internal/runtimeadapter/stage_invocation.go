@@ -46,8 +46,9 @@ func (c AttemptCorrelation) Environment() ([]string, error) {
 
 // BuildStageInvocation owns every option and output bound. Caller configuration
 // may select the reviewed executable/model, but cannot supply argv or
-// credentials. Configuration relocation and a competing inherited effort
-// selector are refused before any process exists.
+// credentials. Configuration relocation is refused before any process exists;
+// an inherited effort variable is dropped by StageEnvironment, so the
+// Profile-derived selection is the only one the child receives.
 func BuildStageInvocation(request StageInvocationRequest) (executiongraph.Invocation, error) {
 	p := request.Profile
 	if !stagePath(p.Executable) || filepath.Base(p.Executable) != p.RuntimeID || p.Model == "" || strings.HasPrefix(p.Model, "-") || strings.ContainsAny(p.Model, "\x00\r\n") || len(p.Arguments) != 0 || len(p.Environment) != 0 || p.CredentialReference != "" || !stagePath(request.Workspace) || !stagePath(request.Inbox) || !stagePath(request.AxiomPath) || stageContains(request.Workspace, request.Inbox) || stageContains(request.Inbox, request.Workspace) || strings.ContainsAny(request.AxiomPath, " ,():*;\"'`$|&<>\\") {
@@ -57,9 +58,6 @@ func BuildStageInvocation(request StageInvocationRequest) (executiongraph.Invoca
 		key, _, _ := strings.Cut(entry, "=")
 		if strings.EqualFold(key, "CODEX_HOME") || strings.EqualFold(key, "CLAUDE_CONFIG_DIR") {
 			return executiongraph.Invocation{}, ErrEffortConfigurationUnsafe
-		}
-		if p.RuntimeID == "claude" && strings.EqualFold(key, "CLAUDE_CODE_EFFORT_LEVEL") {
-			return executiongraph.Invocation{}, ErrEffortOverrideConflict
 		}
 	}
 	environment, err := StageEnvironment(p.RuntimeID, request.ParentEnvironment)
@@ -96,6 +94,11 @@ func BuildStageInvocation(request StageInvocationRequest) (executiongraph.Invoca
 			tools = strings.TrimSuffix(tools, ",Bash("+request.AxiomPath+":*)") + ",Bash"
 		}
 		argv = append(argv, "--print", "--model", p.Model, "--input-format", "text", "--permission-prompts", "none", "--permission-mode", "dontAsk", "--allowedTools", tools, "--add-dir", request.Inbox)
+		if !request.RepositoryWrite {
+			// Read-only stages may read the repository; Edit rules cover every
+			// file-editing tool, so writes there are denied.
+			argv = append(argv, "--add-dir", request.Workspace, "--disallowedTools", "Edit(/"+request.Workspace+"/**)")
+		}
 	default:
 		return executiongraph.Invocation{}, ErrInvalidAdapterConfiguration
 	}

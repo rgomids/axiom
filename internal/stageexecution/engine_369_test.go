@@ -83,7 +83,7 @@ func TestI369LifetimeRefusalsThroughEngine(t *testing.T) {
 	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(path, []byte("model_reasoning_effort = \"private-canary\"\n"), 0600); err != nil {
+	if err := os.WriteFile(path, []byte("model_reasoning_effort = [\"private-canary\"\n"), 0600); err != nil {
 		t.Fatal(err)
 	}
 	f.engine.Launcher = l
@@ -101,7 +101,7 @@ func TestI369LifetimeRefusalsThroughEngine(t *testing.T) {
 	}
 	for n := 1; n <= 2; n++ {
 		a := lastAttempt(x)
-		if a.Accounting != workflow.AccountingRefusal || !a.NoSpawn || a.LaunchFailure == nil || a.LaunchFailure.Reason != "selector_conflict" || a.Process != nil {
+		if a.Accounting != workflow.AccountingRefusal || !a.NoSpawn || a.LaunchFailure == nil || a.LaunchFailure.Reason != "configuration_invalid" || a.Process != nil {
 			t.Fatalf("refusal %d: %+v", n, a)
 		}
 		if n == 2 && a.ParentAttemptID != x.Stages[0].Tasks[0].Attempts[0].AttemptID {

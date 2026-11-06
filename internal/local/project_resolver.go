@@ -163,8 +163,7 @@ func validateResolvedLocations(project ResolvedProject) string {
 			return "repository_unavailable"
 		}
 		if repository.CanonicalIdentity != "" {
-			identity, err := DirectoryIdentity(repository.Path)
-			if err != nil || identity != repository.CanonicalIdentity {
+			if !MatchesDirectoryIdentity(repository.Path, repository.CanonicalIdentity) {
 				return "repository_unavailable"
 			}
 		}

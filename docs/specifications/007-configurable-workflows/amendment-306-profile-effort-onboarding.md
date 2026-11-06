@@ -110,11 +110,16 @@ and precedence for its exact observed version/mode from authoritative evidence;
 unknown configuration, unsupported precedence, malformed/unreadable sources or
 ambiguous selected config sections block `effort_configuration_unproven`.
 Current auth preflight does not provide this effort proof. Do not invent new
-Claude settings keys or unsupported vendor behavior. For runtime-default, any
-external explicit effort selector blocks `effort_override_conflict`; ordinary
-native model defaults with no selector are permitted as delegated no-override
-semantics. For explicit mode, admit only the canonical Profile-derived override;
-other configured/inherited selectors cannot be merged or silently win. Report
+Claude settings keys or unsupported vendor behavior. **Revised by the maintainer
+(AXM-12, 2026-11-05): personal configuration never blocks an Axiom run.** Effort
+selectors in user, project or project-local settings, and an inherited effort
+environment variable, are recorded as source facts only: Axiom passes its own
+Profile-derived model and effort on the invocation (argv/attempt environment),
+which outranks them, Codex runs with `--ignore-user-config`, and inherited
+effort variables never reach the child. Only managed (admin policy) selectors,
+which outrank the invocation, still block with `effort_override_conflict`.
+Under runtime-default no effort is passed, so the Runtime resolves its own
+default. Report
 source classes/key names and safe categories only; never raw configs/environment,
 login files, account values or credential payloads. No status probe, repair,
 setting removal or forced precedence is granted by inspection. Bind the safe

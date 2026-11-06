@@ -83,8 +83,8 @@ func TestOperationalSourceEffortDigestMatchesRealInvocationView(t *testing.T) {
 				conflict, content = filepath.Join(f.request.Roots.Project, ".claude", "settings.json"), `{"effortLevel":"future-effort"}`
 			}
 			write(t, conflict, content)
-			if _, err := source.ObserveOperational(context.Background(), runtimeID, profileID); !errors.Is(err, ErrEffortOverrideConflict) {
-				t.Fatal("equal-value competing selector admitted", err)
+			if _, err := source.ObserveOperational(context.Background(), runtimeID, profileID); err != nil {
+				t.Fatal("personal project selector blocked the Profile override", err)
 			}
 			relocated := source
 			relocated.Environment = append([]string{"CODEX_HOME=/relocated", "CLAUDE_CONFIG_DIR=/relocated"}, source.Environment...)
