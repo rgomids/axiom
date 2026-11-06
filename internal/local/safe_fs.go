@@ -11,6 +11,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 )
@@ -793,12 +795,41 @@ func markAttempt(root *os.Root, prefix string) (string, error) {
 
 const storeLockWait = time.Second
 
+// waitingWriters counts this process's exclusive lockRoots callers still
+// waiting, per outermost root. flock never queues a writer behind shared
+// holders, so frequent in-process readers (pumps, cancel watchers) could
+// starve every commit; while a writer waits, a reader stays off the lock for
+// at most half its own wait, then competes as before. No in-process lock is
+// held across calls, so nested lockRoots cannot deadlock.
+// shortcut: keyed by Root.Name(), so an aliased path of the same directory and
+// other processes get no writer preference; key by directory identity if that
+// starts to matter.
+var waitingWriters sync.Map // string -> *atomic.Int64
+
 func lockRoots(exclusive bool, roots ...*os.Root) ([]*os.File, error) {
-	deadline := time.Now().Add(storeLockWait)
+	start := time.Now()
+	deadline, yieldUntil := start.Add(storeLockWait), start.Add(storeLockWait/2)
+	var waiting *atomic.Int64
+	if len(roots) > 0 {
+		counter, _ := waitingWriters.LoadOrStore(roots[0].Name(), new(atomic.Int64))
+		waiting = counter.(*atomic.Int64)
+	}
+	registered := false
+	defer func() {
+		if registered {
+			waiting.Add(-1)
+		}
+	}()
 	for {
-		locks, err := tryLockRoots(exclusive, roots...)
-		if !errors.Is(err, ErrConflict) || time.Now().After(deadline) {
-			return locks, err
+		if exclusive || waiting == nil || waiting.Load() == 0 || time.Now().After(yieldUntil) {
+			locks, err := tryLockRoots(exclusive, roots...)
+			if !errors.Is(err, ErrConflict) || time.Now().After(deadline) {
+				return locks, err
+			}
+			if exclusive && !registered && waiting != nil {
+				waiting.Add(1)
+				registered = true
+			}
 		}
 		time.Sleep(2 * time.Millisecond)
 	}
