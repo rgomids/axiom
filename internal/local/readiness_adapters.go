@@ -64,8 +64,7 @@ func (RepositoryProbe) RepositoryAvailable(ctx context.Context, binding projecta
 	if binding.CanonicalIdentity == "" {
 		return true
 	}
-	identity, err := DirectoryIdentity(binding.ExplicitPath)
-	return err == nil && identity == binding.CanonicalIdentity
+	return MatchesDirectoryIdentity(binding.ExplicitPath, binding.CanonicalIdentity)
 }
 
 // DocumentationResolver classifies portable documentation sources through
@@ -129,11 +128,10 @@ func resolveLocalFile(binding projectapp.DocumentationBinding) projectapp.Docume
 	case err != nil || !info.Mode().IsRegular():
 		return projectapp.DocumentationUnsafe
 	}
-	identity, err := FileIdentity(binding.ExplicitPath)
-	if err != nil {
+	if _, err := FileIdentity(binding.ExplicitPath); err != nil {
 		return projectapp.DocumentationUnsafe
 	}
-	if identity != binding.CanonicalIdentity {
+	if !MatchesFileIdentity(binding.ExplicitPath, binding.CanonicalIdentity) {
 		return projectapp.DocumentationStale
 	}
 	return projectapp.DocumentationAvailable

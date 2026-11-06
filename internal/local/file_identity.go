@@ -3,13 +3,9 @@
 package local
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"os"
 	"path/filepath"
-	"strconv"
-	"syscall"
 )
 
 // FileIdentity observes one explicit regular file without following a link at
@@ -20,16 +16,17 @@ func FileIdentity(path string) (string, error) {
 	if !filepath.IsAbs(path) {
 		return "", errors.New("file path is not absolute")
 	}
-	clean := filepath.Clean(path)
-	info, err := os.Lstat(clean)
-	if err != nil || !info.Mode().IsRegular() {
+	clean, stat, err := lstatIdentity(path, isRegular)
+	if err != nil {
 		return "", errors.New("file is unavailable")
 	}
-	stat, ok := info.Sys().(*syscall.Stat_t)
-	if !ok {
-		return "", errors.New("file identity is unavailable")
-	}
-	facts := clean + "\x00" + strconv.FormatUint(uint64(stat.Dev), 10) + "\x00" + strconv.FormatUint(uint64(stat.Ino), 10)
-	digest := sha256.Sum256([]byte(facts))
-	return "file:" + hex.EncodeToString(digest[:]), nil
+	return identityValue("file:", clean, stat, false), nil
 }
+
+// MatchesFileIdentity is the file counterpart of MatchesDirectoryIdentity.
+func MatchesFileIdentity(path, recorded string) bool {
+	clean, stat, err := lstatIdentity(path, isRegular)
+	return err == nil && matchesIdentity("file:", clean, stat, recorded)
+}
+
+func isRegular(info os.FileInfo) bool { return info.Mode().IsRegular() }
