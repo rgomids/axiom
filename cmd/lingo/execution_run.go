@@ -376,6 +376,7 @@ func (c executionComposition) launcher(executionID, repositoryKey string) (stage
 	}
 	validator := local.NewWorkflowReferenceValidator(artifacts)
 	launcher.ValidateOutput = validator.ValidateExecutionOutput
+	launcher.ReadInput = validator.ReadExecutionArtifact
 	launcher.RetainOutput = func(ctx context.Context, subject workflow.OutputSubject, content []byte) (workflow.ArtifactRef, error) {
 		return validator.RetainExecutionOutput(ctx, subject, content, c.s.provenance)
 	}

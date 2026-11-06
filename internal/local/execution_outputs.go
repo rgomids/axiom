@@ -157,3 +157,45 @@ func (v WorkflowReferenceValidator) RetainExecutionOutput(ctx context.Context, s
 	}
 	return v.ValidateExecutionOutput(ctx, subject, wire)
 }
+
+// ReadExecutionArtifact returns the exact bytes of one recorded stage output,
+// so a successor stage receives its predecessor's content and not only a
+// reference it cannot open. Digest and Execution binding are re-checked.
+func (v WorkflowReferenceValidator) ReadExecutionArtifact(ctx context.Context, x workflow.Execution, attemptID string, artifact workflow.ArtifactRef) ([]byte, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if artifact.RetainedID != "" {
+		retained, err := v.artifacts.Read(ctx, artifact.RetainedID)
+		if err != nil || retained.ExecutionID != x.ExecutionID || "sha256:"+hex.EncodeToString(retained.Digest[:]) != artifact.Digest {
+			return nil, ErrUnsafe
+		}
+		return retained.Markdown, nil
+	}
+	if !workflow.ValidToken(attemptID) || !workflow.ValidToken(artifact.Name) {
+		return nil, ErrUnsafe
+	}
+	root, err := existingPrivateRoot(v.artifacts.root)
+	if err != nil {
+		return nil, err
+	}
+	for _, name := range []string{"executions", "v2-attempt-outputs", x.ProjectID, x.ExecutionID, attemptID} {
+		child, err := existingPrivateChild(root, name)
+		root.Close()
+		if err != nil {
+			return nil, err
+		}
+		root = child
+	}
+	defer root.Close()
+	file, err := root.OpenFile(artifact.Name, os.O_RDONLY|noFollow, 0)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+	data, err := io.ReadAll(io.LimitReader(file, maxWorkflowEvidenceBytes+1))
+	if err != nil || len(data) > maxWorkflowEvidenceBytes || workflow.DigestText(data) != artifact.Digest {
+		return nil, ErrUnsafe
+	}
+	return data, nil
+}

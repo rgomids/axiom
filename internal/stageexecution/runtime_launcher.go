@@ -50,7 +50,9 @@ type RuntimeLauncher struct {
 	ValidateOutput func(context.Context, workflow.OutputSubject, []byte) (workflow.ArtifactRef, error)
 	// RetainOutput retains delivered content for a checked output when it is
 	// not already a typed reference, then validates it with the same check.
-	RetainOutput                    func(context.Context, workflow.OutputSubject, []byte) (workflow.ArtifactRef, error)
+	RetainOutput func(context.Context, workflow.OutputSubject, []byte) (workflow.ArtifactRef, error)
+	// ReadInput returns a predecessor output's exact bytes for the packet.
+	ReadInput                       func(context.Context, workflow.Execution, string, workflow.ArtifactRef) ([]byte, error)
 	Workspace, InboxRoot, AxiomPath string
 	Environment                     []string
 	// Tests replace only the machine-local root lookup, keeping the real
@@ -231,7 +233,15 @@ func (l RuntimeLauncher) Inspect(ctx context.Context, r LaunchRequest) (result e
 				return fail()
 			}
 			if selected != nil {
-				inputs[name] = inputValue{Artifact: selected, Provenance: provenance}
+				value := inputValue{Artifact: selected, Provenance: provenance}
+				if l.ReadInput != nil {
+					content, err := l.ReadInput(ctx, r.Execution, provenance.AttemptID, *selected)
+					if err != nil {
+						return fail()
+					}
+					value.Content = string(content)
+				}
+				inputs[name] = value
 			}
 		}
 		for _, input := range r.Stage.FrozenInputs {

@@ -222,6 +222,12 @@ func TestRetainExecutionOutputCorrelatesDeliveredContent(t *testing.T) {
 		if err != nil || ref.Name != "result" || ref.RepositoryKey != "main" || ref.RetainedID == "" {
 			t.Fatal(ref, err)
 		}
+		if content, err := v.ReadExecutionArtifact(ctx, workflow.Execution{ExecutionID: subject.ExecutionID}, subject.AttemptID, ref); err != nil || string(content) != "# Intake\n\nBounded intent.\n" {
+			t.Fatal("retained content not readable for successors", err)
+		}
+		if _, err := v.ReadExecutionArtifact(ctx, workflow.Execution{ExecutionID: "123e4567-e89b-42d3-a456-426614174001"}, subject.AttemptID, ref); err == nil {
+			t.Fatal("retained content read from another Execution")
+		}
 		wire, _ := json.Marshal(map[string]string{"kind": "artifact", "id": ref.RetainedID, "digest": strings.TrimPrefix(ref.Digest, "sha256:")})
 		other := subject
 		other.AttemptID = "attempt-2"

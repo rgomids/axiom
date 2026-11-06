@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -159,11 +160,29 @@ func TestEngineRuntimeLauncherProgressesTwoStagesWithFileOutputs(t *testing.T) {
 	frozen := stubInvocation()
 	frozen.Runtime = "codex"
 	frozen.Executable = filepath.Join(filepath.Dir(l.AxiomPath), "codex")
+	l.ReadInput = func(_ context.Context, _ workflow.Execution, _ string, artifact workflow.ArtifactRef) ([]byte, error) {
+		if artifact.Name != "result" {
+			t.Fatal("unexpected input artifact", artifact)
+		}
+		return []byte("validated local bytes"), nil
+	}
 	f.engine.Launcher = l
 	f.engine.Resolve = func(_ context.Context, _ workflow.Execution, _ workflow.TaskRef) (workflow.Invocation, workflow.AttemptAuthority, error) {
 		return frozen, workflow.AttemptAuthority{RepositoryKey: "app", Effects: []string{"workspace_write"}, Actor: "user:local"}, nil
 	}
+	var calls atomic.Int32
 	f.runner.run = func(_ context.Context, inv executiongraph.Invocation, started func(*executiongraph.ProcessCorrelation) error) executiongraph.ProcessResult {
+		// The successor receives its predecessor's content, not only a reference.
+		if calls.Add(1) == 2 {
+			var successor struct {
+				Inputs map[string]struct {
+					Content string `json:"content"`
+				}
+			}
+			if err := json.Unmarshal(inv.Stdin, &successor); err != nil || successor.Inputs["source"].Content != "validated local bytes" {
+				t.Fatalf("predecessor content missing from packet: %v %s", err, inv.Stdin)
+			}
+		}
 		if err := started(&executiongraph.ProcessCorrelation{PID: 777, StartIdentity: "boot:1", GroupIdentity: "777"}); err != nil {
 			t.Fatal(err)
 		}
@@ -183,6 +202,8 @@ func TestEngineRuntimeLauncherProgressesTwoStagesWithFileOutputs(t *testing.T) {
 	req := linkedRequest()
 	req.WorkflowID, req.WorkflowRevision, req.Stages = "two-stage", "r1", twoStages(false)
 	req.Stages[1].Agents[0].Effects = []string{"workspace_write"}
+	req.Stages[1].Agents[0].Inputs = []string{"source"}
+	req.Stages[1].StageOutputInputs = []workflow.StageOutputInput{{Name: "source", StageID: "work", Output: "result", Required: true}}
 	x, err := f.engine.Start(context.Background(), store, req)
 	if err != nil || x.Status != workflow.RunCompleted || f.runner.spawns.Load() != 2 {
 		t.Fatalf("two-stage launcher: %v %s %d", err, x.Status, f.runner.spawns.Load())
