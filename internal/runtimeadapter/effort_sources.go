@@ -231,6 +231,13 @@ func effortPathOperand(runtimeID, option, value string) bool {
 			}
 		}
 		return true
+	case runtimeID == "claude" && option == "--disallowedTools":
+		// The read-only repository guard: exactly Edit(/<stage path>/**).
+		path, ok := strings.CutPrefix(value, "Edit(/")
+		if ok {
+			path, ok = strings.CutSuffix(path, "/**)")
+		}
+		return ok && stagePath(path)
 	}
 	return false
 }

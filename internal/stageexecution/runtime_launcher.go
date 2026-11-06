@@ -266,6 +266,7 @@ func (l RuntimeLauncher) Inspect(ctx context.Context, r LaunchRequest) (result e
 			return fail()
 		}
 	}
+	repositoryWritable := slices.Contains(r.Attempt.Authority.Effects, "workspace_write")
 	// Message areas are the same for both Runtimes. Their contents are data:
 	// a message never completes a task, satisfies a gate or grants authority.
 	// Contract is the engine's delivery protocol, read first by the child. Without
@@ -273,13 +274,17 @@ func (l RuntimeLauncher) Inspect(ctx context.Context, r LaunchRequest) (result e
 	packet := struct {
 		Contract                                                                string
 		ExecutionID, AttemptID, StageID, AgentID, Instructions, OutputDirectory string
-		MessageSendDirectory, MessageReceiveDirectory                           string
-		RunnerGeneration                                                        uint64
-		Outputs                                                                 []string
-		DefinitionDigest                                                        string
-		OutputChecks                                                            []workflow.OutputCheck
-		Inputs                                                                  map[string]inputValue
-	}{stageContract, r.Execution.ExecutionID, r.Attempt.AttemptID, r.Ref.StageID, r.Ref.AgentID, frozen.Instructions, inbox, filepath.Join(inbox, sendArea), filepath.Join(inbox, receiveArea), r.Attempt.RunnerGeneration, attemptOutputs(r), r.Stage.DefinitionDigest, r.Stage.OutputChecks, inputs}
+		// RepositoryKey is a Project label, not a directory name. RepositoryRoot
+		// is the bound repository; writable only when RepositoryWritable.
+		RepositoryKey, RepositoryRoot                 string
+		RepositoryWritable                            bool
+		MessageSendDirectory, MessageReceiveDirectory string
+		RunnerGeneration                              uint64
+		Outputs                                       []string
+		DefinitionDigest                              string
+		OutputChecks                                  []workflow.OutputCheck
+		Inputs                                        map[string]inputValue
+	}{stageContract, r.Execution.ExecutionID, r.Attempt.AttemptID, r.Ref.StageID, r.Ref.AgentID, frozen.Instructions, inbox, r.Attempt.Authority.RepositoryKey, l.Workspace, repositoryWritable, filepath.Join(inbox, sendArea), filepath.Join(inbox, receiveArea), r.Attempt.RunnerGeneration, attemptOutputs(r), r.Stage.DefinitionDigest, r.Stage.OutputChecks, inputs}
 	inv.Stdin, err = json.Marshal(packet)
 	if err != nil || len(inv.Stdin) > executiongraph.MaxStdinBytes {
 		return fail()
@@ -474,6 +479,10 @@ const stageContract = "You are an Axiom stage agent running non-interactively. D
 	"(no extension, no subdirectory, no symlink). The stage completes only when every declared output file exists; " +
 	"text printed to stdout is discarded and does not count. Write the content itself (Markdown or text) for every output, " +
 	"including those in OutputChecks: Axiom retains and checks it; never invent artifact references. " +
+	"RepositoryKey is the Project's label for the bound repository, not a directory name: never search for it. " +
+	"RepositoryRoot is the repository root. When RepositoryWritable is true it is your working directory and you make repository changes there; " +
+	"otherwise it is read-only: read and verify it, never modify it. " +
+	"If you cannot complete the stage, do not write the output files: explain why on stdout and exit, so the attempt fails instead of passing. " +
 	"MessageSendDirectory and MessageReceiveDirectory are optional coordination areas. Exit when the files are written."
 
 func artifactReferenceShaped(data []byte) bool {

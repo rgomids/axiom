@@ -94,6 +94,11 @@ func BuildStageInvocation(request StageInvocationRequest) (executiongraph.Invoca
 			tools = strings.TrimSuffix(tools, ",Bash("+request.AxiomPath+":*)") + ",Bash"
 		}
 		argv = append(argv, "--print", "--model", p.Model, "--input-format", "text", "--permission-prompts", "none", "--permission-mode", "dontAsk", "--allowedTools", tools, "--add-dir", request.Inbox)
+		if !request.RepositoryWrite {
+			// Read-only stages may read the repository; Edit rules cover every
+			// file-editing tool, so writes there are denied.
+			argv = append(argv, "--add-dir", request.Workspace, "--disallowedTools", "Edit(/"+request.Workspace+"/**)")
+		}
 	default:
 		return executiongraph.Invocation{}, ErrInvalidAdapterConfiguration
 	}

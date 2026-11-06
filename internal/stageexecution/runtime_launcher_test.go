@@ -186,9 +186,16 @@ func TestEngineRuntimeLauncherProgressesTwoStagesWithFileOutputs(t *testing.T) {
 		if err := started(&executiongraph.ProcessCorrelation{PID: 777, StartIdentity: "boot:1", GroupIdentity: "777"}); err != nil {
 			t.Fatal(err)
 		}
-		var packet struct{ Contract, OutputDirectory string }
+		var packet struct {
+			Contract, OutputDirectory, RepositoryKey, RepositoryRoot string
+			RepositoryWritable                                       bool
+		}
 		if err := json.Unmarshal(inv.Stdin, &packet); err != nil {
 			t.Fatal(err)
+		}
+		// A writing child is told its repository root; the key is only a label.
+		if packet.RepositoryKey != "app" || packet.RepositoryRoot != l.Workspace || !packet.RepositoryWritable || !strings.Contains(packet.Contract, "do not write the output files") {
+			t.Fatalf("repository/blocked protocol missing: %+v", packet)
 		}
 		// The child must be told how to deliver; stdout never counts.
 		if !strings.HasPrefix(string(inv.Stdin), `{"Contract":`) || !strings.Contains(packet.Contract, "OutputDirectory") || !strings.Contains(packet.Contract, "stdout") {
