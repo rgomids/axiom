@@ -34,6 +34,14 @@
   Projects created by `project configure` carry no policy and block until an
   authored policy is installed.
 
+## [0.23.4](https://github.com/rgomids/axiom/compare/v0.23.3...v0.23.4) (2026-11-06)
+
+
+### Bug Fixes
+
+* **local:** keep in-process store readers from starving writers ([#380](https://github.com/rgomids/axiom/issues/380)) ([eb9f158](https://github.com/rgomids/axiom/commit/eb9f158e4ab0b71cd320658e2fec2b3baec83b53))
+* **stageexecution:** bound exchange stub waits by the attempt context ([#379](https://github.com/rgomids/axiom/issues/379)) ([0e1badb](https://github.com/rgomids/axiom/commit/0e1badb007dd9fde54ab61160b4b1a888e58c0e3))
+
 ## [0.23.3](https://github.com/rgomids/axiom/compare/v0.23.2...v0.23.3) (2026-11-06)
 
 
