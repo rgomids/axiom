@@ -158,7 +158,7 @@ printf '%s\n' '#!/bin/sh' \
   '*issues/7/comments?per_page=100*) if [ -s "$AXIOM_FAKE_PROVIDER_COMMENT" ]; then printf "["; cat "$AXIOM_FAKE_PROVIDER_COMMENT"; printf "]\n"; else printf "%s\n" "[]"; fi ;;' \
   '*POST*issues/7/labels*) input=$(cat); value=$(printf "%s" "$input" | sed -n "s/.*\"labels\":\[\"\([^\"]*\)\"\].*/\1/p"); printf "%s\n" "$value" >"$AXIOM_FAKE_PROVIDER_LABEL"; printf "%s\n" "$input" ;;' \
   '*DELETE*issues/7/labels/*) : >"$AXIOM_FAKE_PROVIDER_LABEL"; printf "%s\n" "{}" ;;' \
-  '*issues/7*) if [ -s "$AXIOM_FAKE_PROVIDER_LABEL" ]; then value=$(sed -n "1p" "$AXIOM_FAKE_PROVIDER_LABEL"); labels="[{\"name\":\"$value\"}]"; else labels="[]"; fi; printf "{\"number\":7,\"html_url\":\"https://github.com/owner/repo/issues/7\",\"state\":\"open\",\"labels\":%s}\n" "$labels" ;;' \
+  '*issues/7*) if [ -s "$AXIOM_FAKE_PROVIDER_LABEL" ]; then value=$(sed -n "1p" "$AXIOM_FAKE_PROVIDER_LABEL"); labels="[{\"name\":\"$value\"}]"; else labels="[]"; fi; printf "{\"number\":7,\"html_url\":\"https://github.com/owner/repo/issues/7\",\"state\":\"open\",\"title\":\"Dogfood delivery is blocked\",\"body\":\"\",\"labels\":%s}\n" "$labels" ;;' \
   '  *POST*repos/owner/repo/issues*) cat >/dev/null; printf "%s\n" "{\"number\":7,\"html_url\":\"https://github.com/owner/repo/issues/7\",\"state\":\"open\"}" ;;' \
   '  *) exit 1 ;;' \
   'esac' >"$gh_binary"
