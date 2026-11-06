@@ -167,9 +167,13 @@ func TestEngineRuntimeLauncherProgressesTwoStagesWithFileOutputs(t *testing.T) {
 		if err := started(&executiongraph.ProcessCorrelation{PID: 777, StartIdentity: "boot:1", GroupIdentity: "777"}); err != nil {
 			t.Fatal(err)
 		}
-		var packet struct{ OutputDirectory string }
+		var packet struct{ Contract, OutputDirectory string }
 		if err := json.Unmarshal(inv.Stdin, &packet); err != nil {
 			t.Fatal(err)
+		}
+		// The child must be told how to deliver; stdout never counts.
+		if !strings.HasPrefix(string(inv.Stdin), `{"Contract":`) || !strings.Contains(packet.Contract, "OutputDirectory") || !strings.Contains(packet.Contract, "stdout") {
+			t.Fatal("stage packet lacks the delivery contract")
 		}
 		if err := os.WriteFile(filepath.Join(packet.OutputDirectory, "result"), []byte("validated local bytes"), 0600); err != nil {
 			t.Fatal(err)

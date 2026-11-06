@@ -248,7 +248,10 @@ func (l RuntimeLauncher) Inspect(ctx context.Context, r LaunchRequest) (result e
 	}
 	// Message areas are the same for both Runtimes. Their contents are data:
 	// a message never completes a task, satisfies a gate or grants authority.
+	// Contract is the engine's delivery protocol, read first by the child. Without
+	// it a model can answer on stdout and exit 0, which is missing_output.
 	packet := struct {
+		Contract                                                                string
 		ExecutionID, AttemptID, StageID, AgentID, Instructions, OutputDirectory string
 		MessageSendDirectory, MessageReceiveDirectory                           string
 		RunnerGeneration                                                        uint64
@@ -256,7 +259,7 @@ func (l RuntimeLauncher) Inspect(ctx context.Context, r LaunchRequest) (result e
 		DefinitionDigest                                                        string
 		OutputChecks                                                            []workflow.OutputCheck
 		Inputs                                                                  map[string]inputValue
-	}{r.Execution.ExecutionID, r.Attempt.AttemptID, r.Ref.StageID, r.Ref.AgentID, frozen.Instructions, inbox, filepath.Join(inbox, sendArea), filepath.Join(inbox, receiveArea), r.Attempt.RunnerGeneration, attemptOutputs(r), r.Stage.DefinitionDigest, r.Stage.OutputChecks, inputs}
+	}{stageContract, r.Execution.ExecutionID, r.Attempt.AttemptID, r.Ref.StageID, r.Ref.AgentID, frozen.Instructions, inbox, filepath.Join(inbox, sendArea), filepath.Join(inbox, receiveArea), r.Attempt.RunnerGeneration, attemptOutputs(r), r.Stage.DefinitionDigest, r.Stage.OutputChecks, inputs}
 	inv.Stdin, err = json.Marshal(packet)
 	if err != nil || len(inv.Stdin) > executiongraph.MaxStdinBytes {
 		return fail()
@@ -437,3 +440,9 @@ func plannedRuntimePath(path string) bool {
 		}
 	}
 }
+
+const stageContract = "You are an Axiom stage agent running non-interactively. Do the work in Instructions using Inputs. " +
+	"Deliver it as files: for each name in Outputs, write one regular file with exactly that name directly inside OutputDirectory " +
+	"(no extension, no subdirectory, no symlink). The stage completes only when every declared output file exists; " +
+	"text printed to stdout is discarded and does not count. If OutputChecks names an output, its content must satisfy that check. " +
+	"MessageSendDirectory and MessageReceiveDirectory are optional coordination areas. Exit when the files are written."
