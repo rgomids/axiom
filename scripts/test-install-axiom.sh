@@ -49,7 +49,7 @@ if [[ $(PATH="$AXIOM_BIN_DIR:$PATH" command -v axiom) != "$AXIOM_BIN_DIR/axiom" 
   exit 1
 fi
 case "$version" in
-  *'### Succeeded (`success`)'*'Axiom build information'*'**Provenance:** product `Axiom` · version `development`'*'sourceState `clean`'*) ;;
+  *'Succeeded (success)'*'Axiom build information'*'product: Axiom, version: development'*'sourceState: clean'*) ;;
   *) exit 1 ;;
 esac
 
