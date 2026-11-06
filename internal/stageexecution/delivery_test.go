@@ -22,21 +22,27 @@ type deliveryFake struct {
 	reads, pushes, prs int
 	lost               bool
 	mismatch           bool
-	beforeRead         func(int)
-	beforeEffect       func()
+	// spacedRequest: the engine holds spaced metadata, persistence compact.
+	spacedRequest bool
+	beforeRead    func(int)
+	beforeEffect  func()
 }
 
 func (d *deliveryFake) ObserveDelivery(_ context.Context, p workflow.DeliveryPreview) (workflow.DeliveryObservation, error) {
 	d.t.Helper()
 	d.reads++
-	if !reflect.DeepEqual(p.Target, d.request.Target) || p.PacketDigest != d.request.Digest() {
+	target := p.Target
+	if d.spacedRequest {
+		target.Metadata = d.request.Target.Metadata
+	}
+	if !reflect.DeepEqual(target, d.request.Target) || p.PacketDigest != d.request.Digest() {
 		d.t.Fatal("read escaped exact request")
 	}
 	if d.beforeRead != nil {
 		d.beforeRead(d.reads)
 	}
 	r := d.request
-	target := r.Target
+	target = r.Target
 	o := workflow.DeliveryObservation{Conclusive: true, BaseCommit: target.BaseCommit, HeadCommit: target.HeadCommit, Tree: target.Tree, DiffDigest: target.DiffDigest, RemoteBase: target.BaseCommit, RemoteHead: r.ExpectedRemoteHead}
 	if d.pushes > 0 {
 		o.RemoteHead = target.HeadCommit
@@ -52,7 +58,7 @@ func (d *deliveryFake) ObserveDelivery(_ context.Context, p workflow.DeliveryPre
 func (d *deliveryFake) effect(p workflow.DeliveryPreview) error {
 	d.t.Helper()
 	x, err := d.f.engine.Store.Load(context.Background(), "proj", engineExecutionID)
-	if err != nil || len(x.Deliveries) == 0 || x.Deliveries[len(x.Deliveries)-1].Status != "prepared" || !reflect.DeepEqual(x.Deliveries[len(x.Deliveries)-1].Request, d.request) {
+	if err != nil || len(x.Deliveries) == 0 || x.Deliveries[len(x.Deliveries)-1].Status != "prepared" || !reflect.DeepEqual(x.Deliveries[len(x.Deliveries)-1].Request, d.request) && !d.spacedRequest {
 		d.t.Fatalf("effect before durable exact intent: %+v %v", x.Deliveries, err)
 	}
 	if d.beforeEffect != nil {
@@ -522,5 +528,21 @@ func TestExecutionDeliveryAdapterKnownRefusal(t *testing.T) {
 	x, err := f.engine.Deliver(context.Background(), r, a, refusedDeliveryFake{d}, allowDelivery)
 	if !errors.Is(err, workflow.ErrDeliveryRefused) || x.Deliveries[0].Status != "refused" || x.Status == workflow.RunRecoveryRequired || d.pushes+d.prs != 0 {
 		t.Fatalf("adapter refusal: %v %+v", err, x.Deliveries)
+	}
+}
+
+// A request whose PR metadata carries insignificant whitespace still confirms
+// the exact PR it created; persistence compacts the JSON.
+func TestExecutionDeliveryConfirmsPRWithSpacedMetadata(t *testing.T) {
+	f, d, r, a := deliveryFixture(t, true)
+	r.Target.Metadata = []byte(`{"surface": "pull_request", "effects": []}`)
+	a.Digest = r.Digest()
+	// The Provider side reads back what persistence kept: compact metadata.
+	d.request = r
+	d.request.Target.Metadata = []byte(`{"surface":"pull_request","effects":[]}`)
+	d.spacedRequest = true
+	x, err := f.engine.Deliver(context.Background(), r, a, d, allowDelivery)
+	if err != nil || len(x.Deliveries) != 1 || x.Deliveries[0].Status != "confirmed" || d.prs != 1 {
+		t.Fatalf("spaced metadata lost confirmation: %v %+v", err, x.Deliveries)
 	}
 }
