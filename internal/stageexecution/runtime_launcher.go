@@ -483,6 +483,7 @@ const stageContract = "You are an Axiom stage agent running non-interactively. D
 	"RepositoryRoot is the repository root. When RepositoryWritable is true it is your working directory and you make repository changes there; " +
 	"otherwise it is read-only: read and verify it, never modify it. " +
 	"If you cannot complete the stage, do not write the output files: explain why on stdout and exit, so the attempt fails instead of passing. " +
+	"Use only the tools you are given; a check you cannot run with them (for example a shell command) is reported in the output as not run and does not block the stage. " +
 	"MessageSendDirectory and MessageReceiveDirectory are optional coordination areas. Exit when the files are written."
 
 func artifactReferenceShaped(data []byte) bool {
