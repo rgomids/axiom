@@ -431,3 +431,20 @@ func documentDigest(document ProviderDocument) string {
 	digest := sha256.Sum256([]byte(document.Title + "\x00" + document.Body))
 	return hex.EncodeToString(digest[:])
 }
+
+// ReadDocument reads the current Provider title and body of one linked Work
+// Item, so an Execution can freeze what the work is about at start.
+func (s Service) ReadDocument(ctx context.Context, target Target, selector string) (ProviderDocument, Result) {
+	link, failure := s.lifecycleLink(ctx, target, selector)
+	if failure.Category != "" {
+		return ProviderDocument{}, failure
+	}
+	external, document, err := s.lifecycle.ReadDocument(ctx, link.Resource, link.ExternalID)
+	if err != nil {
+		return ProviderDocument{}, providerFailure(err, "provider_read_failed")
+	}
+	if !s.capability.ValidExternal(link.Resource, link.ExternalID, external) {
+		return ProviderDocument{}, result(completion.Failure, "invalid_provider_response")
+	}
+	return document, Result{Status: completion.Success}
+}

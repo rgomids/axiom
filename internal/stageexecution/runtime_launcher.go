@@ -238,7 +238,11 @@ func (l RuntimeLauncher) Inspect(ctx context.Context, r LaunchRequest) (result e
 					return fail()
 				}
 				if input.Project != nil || input.Artifact != nil || input.Content != "" {
-					inputs[name] = inputValue{Provenance: input.Provenance, Project: input.Project, Artifact: input.Artifact, Source: input.Source, Content: input.Content, Digest: input.Digest}
+					value := inputValue{Provenance: input.Provenance, Project: input.Project, Artifact: input.Artifact, Source: input.Source, Content: input.Content, Digest: input.Digest}
+					if input.Kind == "work-item" {
+						value.WorkItem = &r.Execution.WorkItem
+					}
+					inputs[name] = value
 				}
 			}
 		}

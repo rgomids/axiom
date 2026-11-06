@@ -776,6 +776,13 @@ func validateWorkflow(w WorkflowSnapshot, repos map[string]bool) error {
 				if input.Project != nil && (!ValidToken(input.Project.ID) || len(input.Project.Repositories) > 16 || !boundedText(input.Project.PortableRevision, 256)) {
 					return invalid("project context")
 				}
+			} else if input.Kind == "work-item" {
+				if input.Artifact != nil || input.Project != nil || input.Provenance != nil || input.Source != "target" {
+					return invalid("work item input")
+				}
+				if input.Content == "" || !boundedText(input.Content, MaxInstructionBytes) || input.Digest != DigestText([]byte(input.Content)) {
+					return invalid("work item digest/bounds")
+				}
 			} else if input.Kind == "artifact" {
 				if input.Project != nil {
 					return invalid("artifact input")
