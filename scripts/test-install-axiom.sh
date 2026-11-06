@@ -132,11 +132,11 @@ fi
 cp -p -- "$AXIOM_BIN_DIR/axiom" "$temporary/dev-axiom"
 refuses_restore() {
   local before
-  before=$(ls -l "$AXIOM_BIN_DIR/axiom"; shasum -a 256 "$AXIOM_BIN_DIR/axiom" 2>/dev/null || true)
+  before=$(ls -l "$AXIOM_BIN_DIR/axiom" 2>/dev/null; shasum -a 256 "$AXIOM_BIN_DIR/axiom" 2>/dev/null || true)
   if "${release_env[@]}" "$repository_root/scripts/install-axiom.sh" --restore-release >/dev/null 2>&1; then
     exit 1
   fi
-  if [[ "$(ls -l "$AXIOM_BIN_DIR/axiom"; shasum -a 256 "$AXIOM_BIN_DIR/axiom" 2>/dev/null || true)" != "$before" ]]; then
+  if [[ "$(ls -l "$AXIOM_BIN_DIR/axiom" 2>/dev/null; shasum -a 256 "$AXIOM_BIN_DIR/axiom" 2>/dev/null || true)" != "$before" ]]; then
     exit 1
   fi
   if [[ $(shasum -a 256 "$AXIOM_INSTALL_STATE_ROOT/release-backup/axiom" | awk '{print $1}') != "$release_sha" || ! -f "$AXIOM_INSTALL_STATE_ROOT/release-backup/installation.receipt" ]]; then
@@ -165,6 +165,27 @@ if [[ $(shasum -a 256 "$AXIOM_BIN_DIR/axiom" | awk '{print $1}') != "$release_sh
 fi
 if "${release_env[@]}" "$repository_root/scripts/install-axiom.sh" --restore-release >/dev/null 2>&1; then
   exit 1 # nothing left to restore
+fi
+
+# With the dev binary removed, restore still requires the dev receipt bound to
+# this destination; a missing, symlinked, or foreign receipt keeps the backup (CR-376-F4).
+"${release_env[@]}" "$repository_root/scripts/install-axiom.sh" --replace-release >/dev/null 2>&1
+rm -f -- "$AXIOM_BIN_DIR/axiom"
+mv -- "$AXIOM_INSTALL_STATE_ROOT/axiom.receipt" "$temporary/axiom.receipt"
+refuses_restore
+ln -s -- "$temporary/axiom.receipt" "$AXIOM_INSTALL_STATE_ROOT/axiom.receipt"
+refuses_restore
+rm -f -- "$AXIOM_INSTALL_STATE_ROOT/axiom.receipt"
+sed 's|^destination=.*|destination=/elsewhere/axiom|' "$temporary/axiom.receipt" >"$AXIOM_INSTALL_STATE_ROOT/axiom.receipt"
+refuses_restore
+mv -f -- "$temporary/axiom.receipt" "$AXIOM_INSTALL_STATE_ROOT/axiom.receipt"
+restored=$("${release_env[@]}" "$repository_root/scripts/install-axiom.sh" --restore-release 2>/dev/null || true)
+case "$restored" in
+  *'"result":"restored"'*) ;;
+  *) exit 1 ;;
+esac
+if [[ $(shasum -a 256 "$AXIOM_BIN_DIR/axiom" | awk '{print $1}') != "$release_sha" || ! -f "$AXIOM_INSTALL_STATE_ROOT/installation.receipt" || -e "$AXIOM_INSTALL_STATE_ROOT/axiom.receipt" || -e "$AXIOM_INSTALL_STATE_ROOT/release-backup" ]]; then
+  exit 1
 fi
 
 printf '%s\n' 'PASS: Axiom installer reports PATH setup, dirty metadata, idempotence, conflicts, and release replace/restore'
