@@ -177,9 +177,18 @@ func TestExecutionDeliveryLostResponseInspectOnlyExactTarget(t *testing.T) {
 			if err == nil || d.reads != reads {
 				t.Fatal("unauthorized inspect")
 			}
+			// A drifted observation records evidence only.
+			d.mismatch = true
 			x, err = f.engine.InspectDelivery(context.Background(), "proj", engineExecutionID, 0, a, d, allowDelivery)
 			if err != nil || x.Deliveries[0].Status != "unknown" || len(x.Deliveries[0].Observations) != 1 || d.reads != reads+1 || d.pushes+d.prs != 1 {
 				t.Fatalf("inspect changed outcome/replayed: %v %+v", err, x.Deliveries)
+			}
+			// The exact requested effect, observed under the original grant, is
+			// the human disposition: confirmed, never replayed.
+			d.mismatch = false
+			x, err = f.engine.InspectDelivery(context.Background(), "proj", engineExecutionID, 0, a, d, allowDelivery)
+			if err != nil || x.Deliveries[0].Status != "confirmed" || len(x.Deliveries[0].Observations) != 2 || x.Status == workflow.RunRecoveryRequired || d.pushes+d.prs != 1 {
+				t.Fatalf("exact observation not confirmed: %v %+v", err, x.Deliveries)
 			}
 			r.Revision = x.Revision
 			a.Digest = r.Digest()

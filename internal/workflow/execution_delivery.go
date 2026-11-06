@@ -166,6 +166,13 @@ func (e *Execution) ObserveDelivery(index int, generation uint64, a DeliveryGran
 		return ErrUnauthorizedEffect
 	}
 	d.Observations = append(d.Observations, o)
+	// Human disposition of an unknown: an operator-authorized inspection under
+	// the original grant that conclusively observes exactly the requested
+	// effect confirms it. Nothing is replayed; any other observation stays
+	// unknown.
+	if d.Request.MatchesObservation(o, true) {
+		d.Status = "confirmed"
+	}
 	e.touch(now)
 	return e.Validate()
 }
@@ -198,7 +205,7 @@ func validateDeliveries(e Execution) error {
 				return invalid("terminal delivery")
 			}
 		case "confirmed":
-			if d.EndedAt == nil || len(d.Observations) != 1 || !r.MatchesObservation(d.Observations[0], true) {
+			if d.EndedAt == nil || len(d.Observations) == 0 || !r.MatchesObservation(d.Observations[len(d.Observations)-1], true) {
 				return invalid("confirmed delivery")
 			}
 		default:
@@ -229,6 +236,10 @@ func PreservesDeliveryHistory(prior, next []ExecutionDelivery) bool {
 			n.Observations = d.Observations
 		} else if d.Status == "unknown" {
 			n.Observations = d.Observations
+			// An exact observed confirmation is the only change of an unknown.
+			if n.Status == "confirmed" {
+				n.Status = d.Status
+			}
 		}
 		if !reflect.DeepEqual(d, n) {
 			return false

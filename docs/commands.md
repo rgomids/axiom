@@ -2201,7 +2201,8 @@ Cancellation and current authority still apply. A lost response remains
 unknown/recovery-required. `advance --inspect <index>`
 instead of `--request`, with the original exact grant and authority flags,
 records only an exact-target read. It never repeats an effect or turns guessed
-success into confirmation. Rejection and linked rework use the ordinary
+success into confirmation; only a conclusive read of exactly the requested effect
+(same refs, commits, tree, diff and single matching PR) confirms the unknown. Rejection and linked rework use the ordinary
 Execution controls described above; unknown effects require explicit recovery.
 Legacy delivery writers and composers are removed. Strict historical readers
 remain for inventory and retention, without a compatibility executor.

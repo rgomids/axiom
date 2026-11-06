@@ -98,7 +98,9 @@ absence of an integration means no Git target is claimed. Readiness grants no
 publication, merge or acceptance authority. Optional `workflow delivery advance` performs one exactly authorized push or PR
 phase over `Execution.deliveries`, with intent before effect and exact observed
 confirmation. Lost responses remain unknown; `--inspect` records only exact-target
-observations under the original grant, without replay. Use `axiom docs commands` for the full command reference.
+observations under the original grant, without replay. That operator-authorized
+inspection is the human disposition: when it conclusively observes exactly the
+requested effect the delivery becomes confirmed; any other observation stays unknown. Use `axiom docs commands` for the full command reference.
 
 Human rejection is recorded with `workflow stage reject --execution <id>
 --stage <stage-id> --result-digest <digest> --evidence <retained-evidence-id>
