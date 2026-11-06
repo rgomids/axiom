@@ -140,7 +140,10 @@ func (l RuntimeLauncher) Inspect(ctx context.Context, r LaunchRequest) (result e
 		Profile:   runtimeadapter.CommandProfile{RuntimeID: frozen.Runtime, Executable: frozen.Executable, Model: frozen.Model},
 		Workspace: l.Workspace, Inbox: inbox, AxiomPath: l.AxiomPath,
 		RepositoryWrite: slices.Contains(r.Attempt.Authority.Effects, "workspace_write"),
-		Process:         slices.Contains(r.Attempt.Authority.Effects, "process"), ParentEnvironment: l.Environment,
+		// A writable attempt may already change the repository, so it also gets a
+		// shell to build, test and wait; "process" is not an attempt effect kind.
+		Process:           slices.Contains(r.Attempt.Authority.Effects, "workspace_write") || slices.Contains(r.Attempt.Authority.Effects, "validation_command"),
+		ParentEnvironment: l.Environment,
 		// The child's own attempt context marks it as a Runtime child, so it
 		// cannot record human authority through the Axiom CLI it may invoke.
 		Correlation: attemptCorrelation(r),
@@ -484,7 +487,12 @@ const stageContract = "You are an Axiom stage agent running non-interactively. D
 	"otherwise it is read-only: read and verify it, never modify it. " +
 	"If you cannot complete the stage, do not write the output files: explain why on stdout and exit, so the attempt fails instead of passing. " +
 	"Use only the tools you are given; a check you cannot run with them (for example a shell command) is reported in the output as not run and does not block the stage. " +
-	"MessageSendDirectory and MessageReceiveDirectory are optional coordination areas. Exit when the files are written."
+	"MessageSendDirectory and MessageReceiveDirectory are optional coordination areas. " +
+	"To send a message write one file MessageSendDirectory/ID.json holding exactly the JSON object with fields id, recipient, kind and content, " +
+	"plus replyTo only on an answer: id equals ID (lowercase letters, digits and hyphens), recipient is another agent ID of this Workflow, " +
+	"kind is question, answer, blocker or result, content is text under 4 KiB, and replyTo is the question id. Any other shape is discarded unread. " +
+	"Delivered messages appear as MessageReceiveDirectory/ID.json with id, sender, kind, optional replyTo and content. " +
+	"An answer is accepted only while its asker still runs, so an agent that asks keeps polling for the answer before it exits. Exit when the files are written."
 
 func artifactReferenceShaped(data []byte) bool {
 	var ref struct {

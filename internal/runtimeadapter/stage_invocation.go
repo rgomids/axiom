@@ -81,6 +81,10 @@ func BuildStageInvocation(request StageInvocationRequest) (executiongraph.Invoca
 		argv = append(argv, "--sandbox", "workspace-write", "-C", cwd)
 		if request.RepositoryWrite {
 			argv = append(argv, "--add-dir", request.Inbox)
+		} else {
+			// The read-only working root is the attempt inbox, never a Git
+			// repository; without this Codex refuses before any inference.
+			argv = append(argv, "--skip-git-repo-check")
 		}
 	case "claude":
 		tools := "Read,Glob,Grep,Write"

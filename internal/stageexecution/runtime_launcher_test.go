@@ -565,3 +565,22 @@ func TestRuntimeLauncherCommandCarriesAttemptCorrelation(t *testing.T) {
 		t.Fatalf("command environment %q, want %q", wire, want)
 	}
 }
+
+// A writable attempt needs a shell to build, test and wait for messages; a
+// read-only Claude attempt keeps only the Axiom CLI.
+func TestRuntimeLauncherShellFollowsWorkspaceWrite(t *testing.T) {
+	for _, write := range []bool{true, false} {
+		l, r := runtimeLauncherFixture(t, "claude", "runtime-default")
+		if !write {
+			r.Attempt.Authority.Effects = nil
+		}
+		inv, err := l.Build(context.Background(), r)
+		if err != nil {
+			t.Fatal(err)
+		}
+		i := slices.Index(inv.Argv, "--allowedTools")
+		if got := strings.HasSuffix(inv.Argv[i+1], ",Bash"); got != write {
+			t.Fatalf("write=%v tools %q", write, inv.Argv[i+1])
+		}
+	}
+}
