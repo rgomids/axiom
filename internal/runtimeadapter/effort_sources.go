@@ -172,8 +172,10 @@ func observeEffortFacts(ctx context.Context, p effortIntent, d effortRules, inv 
 			facts = append(facts, effortSourceFact{Scope: source.Scope, Key: key, Present: true, Selector: true})
 		}
 
-		// Native no-selector semantics, not value merging or invented precedence.
-		if len(selectors) != 0 {
+		// Personal (user/project) settings never block an Axiom run: the
+		// Profile-derived argv/environment override outranks them, and Codex runs
+		// with --ignore-user-config. Only managed policy outranks the override.
+		if len(selectors) != 0 && managedEffortScope(source.Scope) {
 			return nil, &SourceError{Source: source.Scope, Cause: ErrEffortOverrideConflict}
 		}
 	}
@@ -556,3 +558,5 @@ func jsonEffortSelectors(w []byte, declared []string) ([]string, error) {
 	}
 	return keys, nil
 }
+
+func managedEffortScope(scope string) bool { return scope == "managed" || scope == "managed-drop-in" }

@@ -67,9 +67,10 @@ func TestStageInvocationRefusesInheritedConfigurationAndEffort(t *testing.T) {
 			}
 		}
 		request := identityRequest(runtimeID, true, false)
+		// An inherited effort is personal configuration: filtered, never refused.
 		request.ParentEnvironment = []string{"CLAUDE_CODE_EFFORT_LEVEL=high"}
-		_, err := BuildStageInvocation(request)
-		if runtimeID == "claude" && !errors.Is(err, ErrEffortOverrideConflict) || runtimeID == "codex" && err != nil {
+		inv, err := BuildStageInvocation(request)
+		if err != nil || slices.ContainsFunc(inv.Env, func(entry string) bool { return strings.HasPrefix(entry, "CLAUDE_CODE_EFFORT_LEVEL=") }) {
 			t.Fatal(runtimeID, err)
 		}
 	}

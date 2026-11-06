@@ -89,9 +89,9 @@ func TestRuntimeLauncherRefusesConflictingConfigAndRedacts(t *testing.T) {
 	for _, runtimeID := range []string{"codex", "claude"} {
 		t.Run(runtimeID, func(t *testing.T) {
 			l, r := runtimeLauncherFixture(t, runtimeID, "runtime-default")
-			config, content := ".codex/config.toml", `model_reasoning_effort = "private-canary"`
+			config, content := ".codex/config.toml", `model_reasoning_effort = ["private-canary"`
 			if runtimeID == "claude" {
-				config, content = ".claude/settings.json", `{"effortLevel":"private-canary"}`
+				config, content = ".claude/settings.json", `{"effortLevel":"private-canary"`
 			}
 			path := filepath.Join(l.Workspace, config)
 			if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {

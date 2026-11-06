@@ -25,7 +25,7 @@ func TestI369PublicDiagnosisReadOnly(t *testing.T) {
 	for _, conflict := range []bool{false, true} {
 		wire := "notify=['synthetic']\n"
 		if conflict {
-			wire += "model_reasoning_effort='runtime-default'\n"
+			wire += "model_reasoning_effort=['runtime-default'\n"
 		}
 		if err := os.WriteFile(filepath.Join(dir, "config.toml"), []byte(wire), 0600); err != nil {
 			t.Fatal(err)
@@ -54,7 +54,7 @@ func TestI369PublicDiagnosisReadOnly(t *testing.T) {
 			if d.InvocationAdmissibility != want || d.Authentication != "not_evaluated" || d.Inference != "not_run" || d.OutputDirectoryMaterialization != "not_evaluated" {
 				t.Fatalf("untruthful diagnosis: %s", out.String())
 			}
-			if conflict && (d.LaunchFailure == nil || d.LaunchFailure.Reason != "selector_conflict") {
+			if conflict && (d.LaunchFailure == nil || d.LaunchFailure.Reason != "configuration_invalid") {
 				t.Fatal("reason lost")
 			}
 			if prospective != (d.SelectionMode == "prospective_preview") {

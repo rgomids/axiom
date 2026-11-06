@@ -156,7 +156,7 @@ func TestInspectEffortSourcesRefusals(t *testing.T) {
 				apply func(*testing.T, *effortInspectorFixture)
 			}{
 				"selector-in-source": {ErrEffortOverrideConflict, func(t *testing.T, f *effortInspectorFixture) {
-					writeFixtureFile(t, f.source(t, "user"), map[bool]string{true: `model_reasoning_effort = "private-canary"`, false: `{"effortLevel":"private-canary"}`}[id == "codex"])
+					writeFixtureFile(t, f.source(t, "managed"), map[bool]string{true: `model_reasoning_effort = "private-canary"`, false: `{"effortLevel":"private-canary"}`}[id == "codex"])
 				}},
 				"invalid-source-grammar": {ErrEffortConfigurationUnsafe, func(t *testing.T, f *effortInspectorFixture) {
 					writeFixtureFile(t, f.source(t, "project"), map[bool]string{true: "a = [\n", false: `[]`}[id == "codex"])

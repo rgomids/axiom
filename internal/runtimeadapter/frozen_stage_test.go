@@ -2,7 +2,6 @@ package runtimeadapter
 
 import (
 	"context"
-	"errors"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -41,14 +40,16 @@ func TestFrozenStageDeliveredEffortInspection(t *testing.T) {
 				if err != nil || digest == "" {
 					t.Fatal(digest, err)
 				}
-				source := fixedEffortRules(id, f.request.Roots).Sources[0]
 				content := "model_reasoning_effort = \"high\"\n"
 				if id == "claude" {
 					content = `{"effortLevel":"high"}`
 				}
+				// A late personal selector never blocks; managed refusal is
+				// covered by the source inspection tests.
+				source := fixedEffortRules(id, f.request.Roots).Sources[0]
 				write(t, filepath.Join(source.Root, source.Relative), content)
-				if _, err := inspector.CheckEffortSources(context.Background(), frozen, inv); !errors.Is(err, ErrEffortOverrideConflict) {
-					t.Fatal("late selector accepted", err)
+				if _, err := inspector.CheckEffortSources(context.Background(), frozen, inv); err != nil {
+					t.Fatal("late personal selector blocked the run", err)
 				}
 			})
 		}
