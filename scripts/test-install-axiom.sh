@@ -104,7 +104,7 @@ release_sha=$(shasum -a 256 "$AXIOM_BIN_DIR/axiom" | awk '{print $1}')
 printf 'formatVersion=1\ndestination=%s\nsha256=%s\nrelease=true\n' "$AXIOM_BIN_DIR/axiom" "$release_sha" >"$AXIOM_INSTALL_STATE_ROOT/installation.receipt"
 printf '#!/bin/sh\nexit 0\n' >"$temporary/fake-runtime/claude"
 chmod 700 "$temporary/fake-runtime/claude"
-release_env=(env HOME="$temporary/release-home" PATH="$temporary/fake-runtime:/usr/bin:/bin:$(dirname "$(command -v go)")" AXIOM_BIN_DIR="$AXIOM_BIN_DIR" AXIOM_INSTALL_STATE_ROOT="$AXIOM_INSTALL_STATE_ROOT")
+release_env=(env HOME="$temporary/release-home" GOMODCACHE="$(go env GOMODCACHE)" GOCACHE="$(go env GOCACHE)" GOPATH="$(go env GOPATH)" PATH="$temporary/fake-runtime:/usr/bin:/bin:$(dirname "$(command -v go)")" AXIOM_BIN_DIR="$AXIOM_BIN_DIR" AXIOM_INSTALL_STATE_ROOT="$AXIOM_INSTALL_STATE_ROOT")
 
 if "$repository_root/scripts/install-axiom.sh" >/dev/null 2>&1; then
   exit 1 # plain mode still refuses a release-owned destination
