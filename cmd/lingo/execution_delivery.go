@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"strings"
 
 	"github.com/rgomids/axiom/internal/cli"
 	"github.com/rgomids/axiom/internal/completion"
@@ -13,6 +14,7 @@ import (
 	"github.com/rgomids/axiom/internal/projectapp"
 	"github.com/rgomids/axiom/internal/strictjson"
 	"github.com/rgomids/axiom/internal/workflow"
+	"github.com/rgomids/axiom/internal/workitem"
 )
 
 // deliveryRemote composes the existing Git and Provider effect boundaries;
@@ -107,6 +109,15 @@ func (s lifecycleService) executionDelivery(ctx context.Context, in cli.Workflow
 		r = x.Deliveries[in.InspectDelivery].Request
 	} else if strictjson.Decode([]byte(in.DeliveryRequest), &r, workflow.MaxExecutionBytes) != nil || !r.Valid() {
 		return denied()
+	} else if r.Target.PR && strings.TrimSpace(string(r.Target.Metadata)) == "{}" {
+		// No public surface builds the PR metadata preview, so an empty object
+		// is normalized deterministically here; the returned request and its
+		// grant digest bind the filled metadata.
+		metadata, err := githubissues.DeliveryMetadata(r.Target.Repository, r.Target.DiffDigest, workitem.MetadataPolicy{}, nil)
+		if err != nil {
+			return denied()
+		}
+		r.Target.Metadata = metadata
 	}
 	if r.ExecutionID != x.ExecutionID || r.ProjectID != x.ProjectID {
 		return denied()
