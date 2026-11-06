@@ -34,6 +34,14 @@
   Projects created by `project configure` carry no policy and block until an
   authored policy is installed.
 
+## [0.23.3](https://github.com/rgomids/axiom/compare/v0.23.2...v0.23.3) (2026-11-06)
+
+
+### Bug Fixes
+
+* **ci:** give the dogfood fake Issue a title for Work Item freezing ([#377](https://github.com/rgomids/axiom/issues/377)) ([39cb200](https://github.com/rgomids/axiom/commit/39cb20032aabfd70a12be3a91438c4fb8c39cff0))
+* **workflow:** unblock AXM-12 real execution validation ([#376](https://github.com/rgomids/axiom/issues/376)) ([8daeef7](https://github.com/rgomids/axiom/commit/8daeef7ff4c2cc041d7639f942c4c002fdf99f80))
+
 ## [0.23.2](https://github.com/rgomids/axiom/compare/v0.23.1...v0.23.2) (2026-11-05)
 
 
