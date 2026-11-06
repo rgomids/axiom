@@ -20,7 +20,7 @@ func FileIdentity(path string) (string, error) {
 	if err != nil {
 		return "", errors.New("file is unavailable")
 	}
-	return identityValue("file:", clean, stat, false), nil
+	return currentIdentity("file:", clean, stat)
 }
 
 // MatchesFileIdentity is the file counterpart of MatchesDirectoryIdentity.

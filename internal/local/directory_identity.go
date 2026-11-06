@@ -9,30 +9,33 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"syscall"
 )
 
 // DirectoryIdentity observes one explicit local directory without following a
 // symlink at the selected path. The value binds setup authority and later local
 // resolution to the same filesystem object; it is not portable Project intent.
-// It hashes the clean path and inode only: st_dev is not stable across reboots
-// or volume remounts (APFS on macOS), so including it made every binding
-// spuriously "repository_unavailable" after a restart.
+// It hashes the clean path, inode and the object's birth time: st_dev is not
+// stable across reboots or volume remounts (APFS on macOS), while path+inode
+// alone cannot tell apart objects of two volumes mounted at the same path.
 func DirectoryIdentity(path string) (string, error) {
-	clean, stat, err := lstatIdentity(path, func(info os.FileInfo) bool { return info.IsDir() })
+	clean, stat, err := lstatIdentity(path, isDirectory)
 	if err != nil {
 		return "", err
 	}
-	return identityValue("fs:", clean, stat, false), nil
+	return currentIdentity("fs:", clean, stat)
 }
 
 // MatchesDirectoryIdentity reports whether the directory at path is the object
-// a recorded identity names. Values recorded before st_dev was dropped still
-// match while the device number is unchanged; a stale one needs a rebind.
+// a recorded identity names. Values recorded with st_dev still match while the
+// device number is unchanged; any other stale value needs a rebind.
 func MatchesDirectoryIdentity(path, recorded string) bool {
-	clean, stat, err := lstatIdentity(path, func(info os.FileInfo) bool { return info.IsDir() })
+	clean, stat, err := lstatIdentity(path, isDirectory)
 	return err == nil && matchesIdentity("fs:", clean, stat, recorded)
 }
+
+func isDirectory(info os.FileInfo) bool { return info.IsDir() }
 
 func lstatIdentity(path string, kind func(os.FileInfo) bool) (string, *syscall.Stat_t, error) {
 	if !filepath.IsAbs(path) {
@@ -50,16 +53,28 @@ func lstatIdentity(path string, kind func(os.FileInfo) bool) (string, *syscall.S
 	return clean, stat, nil
 }
 
-func identityValue(prefix, clean string, stat *syscall.Stat_t, legacy bool) string {
-	facts := clean + "\x00"
-	if legacy {
-		facts += strconv.FormatUint(uint64(stat.Dev), 10) + "\x00"
+func currentIdentity(prefix, clean string, stat *syscall.Stat_t) (string, error) {
+	birth, err := objectBirth(clean, stat)
+	if err != nil {
+		return "", err
 	}
-	facts += strconv.FormatUint(uint64(stat.Ino), 10)
-	digest := sha256.Sum256([]byte(facts))
+	return digestIdentity(prefix, clean, strconv.FormatUint(uint64(stat.Ino), 10), birth), nil
+}
+
+func legacyIdentity(prefix, clean string, stat *syscall.Stat_t) string {
+	return digestIdentity(prefix, clean, strconv.FormatUint(uint64(stat.Dev), 10), strconv.FormatUint(uint64(stat.Ino), 10))
+}
+
+func digestIdentity(prefix string, facts ...string) string {
+	digest := sha256.Sum256([]byte(strings.Join(facts, "\x00")))
 	return prefix + hex.EncodeToString(digest[:])
 }
 
+func birthFact(sec, nsec int64) string {
+	return "btime:" + strconv.FormatInt(sec, 10) + "." + strconv.FormatInt(nsec, 10)
+}
+
 func matchesIdentity(prefix, clean string, stat *syscall.Stat_t, recorded string) bool {
-	return recorded == identityValue(prefix, clean, stat, false) || recorded == identityValue(prefix, clean, stat, true)
+	current, err := currentIdentity(prefix, clean, stat)
+	return (err == nil && recorded == current) || recorded == legacyIdentity(prefix, clean, stat)
 }
