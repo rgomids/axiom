@@ -54,7 +54,10 @@ type RuntimeLauncher struct {
 	// ReadInput returns a predecessor output's exact bytes for the packet.
 	ReadInput                       func(context.Context, workflow.Execution, string, workflow.ArtifactRef) ([]byte, error)
 	Workspace, InboxRoot, AxiomPath string
-	Environment                     []string
+	// Workspaces maps every Execution Repository key to its root; when set, an
+	// attempt works only in the root of its own authorized Repository.
+	Workspaces  map[string]string
+	Environment []string
 	// Tests replace only the machine-local root lookup, keeping the real
 	// bounded reader and selector checks while avoiding host configuration.
 	selectorRoots func(context.Context, executiongraph.Invocation, bool) (runtimeadapter.EffortSourceRoots, error)
@@ -97,7 +100,17 @@ func (l RuntimeLauncher) Build(ctx context.Context, r LaunchRequest) (executiong
 
 // Inspect constructs and checks one planned invocation without materializing it.
 // Absent output directories are not permission-tested or certified as writable.
+// forAttempt binds the workspace to the attempt's authorized Repository; an
+// unbound key leaves no workspace, so every later path check refuses.
+func (l RuntimeLauncher) forAttempt(r LaunchRequest) RuntimeLauncher {
+	if l.Workspaces != nil {
+		l.Workspace = l.Workspaces[r.Attempt.Authority.RepositoryKey]
+	}
+	return l
+}
+
 func (l RuntimeLauncher) Inspect(ctx context.Context, r LaunchRequest) (result executiongraph.Invocation, resultErr error) {
+	l = l.forAttempt(r)
 	defer func() {
 		var typed *launchError
 		if errors.As(resultErr, &typed) {
@@ -220,7 +233,9 @@ func (l RuntimeLauncher) Inspect(ctx context.Context, r LaunchRequest) (result e
 						if artifact.Name != input.Output {
 							continue
 						}
-						if selected != nil || artifact.RepositoryKey != r.Attempt.Authority.RepositoryKey {
+						// Outputs are Execution-scoped; a Repository-bound agent may read
+						// what an earlier stage produced for another bound Repository.
+						if selected != nil || !executionRepository(r.Execution, artifact.RepositoryKey) {
 							return fail()
 						}
 						copy := artifact
@@ -269,6 +284,35 @@ func (l RuntimeLauncher) Inspect(ctx context.Context, r LaunchRequest) (result e
 			return fail()
 		}
 	}
+	// A dependent agent receives the outputs its same-stage dependencies
+	// produced, as "<agent>/<output>"; dependsOn already orders the attempts.
+	for _, dependency := range r.Agent.DependsOn {
+		for _, stage := range r.Execution.Stages {
+			if stage.StageID != r.Ref.StageID {
+				continue
+			}
+			for _, task := range stage.Tasks {
+				if task.AgentID != dependency || len(task.Attempts) == 0 {
+					continue
+				}
+				attempt := task.Attempts[len(task.Attempts)-1]
+				if attempt.Status != workflow.AttemptSucceeded {
+					return fail()
+				}
+				for _, artifact := range attempt.Artifacts {
+					value := inputValue{Artifact: &artifact, Provenance: &workflow.InputProvenance{ExecutionID: r.Execution.ExecutionID, StageID: stage.StageID, AttemptID: attempt.AttemptID}}
+					if l.ReadInput != nil {
+						content, err := l.ReadInput(ctx, r.Execution, attempt.AttemptID, artifact)
+						if err != nil {
+							return fail()
+						}
+						value.Content = string(content)
+					}
+					inputs[dependency+"/"+artifact.Name] = value
+				}
+			}
+		}
+	}
 	repositoryWritable := slices.Contains(r.Attempt.Authority.Effects, "workspace_write")
 	// Message areas are the same for both Runtimes. Their contents are data:
 	// a message never completes a task, satisfies a gate or grants authority.
@@ -298,6 +342,7 @@ func (l RuntimeLauncher) Inspect(ctx context.Context, r LaunchRequest) (result e
 // Collect never copies raw stdout/stderr into diagnostics. Nonzero vendor
 // exits (including auth/option errors) are observed failures without fallback.
 func (l RuntimeLauncher) Collect(ctx context.Context, r LaunchRequest, p executiongraph.ProcessResult) (Outcome, error) {
+	l = l.forAttempt(r)
 	if p.ExitCode != 0 {
 		return Outcome{Diagnostic: "runtime_exit_nonzero: inspect local Runtime authentication/options; no fallback attempted"}, nil
 	}
@@ -499,4 +544,13 @@ func artifactReferenceShaped(data []byte) bool {
 		Kind string `json:"kind"`
 	}
 	return json.Unmarshal(data, &ref) == nil && ref.Kind == "artifact"
+}
+
+func executionRepository(x workflow.Execution, key string) bool {
+	for _, r := range x.Repositories {
+		if r.Key == key {
+			return true
+		}
+	}
+	return false
 }

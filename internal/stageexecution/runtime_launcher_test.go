@@ -50,7 +50,7 @@ func runtimeLauncherFixture(t *testing.T, runtimeID, effort string) (RuntimeLaun
 	}
 	inv := workflow.Invocation{Runtime: runtimeID, Executable: executable, Model: "stub-model", Effort: effort, Instructions: "do scoped work"}
 	inv.InstructionsDigest = workflow.DigestText([]byte(inv.Instructions))
-	r := LaunchRequest{Execution: workflow.Execution{ExecutionID: engineExecutionID, ProjectID: "proj"}, Ref: workflow.TaskRef{StageID: "work", AgentID: "builder"}, Stage: workflow.StageSpec{Outputs: []string{"result"}}, Attempt: workflow.Attempt{AttemptID: "att-1", RunnerGeneration: 1, Invocation: inv, Authority: workflow.AttemptAuthority{RepositoryKey: "app", Effects: []string{"workspace_write"}}}}
+	r := LaunchRequest{Execution: workflow.Execution{ExecutionID: engineExecutionID, ProjectID: "proj", Repositories: []workflow.RepositoryBinding{{Key: "app", Identity: "app"}}}, Ref: workflow.TaskRef{StageID: "work", AgentID: "builder"}, Stage: workflow.StageSpec{Outputs: []string{"result"}}, Attempt: workflow.Attempt{AttemptID: "att-1", RunnerGeneration: 1, Invocation: inv, Authority: workflow.AttemptAuthority{RepositoryKey: "app", Effects: []string{"workspace_write"}}}}
 	return l, r
 }
 
@@ -583,4 +583,65 @@ func TestRuntimeLauncherShellFollowsWorkspaceWrite(t *testing.T) {
 			t.Fatalf("write=%v tools %q", write, inv.Argv[i+1])
 		}
 	}
+}
+
+// Each attempt works only in its own authorized Repository root, reads outputs
+// produced for another bound Repository and receives its dependencies' outputs.
+func TestRuntimeLauncherBindsAttemptRepositoryAndDependencyOutputs(t *testing.T) {
+	type packet struct {
+		RepositoryKey, RepositoryRoot string
+		Inputs                        map[string]struct {
+			Artifact workflow.ArtifactRef `json:"artifact"`
+		}
+	}
+	setup := func(t *testing.T) (RuntimeLauncher, LaunchRequest, string) {
+		l, r := runtimeLauncherFixture(t, "claude", "runtime-default")
+		lib := filepath.Join(filepath.Dir(l.Workspace), "lib")
+		if err := os.Mkdir(lib, 0700); err != nil {
+			t.Fatal(err)
+		}
+		l.Workspaces = map[string]string{"app": l.Workspace, "lib": lib}
+		r.Execution.Repositories = append(r.Execution.Repositories, workflow.RepositoryBinding{Key: "lib", Identity: "lib"})
+		r.Attempt.Authority.RepositoryKey = "lib"
+		r.Agent = workflow.AgentSpec{ID: "builder", Inputs: []string{"source"}, DependsOn: []string{"peer"}}
+		r.Stage.StageOutputInputs = []workflow.StageOutputInput{{Name: "source", StageID: "prior", Output: "result", Required: true}}
+		plan := workflow.ArtifactRef{Name: "result", RepositoryKey: "app", Digest: workflow.DigestText([]byte("plan")), Size: 4}
+		peer := workflow.ArtifactRef{Name: "peer-result", RepositoryKey: "app", Digest: workflow.DigestText([]byte("peer")), Size: 4}
+		r.Execution.Stages = []workflow.StageRun{
+			{StageID: "prior", Status: workflow.StageCompleted, Tasks: []workflow.TaskRun{{AgentID: "planner", Attempts: []workflow.Attempt{{AttemptID: "plan-attempt", Status: workflow.AttemptSucceeded, Artifacts: []workflow.ArtifactRef{plan}}}}}},
+			{StageID: "work", Status: workflow.StageRunning, Tasks: []workflow.TaskRun{{AgentID: "peer", Attempts: []workflow.Attempt{{AttemptID: "peer-attempt", Status: workflow.AttemptSucceeded, Artifacts: []workflow.ArtifactRef{peer}}}}}},
+		}
+		return l, r, lib
+	}
+	t.Run("bound", func(t *testing.T) {
+		l, r, lib := setup(t)
+		inv, err := l.Build(context.Background(), r)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var p packet
+		if err := json.Unmarshal(inv.Stdin, &p); err != nil {
+			t.Fatal(err)
+		}
+		if p.RepositoryKey != "lib" || p.RepositoryRoot != lib || inv.CWD != lib {
+			t.Fatalf("wrong workspace %q %q %q", p.RepositoryKey, p.RepositoryRoot, inv.CWD)
+		}
+		if p.Inputs["source"].Artifact.RepositoryKey != "app" || p.Inputs["peer/peer-result"].Artifact.Digest != workflow.DigestText([]byte("peer")) {
+			t.Fatalf("inputs %+v", p.Inputs)
+		}
+	})
+	t.Run("unbound repository", func(t *testing.T) {
+		l, r, _ := setup(t)
+		r.Attempt.Authority.RepositoryKey = "ghost"
+		if _, err := l.Build(context.Background(), r); err == nil {
+			t.Fatal("attempt launched without a bound workspace")
+		}
+	})
+	t.Run("failed dependency", func(t *testing.T) {
+		l, r, _ := setup(t)
+		r.Execution.Stages[1].Tasks[0].Attempts[0].Status = workflow.AttemptFailed
+		if _, err := l.Build(context.Background(), r); err == nil {
+			t.Fatal("dependent launched over a failed dependency")
+		}
+	})
 }
