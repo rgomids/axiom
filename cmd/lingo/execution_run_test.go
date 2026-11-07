@@ -6,8 +6,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"strings"
 	"sync"
@@ -955,7 +958,7 @@ func TestPublicWorkflowRunResultReviewRequiresExactHumanEvidence(t *testing.T) {
 	}
 	stale = append(stale, "--authorize-human")
 	bad := f.run(t, cli.ExitFailure, stale...)
-	if bad.Category != "transition_refused" {
+	if bad.Category != "result_digest_mismatch" {
 		t.Fatal(bad.Raw)
 	}
 	t.Setenv("AXIOM_ATTEMPT_ID", "runtime-child")
@@ -964,10 +967,53 @@ func TestPublicWorkflowRunResultReviewRequiresExactHumanEvidence(t *testing.T) {
 		t.Fatal(child.Raw)
 	}
 	t.Setenv("AXIOM_ATTEMPT_ID", "")
-	completed := f.run(t, cli.ExitSuccess, append(args, "--authorize-human")...)
-	if completed.Stage.Status != workflow.RunCompleted || completed.Stage.Stages[0].Review == nil {
+	// The human can review without a pre-retained artifact: --note is
+	// retained by Axiom as the result-bound Evidence. Exactly one source.
+	noted := append(append([]string(nil), args[:len(args)-3]...), "--note", "Reviewed the exact result.", "--authorize-external", "--authorize-human")
+	both := append(append([]string(nil), args...), "--note", "x", "--authorize-human")
+	if got := f.run(t, cli.ExitFailure, both...); got.Category != "invalid_review" {
+		t.Fatal(got.Raw)
+	}
+	unknown := append([]string(nil), args...)
+	unknown[len(unknown)-2] = "00000000000000000000000000000000"
+	if got := f.run(t, cli.ExitFailure, append(unknown, "--authorize-human")...); got.Category != "review_evidence_invalid" {
+		t.Fatal(got.Raw)
+	}
+	secret := append([]string(nil), noted...)
+	secret[len(secret)-3] = "api_key=abc"
+	if got := f.run(t, cli.ExitFailure, secret...); got.Category != "review_evidence_invalid" || artifactCount(t, f) != 1 {
+		t.Fatal(got.Raw)
+	}
+	completed := f.run(t, cli.ExitSuccess, noted...)
+	if completed.Stage.Status != workflow.RunCompleted || completed.Stage.Stages[0].Review == nil || completed.Stage.Stages[0].Review.Evidence.RetainedID == evidence.ID {
 		t.Fatal(completed.Raw)
 	}
+	retained, err := artifacts.Read(context.Background(), completed.Stage.Stages[0].Review.Evidence.RetainedID)
+	if err != nil || string(retained.Markdown) != "Reviewed the exact result." || retained.Category != "evidence" || retained.Retention != detailartifact.Evidence || !reflect.DeepEqual(retained.References, draft.References) {
+		t.Fatal(retained, err)
+	}
+	// A repeated review is a state refusal, not an Evidence problem, and
+	// retains nothing new.
+	if got := f.run(t, cli.ExitFailure, noted...); got.Category != "transition_refused" || artifactCount(t, f) != 2 {
+		t.Fatal(got.Raw)
+	}
+}
+
+// artifactCount counts retained artifacts so refusals can prove no orphan
+// Evidence was written.
+func artifactCount(t *testing.T, f *executionRunFixture) int {
+	t.Helper()
+	count := 0
+	err := filepath.WalkDir(filepath.Join(f.env.state, "artifacts", "v1"), func(path string, d fs.DirEntry, err error) error {
+		if err == nil && detailartifact.ValidID(d.Name()) {
+			count++
+		}
+		return err
+	})
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+		t.Fatal(err)
+	}
+	return count
 }
 
 func TestPublicWorkflowRunFreezesProjectContextAndArtifactInputs(t *testing.T) {

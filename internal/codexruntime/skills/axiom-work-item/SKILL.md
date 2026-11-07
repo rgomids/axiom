@@ -209,7 +209,8 @@ continue only after real human review with
 belongs to `axiom-workflow`, selection belongs to `axiom-project`.
 
 Result-bound review uses the returned exact `resultDigest`, `--review-stage`,
-`--result-digest`, retained `--evidence` and explicit `--authorize-human`; a gate
+`--result-digest`, the human's own `--note <text>` (Axiom retains it as the
+Evidence) or a retained `--evidence`, and explicit `--authorize-human`; a gate
 approval cannot substitute for it. Never fabricate a human actor, approval or
 Evidence. Artifact inputs use declared `--input source=retained-id` bindings;
 Project context freezes portable identity/revision/Repository observations.
@@ -500,10 +501,12 @@ replay, close, merge or release. Unknown delivery effects still block replay; no
 ## Rejected results and linked rework
 
 Only a human operator may record `axiom --json workflow stage reject --project
-<id> --execution <id> --stage <stage-id> --result-digest <digest> --evidence
-<retained-evidence-id> --authorize-human --authorize-local`. The exact successful
-stage result digest comes from status. Evidence must belong to that Execution,
-stage, definition, result and Work Item Repository. Runtime children are refused;
+<id> --execution <id> --stage <stage-id> --result-digest <digest> --note
+<human-note> --authorize-human --authorize-local`. The exact successful stage
+result digest comes from status. Axiom retains the human note as the
+result-bound Evidence; a pre-retained `--evidence <id>` must instead belong to
+that Execution, stage, definition, result and Work Item Repository. Only relay a
+note the human actually wrote. Runtime children are refused;
 agent claims and exit zero cannot satisfy human disposition.
 
 Rejection preserves all observed facts and prevents further execution/delivery

@@ -64,11 +64,14 @@ type WorkflowStageInput struct {
 	Workflow, Agent, ApproveGate, Abandon     string
 	Inputs                                    []string
 	ReviewStage, ResultDigest, ReviewEvidence string
-	ReworkSource                              string
-	AuthorizeCommands                         bool
-	Selections                                []string
-	NewSelection                              bool
-	WorkspaceDisposition                      string
+	// ReviewNote is the human's own review text; the engine retains it as
+	// the result-bound Evidence instead of a pre-retained --evidence ID.
+	ReviewNote           string
+	ReworkSource         string
+	AuthorizeCommands    bool
+	Selections           []string
+	NewSelection         bool
+	WorkspaceDisposition string
 }
 
 // WorkflowStageService is optional so presentation services and mocks need
@@ -153,7 +156,8 @@ func workflowStageFlagSet(operation action, in *WorkflowStageInput) *flag.FlagSe
 		case workflowStageRejectAction:
 			set.StringVar(&in.ReviewStage, "stage", "", "Exact stage result to reject.")
 			set.StringVar(&in.ResultDigest, "result-digest", "", "Exact result digest from status; the disposition grant.")
-			set.StringVar(&in.ReviewEvidence, "evidence", "", "Retained result-bound human Evidence ID.")
+			set.StringVar(&in.ReviewEvidence, "evidence", "", "Retained result-bound human Evidence ID; or use --note.")
+			set.StringVar(&in.ReviewNote, "note", "", "Human rejection note; retained by Axiom as the result-bound Evidence instead of --evidence.")
 			set.BoolVar(&in.AuthorizeHuman, "authorize-human", false, "Confirm human disposition; Runtime children are refused.")
 			set.BoolVar(&in.AuthorizeLocal, "authorize-local", false, "Persist the immutable rejection only; no external effect.")
 		case workflowRunAction:
@@ -165,7 +169,8 @@ func workflowStageFlagSet(operation action, in *WorkflowStageInput) *flag.FlagSe
 			set.Func("input", "Bind a logical artifact input source to a retained artifact ID; repeat once per source `<source>=<artifact-id>`.", func(v string) error { in.Inputs = append(in.Inputs, v); return nil })
 			set.StringVar(&in.ReviewStage, "review-stage", "", "Stage whose exact successful results the human approves.")
 			set.StringVar(&in.ResultDigest, "result-digest", "", "Exact stage result digest displayed by status.")
-			set.StringVar(&in.ReviewEvidence, "evidence", "", "Retained Evidence artifact ID for this result review.")
+			set.StringVar(&in.ReviewEvidence, "evidence", "", "Retained Evidence artifact ID for this result review; or use --note.")
+			set.StringVar(&in.ReviewNote, "note", "", "Human review note; retained by Axiom as the result-bound Evidence instead of --evidence.")
 			set.BoolVar(&in.AuthorizeCommands, "authorize-commands", false, "Authorize the exact configured validation command argv within its declared effect bounds.")
 			set.StringVar(&in.ApproveGate, "approve-gate", "", "Record the human gate decision of a stage awaiting it; `<stage-id>`.")
 			set.BoolVar(&in.AuthorizeHuman, "authorize-human", false, "Record only this explicit human gate decision.")
@@ -263,7 +268,7 @@ func workflowStageRequirements(operation action, v WorkflowStageInput) []inputRe
 	if executionOperation(operation) {
 		rules := []inputRequirement{project, {name: "execution", required: true, missing: v.Execution == ""}}
 		if operation == workflowStageRejectAction {
-			rules = append(rules, inputRequirement{name: "stage", required: true, missing: v.ReviewStage == ""}, inputRequirement{name: "result-digest", required: true, missing: v.ResultDigest == ""}, inputRequirement{name: "evidence", required: true, missing: v.ReviewEvidence == ""})
+			rules = append(rules, inputRequirement{name: "stage", required: true, missing: v.ReviewStage == ""}, inputRequirement{name: "result-digest", required: true, missing: v.ResultDigest == ""}, inputRequirement{name: "evidence", required: v.ReviewNote == "", when: "--note is absent", missing: v.ReviewEvidence == ""})
 		}
 		if operation == workflowStageRetryAction || operation == workflowStageDiagnoseAction {
 			rules = append(rules, inputRequirement{name: "stage", required: true, missing: v.Stage == ""}, inputRequirement{name: "agent", required: true, missing: v.Agent == ""})
@@ -355,7 +360,7 @@ func workflowStageSkillSpecs() []skillOperationSpec {
 	return []skillOperationSpec{
 		{name: "execution.run", actions: []action{workflowRunAction}, modes: []skillModeSpec{{name: "default", effect: effectExternalMutation, authority: "one run action; spawning the selected Runtimes needs --authorize-external; a human gate records only with --approve-gate and --authorize-human", actions: []action{workflowRunAction}, authorityInputs: []string{"--authorize-external", "--authorize-human"}, rejectedInputs: []string{}, example: "axiom workflow run --project <uuid-or-slug> --repository <key> --work-item github:<owner>/<repository>#<number> --select agent.runtime=<codex|claude> --select agent.model=<model> --select agent.effort=<runtime-default|token> --authorize-external"}}},
 		{name: "delivery.advance", actions: []action{workflowDeliveryAdvanceAction}, modes: []skillModeSpec{{name: "default", effect: effectExternalMutation, authority: "preview without grant; exact --grant with --authorize-human --authorize-local and --authorize-push OR --authorize-pr; --inspect only reads the granted remote target and records observations", actions: []action{workflowDeliveryAdvanceAction}, authorityInputs: []string{"--grant", "--authorize-human", "--authorize-local", "--authorize-push", "--authorize-pr"}, rejectedInputs: []string{}, example: "axiom workflow delivery advance " + execution + " --request '<json>'"}}},
-		{name: "stage.reject", actions: []action{workflowStageRejectAction}, modes: []skillModeSpec{{name: "default", effect: effectLocalMutation, authority: "exact --stage --result-digest --evidence with --authorize-human --authorize-local; Runtime children refused", actions: []action{workflowStageRejectAction}, authorityInputs: []string{"--authorize-human", "--authorize-local"}, rejectedInputs: []string{}, example: "axiom workflow stage reject " + execution + " --stage <stage-id> --result-digest <digest> --evidence <artifact-id> --authorize-human --authorize-local"}}},
+		{name: "stage.reject", actions: []action{workflowStageRejectAction}, modes: []skillModeSpec{{name: "default", effect: effectLocalMutation, authority: "exact --stage --result-digest and --evidence or --note with --authorize-human --authorize-local; Runtime children refused", actions: []action{workflowStageRejectAction}, authorityInputs: []string{"--authorize-human", "--authorize-local"}, rejectedInputs: []string{}, example: "axiom workflow stage reject " + execution + " --stage <stage-id> --result-digest <digest> --note <text> --authorize-human --authorize-local"}}},
 		read("delivery.packet", workflowDeliveryPacketAction, "axiom workflow delivery packet "+selectors),
 		read("stage.diagnose", workflowStageDiagnoseAction, "axiom workflow stage diagnose "+execution+" --stage <stage-id> --agent <agent-id>"),
 		read("stage.status", workflowStageStatusAction, "axiom workflow stage status "+execution),

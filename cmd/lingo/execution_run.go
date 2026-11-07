@@ -19,6 +19,7 @@ import (
 
 	"github.com/rgomids/axiom/internal/cli"
 	"github.com/rgomids/axiom/internal/completion"
+	"github.com/rgomids/axiom/internal/detailartifact"
 	"github.com/rgomids/axiom/internal/executiongraph"
 	"github.com/rgomids/axiom/internal/local"
 	"github.com/rgomids/axiom/internal/projectapp"
@@ -44,6 +45,9 @@ var (
 	errRepositoryBinding       = errors.New("repository_binding_changed")
 	errExecutionProjectMissing = errors.New("execution_not_found")
 	errProjectAdmission        = errors.New("project_admission_revoked")
+	errReviewEvidence          = errors.New("review_evidence_invalid")
+	errResultDigest            = errors.New("result_digest_mismatch")
+	errReviewState             = fmt.Errorf("review state: %w", workflow.ErrTransition)
 )
 
 func (s lifecycleService) executionStage(ctx context.Context, in cli.WorkflowStageInput) cli.WorkflowStageResponse {
@@ -51,7 +55,7 @@ func (s lifecycleService) executionStage(ctx context.Context, in cli.WorkflowSta
 	// human authority; only the built-in minimal Workflow can override the
 	// Project selection. Checked before any read or write.
 	if in.Operation == "reject" && (!in.AuthorizeHuman || !in.AuthorizeLocal || in.ReviewStage == "" || in.ReworkSource != "") {
-		return s.stageFailure(completion.DeniedAuthority, "human_authority_required", "Rejection needs exact result and human/local authority", "Supply --stage --result-digest --evidence --authorize-human --authorize-local", nil)
+		return s.stageFailure(completion.DeniedAuthority, "human_authority_required", "Rejection needs exact result and human/local authority", "Supply --stage --result-digest, --evidence or --note, --authorize-human --authorize-local", nil)
 	}
 	if in.Operation == "execution-run" && (in.ApproveGate != "" || in.ReviewStage != "") != in.AuthorizeHuman || in.Operation == "reconcile" && (in.Abandon != "") != in.AuthorizeHuman {
 		return s.stageFailure(completion.DeniedAuthority, "human_authority_required", "A human disposition needs its exact subject and --authorize-human", "Repeat with both --approve-gate/--abandon and --authorize-human after real human review", nil)
@@ -59,8 +63,8 @@ func (s lifecycleService) executionStage(ctx context.Context, in cli.WorkflowSta
 	if in.AuthorizeHuman && (os.Getenv("AXIOM_ATTEMPT_ID") != "" || os.Getenv("AXIOM_EXECUTION_ID") != "") {
 		return s.stageFailure(completion.DeniedAuthority, "human_authority_required", "A Runtime child cannot record human approval", "Run this operation from the human operator context", nil)
 	}
-	if in.ReviewStage != "" && (in.ResultDigest == "" || in.ReviewEvidence == "" || in.ApproveGate != "") || in.ReviewStage == "" && (in.ResultDigest != "" || in.ReviewEvidence != "") {
-		return s.stageFailure(completion.ValidationFailure, "invalid_review", "Review requires an exact stage, result digest and retained Evidence", "Inspect status and supply --review-stage --result-digest --evidence --authorize-human", nil)
+	if in.ReviewStage != "" && (in.ResultDigest == "" || (in.ReviewEvidence == "") == (in.ReviewNote == "") || in.ApproveGate != "") || in.ReviewStage == "" && (in.ResultDigest != "" || in.ReviewEvidence != "" || in.ReviewNote != "") {
+		return s.stageFailure(completion.ValidationFailure, "invalid_review", "Review requires an exact stage, result digest and exactly one of retained Evidence or a human note", "Inspect status and supply --review-stage (or stage reject --stage) --result-digest with either --evidence <id> or --note <text>, and --authorize-human", nil)
 	}
 	if (in.Operation == "cancel" || in.Operation == "reconcile" && in.Abandon == "") && !in.AuthorizeLocal {
 		return s.stageFailure(completion.DeniedAuthority, "authority_required", "This local Execution mutation needs explicit authority", "Repeat with --authorize-local", nil)
@@ -998,7 +1002,7 @@ func executionNext(x workflow.Execution) string {
 				for _, spec := range x.Workflow.Stages {
 					if spec.ID == s.StageID && spec.ReviewRequired && s.Review == nil {
 						if digest, err := x.StageResultDigest(s.StageID); err == nil {
-							return "After real human review: axiom workflow run" + selector + " --review-stage " + s.StageID + " --result-digest " + digest + " --evidence <retained-evidence-id> --authorize-human --authorize-external"
+							return "After real human review: axiom workflow run" + selector + " --review-stage " + s.StageID + " --result-digest " + digest + " --note <review-note> --authorize-human --authorize-external"
 						}
 					}
 				}
@@ -1067,6 +1071,9 @@ func (c executionComposition) failure(err error, x *workflow.Execution) cli.Work
 		{workflow.ErrCancelled, completion.Interrupted, "execution_cancelled", "The Execution is cancelled; start a new Execution"},
 		{workflow.ErrUnauthorizedEffect, completion.DeniedAuthority, "authority_denied", "Keep the attempt within the Workflow agent effect and Runtime restrictions"},
 		{workflow.ErrWorkspaceDispositionRequired, completion.DeniedAuthority, "workspace_disposition_required", "Inspect and preserve the prior workspace explicitly with --disposition preserve; no automatic reset is supported"},
+		{errResultDigest, completion.ValidationFailure, "result_digest_mismatch", "The stage has no completed result with this digest; copy --stage and --result-digest exactly from stage status"},
+		{errReviewEvidence, completion.ValidationFailure, "review_evidence_invalid", "Evidence must be a retained success evidence artifact of this Execution bound once to the exact stage, definition digest, result digest and repository; or pass --note <text> (no secret-like content) and Axiom retains it"},
+		{errReviewState, completion.ValidationFailure, "transition_refused", "Evidence and digest are valid, but the Execution state does not admit this disposition (already rejected or reviewed, cancelled, recovery required, an active attempt, a prepared integration/delivery, or the stage requires no review); inspect stage status"},
 		{workflow.ErrTransition, completion.ValidationFailure, "transition_refused", "Inspect stage status for the eligible next action"},
 		{local.ErrConflict, completion.RetryableFailure, "execution_revision_conflict", "A concurrent writer changed the Execution; inspect status before repeating"},
 		{local.ErrNotFound, completion.ValidationFailure, "execution_not_found", "Use the exact Execution identity returned by workflow run"},
@@ -1179,36 +1186,74 @@ func (c executionComposition) freezeInputs(ctx context.Context, stages []workflo
 func (c executionComposition) review(ctx context.Context, x workflow.Execution, in cli.WorkflowStageInput) error {
 	digest, err := x.StageResultDigest(in.ReviewStage)
 	if err != nil || digest != in.ResultDigest {
-		return workflow.ErrTransition
+		return errResultDigest
+	}
+	transition := func(current *workflow.Execution, evidence workflow.ArtifactRef) error {
+		var err error
+		if in.Operation == "reject" {
+			err = current.RejectResult(in.ReviewStage, executionActor("human:"), digest, evidence, time.Now())
+		} else {
+			err = current.ReviewStage(in.ReviewStage, executionActor("human:"), digest, evidence, time.Now())
+		}
+		if errors.Is(err, workflow.ErrTransition) {
+			return errReviewState
+		}
+		return err
 	}
 	store, err := local.NewArtifactStore(c.s.stateRoot)
 	if err != nil {
 		return err
 	}
-	a, err := store.Read(ctx, in.ReviewEvidence)
-	if err != nil || a.ExecutionID != x.ExecutionID || a.Category != "evidence" || a.Retention != "evidence" || a.Outcome != "success" {
-		return workflow.ErrTransition
-	}
-	for kind, value := range map[string]string{"workflow-stage": in.ReviewStage, "workflow-definition": x.Workflow.Digest, "workflow-result": digest, "workflow-repository": x.WorkItem.RepositoryKey} {
-		count := 0
-		for _, r := range a.References {
-			if r.Kind == kind {
-				if r.Value != value {
-					return workflow.ErrTransition
-				}
-				count++
-			}
+	references := map[string]string{"workflow-stage": in.ReviewStage, "workflow-definition": x.Workflow.Digest, "workflow-result": digest, "workflow-repository": x.WorkItem.RepositoryKey}
+	var a detailartifact.Artifact
+	if in.ReviewNote != "" {
+		note := []byte(in.ReviewNote)
+		if !detailartifact.SafeMarkdown(note) {
+			return errReviewEvidence
 		}
-		if count != 1 {
-			return workflow.ErrTransition
+		// Dry-run the disposition on a private copy so a refused state retains
+		// no orphan Evidence; the fenced update below re-checks authoritatively.
+		wire, err := json.Marshal(x)
+		if err != nil {
+			return err
+		}
+		var probe workflow.Execution
+		if err = json.Unmarshal(wire, &probe); err != nil {
+			return err
+		}
+		if err = transition(&probe, workflow.ArtifactRef{Name: "human-review", RetainedID: "pending", RepositoryKey: x.WorkItem.RepositoryKey, Digest: workflow.DigestText(note), Size: int64(len(note))}); err != nil {
+			return err
+		}
+		draft := detailartifact.Draft{ExecutionID: x.ExecutionID, Category: "evidence", Outcome: "success", Retention: detailartifact.Evidence, Markdown: note, Provenance: c.s.provenance}
+		for _, kind := range []string{"workflow-stage", "workflow-definition", "workflow-result", "workflow-repository"} {
+			draft.References = append(draft.References, detailartifact.Reference{Kind: kind, Value: references[kind]})
+		}
+		if a, err = store.Create(ctx, draft); err != nil {
+			return err
+		}
+	} else {
+		a, err = store.Read(ctx, in.ReviewEvidence)
+		if err != nil || a.ExecutionID != x.ExecutionID || a.Category != "evidence" || a.Retention != "evidence" || a.Outcome != "success" {
+			return errReviewEvidence
+		}
+		for kind, value := range references {
+			count := 0
+			for _, r := range a.References {
+				if r.Kind == kind {
+					if r.Value != value {
+						return errReviewEvidence
+					}
+					count++
+				}
+			}
+			if count != 1 {
+				return errReviewEvidence
+			}
 		}
 	}
 	evidence := workflow.ArtifactRef{Name: "human-review", RetainedID: a.ID, RepositoryKey: x.WorkItem.RepositoryKey, Digest: "sha256:" + hex.EncodeToString(a.Digest[:]), Size: int64(a.ContentBytes)}
 	_, err = c.store.UpdateFenced(ctx, x.ProjectID, x.ExecutionID, nil, func(current *workflow.Execution) error {
-		if in.Operation == "reject" {
-			return current.RejectResult(in.ReviewStage, executionActor("human:"), digest, evidence, time.Now())
-		}
-		return current.ReviewStage(in.ReviewStage, executionActor("human:"), digest, evidence, time.Now())
+		return transition(current, evidence)
 	})
 	return err
 }

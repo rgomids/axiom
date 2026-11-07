@@ -102,3 +102,63 @@ func TestPublicRejectedResultAndLinkedReworkUseCanonicalLifecycle(t *testing.T) 
 		t.Fatal("rejection authorized delivery", packet.Raw)
 	}
 }
+
+// AXM-12: a human can reject through the public CLI alone. --note is retained
+// by Axiom as the correlated Evidence; refusals name the failed precondition
+// and never retain orphan Evidence.
+func TestPublicRejectWithHumanNoteRetainsCorrelatedEvidence(t *testing.T) {
+	f := newExecutionRunFixture(t)
+	done := f.run(t, cli.ExitSuccess, minimalRun("--authorize-external")...)
+	x := done.Stage
+	digest := ""
+	store, err := local.NewExecutionStore(f.env.state)
+	if err != nil {
+		t.Fatal(err)
+	}
+	source, err := store.Load(context.Background(), x.ProjectID, x.ExecutionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if digest, err = source.StageResultDigest(workflow.DefaultStageID); err != nil {
+		t.Fatal(err)
+	}
+	args := []string{"workflow", "stage", "reject", "--project", "external", "--execution", x.ExecutionID, "--stage", workflow.DefaultStageID, "--result-digest", digest, "--note", "Rejected: tests missing.", "--authorize-human", "--authorize-local"}
+	before := artifactCount(t, f)
+	for _, c := range []struct {
+		change   func([]string) []string
+		category string
+	}{
+		// Neither --evidence nor --note: refused by the CLI input contract.
+		{func(a []string) []string { return append(a[:11], a[13:]...) }, ""},
+		{func(a []string) []string { return append(a, "--evidence", "x") }, "invalid_review"},
+		{func(a []string) []string { a[10] = workflow.DigestText([]byte("stale")); return a }, "result_digest_mismatch"},
+		{func(a []string) []string { a[8] = "unknown-stage"; return a }, "result_digest_mismatch"},
+		{func(a []string) []string { a[12] = "password: hunter2"; return a }, "review_evidence_invalid"},
+	} {
+		got := f.run(t, cli.ExitFailure, c.change(append([]string(nil), args...))...)
+		if got.Category != c.category || artifactCount(t, f) != before {
+			t.Fatal(c.category, got.Raw)
+		}
+	}
+	rejected := f.run(t, cli.ExitSuccess, args...)
+	if rejected.Stage.Status != workflow.RunRejected || rejected.Stage.Rejection == nil {
+		t.Fatal(rejected.Raw)
+	}
+	artifacts, err := local.NewArtifactStore(f.env.state)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a, err := artifacts.Read(context.Background(), rejected.Stage.Rejection.Evidence.RetainedID)
+	want := []detailartifact.Reference{{Kind: "workflow-stage", Value: workflow.DefaultStageID}, {Kind: "workflow-definition", Value: source.Workflow.Digest}, {Kind: "workflow-result", Value: digest}, {Kind: "workflow-repository", Value: source.WorkItem.RepositoryKey}}
+	if err != nil || a.ExecutionID != x.ExecutionID || string(a.Markdown) != "Rejected: tests missing." || a.Category != "evidence" || a.Retention != detailartifact.Evidence || a.Outcome != "success" || !reflect.DeepEqual(a.References, want) {
+		t.Fatal(a, err)
+	}
+	// Already rejected: a state refusal that retains nothing.
+	if got := f.run(t, cli.ExitFailure, args...); got.Category != "transition_refused" || !strings.Contains(got.Raw, "Evidence and digest are valid") || artifactCount(t, f) != before+1 {
+		t.Fatal(got.Raw)
+	}
+	rework := f.run(t, cli.ExitSuccess, minimalRun("--rework-of", x.ExecutionID, "--authorize-external")...)
+	if rework.Stage.ReworkOf == nil || rework.Stage.ReworkOf.ExecutionID != x.ExecutionID {
+		t.Fatal(rework.Raw)
+	}
+}
