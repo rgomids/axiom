@@ -131,6 +131,9 @@ type AgentSpec struct {
 	Effort          string   `json:"effort,omitempty"`
 	Instructions    string   `json:"instructions,omitempty"`
 	Effects         []string `json:"effects,omitempty"`
+	// Repository is the bound Repository key the agent works in; empty means
+	// the Work Item's Repository.
+	Repository string `json:"repository,omitempty"`
 	// Runtimes is the explicit user restriction of permitted Runtimes; empty
 	// means unrestricted. It is intent, never a vendor capability claim.
 	Runtimes []string `json:"runtimes,omitempty"`
@@ -836,6 +839,10 @@ func validateWorkflow(w WorkflowSnapshot, repos map[string]bool) error {
 				return invalid("stage %q agent %q", s.ID, a.ID)
 			}
 			agents[a.ID] = true
+			// The pre-binding snapshot check (nil repos) validates syntax only.
+			if !optionalToken(a.Repository) || repos != nil && a.Repository != "" && !repos[a.Repository] {
+				return invalid("stage %q agent %q repository", s.ID, a.ID)
+			}
 			if a.MaximumAttempts < 0 || a.MaximumAttempts > MaxTaskAttempts || a.TimeoutSeconds < 0 || a.TimeoutSeconds > int64(MaxAttemptTimeout/time.Second) {
 				return invalid("agent limits")
 			}

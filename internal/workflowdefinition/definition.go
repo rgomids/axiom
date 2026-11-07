@@ -123,12 +123,15 @@ type Agent struct {
 	Capabilities       []string `json:"capabilities"`
 	RuntimeConstraints []string `json:"runtimeConstraints"`
 	ProfileRef         string   `json:"profileRef,omitempty"`
-	Effort             Effort   `json:"effort"`
-	TimeoutSeconds     int      `json:"timeoutSeconds"`
-	MaximumAttempts    int      `json:"maximumAttempts"`
-	EffectCeilings     []string `json:"effectCeilings"`
-	IntegrationOwner   bool     `json:"integrationOwner"`
-	ValidationOwner    bool     `json:"validationOwner"`
+	// Repository is the optional Project Repository key this agent works in;
+	// absent means the Work Item's Repository. Schema 2 only.
+	Repository       string   `json:"repository,omitempty"`
+	Effort           Effort   `json:"effort"`
+	TimeoutSeconds   int      `json:"timeoutSeconds"`
+	MaximumAttempts  int      `json:"maximumAttempts"`
+	EffectCeilings   []string `json:"effectCeilings"`
+	IntegrationOwner bool     `json:"integrationOwner"`
+	ValidationOwner  bool     `json:"validationOwner"`
 	// Invocation is the optional schema-2 Workflow-agent invocation input
 	// (ADR-0037 decision 4): explicit Runtime/model/effort at the Workflow
 	// level, ranked between run overrides and machine-local defaults. With

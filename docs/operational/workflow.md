@@ -39,7 +39,11 @@ and `--disposition preserve`; no automatic reset is supported.
 
 Required outputs must be present; declared optional outputs are validated when
 present and may be absent. Work Item inputs come from `target`; earlier-stage
-outputs require a completed successful predecessor in the same Repository.
+outputs require a completed successful predecessor in this Execution (any of
+its bound Repositories). A schema-2 agent may declare `repository: <key>` to work
+only in that bound Project Repository; absent, it works in the Work Item's.
+A dependent agent also receives each same-stage dependency output as
+`<agent>/<output>`.
 `project-context` with source `project` freezes portable Project identity,
 revision and Repository identities, without local paths. Artifact inputs freeze
 retained successful artifacts with exactly one matching Repository, source stage
@@ -94,7 +98,9 @@ absence of an integration means no Git target is claimed. Readiness grants no
 publication, merge or acceptance authority. Optional `workflow delivery advance` performs one exactly authorized push or PR
 phase over `Execution.deliveries`, with intent before effect and exact observed
 confirmation. Lost responses remain unknown; `--inspect` records only exact-target
-observations under the original grant, without replay. Use `axiom docs commands` for the full command reference.
+observations under the original grant, without replay. That operator-authorized
+inspection is the human disposition: when it conclusively observes exactly the
+requested effect the delivery becomes confirmed; any other observation stays unknown. Use `axiom docs commands` for the full command reference.
 
 Human rejection is recorded with `workflow stage reject --execution <id>
 --stage <stage-id> --result-digest <digest> --evidence <retained-evidence-id>
@@ -129,6 +135,11 @@ Records are bounded to 256 messages and 4 KiB content each. Duplicate IDs with
 identical content are idempotent; conflicting IDs and duplicate answers refuse.
 Wrong Runtime/attempt/recipient, stale fences, ended askers, unknown kinds,
 oversized content and post-cancel publications refuse without a state write.
+The stage contract given to every child states this file shape (`replyTo` only
+on answers) and that an asker keeps polling until answered; a file of any other
+shape is skipped without a record. Writable attempts get a shell (Codex sandbox,
+Claude `Bash`) to build, test and wait; read-only Claude attempts keep only the
+Axiom CLI.
 
 | Kind | Consumer | Effect on eligibility |
 | --- | --- | --- |

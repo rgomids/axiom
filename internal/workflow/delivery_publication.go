@@ -1,9 +1,9 @@
 package workflow
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
-	"reflect"
 	"strings"
 
 	"github.com/rgomids/axiom/internal/strictjson"
@@ -112,7 +112,15 @@ func deliveryPacketCurrent(s State, p DeliveryPacket) bool {
 
 func exactDeliveryPR(p DeliveryPreview, r DeliveryPR) bool {
 	t := p.Target
-	return validText(r.ID) && r.URL == "https://github.com/"+t.Repository+"/pull/"+r.ID && r.Repository == t.Repository && r.BaseRef == t.BaseRef && r.HeadRef == t.HeadRef && r.BaseCommit == t.BaseCommit && r.HeadCommit == t.HeadCommit && r.Title == t.Title && r.Body == p.PRBody() && reflect.DeepEqual(r.Metadata, t.Metadata)
+	return validText(r.ID) && r.URL == "https://github.com/"+t.Repository+"/pull/"+r.ID && r.Repository == t.Repository && r.BaseRef == t.BaseRef && r.HeadRef == t.HeadRef && r.BaseCommit == t.BaseCommit && r.HeadCommit == t.HeadCommit && r.Title == t.Title && r.Body == p.PRBody() && sameJSON(r.Metadata, t.Metadata)
+}
+
+// sameJSON compares JSON by compact form: a request may carry insignificant
+// whitespace that persistence drops, which must not turn a confirmed effect
+// into an unknown one.
+func sameJSON(a, b json.RawMessage) bool {
+	var ca, cb bytes.Buffer
+	return json.Compact(&ca, a) == nil && json.Compact(&cb, b) == nil && bytes.Equal(ca.Bytes(), cb.Bytes())
 }
 
 func EncodeDeliveryPublication(r DeliveryPublication) ([]byte, error) {

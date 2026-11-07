@@ -60,7 +60,11 @@ Required outputs must be present; declared optional outputs are validated when
 present and may be absent unless a completion criterion references them. A
 criterion-referenced output must be present and pass its configured checks before
 a successor can dispatch. Work Item inputs come from `target`; earlier-stage
-outputs require a completed successful predecessor in the same Repository.
+outputs require a completed successful predecessor in this Execution (any of
+its bound Repositories). A schema-2 agent may declare `repository: <key>` to work
+only in that bound Project Repository; absent, it works in the Work Item's.
+A dependent agent also receives each same-stage dependency output as
+`<agent>/<output>`.
 `project-context` with source `project` freezes portable Project identity,
 revision and Repository identities, without local paths. Artifact inputs freeze
 retained successful artifacts with exactly one matching Repository, source stage
@@ -2197,7 +2201,8 @@ Cancellation and current authority still apply. A lost response remains
 unknown/recovery-required. `advance --inspect <index>`
 instead of `--request`, with the original exact grant and authority flags,
 records only an exact-target read. It never repeats an effect or turns guessed
-success into confirmation. Rejection and linked rework use the ordinary
+success into confirmation; only a conclusive read of exactly the requested effect
+(same refs, commits, tree, diff and single matching PR) confirms the unknown. Rejection and linked rework use the ordinary
 Execution controls described above; unknown effects require explicit recovery.
 Legacy delivery writers and composers are removed. Strict historical readers
 remain for inventory and retention, without a compatibility executor.

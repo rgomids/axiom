@@ -1101,3 +1101,24 @@ func TestPublicWorkflowRunAcceptsRepeatedInputBindings(t *testing.T) {
 		t.Fatalf("duplicate single-valued flag accepted: %s", got.Raw)
 	}
 }
+
+// An agent Repository key survives mapping; binding to a real Project
+// Repository is enforced when the Execution starts.
+func TestMapWorkflowDefinitionCarriesAgentRepository(t *testing.T) {
+	builtin, _ := workflowdefinition.BuiltinRevision(2)
+	d := builtin.Definition
+	if _, _, _, err := mapWorkflowDefinition(d); err != nil {
+		t.Fatal("baseline", err)
+	}
+	d.Stages[0].Agents[0].Repository = "docs"
+	_, _, stages, err := mapWorkflowDefinition(d)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stages[0].Agents[0].Repository != "docs" || stages[1].Agents[0].Repository != "" {
+		t.Fatalf("%v %+v", err, stages[0].Agents[0])
+	}
+	if _, err := workflow.NewExecution(workflow.NewExecutionInput{ExecutionID: "00000000-0000-0000-0000-000000000002", ProjectID: "p", WorkItem: workflow.WorkItemLink{Provider: "local", ID: "w", RepositoryKey: "main"}, Repositories: []workflow.RepositoryBinding{{Key: "main", Identity: "main"}}, WorkflowID: d.WorkflowID, Revision: "r2", Stages: stages, Now: time.Unix(1, 0)}); err == nil {
+		t.Fatal("agent bound to an unbound Repository started")
+	}
+}

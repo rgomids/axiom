@@ -45,3 +45,26 @@ func TestSchema2InvocationRoundTripAndInvalidSelectors(t *testing.T) {
 		t.Fatal("schema 2 accepted legacy effort")
 	}
 }
+
+func TestSchema2AgentRepositoryRoundTripAndBounds(t *testing.T) {
+	builtin, _ := BuiltinRevision(2)
+	d := builtin.Definition
+	d.Stages[0].Agents[0].Repository = "library"
+	doc, issues := Encode(d)
+	if len(issues) != 0 {
+		t.Fatal(issues)
+	}
+	decoded, issues := Decode(doc.Canonical)
+	if len(issues) != 0 || decoded.Definition.Stages[0].Agents[0].Repository != "library" {
+		t.Fatalf("roundtrip: %v", issues)
+	}
+	d.Stages[0].Agents[0].Repository = "Bad Key"
+	if _, issues := Encode(d); len(issues) == 0 {
+		t.Fatal("unsafe repository key accepted")
+	}
+	old := Builtin()
+	old.Definition.Stages[0].Agents[0].Repository = "library"
+	if _, issues := Encode(old.Definition); len(issues) == 0 {
+		t.Fatal("schema 1 gained agent repository")
+	}
+}

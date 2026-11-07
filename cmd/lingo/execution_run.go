@@ -307,25 +307,40 @@ func (c executionComposition) admit(ctx context.Context, x workflow.Execution) e
 	if resolved.Status != local.ResolutionFound || resolved.Project.ID != x.ProjectID {
 		return errProjectAdmission
 	}
+	keys := []string{x.WorkItem.RepositoryKey}
+	for _, stage := range x.Workflow.Stages {
+		for _, a := range stage.Agents {
+			if a.Repository != "" && !slices.Contains(keys, a.Repository) {
+				keys = append(keys, a.Repository)
+			}
+		}
+	}
+	for _, key := range keys {
+		if !c.repositoryAdmitted(x, resolved.Project.Repositories, key) {
+			return errRepositoryBinding
+		}
+	}
+	return nil
+}
+
+func (c executionComposition) repositoryAdmitted(x workflow.Execution, current []local.ResolvedRepository, key string) bool {
 	bound, frozen := "", ""
 	for _, r := range x.Repositories {
-		if r.Key == x.WorkItem.RepositoryKey {
+		if r.Key == key {
 			bound = r.Identity
 		}
 	}
 	for _, r := range c.project.Repositories {
-		if r.Key == x.WorkItem.RepositoryKey {
+		if r.Key == key {
 			frozen = r.Path
 		}
 	}
-	for _, r := range resolved.Project.Repositories {
-		if r.Key == x.WorkItem.RepositoryKey {
-			if bound != "" && repositoryIdentity(r) == bound && frozen != "" && r.Path == frozen {
-				return nil
-			}
+	for _, r := range current {
+		if r.Key == key && bound != "" && repositoryIdentity(r) == bound && frozen != "" && r.Path == frozen {
+			return true
 		}
 	}
-	return errRepositoryBinding
+	return false
 }
 
 // launcher binds the machine-local workspace, private output root and Axiom
@@ -353,7 +368,11 @@ func (c executionComposition) plannedLauncher(executionID, repositoryKey string)
 	if err != nil {
 		return stageexecution.RuntimeLauncher{}, err
 	}
-	return stageexecution.RuntimeLauncher{Workspace: workspace, InboxRoot: filepath.Join(c.s.stateRoot, "executions", "v2-attempt-outputs", c.project.ID, executionID), AxiomPath: axiom, Environment: os.Environ()}, nil
+	workspaces := map[string]string{}
+	for _, r := range c.project.Repositories {
+		workspaces[r.Key] = r.Path
+	}
+	return stageexecution.RuntimeLauncher{Workspace: workspace, Workspaces: workspaces, InboxRoot: filepath.Join(c.s.stateRoot, "executions", "v2-attempt-outputs", c.project.ID, executionID), AxiomPath: axiom, Environment: os.Environ()}, nil
 }
 
 func (c executionComposition) launcher(executionID, repositoryKey string) (stageexecution.RuntimeLauncher, error) {
@@ -521,7 +540,11 @@ func (c executionComposition) resolve(ctx context.Context, x workflow.Execution,
 	if slices.Contains(effects, "validation_command") && !c.authorizeCommands {
 		return workflow.Invocation{}, workflow.AttemptAuthority{}, workflow.ErrUnauthorizedEffect
 	}
-	return invocation, workflow.AttemptAuthority{RepositoryKey: x.WorkItem.RepositoryKey, Effects: effects, Actor: executionActor("user:")}, nil
+	repository := x.WorkItem.RepositoryKey
+	if agent.Repository != "" {
+		repository = agent.Repository
+	}
+	return invocation, workflow.AttemptAuthority{RepositoryKey: repository, Effects: effects, Actor: executionActor("user:")}, nil
 }
 
 // runtimeConfiguration reads the machine-local Runtime bindings and optional
@@ -764,7 +787,7 @@ func mapWorkflowDefinition(d workflowdefinition.Definition) (string, string, []w
 			}
 		}
 		for _, a := range s.Agents {
-			agent := workflow.AgentSpec{ID: a.ID, OutputScope: true, DependsOn: append([]string(nil), a.DependsOn...), Outputs: append([]string(nil), a.Outputs...), TimeoutSeconds: int64(a.TimeoutSeconds), MaximumAttempts: a.MaximumAttempts, Instructions: strings.TrimSpace(s.Instructions + "\n\n" + a.Responsibilities), Runtimes: append([]string(nil), a.RuntimeConstraints...)}
+			agent := workflow.AgentSpec{ID: a.ID, Repository: a.Repository, OutputScope: true, DependsOn: append([]string(nil), a.DependsOn...), Outputs: append([]string(nil), a.Outputs...), TimeoutSeconds: int64(a.TimeoutSeconds), MaximumAttempts: a.MaximumAttempts, Instructions: strings.TrimSpace(s.Instructions + "\n\n" + a.Responsibilities), Runtimes: append([]string(nil), a.RuntimeConstraints...)}
 			agent.Inputs = append([]string(nil), a.Inputs...)
 			// policy-default named the retired Project Runtime policy; the
 			// canonical path uses explicit selections instead of a guess.
@@ -822,7 +845,16 @@ func mapWorkflowDefinition(d workflowdefinition.Definition) (string, string, []w
 		stages = append(stages, spec)
 		previous = s.ID
 	}
-	if _, err := workflow.NewExecution(workflow.NewExecutionInput{ExecutionID: "00000000-0000-0000-0000-000000000001", ProjectID: "validation", WorkItem: workflow.WorkItemLink{Provider: "local", ID: "validation", RepositoryKey: "repo"}, Repositories: []workflow.RepositoryBinding{{Key: "repo", Identity: "validation"}}, WorkflowID: d.WorkflowID, Revision: revision, Stages: stages, Now: time.Unix(1, 0)}); err != nil {
+	// Agent Repository keys are checked against the real bindings at start.
+	repositories := []workflow.RepositoryBinding{{Key: "repo", Identity: "validation"}}
+	for _, s := range stages {
+		for _, a := range s.Agents {
+			if a.Repository != "" && !slices.ContainsFunc(repositories, func(r workflow.RepositoryBinding) bool { return r.Key == a.Repository }) {
+				repositories = append(repositories, workflow.RepositoryBinding{Key: a.Repository, Identity: "validation-" + a.Repository})
+			}
+		}
+	}
+	if _, err := workflow.NewExecution(workflow.NewExecutionInput{ExecutionID: "00000000-0000-0000-0000-000000000001", ProjectID: "validation", WorkItem: workflow.WorkItemLink{Provider: "local", ID: "validation", RepositoryKey: "repo"}, Repositories: repositories, WorkflowID: d.WorkflowID, Revision: revision, Stages: stages, Now: time.Unix(1, 0)}); err != nil {
 		return "", "", nil, errWorkflowUnmappable
 	}
 	return d.WorkflowID, revision, stages, nil

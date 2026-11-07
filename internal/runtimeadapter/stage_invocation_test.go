@@ -21,7 +21,7 @@ func TestStageArgvGolden(t *testing.T) {
 		want    []string
 		cwd     string
 	}{
-		{"codex", false, []string{"/bin/codex", "exec", "--model", "model", "--ignore-user-config", "--ephemeral", "-", "--sandbox", "workspace-write", "-C", "/inbox"}, "/inbox"},
+		{"codex", false, []string{"/bin/codex", "exec", "--model", "model", "--ignore-user-config", "--ephemeral", "-", "--sandbox", "workspace-write", "-C", "/inbox", "--skip-git-repo-check"}, "/inbox"},
 		{"codex", true, []string{"/bin/codex", "exec", "--model", "model", "--ignore-user-config", "--ephemeral", "-", "--sandbox", "workspace-write", "-C", "/work", "--add-dir", "/inbox"}, "/work"},
 		{"claude", false, []string{"/bin/claude", "--print", "--model", "model", "--input-format", "text", "--permission-prompts", "none", "--permission-mode", "dontAsk", "--allowedTools", "Read,Glob,Grep,Write,Bash(/bin/axiom:*)", "--add-dir", "/inbox", "--add-dir", "/work", "--disallowedTools", "Edit(//work/**)"}, "/inbox"},
 		{"claude", true, []string{"/bin/claude", "--print", "--model", "model", "--input-format", "text", "--permission-prompts", "none", "--permission-mode", "dontAsk", "--allowedTools", "Read,Glob,Grep,Write,Edit,Bash(/bin/axiom:*)", "--add-dir", "/inbox"}, "/work"},
@@ -161,13 +161,21 @@ func TestStagePathAndProcessBoundary(t *testing.T) {
 			t.Fatal(inbox)
 		}
 	}
-	request.Process = true
-	invocation, err := BuildStageInvocation(request)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !slices.Contains(invocation.Argv, "Read,Glob,Grep,Write,Bash") {
-		t.Fatal(invocation.Argv)
+	for _, write := range []bool{false, true} {
+		for _, process := range []bool{false, true} {
+			request.RepositoryWrite, request.Process = write, process
+			inv, err := BuildStageInvocation(request)
+			if err != nil {
+				t.Fatal(err)
+			}
+			tools := inv.Argv[slices.Index(inv.Argv, "--allowedTools")+1]
+			if got := slices.Contains(strings.Split(tools, ","), "Bash"); got != (write && process) {
+				t.Fatalf("write=%v process=%v tools=%q", write, process, tools)
+			}
+			if !write && (!strings.Contains(tools, "Bash("+request.AxiomPath+":*)") || inv.CWD != request.Inbox || !slices.Contains(inv.Argv, "Edit(/"+request.Workspace+"/**)")) {
+				t.Fatalf("read-only tool boundary lost: %+v", inv)
+			}
+		}
 	}
 	if _, err := StageEnvironment("codex", []string{"LC_BAD-NAME=C"}); err == nil {
 		t.Fatal("invalid key")
