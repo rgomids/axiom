@@ -268,7 +268,7 @@ func workflowStageRequirements(operation action, v WorkflowStageInput) []inputRe
 	if executionOperation(operation) {
 		rules := []inputRequirement{project, {name: "execution", required: true, missing: v.Execution == ""}}
 		if operation == workflowStageRejectAction {
-			rules = append(rules, inputRequirement{name: "stage", required: true, missing: v.ReviewStage == ""}, inputRequirement{name: "result-digest", required: true, missing: v.ResultDigest == ""}, inputRequirement{name: "evidence", required: v.ReviewNote == "", when: "--note is absent", missing: v.ReviewEvidence == ""})
+			rules = append(rules, inputRequirement{name: "stage", required: true, missing: v.ReviewStage == ""}, inputRequirement{name: "result-digest", required: true, missing: v.ResultDigest == ""})
 		}
 		if operation == workflowStageRetryAction || operation == workflowStageDiagnoseAction {
 			rules = append(rules, inputRequirement{name: "stage", required: true, missing: v.Stage == ""}, inputRequirement{name: "agent", required: true, missing: v.Agent == ""})

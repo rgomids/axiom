@@ -126,8 +126,11 @@ Axiom retains the `--note` as the result-bound Evidence; a pre-retained
 Execution/stage/definition/result/Repository. Refusals name the failed
 precondition: `invalid_review` (neither or both of `--note`/`--evidence`),
 `result_digest_mismatch`, `review_evidence_invalid`, or `transition_refused`
-when the Execution state does not admit the disposition. A refusal retains no
-Evidence.
+when the Execution state does not admit the disposition. Sequential validation
+refusals retain no new Evidence; pre-retained Evidence remains unchanged. With
+`--note`, Evidence creation and the fenced Execution update are separate writes:
+a concurrent state change or an update failure after creation can leave retained
+Evidence unreferenced by the Execution.
 The `rejected` Execution preserves successful process observations and all prior
 history, while refusing further progression and delivery. An existing human
 result approval is immutable and cannot be replaced by rejection.

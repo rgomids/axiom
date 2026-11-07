@@ -105,7 +105,7 @@ func TestPublicRejectedResultAndLinkedReworkUseCanonicalLifecycle(t *testing.T) 
 
 // AXM-12: a human can reject through the public CLI alone. --note is retained
 // by Axiom as the correlated Evidence; refusals name the failed precondition
-// and never retain orphan Evidence.
+// and sequential refusals retain no new Evidence.
 func TestPublicRejectWithHumanNoteRetainsCorrelatedEvidence(t *testing.T) {
 	f := newExecutionRunFixture(t)
 	done := f.run(t, cli.ExitSuccess, minimalRun("--authorize-external")...)
@@ -128,18 +128,26 @@ func TestPublicRejectWithHumanNoteRetainsCorrelatedEvidence(t *testing.T) {
 		change   func([]string) []string
 		category string
 	}{
-		// Neither --evidence nor --note: refused by the CLI input contract.
-		{func(a []string) []string { return append(a[:11], a[13:]...) }, ""},
+		// Neither or both sources reach the same semantic validation.
+		{func(a []string) []string { return append(a[:11], a[13:]...) }, "invalid_review"},
 		{func(a []string) []string { return append(a, "--evidence", "x") }, "invalid_review"},
 		{func(a []string) []string { a[10] = workflow.DigestText([]byte("stale")); return a }, "result_digest_mismatch"},
 		{func(a []string) []string { a[8] = "unknown-stage"; return a }, "result_digest_mismatch"},
 		{func(a []string) []string { a[12] = "password: hunter2"; return a }, "review_evidence_invalid"},
+		{func(a []string) []string { a[12] = "invalid\x00note"; return a }, "review_evidence_invalid"},
+		{func(a []string) []string { return a[:len(a)-1] }, "human_authority_required"},
+		{func(a []string) []string { return append(a[:13], a[14:]...) }, "human_authority_required"},
 	} {
 		got := f.run(t, cli.ExitFailure, c.change(append([]string(nil), args...))...)
-		if got.Category != c.category || artifactCount(t, f) != before {
+		if got.Category != c.category || artifactCount(t, f) != before || c.category == "invalid_review" && !strings.Contains(got.Raw, "exactly one of retained Evidence or a human note") {
 			t.Fatal(c.category, got.Raw)
 		}
 	}
+	t.Setenv("AXIOM_ATTEMPT_ID", "runtime-child")
+	if got := f.run(t, cli.ExitFailure, args...); got.Category != "human_authority_required" || artifactCount(t, f) != before {
+		t.Fatal(got.Raw)
+	}
+	t.Setenv("AXIOM_ATTEMPT_ID", "")
 	rejected := f.run(t, cli.ExitSuccess, args...)
 	if rejected.Stage.Status != workflow.RunRejected || rejected.Stage.Rejection == nil {
 		t.Fatal(rejected.Raw)
