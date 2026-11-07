@@ -79,8 +79,10 @@ required inputs and unsupported policies refuse rather than disappearing.
 A `human-review` validator waits for the exact successful stage result. Inspect
 `resultDigest`, then after actual human review continue with
 `workflow run --execution <id> --review-stage <stage> --result-digest
-<sha256:...> --evidence <retained-id> --authorize-human --authorize-external`.
-The retained Evidence must be successful, category/retention `evidence`, belong
+<sha256:...> --note <text> --authorize-human --authorize-external`. Axiom
+retains the human `--note` itself as the correlated Evidence (secret-like
+content is refused); alternatively pass a pre-retained `--evidence <id>`,
+exactly one of the two. Pre-retained Evidence must be successful, category/retention `evidence`, belong
 to this Execution and correlate exactly once with `workflow-stage`,
 `workflow-definition` (prefixed definition digest), `workflow-result` (the exact
 result digest) and `workflow-repository`. Agent messages cannot grant approval.
@@ -117,9 +119,18 @@ axiom workflow stage reconcile --project my-project --execution <execution-id> -
 
 
 Human rejection is recorded with `workflow stage reject --execution <id>
---stage <stage-id> --result-digest <digest> --evidence <retained-evidence-id>
+--stage <stage-id> --result-digest <digest> --note <text>
 --authorize-human --authorize-local`. Status provides the exact stage digest.
-Evidence must belong to the same Execution/stage/definition/result/Repository.
+Axiom retains the `--note` as the result-bound Evidence; a pre-retained
+`--evidence <id>` is accepted instead and must belong to the same
+Execution/stage/definition/result/Repository. Refusals name the failed
+precondition: `invalid_review` (neither or both of `--note`/`--evidence`),
+`result_digest_mismatch`, `review_evidence_invalid`, or `transition_refused`
+when the Execution state does not admit the disposition. Sequential validation
+refusals retain no new Evidence; pre-retained Evidence remains unchanged. With
+`--note`, Evidence creation and the fenced Execution update are separate writes:
+a concurrent state change or an update failure after creation can leave retained
+Evidence unreferenced by the Execution.
 The `rejected` Execution preserves successful process observations and all prior
 history, while refusing further progression and delivery. An existing human
 result approval is immutable and cannot be replaced by rejection.

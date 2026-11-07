@@ -42,8 +42,9 @@ func TestDocumentationRenderingDeterministicAndComplete(t *testing.T) {
 			}
 		})
 	})
-	// #369 adds one read-only diagnose leaf with six flags.
-	if leaves != 95 || flags != 431 {
+	// #369 adds one read-only diagnose leaf with six flags; AXM-12 adds --note
+	// to stage reject and workflow run.
+	if leaves != 95 || flags != 433 {
 		t.Fatalf("public tree drifted from the accepted coverage map: leaves=%d flags=%d", leaves, flags)
 	}
 	if leaves == 0 || flags == 0 {
