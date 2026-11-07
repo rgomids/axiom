@@ -34,6 +34,13 @@
   Projects created by `project configure` carry no policy and block until an
   authored policy is installed.
 
+## [0.23.5](https://github.com/rgomids/axiom/compare/v0.23.4...v0.23.5) (2026-11-07)
+
+
+### Bug Fixes
+
+* **workflow:** unblock real two-Repository Codex+Claude Executions (AXM-12) ([#382](https://github.com/rgomids/axiom/issues/382)) ([e001459](https://github.com/rgomids/axiom/commit/e0014595d25da271cd007a6c9698b4363001588b))
+
 ## [0.23.4](https://github.com/rgomids/axiom/compare/v0.23.3...v0.23.4) (2026-11-06)
 
 
