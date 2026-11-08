@@ -34,6 +34,13 @@
   Projects created by `project configure` carry no policy and block until an
   authored policy is installed.
 
+## [0.23.6](https://github.com/rgomids/axiom/compare/v0.23.5...v0.23.6) (2026-11-08)
+
+
+### Bug Fixes
+
+* **workflow:** let humans reject and review results with a retained note (AXM-12) ([#384](https://github.com/rgomids/axiom/issues/384)) ([c3ef13f](https://github.com/rgomids/axiom/commit/c3ef13f0165e1a7a7d7e9bf708d51bde283b5545))
+
 ## [0.23.5](https://github.com/rgomids/axiom/compare/v0.23.4...v0.23.5) (2026-11-07)
 
 
