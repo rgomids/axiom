@@ -97,13 +97,13 @@ no private state, migration or cutover was exercised. graphify-out excluded.
 | DF-S22-02 | DEFERRED: Spec 007 historical links identify retired source; historical text is not current implementation | S3.4 documentation review |
 | DF-S22-03 | DEFERRED: whole send-area reread bounded to 256 entries | Measure before raising bounds; S3.5 risk review |
 | DF-S22-04 | DEFERRED: same-UID peer-area access remains possible; area attribution is not OS isolation | S3.5/pre-merge explicit limitation |
-| DF-S23-01 | DEFERRED: public Integrate/worktree composition absent; launcher retains shared Workspace | S3.1 views and S3.4 public-contract reconciliation; no new CLI scope inferred |
+| DF-S23-01 | AXM-43 option-A safe subset adds new-Execution enrollment, frozen attempt workspaces and public run integration; see [Evidence](evidence-axm-43-implementation.md) for validation results | After-gated same-Stage dependencies consuming enrolled writers refuse before Git/spawn: [DECISION_PENDING (Rafael)](evidence-axm-43-implementation.md#decision-pending-rafael). P-AC3 Product acceptance remains human manual validation |
 | DF-S23-02 | DEFERRED: same-UID child ref writes detected, not prevented | S3.5/pre-merge security review |
 | DF-S23-03 | DEFERRED: check-process identity not persisted across runner loss; unknown blocks replay | S3.5 recovery review; no native confinement claim |
 | DF-S23-04 | DEFERRED: worktree disposal explicit; automatic deletion would expand effects | S3.5 operational handoff |
 | DF-S23-05 | DEFERRED: Git >=2.38 required; older Git fails closed | S3.5 supported-environment qualification |
 | DF-S23-06 | DEFERRED: pre-existing Git subprocess containment limits | S3.5/pre-merge security review |
-| DF-S23-07 | DEFERRED: integration disposition/status lacks public composition | S3.1 views / S3.4 CLI reconciliation within accepted scope |
+| DF-S23-07 | DEFERRED: public integration disposition remains unavailable; read-only Repository outcomes now observe recorded Git results | Separate decision for public resolution; AXM-43 does not add it |
 | DF-RR-01 | DEFERRED: store guard permits prepared→terminal without differentiating lease-free Save; no production lease-free integration-finishing caller | S3.4 caller/deletion closure, S3.5 review |
 
 Earlier S1/S2.1 optional findings remain explicitly inherited from

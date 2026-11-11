@@ -21,6 +21,7 @@ import (
 	"github.com/rgomids/axiom/internal/completion"
 	"github.com/rgomids/axiom/internal/detailartifact"
 	"github.com/rgomids/axiom/internal/executiongraph"
+	"github.com/rgomids/axiom/internal/gitworkspace"
 	"github.com/rgomids/axiom/internal/local"
 	"github.com/rgomids/axiom/internal/projectapp"
 	"github.com/rgomids/axiom/internal/runtimeapplication"
@@ -216,7 +217,7 @@ func (c executionComposition) run(ctx context.Context, in cli.WorkflowStageInput
 	if failed.Category != "" {
 		return c.s.stageFailure(completionStatus(failed.Status), failed.Category, "Linked Work Item could not be resolved", "Link the existing Work Item to this Project Repository with work-item select; nothing was written", nil)
 	}
-	request := stageexecution.StartRequest{ProjectID: c.project.ID, WorkItem: stageexecution.LinkedWorkItem{Provider: target.WorkItem.Provider, ID: workItemToken(target.WorkItem), RepositoryKey: target.Repository.Key}, Selections: selections}
+	request := stageexecution.StartRequest{ProjectID: c.project.ID, WorkItem: stageexecution.LinkedWorkItem{Provider: target.WorkItem.Provider, ID: workItemToken(target.WorkItem), RepositoryKey: target.Repository.Key}, Selections: selections, EnrollIntegration: true}
 	for _, r := range c.project.Repositories {
 		identity := repositoryIdentity(r)
 		request.Repositories = append(request.Repositories, workflow.RepositoryBinding{Key: r.Key, Identity: identity})
@@ -295,7 +296,23 @@ func (c executionComposition) retry(ctx context.Context, in cli.WorkflowStageInp
 }
 
 func (c executionComposition) engine(launcher stageexecution.Launcher) stageexecution.Engine {
-	return stageexecution.Engine{Store: c.store, Runner: executiongraph.OSProcessRunner{}, Launcher: launcher, Resolve: c.resolve, Admit: c.admit, NewID: allocateStageID}
+	return stageexecution.Engine{Store: c.store, Runner: executiongraph.OSProcessRunner{}, Launcher: launcher, Resolve: c.resolve, Admit: c.admit, NewID: allocateStageID, Workspaces: c.workspaceGit}
+}
+
+func executionWorktreeRoot(repository, executionID, key string) string {
+	return filepath.Join(filepath.Dir(repository), ".axiom-worktrees-"+executionID+"-"+key)
+}
+
+func (c executionComposition) workspaceGit(ctx context.Context, x workflow.Execution, key string) (stageexecution.WorkspaceGit, error) {
+	if err := c.admit(ctx, x); err != nil {
+		return nil, err
+	}
+	for _, r := range c.project.Repositories {
+		if r.Key == key {
+			return gitworkspace.NewIntegrator(ctx, r.Path, executionWorktreeRoot(r.Path, x.ExecutionID, key))
+		}
+	}
+	return nil, errRepositoryBinding
 }
 
 // admit re-reads the actual Project operational state and Repository binding
@@ -373,10 +390,12 @@ func (c executionComposition) plannedLauncher(executionID, repositoryKey string)
 		return stageexecution.RuntimeLauncher{}, err
 	}
 	workspaces := map[string]string{}
+	worktreeRoots := map[string]string{}
 	for _, r := range c.project.Repositories {
 		workspaces[r.Key] = r.Path
+		worktreeRoots[r.Key] = executionWorktreeRoot(r.Path, executionID, r.Key)
 	}
-	return stageexecution.RuntimeLauncher{Workspace: workspace, Workspaces: workspaces, InboxRoot: filepath.Join(c.s.stateRoot, "executions", "v2-attempt-outputs", c.project.ID, executionID), AxiomPath: axiom, Environment: os.Environ()}, nil
+	return stageexecution.RuntimeLauncher{Workspace: workspace, Workspaces: workspaces, WorktreeRoots: worktreeRoots, InboxRoot: filepath.Join(c.s.stateRoot, "executions", "v2-attempt-outputs", c.project.ID, executionID), AxiomPath: axiom, Environment: os.Environ()}, nil
 }
 
 func (c executionComposition) launcher(executionID, repositoryKey string) (stageexecution.RuntimeLauncher, error) {
@@ -885,6 +904,8 @@ func completionStatus(s workflow.Status) completion.Status {
 // --- presentation ----------------------------------------------------------
 
 type executionAttemptView struct {
+	Workspace            *executionWorkspaceView    `json:"workspace,omitempty"`
+	WorkspaceUncertain   bool                       `json:"workspaceUncertain,omitempty"`
 	LaunchFailure        *workflow.LaunchFailure    `json:"launchFailure,omitempty"`
 	NextAction           string                     `json:"nextAction,omitempty"`
 	WorkspaceDisposition string                     `json:"workspaceDisposition,omitempty"`
@@ -907,6 +928,15 @@ type executionAttemptView struct {
 	Effects              []workflow.EffectFact      `json:"effects,omitempty"`
 	Artifacts            []workflow.ArtifactRef     `json:"artifacts,omitempty"`
 	Resolution           *workflow.Disposition      `json:"resolution,omitempty"`
+}
+
+// Portable workspace facts omit machine-local paths and repository identity.
+type executionWorkspaceView struct {
+	BaseSHA           string `json:"baseSha"`
+	SourceBranch      string `json:"sourceBranch"`
+	Worktree          string `json:"worktree"`
+	TargetRef         string `json:"targetRef"`
+	InitialTargetHead string `json:"initialTargetHead"`
 }
 
 type executionProcessView struct {
@@ -966,6 +996,10 @@ func executionPayload(x workflow.Execution, facts []stageexecution.ReconcileFact
 				if a.LaunchFailure != nil {
 					view.NextAction = a.LaunchFailure.NextAction()
 				}
+				if w := a.Workspace; w != nil {
+					view.Workspace = &executionWorkspaceView{w.BaseSHA, w.SourceBranch, w.Worktree, w.TargetRef, w.InitialTargetHead}
+					view.WorkspaceUncertain = a.WorkspaceUncertain
+				}
 				if a.Process != nil {
 					view.Process = &executionProcessView{PID: a.Process.PID, StartIdentity: a.Process.StartIdentity}
 				}
@@ -988,6 +1022,20 @@ func executionNext(x workflow.Execution) string {
 		return "Rejected source is immutable. Start a new workflow run --rework-of " + x.ExecutionID + " with the same linked Work Item/Repositories and fresh selection/authority; no permissions transfer"
 	}
 	selector := " --execution " + x.ExecutionID
+	for _, stage := range x.Stages {
+		for _, task := range stage.Tasks {
+			for _, a := range task.Attempts {
+				if a.WorkspaceUncertain {
+					return "The retained workspace/integration outcome is uncertain; inspect stage status and branches/worktrees without replay. No public integration resolution is available"
+				}
+			}
+		}
+	}
+	for _, i := range x.Integrations {
+		if x.RequiresIntegration(i.SourceAttemptID) && i.Status != workflow.IntegrationIntegrated {
+			return "Inspect retained integration " + i.IntegrationID + " and its branches/worktrees; no automatic retry, reset or public integration resolution is available"
+		}
+	}
 	for k, d := range x.Deliveries {
 		if d.Status == "unknown" || d.Status == "prepared" {
 			return fmt.Sprintf("Inspect exact delivery target: axiom workflow delivery advance%s --inspect %d --grant %s --authorize-local --authorize-human with its original --authorize-push or --authorize-pr; no replay or acceptance", selector, k, d.Grant.Digest)
@@ -1053,6 +1101,12 @@ func (c executionComposition) failure(err error, x *workflow.Execution) cli.Work
 		next     string
 	}
 	rules := []rule{
+		{stageexecution.ErrIntegrationUnknown, completion.Failure, "recovery_required", "Integration effects are unknown; inspect retained state and the exact target without replay"},
+		{stageexecution.ErrNotIntegrated, completion.Failure, "not_integrated", "Inspect retained integration checks/conflict and branches/worktrees; no automatic retry or reset is available"},
+		{workflow.ErrIntegrationChecksUnavailable, completion.ValidationFailure, "integration_checks_required", "Configure post-merge stage commands and authorize them with --authorize-commands before starting enrolled writers"},
+		{workflow.ErrIntegrationStale, completion.Failure, "integration_base_changed", "The clean base or integration target changed; preserve all branches/worktrees and inspect before starting a new Execution"},
+		{gitworkspace.ErrWorkspaceCollision, completion.Failure, "workspace_collision", "A reserved branch or worktree already exists; it was not adopted or overwritten. Inspect retained state"},
+		{stageexecution.ErrIntegrationRefused, completion.Failure, "integration_refused", "The recorded workspace/result could not be safely integrated; preserve it and inspect stage status"},
 		{errSelectionSyntax, completion.ValidationFailure, "invalid_selection", "Use --select [<stage-id>/]<agent-id>.<runtime|model|effort|instructions|profile>=<value> naming a Workflow agent"},
 		{errSelectionsFrozen, completion.ValidationFailure, "selections_frozen", "Start selections are immutable; change them only with stage retry --new-selection --select ..."},
 		{runtimeapplication.ErrInvocationConflict, completion.ValidationFailure, "invocation_selection_conflict", "Give each agent field one value per level; nothing was written"},

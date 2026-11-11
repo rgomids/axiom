@@ -82,6 +82,7 @@ func (e Engine) runReady(ctx context.Context, lease workflow.RunnerFence, curren
 		}
 	}
 	principal := e
+	principal.Admit = workers.Admit
 	principal.Now = workers.Now
 	principal.Resolve = func(ctx context.Context, x workflow.Execution, ref workflow.TaskRef) (workflow.Invocation, workflow.AttemptAuthority, error) {
 		callbacks.Lock()
@@ -96,6 +97,9 @@ func (e Engine) runReady(ctx context.Context, lease workflow.RunnerFence, curren
 	inflight := map[workflow.TaskRef]bool{}
 	retry := opts.Retry
 	var firstErr error
+	if len(current.Enrollments) != 0 {
+		firstErr = principal.preflightWorkspaces(ctx, current)
+	}
 	for {
 		// External cancellation/gate changes are authoritative. Refresh before
 		// computing eligibility; PrepareAttempt checks it again at the commit.
@@ -104,6 +108,9 @@ func (e Engine) runReady(ctx context.Context, lease workflow.RunnerFence, curren
 			current = latest
 		} else if firstErr == nil {
 			firstErr = err
+		}
+		if firstErr == nil && ctx.Err() == nil && len(inflight) == 0 {
+			current, firstErr = principal.integrateReady(ctx, lease, current)
 		}
 		if firstErr == nil && ctx.Err() == nil {
 			ready := current.Ready()
@@ -118,6 +125,9 @@ func (e Engine) runReady(ctx context.Context, lease workflow.RunnerFence, curren
 				}
 				request, err := principal.prepareAttempt(ctx, lease, current, ref, isRetry, isRetry && opts.NewSelection, opts.WorkspaceDisposition)
 				if err != nil {
+					if request.Execution.ExecutionID != "" {
+						current = request.Execution
+					}
 					firstErr = err
 					break
 				}

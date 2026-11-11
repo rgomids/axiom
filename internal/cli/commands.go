@@ -67,7 +67,7 @@ func commandTree() commandDefinition {
 			leaf("close", "Preview or close Provider Work Item", workItemCloseAction), leaf("reopen", "Preview or reopen Provider Work Item", workItemReopenAction),
 			leaf("complete", "Compatibility spelling of close", workItemCompleteAction)),
 		group("workflow", "Inspect and drive Executions with explicit authority",
-			leaf("run", "Run the linked Work Item with explicit inputs or LINGO_INVOCATION_DEFAULTS; progress eligible stages", workflowRunAction),
+			leaf("run", "Run the linked Work Item with explicit inputs or LINGO_INVOCATION_DEFAULTS; new Executions with at least two writers in one Stage/Repository integrate isolated commits before dependents (configured checks and --authorize-commands required). After-gated same-Stage dependencies consuming enrolled writers refuse before launch; gate timing is preserved", workflowRunAction),
 			leaf("status", "Inspect Execution and next gate action", workflowStatusAction), leaf("evidence", "Inspect Execution Evidence", workflowEvidenceAction),
 			leaf("list", "List local Executions", workflowListAction),
 			group("delivery", "Inspect readiness or advance the current authorized delivery phase", leaf("advance", "Preview or perform one exact push/PR; inspect unknown without replay", workflowDeliveryAdvanceAction), leaf("packet", "Inspect results without granting delivery authority", workflowDeliveryPacketAction)),

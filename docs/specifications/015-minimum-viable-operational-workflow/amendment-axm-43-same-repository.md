@@ -1,6 +1,9 @@
 # AXM-43 — Same-repository workflow run integration amendment
 
 Revision 2, 2026-11-11. Status: **option A approved by Rafael**; not implemented.
+Implementation follow-up: [AXM-43 implementation Evidence](evidence-axm-43-implementation.md)
+records the later code and validation. The analysis below describes the inspected
+pre-implementation base and preserves Revision 2's approval history.
 Revision 1 (same day) proposed options A/B/C as `DECISION_PENDING (Rafael)`.
 Decision, 2026-11-11 11:50 BRT, literal: “Aprovo a opção A da P-AC3 na #390”
 ([decision record](https://github.com/rgomids/axiom/pull/390#issuecomment-6799056487)).

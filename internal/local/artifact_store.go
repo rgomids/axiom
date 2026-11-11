@@ -14,11 +14,13 @@ import (
 )
 
 type ArtifactStore struct {
-	root     string
-	now      func() (time.Time, error)
-	allocate func() (string, error)
-	capacity func(*os.Root) (int, int64, error)
-	hooks    publicationHooks
+	// Enrolled concurrent outputs share the existing bounded lock acquisition.
+	waitForLocks bool
+	root         string
+	now          func() (time.Time, error)
+	allocate     func() (string, error)
+	capacity     func(*os.Root) (int, int64, error)
+	hooks        publicationHooks
 	// beforeCleanupRemoval is a deterministic test seam between exact removals.
 	beforeCleanupRemoval func(int) error
 }
@@ -73,16 +75,19 @@ func (s ArtifactStore) Read(ctx context.Context, id string) (detailartifact.Arti
 	}
 	defer root.Close()
 	defer objects.Close()
-	rootLock, err := lockDirectory(root, false)
+	var locks []*os.File
+	if s.waitForLocks {
+		locks, err = lockRoots(false, root, objects)
+	} else {
+		locks, err = tryLockRoots(false, root, objects)
+	}
 	if err != nil {
 		return detailartifact.Artifact{}, err
 	}
-	defer rootLock.Close()
-	objectsLock, err := lockDirectory(objects, false)
-	if err != nil {
-		return detailartifact.Artifact{}, err
+	defer closeFiles(locks)
+	if s.waitForLocks && ctx.Err() != nil {
+		return detailartifact.Artifact{}, ctx.Err()
 	}
-	defer objectsLock.Close()
 	shard, err := existingPrivateChild(objects, id[:2])
 	if err != nil {
 		return detailartifact.Artifact{}, err
@@ -109,16 +114,19 @@ func (s ArtifactStore) create(ctx context.Context, artifact detailartifact.Artif
 	}
 	defer root.Close()
 	defer objects.Close()
-	rootLock, err := lockDirectory(root, true)
+	var locks []*os.File
+	if s.waitForLocks {
+		locks, err = lockRoots(true, root, objects)
+	} else {
+		locks, err = tryLockRoots(true, root, objects)
+	}
 	if err != nil {
 		return err
 	}
-	defer rootLock.Close()
-	objectsLock, err := lockDirectory(objects, true)
-	if err != nil {
-		return err
+	defer closeFiles(locks)
+	if s.waitForLocks && ctx.Err() != nil {
+		return ctx.Err()
 	}
-	defer objectsLock.Close()
 	if err := s.hooks.at(FaultF0); err != nil {
 		return publicationFailure(FaultF0, false, err)
 	}

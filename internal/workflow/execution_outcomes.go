@@ -56,6 +56,9 @@ func (e Execution) RepositoryOutcomes() []RepositoryOutcome {
 					if current && a.Status != AttemptSucceeded {
 						o.Blockers = append(o.Blockers, a.AttemptID+":"+string(a.Status))
 					}
+					if current && a.Status == AttemptSucceeded && e.RequiresIntegration(a.AttemptID) && !e.AttemptIntegrated(a.AttemptID) {
+						o.Blockers = append(o.Blockers, a.AttemptID+":integration_required")
+					}
 				}
 			}
 		}

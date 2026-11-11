@@ -45,7 +45,7 @@ Login and successful process exit do not prove successful Stage output.
 | `comment` | - | `axiom --json work-item comment --project <uuid-or-slug>` | external mutation | preview first; comment only with the exact `--preview-digest` plus `--authorize-external` | only for unambiguous comment intent |
 | `close` | - | `axiom --json work-item close --project <uuid-or-slug>` | external mutation | preview first; close only with the exact `--preview-digest` plus `--authorize-external` | only for unambiguous close intent |
 | `reopen` | - | `axiom --json work-item reopen --project <uuid-or-slug>` | external mutation | preview first; reopen only with the exact `--preview-digest` plus `--authorize-external` | only for unambiguous reopen intent |
-| `execution.run` | - | `axiom --json workflow run` | external mutation | one run action; spawning the selected Runtimes needs `--authorize-external`; a human gate records only with `--approve-gate` and `--authorize-human` | only for unambiguous run intent |
+| `execution.run` | - | `axiom --json workflow run` | external mutation | one run action; spawning the selected Runtimes needs `--authorize-external`; new same-Repository multi-writer enrollment requires configured post-merge checks and `--authorize-commands`, with dependents gated on recorded integration; a human gate records only with `--approve-gate` and `--authorize-human` | only for unambiguous run intent |
 | `delivery.advance` | - | `axiom --json workflow delivery advance` | external mutation | exact `--grant`; `--authorize-local` `--authorize-human` and `--authorize-push` OR `--authorize-pr`; `--inspect` only records exact-target observations | only for unambiguous delivery intent |
 | `stage.reject` | - | `axiom --json workflow stage reject` | local mutation | exact stage/result/Evidence; `--authorize-human` `--authorize-local`; operator context only | only for unambiguous stage reject intent |
 | `delivery.packet` | - | `axiom --json workflow delivery packet` | read-only | none; readiness grants no delivery authority | allowed |
@@ -216,6 +216,20 @@ Evidence. Artifact inputs use declared `--input source=retained-id` bindings;
 Project context freezes portable identity/revision/Repository observations.
 Configured command validators require explicit `--authorize-commands` for their
 exact frozen argv and effect bounds. Do not infer this authority from a run.
+
+New Executions automatically isolate and integrate a Stage's same-Repository
+work when at least two configured agents can write there, including dependent
+writers. Configured post-merge commands and `--authorize-commands` are required
+before writers launch. Writers commit on their assigned branches and leave clean
+worktrees; dependents wait for recorded integration and receive its accepted tree.
+An after-gated Stage with a same-Stage dependent consuming an enrolled writer
+refuses before Git materialization or spawn, pending Rafael's material decision.
+Never reinterpret an after gate as approval of partial results. Other after
+gates wait for all agents to succeed before human approval permits integration.
+Report `not_integrated` conflicts/check failures and `unknown` effects truthfully;
+do not retry them automatically. Keep all branches/worktrees for inspection and
+never invent a public integration-resolution command. Unenrolled Executions keep
+their previous behavior; human gates still require real human authority.
 
 ## delivery packet
 

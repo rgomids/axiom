@@ -99,8 +99,25 @@ Independent ready tasks run concurrently on the canonical Execution engine;
 the principal serializes their state commits. Dependencies and configured human
 gates still control eligibility. Cancellation, failed required validation and
 unknown effects stop successors. Cross-Runtime collaboration uses the same Execution messages and private attempt
-ingress. Principal-controlled worktree integration is a library operation; its
-public composition remains deferred. See the
+ingress. New Executions automatically enroll a Stage/Repository when at least
+two configured agents have workspace-write authority there, including dependent
+writers. Configured post-merge checks and `--authorize-commands` are required
+before those writers launch. Each attempt's isolated branch/worktree and base
+are frozen before creation; writers must commit results and leave a clean tree.
+The principal integrates serially into a new owned target with expected-HEAD
+CAS and post-merge checks. Dependencies and Stage advancement wait for recorded
+integration; dependent Repository readers/writers see the integrated contents.
+A Stage with an after gate and a same-Stage dependent consuming an enrolled
+writer is refused before Git materialization or spawn: the after gate cannot
+approve partial Stage results. This combination is `DECISION_PENDING (Rafael)`;
+see the [decision and options](specifications/015-minimum-viable-operational-workflow/evidence-axm-43-implementation.md#decision-pending-rafael).
+After gates without that dependency cycle still wait for all agents to succeed;
+real human approval then permits integration.
+Dirty/changed base or branch/worktree collision refuses without adopting it;
+the operator's checked-out branch is never advanced. Conflict/check failure stays
+`not_integrated`; uncertain effects stay `unknown`, without automatic replay.
+Branches, commits and worktrees are retained. Existing unenrolled Executions keep
+their previous behavior. See the
 [operational guide](operational/workflow.md).
 
 Retry preserves the frozen invocation unless `--new-selection` explicitly permits
@@ -1954,10 +1971,11 @@ Same-UID filesystem access is not OS isolation (ADR-0028).
 
 Only explicit human authority records configured before/after gates or exact
 result review. Unknown effects/cancel/failure stop successors regardless of
-message content. S2.3 integration remains a principal library operation with
-expected-head CAS, retained checks and truthful unknown/recovery; messages
-cannot integrate, dispose an unknown outcome, push or open a PR. Its public
-integration command remains unavailable. Repository delivery uses the canonical
+message content. Enrolled same-Repository writers integrate through `workflow run`
+under the principal's fence, with expected-head CAS, retained checks and truthful
+unknown/recovery. Messages cannot integrate, dispose an unknown outcome, push
+or open a PR. There is no separate public integration or integration-resolution
+command. Repository delivery uses the canonical
 Execution operation below.
 
 The retired format-1 stream has no writer, store, acceptance verifier or runtime

@@ -136,6 +136,22 @@ validator results. Stage/Agent Runtime choices only constrain policy through
 They never widen Project policy. Assume no fixed Profile tiers, model names,
 credential values, installation paths or proven Runtime capabilities.
 
+For new Executions, a Stage with at least two configured writers on the same
+resolved Repository enrolls automatically, including dependent writers. Explain
+the required configured post-merge commands and `--authorize-commands` before
+run; never invent a check or grant. Each attempt receives a frozen isolated
+workspace; writers must commit on their assigned branch and leave it clean.
+The principal records serial integration before dependents or Stage advancement,
+and dependent readers/writers receive the integrated tree. Human gates remain
+human gates. An after-gated Stage with a same-Stage dependent consuming an
+enrolled writer refuses before Git materialization or spawn; never reinterpret
+the after gate as approval of partial results. This combination awaits Rafael's
+material decision. Other after gates wait for all agents to succeed before
+human approval permits integration. Conflict/check failure is `not_integrated`; uncertain effects are
+`unknown`, never automatic replay. Branches/worktrees remain for inspection;
+no cleanup or public integration-resolution command is implied. Existing
+unenrolled Executions retain their previous behavior.
+
 Validate the regular draft with `definition.validate`; stop on any refusal.
 Run the requested mutating preview and present a readable summary alongside its exact effects and
 `workflowAuthoring` payload. After the user approves that exact preview digest,

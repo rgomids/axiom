@@ -22,11 +22,12 @@ type LinkedWorkItem struct {
 // selected Workflow (or the minimal default) and nothing else. There is no
 // Stage Plan, Validator Policy, preview digest, expected revision or Profile.
 type StartRequest struct {
-	ReworkOf     *workflow.RejectedSource
-	ExecutionID  string
-	ProjectID    string
-	Repositories []workflow.RepositoryBinding
-	WorkItem     LinkedWorkItem
+	EnrollIntegration bool
+	ReworkOf          *workflow.RejectedSource
+	ExecutionID       string
+	ProjectID         string
+	Repositories      []workflow.RepositoryBinding
+	WorkItem          LinkedWorkItem
 	// Workflow is empty for the minimal default.
 	WorkflowID, WorkflowRevision string
 	Stages                       []workflow.StageSpec
@@ -61,7 +62,7 @@ func (e Engine) Start(ctx context.Context, store creator, r StartRequest) (workf
 		id, rev, stages = workflow.DefaultWorkflowID, workflow.DefaultWorkflowRevision, workflow.DefaultWorkflowStages()
 	}
 	x, err := workflow.NewExecution(workflow.NewExecutionInput{
-		ExecutionID: r.ExecutionID, ProjectID: r.ProjectID,
+		EnrollIntegration: r.EnrollIntegration, ExecutionID: r.ExecutionID, ProjectID: r.ProjectID,
 		WorkItem:     workflow.WorkItemLink{Provider: r.WorkItem.Provider, ID: r.WorkItem.ID, RepositoryKey: r.WorkItem.RepositoryKey},
 		Repositories: r.Repositories, WorkflowID: id, Revision: rev, Stages: stages, Selections: r.Selections, Now: e.now(),
 	})

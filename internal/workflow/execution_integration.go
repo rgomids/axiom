@@ -209,6 +209,9 @@ func (e *Execution) PrepareIntegration(in IntegrationInput) error {
 	if !ok || attempt.Status != AttemptSucceeded {
 		return fmt.Errorf("%w: source attempt has no validated result", ErrTransition)
 	}
+	if w := attempt.Workspace; w != nil && (w.RepositoryKey != in.RepositoryKey || w.RepositoryIdentity != in.RepositoryIdentity || w.SourceBranch != in.SourceBranch || w.Worktree != in.Worktree || w.BaseSHA != in.BaseSHA || w.TargetRef != in.TargetRef) {
+		return fmt.Errorf("%w: integration differs from frozen workspace", ErrTransition)
+	}
 	if attempt.Authority.RepositoryKey != in.RepositoryKey || !slices.Contains(attempt.Authority.Effects, "workspace_write") || !slices.Contains(attempt.Authority.Effects, "validation_command") {
 		return fmt.Errorf("%w: source attempt is not authorized to write and validate this Repository", ErrUnauthorizedEffect)
 	}
@@ -221,6 +224,9 @@ func (e *Execution) PrepareIntegration(in IntegrationInput) error {
 		return fmt.Errorf("%w: human gate pending", ErrTransition)
 	}
 	for _, other := range e.Integrations {
+		if e.RequiresIntegration(in.SourceAttemptID) && other.SourceAttemptID == in.SourceAttemptID {
+			return fmt.Errorf("%w: enrolled attempt already has integration intent", ErrTransition)
+		}
 		if other.Status == IntegrationPrepared {
 			return ErrIntegrationBusy
 		}
@@ -302,7 +308,14 @@ func validateIntegrations(e Execution) error {
 	seen := map[string]bool{}
 	association := map[string]string{}
 	prepared := 0
+	enrolledAttempts := map[string]bool{}
 	for _, i := range e.Integrations {
+		if e.RequiresIntegration(i.SourceAttemptID) {
+			if enrolledAttempts[i.SourceAttemptID] {
+				return invalid("duplicate enrolled integration")
+			}
+			enrolledAttempts[i.SourceAttemptID] = true
+		}
 		if !ValidToken(i.IntegrationID) || seen[i.IntegrationID] {
 			return invalid("integration identity")
 		}
@@ -317,6 +330,9 @@ func validateIntegrations(e Execution) error {
 		attempt, ref, ok := e.FindAttempt(i.SourceAttemptID)
 		if !ok || ref.StageID != i.StageID || ref.AgentID != i.AgentID || attempt.Authority.RepositoryKey != i.RepositoryKey {
 			return invalid("integration %q source", i.IntegrationID)
+		}
+		if w := attempt.Workspace; w != nil && (w.RepositoryKey != i.RepositoryKey || w.SourceBranch != i.SourceBranch || w.Worktree != i.Worktree || w.BaseSHA != i.BaseSHA || w.TargetRef != i.TargetRef) {
+			return invalid("integration workspace correlation")
 		}
 		if !ValidBranchRef(i.SourceBranch) || !ValidBranchRef(i.TargetRef) || i.SourceBranch == i.TargetRef || !ValidWorktreeName(i.Worktree) {
 			return invalid("integration %q refs", i.IntegrationID)
