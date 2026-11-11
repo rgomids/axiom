@@ -69,8 +69,12 @@ func (s InstallationStore) ReadInstalledProject(ctx context.Context, installed p
 	if _, err := os.Lstat(installed.Source); err != nil {
 		return project.Project{}, projectapp.ErrProjectDefinitionUnavailable
 	}
-	root, err := existingPrivateRoot(installed.Source)
+	root, err := s.sourceRoot(installed.Source)
 	if err != nil {
+		var refusal *AncestorOwnerError
+		if errors.As(err, &refusal) {
+			return project.Project{}, refusal
+		}
 		if errors.Is(err, ErrUnsafe) {
 			return project.Project{}, ErrUnsafe
 		}

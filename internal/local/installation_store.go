@@ -17,6 +17,7 @@ import (
 type InstallationStore struct {
 	root              string
 	openExistingRoot  func(string) (*os.Root, error)
+	openSourceRoot    func(string) (*os.Root, error)
 	beforePublication func()
 	afterPublication  func()
 	syncDirectory     func(*os.Root) error
@@ -445,4 +446,11 @@ func (s InstallationStore) existingRoot() (*os.Root, error) {
 		return s.openExistingRoot(s.root)
 	}
 	return existingPrivateRoot(s.root)
+}
+
+func (s InstallationStore) sourceRoot(path string) (*os.Root, error) {
+	if s.openSourceRoot != nil {
+		return s.openSourceRoot(path)
+	}
+	return existingPrivateRoot(path)
 }

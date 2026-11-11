@@ -7,8 +7,12 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"reflect"
+	"strings"
 	"syscall"
 	"testing"
+
+	"github.com/rgomids/axiom/internal/projectapp"
 )
 
 type ownerInfo struct {
@@ -83,6 +87,43 @@ func TestAncestorOwnershipRefusal(t *testing.T) {
 	}
 	if storageCategory(ErrUnsafe, "invalid_existing_local_state") != "invalid_existing_local_state" {
 		t.Fatal("generic unsafe misclassified")
+	}
+}
+
+// The installation state is readable; only the independent portable source sits
+// under a foreign-owned ancestor. Listing must report that refusal, not corruption.
+func TestProjectListPortableSourceAncestorOwnerRefusal(t *testing.T) {
+	stateRoot := filepath.Join(t.TempDir(), "state")
+	store, err := NewInstallationStore(stateRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := privateDirectory(t, "canary-private-source")
+	id := "123e4567-e89b-42d3-a456-426614174000"
+	writeResolutionRecord(t, stateRoot, recordForResolution(id, "sample", source, nil))
+	foreign := uint32(65534)
+	if uint32(os.Geteuid()) == foreign {
+		foreign--
+	}
+	store.openSourceRoot = func(path string) (*os.Root, error) {
+		r, _, e := anchoredRootChecked(path, false, func(root *os.Root, info os.FileInfo) error {
+			return checkAncestor(root, ownerInfo{info, foreign, 0755})
+		})
+		return r, e
+	}
+	before := directorySnapshot(t, stateRoot)
+	result := projectapp.NewProjectCatalog(store, store).List(context.Background())
+	parsed, ok := ParseAncestorOwnerCategory(result.Category)
+	if result.Status != projectapp.ProjectListFailed || !ok || parsed.UID != foreign || strings.Contains(result.Category, "canary") {
+		t.Fatalf("list = %+v", result)
+	}
+	if after := directorySnapshot(t, stateRoot); !reflect.DeepEqual(after, before) {
+		t.Fatalf("refusal mutated state\nbefore=%v\nafter=%v", before, after)
+	}
+	// Genuinely unsafe sources keep the existing classification.
+	store.openSourceRoot = func(string) (*os.Root, error) { return nil, ErrUnsafe }
+	if result := projectapp.NewProjectCatalog(store, store).List(context.Background()); result.Category != "invalid_project_state" {
+		t.Fatalf("generic unsafe = %+v", result)
 	}
 }
 

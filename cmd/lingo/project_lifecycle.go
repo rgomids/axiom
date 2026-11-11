@@ -71,7 +71,10 @@ func (s lifecycleService) ProjectListFiltered(ctx context.Context, input cli.Pro
 }
 
 func (s lifecycleService) listProjects(ctx context.Context, options projectapp.ProjectListOptions) cli.Result {
-	result := s.projectCatalog.WithInspectionDefinitions(activeWorkflowReader{s}).WithActiveWorkflows(activeWorkflowReader{s}).ListProjects(ctx, options)
+	return s.projectListResult(s.projectCatalog.WithInspectionDefinitions(activeWorkflowReader{s}).WithActiveWorkflows(activeWorkflowReader{s}).ListProjects(ctx, options))
+}
+
+func (s lifecycleService) projectListResult(result projectapp.ProjectListResult) cli.Result {
 	switch result.Status {
 	case projectapp.ProjectListSucceeded:
 		message := "Configured Projects listed"

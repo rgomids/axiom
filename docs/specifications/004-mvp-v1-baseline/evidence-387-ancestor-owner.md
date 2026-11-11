@@ -92,6 +92,43 @@ installed `claude` CLI elsewhere on `PATH` stays resolvable and the
 CLI once. The rerun with `PATH=/usr/local/go/bin:/usr/local/bin:/usr/bin:/bin`
 passed. The test isolation defect is a deferred finding for a separate card.
 
+## Review correction CR-392-F1
+
+Review of `c938fed` found that `project list` still erased the cause when the
+installation records were readable but an installed Project's independent
+portable source sat under a foreign-owned ancestor: `ReadInstalledProject`
+returned bare `ErrUnsafe` and the catalog reported `invalid_project_state`
+with repair advice. (The manual matrix above did not cover this split, because
+its state root shared the untrusted ancestor and `ListInstalled` refused first.)
+
+The adapter now returns the typed `AncestorOwnerError` for its source root and
+`ProjectCatalog.ListProjects` maps any `StorageCategory()` refusal before the
+generic unsafe mapping. Other unsafe sources keep `invalid_project_state`. The
+only additions are an unexported source-root opener on `InstallationStore`
+(nil in production, same `existingPrivateRoot`) and extraction of the existing
+list presentation into `projectListResult`, both for deterministic tests.
+
+- `internal/local` `TestProjectListPortableSourceAncestorOwnerRefusal`: real
+  store and catalog with an injected ancestor checker; bounded category,
+  no private directory name, state root unchanged; generic unsafe stays
+  `invalid_project_state`.
+- `cmd/lingo` `TestProjectListPortableSourceAncestorOwner`: catalog → list
+  presentation → `project list` in text and JSON; refusal facts and
+  troubleshooting link present, no repair/reconfigure/invalid/private path;
+  generic unsafe still renders repair advice.
+- Both tests were observed failing with the respective fix disabled.
+
+### Correction validation
+
+| Check | Result |
+| --- | --- |
+| Targeted tests | PASS (`internal/local`, `internal/projectapp`, `cmd/lingo` ancestor tests, `-count=1`) |
+| Full suite | PASS (`go test ./... -count=1 -p=1 -timeout=40m`, exit 0, 32 packages ok, no FAIL) |
+| Vet / gofmt | PASS (`go vet ./...` exit 0; `gofmt -l cmd internal` empty) |
+| Repository validator | PASS (`validate-repository.sh .` with vendor CLIs excluded from `PATH`) |
+| Sensitive files / diff whitespace | PASS (`check-sensitive-files.sh`; `git diff --check`) |
+| Manual namespace repro of the split case | NOT_RUN (covered by injected checker; no chown/sandbox needed) |
+
 ## Review and remaining decision
 
 Ponytail/Axiom engineering and security self-review found no blocking defect in
