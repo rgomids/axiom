@@ -87,7 +87,7 @@ accepted target HEAD before unblocking dependents or completing the Stage.
 An after-gated Stage with a same-Stage dependent consuming an enrolled writer
 refuses before Git materialization or spawn; Axiom does not move an after gate
 to partial results. This combination remains `DECISION_PENDING (Rafael)` in the
-[implementation decision](../specifications/015-minimum-viable-operational-workflow/evidence-axm-43-implementation.md#decision-pending-rafael).
+AXM-43 implementation Evidence of Specification 015.
 Other after gates wait for every agent to succeed and record a known gate wait;
 actual human approval then permits integration.
 Dependent Repository readers/writers receive the integrated tree. The operator's
