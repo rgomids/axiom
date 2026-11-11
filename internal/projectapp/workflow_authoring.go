@@ -70,6 +70,21 @@ func ApplyWorkflow(ctx context.Context, port WorkflowAuthoringPort, r WorkflowRe
 	if r.Project == "" || (read && (r.AuthorizeLocal || r.PreviewDigest != "" || r.ExpectedRevision != "")) {
 		return out
 	}
+	if r.Operation == "show" || r.Operation == "select" || r.Operation == "remove" {
+		missing := ""
+		switch {
+		case r.Ref.WorkflowID == "":
+			missing = "--workflow"
+		case r.Ref.Revision == 0:
+			missing = "--revision"
+		case r.Ref.Digest == "":
+			missing = "--digest"
+		}
+		if missing != "" {
+			out.Report.Diagnostics = []workflowdefinition.Diagnostic{{Field: missing, Code: "missing_required_input"}}
+			return fail("missing_required_input")
+		}
+	}
 	observed, category := port.ObserveWorkflows(ctx, r.Project)
 	if category != "" {
 		return fail(category)

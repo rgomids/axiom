@@ -65,3 +65,17 @@ func TestWorkflowAuthoringPresentsExactCanonicalEvent(t *testing.T) {
 		})
 	}
 }
+
+func TestWorkflowExactReferenceExamples(t *testing.T) {
+	for _, selection := range []bool{false, true} {
+		for _, spec := range workflowAuthoringSkillSpecs(selection) {
+			for _, mode := range spec.modes {
+				if spec.name == "definition.show" || spec.name == "definition.remove" || spec.name == "workflow.select" {
+					if !strings.Contains(mode.example, "--workflow <key> --revision <n> --digest <sha256>") {
+						t.Fatalf("incomplete exact-reference example: %s", mode.example)
+					}
+				}
+			}
+		}
+	}
+}
