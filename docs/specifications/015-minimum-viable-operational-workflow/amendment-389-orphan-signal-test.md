@@ -12,6 +12,8 @@ stop the victim, and fail if any recorded process or member of the owned stub
 group survives. Emergency cleanup remains failure, never evidence of success.
 The test must use a bounded, generous wait informed by the test deadline and
 must not mistake its own signal-delivery/wait assumptions for a product leak.
+The observer must not change its own signal handlers or dispositions to
+normalize the victim's (CR-393-F1).
 No product contract, CLI, dependency, ADR, vendor invocation or #371 fix.
 
 ## Plan and tasks (before implementation)
