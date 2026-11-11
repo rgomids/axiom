@@ -1,10 +1,14 @@
-# AXM-43 — Same-repository workflow run integration proposal
+# AXM-43 — Same-repository workflow run integration amendment
 
-Revision 1, 2026-11-11. **DECISION_PENDING (Rafael)**. Proposed, not accepted.
+Revision 2, 2026-11-11. Status: **option A approved by Rafael**; not implemented.
+Revision 1 (same day) proposed options A/B/C as `DECISION_PENDING (Rafael)`.
+Decision, 2026-11-11 11:50 BRT, literal: “Aprovo a opção A da P-AC3 na #390”
+([decision record](https://github.com/rgomids/axiom/pull/390#issuecomment-6799056487)).
 Related: AXM-43 (AXM-1 sub-issue), [#278](https://github.com/rgomids/axiom/issues/278).
 Inspected base: `e5b9d10880cfc210356b8c49d639b1718b494e01` (v0.23.6).
-This is the authorized contract-analysis fallback, not P-AC3 implementation or
-acceptance. No historical Specification or accepted ADR is amended in place.
+The approval authorizes this Specification amendment and its Plan/Tasks. It is
+not P-AC3 implementation or acceptance. No historical Specification or accepted
+ADR is amended in place.
 
 ## Contract analysis before code
 
@@ -12,10 +16,10 @@ The automatic composition itself fits the approved direction. It does not need
 an additional public flag, command, store or schema family. However, a safe
 production implementation also needs a durable **pre-spawn workspace binding**
 and an explicit enrollment/eligibility rule. Neither is an existing persisted
-contract. Recommend approving the bounded amendment below before wiring, rather
-than treating a new crash/recovery contract as an incidental launcher detail.
-This conclusion is an engineering interpretation requiring Rafael's decision;
-it is not a claim that ADR-0037 forbids extending its nested records.
+contract. Revision 1 therefore asked for approval of the bounded amendment below
+before wiring, rather than treating a new crash/recovery contract as an incidental
+launcher detail. Rafael approved it (option A). This is not a claim that ADR-0037
+forbids extending its nested records.
 
 Exact applicable clauses:
 
@@ -63,14 +67,18 @@ repository does not contain their isolated commits. Retrofitting a guess from
 branch naming or the current Workflow cannot establish which old attempts were
 enrolled, their original base, or authority to create/adopt those refs.
 
-This is why no independently useful runtime slice is shipped in this proposal.
+This is why no independently useful runtime slice is shipped in this amendment PR.
 Changing only CWD would strand results; integrating only after `Run` would leave
 the scheduling hole; modifying existing integration admission would weaken its
 validated-result invariant. The existing primitives remain usable and tested.
 DF-S23-07 does not itself block automatic integration: a new public resolution
 command is explicitly excluded from the recommendation.
 
-## Proposed Specification amendment (not accepted)
+## Approved Specification amendment (option A)
+
+Approved by Rafael on 2026-11-11 11:50 BRT
+([decision record](https://github.com/rgomids/axiom/pull/390#issuecomment-6799056487)).
+These rules bind the AXM-43 implementation; none is implemented yet.
 
 1. Enroll **new Executions only** automatically when a Stage contains at least
    two agents with `workspace_write` targeting the same resolved Repository key.
@@ -105,23 +113,26 @@ command is explicitly excluded from the recommendation.
    from refs, paths, messages or runtime output. Public recovery remains diagnosis
    and safe stop; adding public `ResolveIntegration` is a separate decision.
 
-## Options, trade-offs and recommendation
+## Decision and considered alternatives
 
-| Option | Trade-off |
-| --- | --- |
-| A — Approve nested enrollment/workspace binding and eligibility amendment (recommended) | One owner, no new public ceremony; adds persisted semantics and requires compatibility/fault tests. |
-| B — Keep current aggregate unchanged; infer ownership from deterministic refs/paths | Smaller initial diff, but either loses frozen enrollment/base across crashes or introduces a second authority protocol. Not recommended. |
-| C — New explicit integrate/resolve command or launcher manifest | Makes target selection visible, but adds public ceremony or a separate state owner; requires a wider contract decision. Not recommended for AXM-43. |
+| Option | Outcome | Trade-off |
+| --- | --- | --- |
+| A — Nested enrollment/workspace binding and eligibility amendment | **Approved** | One owner, no new public ceremony; adds persisted semantics and requires compatibility/fault tests. |
+| B — Keep current aggregate unchanged; infer ownership from deterministic refs/paths | Not chosen | Smaller initial diff, but either loses frozen enrollment/base across crashes or introduces a second authority protocol. |
+| C — New explicit integrate/resolve command or launcher manifest | Not chosen | Makes target selection visible, but adds public ceremony or a separate state owner; requires a wider contract decision. |
 
-**Decision requested:** approve A, including new-Execution-only enrollment and
-nested immutable binding, or explicitly authorize B with a concrete crash-safe
-single-owner design. No new ADR is marked accepted here. A new ADR is unnecessary
-if Rafael accepts A as a bounded realization of ADR-0037; record a prospective ADR
-only if his decision changes an accepted architectural clause. Persisted binding
-and eligibility semantics become harder to change once real attempts exist.
-P-AC3/P-AC4 remain full requirements, not reduced acceptance criteria.
+Option A, including new-Execution-only enrollment and nested immutable binding,
+is approved as a bounded realization of ADR-0037; no new ADR is needed or marked
+accepted here. A prospective ADR is required only if implementation would change
+an accepted architectural clause; that stops as `DECISION_PENDING (Rafael)`.
+Persisted binding and eligibility semantics become harder to change once real
+attempts exist. P-AC3/P-AC4 remain full requirements, not reduced criteria.
 
-## Implementation Plan and Tasks after the decision
+## Authorized implementation Plan and Tasks
+
+Implementation lands in a separate PR linked to AXM-43, stacked on this one. It
+follows these tasks and the approved rules above; anything outside them (new
+public flag/command, store, ADR or other contract change) needs a new decision.
 
 1. Add bounded optional enrollment/binding to the existing Execution; validate
    immutable identity, compatibility, dependency readiness and truthful status.
@@ -135,14 +146,14 @@ P-AC3/P-AC4 remain full requirements, not reduced acceptance criteria.
    starving their fenced result/message callbacks.
 4. Wire the actual `workflow run` composition. Reconcile CLI status/outcomes,
    canonical runtime skills, operational docs, help/man and installed metadata
-   together. Do not advertise proposal behavior as installed functionality.
+   together. Do not advertise unimplemented behavior as installed functionality.
 5. Exercise the public composition using fake runners, temporary Git repositories
    and synthetic state roots: parallel writers and dependent workspace contents;
    same-file conflict; failed post-merge check; lost result/intent/advance outcome;
    dirty or changed base; collision; missing checks/authority; cancellation; gate;
    old unenrolled Execution. Assert no successor or unauthorized/double effect.
 
-Acceptance for this docs-only fallback: cited contract analysis, explicit pending
-proposal, options/recommendation, bounded Plan/Tasks, executed check evidence and
-one open review PR. [Evidence](evidence-axm-43-contract.md) reports existing tests
+Acceptance for this docs-only PR: cited contract analysis, recorded decision,
+considered alternatives, authorized Plan/Tasks, executed check evidence and one
+open review PR. [Evidence](evidence-axm-43-contract.md) reports existing tests
 separately from the still-unimplemented public composition.

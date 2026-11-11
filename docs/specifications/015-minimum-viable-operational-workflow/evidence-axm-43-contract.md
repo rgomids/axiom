@@ -1,8 +1,9 @@
 # AXM-43 — Contract analysis Evidence
 
 2026-11-11; base `e5b9d10880cfc210356b8c49d639b1718b494e01`.
-Scope: [pending amendment / Plan / Tasks](amendment-axm-43-same-repository.md).
-**DECISION_PENDING (Rafael)**. Documentation-only authorized fallback; no P-AC3
+Scope: [amendment / Plan / Tasks](amendment-axm-43-same-repository.md).
+Revision 1 Evidence below was recorded while `DECISION_PENDING (Rafael)`; see
+[Decision recorded](#decision-recorded). Documentation-only; no P-AC3
 implementation, Product acceptance, merge, cutover or external Project mutation.
 
 ## Inspection and review
@@ -67,3 +68,13 @@ Next action: Rafael reviews the bounded amendment, selects A or an explicit
 alternative, then implementation follows its five tasks. P-AC3/P-AC4 and #278
 remain open and unaccepted. PR CI/remote delivery evidence belongs in the PR;
 local checks do not imply CI or product acceptance.
+
+## Decision recorded
+
+2026-11-11 11:50 BRT, Rafael, literal: “Aprovo a opção A da P-AC3 na #390”
+([decision record](https://github.com/rgomids/axiom/pull/390#issuecomment-6799056487)).
+Amendment Revision 2 records option A as approved and B/C as not chosen; its
+Plan/Tasks are the authorized plan for a separate implementation PR linked to
+AXM-43, stacked on #390. Docs-only update: no code, help, skills, installed docs
+metadata or ADR changed. P-AC3/P-AC4 and #278 remain unimplemented and unaccepted.
+Revision 2 checks are reported in the PR, not here.
