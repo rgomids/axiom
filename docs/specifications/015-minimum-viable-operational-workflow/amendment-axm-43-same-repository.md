@@ -7,6 +7,13 @@ pre-implementation base and preserves Revision 2's approval history.
 Revision 1 (same day) proposed options A/B/C as `DECISION_PENDING (Rafael)`.
 Decision, 2026-11-11 11:50 BRT, literal: “Aprovo a opção A da P-AC3 na #390”
 ([decision record](https://github.com/rgomids/axiom/pull/390#issuecomment-6799056487)).
+Clarification, 2026-11-11 16:07 BRT, literal: “Mantém a recusa e move o gate de
+revisão para um Stage separado depois da integração”
+([record](https://github.com/rgomids/axiom/pull/396#issuecomment-6804859927)):
+within option A, an after-gated Stage with a same-Stage dependent consuming an
+enrolled writer stays refused before launch; review of the integrated result
+belongs in a separate later Stage. No new ADR; see the
+[implementation Evidence](evidence-axm-43-implementation.md#decision-rafael-11112026-1607-brt).
 Related: AXM-43 (AXM-1 sub-issue), [#278](https://github.com/rgomids/axiom/issues/278).
 Inspected base: `e5b9d10880cfc210356b8c49d639b1718b494e01` (v0.23.6).
 The approval authorizes this Specification amendment and its Plan/Tasks. It is

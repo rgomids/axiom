@@ -3,10 +3,20 @@
 2026-11-11. Base: `8df55e24ceb7e61bfebb1a70a9f64436b2c8c0d1`
 (approved amendment, PR #390). Scope: option A, Tasks 1–5 of the
 [amendment](amendment-axm-43-same-repository.md). This is a bounded technical
-implementation with a **DECISION_PENDING (Rafael)** limitation below, not full
+implementation with the decided refusal contract below, not full
 AXM-43 completion, P-AC3 Product acceptance, AXM-1/#278 acceptance or cutover.
 
-## Decision pending (Rafael)
+## Decision (Rafael, 11/11/2026 16:07 BRT)
+
+Literal: “Mantém a recusa e move o gate de revisão para um Stage separado depois
+da integração” ([decision record](https://github.com/rgomids/axiom/pull/396#issuecomment-6804859927)).
+Option 1 below is chosen; options 2 and 3 are not chosen. This is a
+clarification within approved option A, not P-AC3, AXM-12, AXM-1 or #278
+acceptance. The refusal now returns a dedicated diagnostic (category
+`integration_refused`) whose next step directs the operator to put the
+review/acceptance gate on a separate later Stage that runs after integration.
+
+Context recorded while the decision was pending:
 
 An after-Stage gate and a same-Stage dependent consuming an enrolled writer
 form a cycle: `PrepareIntegration` requires the human gate; the dependent needs
@@ -21,28 +31,27 @@ unchanged. A normal after gate can still approve all completed independent
 results before integration; a durable known gate-wait marker distinguishes that
 intentional stop from a lost principal. No approval is synthesized.
 
-Options for Rafael:
+Options presented to Rafael:
 
-1. Preserve the refusal; configure the review/acceptance gate in a separate
-   downstream Stage after integration (recommended: preserves existing timing).
-2. Authorize a distinct pre-integration approval meaning, with explicit semantics
+1. **Chosen.** Preserve the refusal; configure the review/acceptance gate in a
+   separate downstream Stage after integration (preserves existing timing).
+2. Not chosen. Authorize a distinct pre-integration approval meaning, with explicit semantics
    for still-unexecuted dependents; this changes the gate contract.
-3. Authorize integration before the after gate while retaining that gate for
+3. Not chosen. Authorize integration before the after gate while retaining that gate for
    final Stage results; this changes accepted integration admission.
 
 Gate timing and persisted approval meaning become harder to change once real
-Executions use them. No option is accepted by this implementation. Work stopped
-at this material decision as instructed; only safe coherent implementation,
-validation and authorized PR delivery continued. The PR body and a PR comment
-record the same decision. No new ADR, public command, flag or state family was
+Executions use them. Before the decision, work stopped at this material decision
+as instructed; only safe coherent implementation, validation and authorized PR
+delivery continued. The PR body and PR comments record the decision. No new ADR, public command, flag or state family was
 introduced or accepted.
 
 ## Implementation and acceptance mapping
 
 Every named deterministic test below is **PASS**. Tasks 1–2 and 4 have their
 scoped technical evidence; Tasks 3 and 5 are **PASS for the bounded subset**,
-with the after-gate/dependent integration contract **NOT_RUN / DECISION_PENDING
-(Rafael)**. No table entry claims full AXM-43 or Product acceptance.
+with the after-gate/dependent combination decided as a refusal with separate-Stage
+guidance. No table entry claims full AXM-43 or Product acceptance.
 
 | Task / contract | Implementation | Deterministic Evidence |
 | --- | --- | --- |
@@ -55,7 +64,7 @@ with the after-gate/dependent integration contract **NOT_RUN / DECISION_PENDING
 | 4: actual public composition and safe projection | `executionComposition.engine`, new-start enrollment, workspace factory, status/outcome/next-action projection | `TestPublicWorkflowRunSameRepository*`, `TestPublicCompositionSameRepository*`; public parser/resolver/launcher/store/Git composition, synthetic state and fake Runtime executable |
 | 4: help/skills/installed metadata | CLI command summary/authority catalog; embedded workflow/work-item skills and digest history; operational docs | CLI, codexruntime and operationaldocs package checks; repository validator |
 | 5: bounded negative cases | missing checks/authority, dirty/changed base, branch/path collisions, cancel, gates | public matrix asserts no successor/unauthorized/double effect; original operator HEAD/ref/files preserved; after-gate cycle refuses before any attempt |
-| 3/5: after-gate dependent contract | safe explicit refusal; no approval of partial Stage results | **PASS** refusal proof; **NOT_RUN** an approved integration/gate ordering for that combination (decision pending above) |
+| 3/5: after-gate dependent contract (decided: refuse, separate review Stage) | `ErrAfterGateIntegrationDependency` refusal before any attempt/Git/spawn; dedicated next step; no approval of partial Stage results | **PASS** `TestPublicWorkflowRunSameRepositoryDependentWriterAndHumanGate/gate`: category `integration_refused`, separate-Stage next step, no attempts/integrations/gate/`axiom/` refs; **NOT_RUN** manual P-AC3 acceptance |
 | P-AC3 full requirement | technical path plus bounded refusal above | **NOT_RUN** human manual Codex+Claude journey; no Product acceptance claim |
 
 All public fixtures use temporary Git repositories with no remote, synthetic
@@ -95,6 +104,14 @@ they are not counted as passing runs.
 | `gitleaks` | NOT_RUN: not installed |
 | Real vendor inference / real state / manual Product acceptance | NOT_RUN: forbidden/outside authority |
 
+Decision correction (dedicated refusal diagnostic and separate-Stage guidance),
+re-run after the change: `go test ./internal/cli ./internal/codexruntime
+./internal/operationaldocs ./internal/stageexecution` PASS;
+`go test ./cmd/lingo -run 'TestExecution|TestPublicWorkflowRunSameRepository|TestPublicCompositionSameRepository'`
+PASS; `gofmt -l` empty; `go vet ./...` PASS; `go test ./... -count=1 -timeout 40m`
+PASS (`cmd/lingo` 234.134s); repository validator (restricted PATH) PASS;
+`./scripts/check-sensitive-files.sh .` PASS; `git diff --check` PASS.
+
 ## Review, deferred findings and delivery boundary
 
 Delegation was used for independent aggregate, runner/Git and documentation work,
@@ -104,8 +121,8 @@ refusal incorrectly labeled cancellation. Early gate timing was removed and the
 combination refused; admission refusals now have their own diagnostics, preserving
 unknown process outcomes. Targeted tests cover both findings.
 
-DF-S23-01 now has a reachable public technical path, but remains bounded by this
-decision and is **not** full P-AC3 acceptance. DF-S23-02..07 remain deferred:
+DF-S23-01 now has a reachable public technical path, bounded by the decided
+refusal above, and is **not** full P-AC3 acceptance. DF-S23-02..07 remain deferred:
 same-UID shared Git mutation, check-process uncertainty after runner loss,
 retained-worktree accumulation, Git version requirement, Git subprocess
 containment and absence of public integration resolution. Nothing is cleaned,

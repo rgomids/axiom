@@ -43,7 +43,7 @@ func (e Engine) preflightWorkspaces(ctx context.Context, x workflow.Execution) e
 				for _, dependency := range agent.DependsOn {
 					for _, source := range stage.Agents {
 						if source.ID == dependency && slices.Contains(source.Effects, "workspace_write") && x.IntegrationEnrolled(workflow.TaskRef{StageID: stage.ID, AgentID: source.ID}) {
-							return fmt.Errorf("%w: after_stage_gate_with_integration_dependency", ErrIntegrationRefused)
+							return ErrAfterGateIntegrationDependency
 						}
 					}
 				}

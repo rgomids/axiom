@@ -194,7 +194,7 @@ func TestPublicWorkflowRunSameRepositoryDependentWriterAndHumanGate(t *testing.T
 						t.Fatal("after gate changed timing or spawned partial work")
 					}
 				}
-				if got.Category != "integration_refused" || len(x.Integrations) != 0 || x.Stages[0].Gate != nil || strings.Contains(integrationGit(t, repo, "for-each-ref", "--format=%(refname)"), "axiom/") {
+				if got.Category != "integration_refused" || !strings.Contains(got.Next, "separate later Stage that runs after integration") || len(x.Integrations) != 0 || x.Stages[0].Gate != nil || strings.Contains(integrationGit(t, repo, "for-each-ref", "--format=%(refname)"), "axiom/") {
 					t.Fatal(got.Raw)
 				}
 				return

@@ -86,8 +86,9 @@ serially into a new owned target, reruns the configured checks, and records the
 accepted target HEAD before unblocking dependents or completing the Stage.
 An after-gated Stage with a same-Stage dependent consuming an enrolled writer
 refuses before Git materialization or spawn; Axiom does not move an after gate
-to partial results. This combination remains `DECISION_PENDING (Rafael)` in the
-AXM-43 implementation Evidence of Specification 015.
+to partial results. To review the integrated result, put the human gate on a
+separate later Stage that runs after the integrating Stage (decision recorded in
+the AXM-43 implementation Evidence of Specification 015).
 Other after gates wait for every agent to succeed and record a known gate wait;
 actual human approval then permits integration.
 Dependent Repository readers/writers receive the integrated tree. The operator's

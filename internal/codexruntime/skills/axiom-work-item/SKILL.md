@@ -223,8 +223,9 @@ writers. Configured post-merge commands and `--authorize-commands` are required
 before writers launch. Writers commit on their assigned branches and leave clean
 worktrees; dependents wait for recorded integration and receive its accepted tree.
 An after-gated Stage with a same-Stage dependent consuming an enrolled writer
-refuses before Git materialization or spawn, pending Rafael's material decision.
-Never reinterpret an after gate as approval of partial results. Other after
+refuses before Git materialization or spawn; to review the integrated result,
+put the human gate on a separate later Stage that depends on the integrating
+Stage. Never reinterpret an after gate as approval of partial results. Other after
 gates wait for all agents to succeed before human approval permits integration.
 Report `not_integrated` conflicts/check failures and `unknown` effects truthfully;
 do not retry them automatically. Keep all branches/worktrees for inspection and

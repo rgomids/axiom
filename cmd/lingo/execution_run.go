@@ -1106,6 +1106,7 @@ func (c executionComposition) failure(err error, x *workflow.Execution) cli.Work
 		{workflow.ErrIntegrationChecksUnavailable, completion.ValidationFailure, "integration_checks_required", "Configure post-merge stage commands and authorize them with --authorize-commands before starting enrolled writers"},
 		{workflow.ErrIntegrationStale, completion.Failure, "integration_base_changed", "The clean base or integration target changed; preserve all branches/worktrees and inspect before starting a new Execution"},
 		{gitworkspace.ErrWorkspaceCollision, completion.Failure, "workspace_collision", "A reserved branch or worktree already exists; it was not adopted or overwritten. Inspect retained state"},
+		{stageexecution.ErrAfterGateIntegrationDependency, completion.Failure, "integration_refused", "This Stage's after human gate would wait on a same-Stage dependent of an integrated writer; move the review/acceptance gate to a separate later Stage that runs after integration. Nothing was spawned or written to Git"},
 		{stageexecution.ErrIntegrationRefused, completion.Failure, "integration_refused", "The recorded workspace/result could not be safely integrated; preserve it and inspect stage status"},
 		{errSelectionSyntax, completion.ValidationFailure, "invalid_selection", "Use --select [<stage-id>/]<agent-id>.<runtime|model|effort|instructions|profile>=<value> naming a Workflow agent"},
 		{errSelectionsFrozen, completion.ValidationFailure, "selections_frozen", "Start selections are immutable; change them only with stage retry --new-selection --select ..."},

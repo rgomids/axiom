@@ -109,8 +109,9 @@ CAS and post-merge checks. Dependencies and Stage advancement wait for recorded
 integration; dependent Repository readers/writers see the integrated contents.
 A Stage with an after gate and a same-Stage dependent consuming an enrolled
 writer is refused before Git materialization or spawn: the after gate cannot
-approve partial Stage results. This combination is `DECISION_PENDING (Rafael)`;
-see the [decision and options](specifications/015-minimum-viable-operational-workflow/evidence-axm-43-implementation.md#decision-pending-rafael).
+approve partial Stage results. To review the integrated result, put the human
+gate on a separate later Stage that runs after the integrating Stage; see the
+[decision](specifications/015-minimum-viable-operational-workflow/evidence-axm-43-implementation.md#decision-rafael-11112026-1607-brt).
 After gates without that dependency cycle still wait for all agents to succeed;
 real human approval then permits integration.
 Dirty/changed base or branch/worktree collision refuses without adopting it;

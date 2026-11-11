@@ -239,9 +239,9 @@ implementation through public `workflow run`, with optional new-Execution
 enrollment and frozen per-attempt workspaces. Its task/acceptance-check results
 are recorded in [implementation Evidence](evidence-axm-43-implementation.md).
 After-gated Stages whose same-Stage dependencies consume enrolled writers refuse
-before Git materialization/spawn; that combination remains
-[`DECISION_PENDING (Rafael)`](evidence-axm-43-implementation.md#decision-pending-rafael),
-without moving human approval to partial Stage results.
+before Git materialization/spawn without moving human approval to partial Stage
+results; [Rafael decided](evidence-axm-43-implementation.md#decision-rafael-11112026-1607-brt)
+that review of the integrated result belongs in a separate later Stage.
 This supersedes only DF-S23-01's implementation status below; the S2.3 checkpoint
 and its original findings remain historical. P-AC3 Product acceptance remains
 human manual validation and is not claimed here. DF-S23-02..07 remain deferred;

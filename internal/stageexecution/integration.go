@@ -3,6 +3,7 @@ package stageexecution
 import (
 	"context"
 	"errors"
+	"fmt"
 	"path/filepath"
 	"slices"
 	"time"
@@ -41,6 +42,9 @@ var (
 	// ErrIntegrationRefused: observation before any intent refused; nothing was
 	// recorded and no Git effect happened.
 	ErrIntegrationRefused = errors.New("integration_refused")
+	// ErrAfterGateIntegrationDependency: an after-gated Stage has a same-Stage
+	// dependent of an enrolled writer; refused before any attempt or Git effect.
+	ErrAfterGateIntegrationDependency = fmt.Errorf("%w: after_stage_gate_with_integration_dependency", ErrIntegrationRefused)
 	// ErrNotIntegrated: the intent and its outcome are recorded; the target was
 	// not advanced by this integration.
 	ErrNotIntegrated = errors.New("not_integrated")

@@ -145,8 +145,8 @@ The principal records serial integration before dependents or Stage advancement,
 and dependent readers/writers receive the integrated tree. Human gates remain
 human gates. An after-gated Stage with a same-Stage dependent consuming an
 enrolled writer refuses before Git materialization or spawn; never reinterpret
-the after gate as approval of partial results. This combination awaits Rafael's
-material decision. Other after gates wait for all agents to succeed before
+the after gate as approval of partial results. To review the integrated result,
+configure the human gate on a separate later Stage after the integrating Stage. Other after gates wait for all agents to succeed before
 human approval permits integration. Conflict/check failure is `not_integrated`; uncertain effects are
 `unknown`, never automatic replay. Branches/worktrees remain for inspection;
 no cleanup or public integration-resolution command is implied. Existing
