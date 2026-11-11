@@ -135,6 +135,9 @@ func workflowAuthoringSkillSpecs(selection bool) []skillOperationSpec {
 			inputs = []string{"--expected-revision", "--preview-digest", "--authorize-local"}
 		}
 		mode := skillModeSpec{name: "default", selector: "--project", effect: effect, authority: authority, actions: []action{act}, authorityInputs: inputs, rejectedInputs: []string{}, example: "axiom project workflow " + op + " --project <uuid-or-slug>"}
+		if op == "show" || op == "select" || op == "remove" {
+			mode.example += " --workflow <key> --revision <n> --digest <sha256>"
+		}
 		specs = append(specs, skillOperationSpec{name: name, actions: []action{act}, modes: []skillModeSpec{mode}})
 	}
 	return specs

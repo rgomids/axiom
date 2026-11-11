@@ -17,20 +17,22 @@ import (
 )
 
 type authoringEvent struct {
+	Details  string                    `json:"details"`
 	Category string                    `json:"category"`
 	Status   string                    `json:"status"`
 	Workflow projectapp.WorkflowReport `json:"workflowAuthoring"`
 }
 
 func TestExecutableWorkflowDefaultCustomEditSelectAndRetire(t *testing.T) {
-	env := newBootstrapEnv(t)
-	repository := writeTree(t, filepath.Join(env.workspace, "main"), map[string]string{"README.md": "untouched"})
-	configureProject(t, env.service, "workflows", "Workflows", "main="+repository, "none")
 	binary := filepath.Join(t.TempDir(), "axiom")
 	cmd := exec.Command("go", "build", "-o", binary, ".")
 	if output, e := cmd.CombinedOutput(); e != nil {
 		t.Fatalf("build %v %s", e, output)
 	}
+	t.Setenv("HOME", t.TempDir())
+	env := newBootstrapEnv(t)
+	repository := writeTree(t, filepath.Join(env.workspace, "main"), map[string]string{"README.md": "untouched"})
+	configureProject(t, env.service, "workflows", "Workflows", "main="+repository, "none")
 	run := func(category string, args ...string) authoringEvent {
 		t.Helper()
 		command := exec.Command(binary, append([]string{"--json", "project", "workflow"}, append(args, "--project", "workflows")...)...)
@@ -66,6 +68,38 @@ func TestExecutableWorkflowDefaultCustomEditSelectAndRetire(t *testing.T) {
 	run("unchanged", authorize(preview, selectDefault)...)
 	if selected := run("listed", "list").Workflow.Selection; selected == nil || *selected != builtin {
 		t.Fatal("default not selected")
+	}
+	// Even with a selected Workflow, exact operations require all reference flags.
+	for _, op := range []string{"show", "select", "remove"} {
+		for _, missing := range []string{"all", "--workflow", "--revision", "--digest"} {
+			args := refArgs(op, builtin)
+			if missing == "all" {
+				args = []string{op}
+			} else {
+				for i := 1; i < len(args); i += 2 {
+					if args[i] == missing {
+						args = append(args[:i], args[i+2:]...)
+						break
+					}
+				}
+			}
+			event := run("missing_required_input", args...)
+			flag := missing
+			if flag == "all" {
+				flag = "--workflow"
+			}
+			if len(event.Workflow.Diagnostics) != 1 || event.Workflow.Diagnostics[0].Field != flag || event.Details != "missing_required_input:"+flag {
+				t.Fatal(event)
+			}
+		}
+		unknown := builtin
+		unknown.Digest = strings.Repeat("0", 64)
+		run("workflow_not_found", refArgs(op, unknown)...)
+	}
+	humanCommand := exec.Command(binary, "--human", "project", "workflow", "show", "--project", "workflows")
+	human, humanErr := humanCommand.CombinedOutput()
+	if exit, ok := humanErr.(*exec.ExitError); !ok || exit.ExitCode() != 1 || !strings.Contains(string(human), "--workflow") || !strings.Contains(string(human), "project workflow list") || !strings.Contains(string(human), "project show") {
+		t.Fatalf("missing human reference diagnostic: %s %v", human, humanErr)
 	}
 	create := []string{"create", "--from-default", "--workflow", "custom"}
 	preview = run("previewed", create...)
@@ -176,6 +210,23 @@ func TestWorkflowCancellationUsesInterruptedCompletion(t *testing.T) {
 		result := workflowAuthoringCompletion(projectapp.WorkflowAuthoringResult{Category: category}, source)
 		if category != "cancelled" || result.Completion == nil || result.Completion.Status() != completion.Interrupted {
 			t.Fatalf("cancellation misclassified: %+v", result)
+		}
+	}
+}
+
+func TestWorkflowMissingReferenceCompletion(t *testing.T) {
+	source, err := provenance.FromBuild(provenance.Build{SourceState: provenance.Unknown}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, flag := range []string{"--workflow", "--revision", "--digest"} {
+		outcome := projectapp.WorkflowAuthoringResult{Category: "missing_required_input", Report: projectapp.WorkflowReport{Diagnostics: []workflowdefinition.Diagnostic{{Field: flag, Code: "missing_required_input"}}}}
+		result := workflowAuthoringCompletion(outcome, source)
+		if result.Category != "missing_required_input" || result.Completion == nil || result.Completion.Status() != completion.ValidationFailure || result.Completion.Details() != "missing_required_input:"+flag {
+			t.Fatalf("missing diagnostic: %+v", result)
+		}
+		if !strings.Contains(result.Completion.Result().String(), flag) || !strings.Contains(result.Completion.Next().String(), "project workflow list") || !strings.Contains(result.Completion.Next().String(), "project show") {
+			t.Fatal(result.Completion)
 		}
 	}
 }

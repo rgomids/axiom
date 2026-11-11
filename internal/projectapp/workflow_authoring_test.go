@@ -238,3 +238,51 @@ func TestWorkflowCreateNewIdentityAndExactReplay(t *testing.T) {
 		t.Fatal(out)
 	}
 }
+
+func TestWorkflowExactReferenceInputs(t *testing.T) {
+	for _, op := range []string{"show", "select", "remove"} {
+		for _, missing := range []string{"all", "--workflow", "--revision", "--digest", "unknown", "none"} {
+			t.Run(op+"/"+missing, func(t *testing.T) {
+				p, doc := workflowFixture(t)
+				ref := doc.Ref("project")
+				switch missing {
+				case "all":
+					ref = workflowdefinition.Ref{}
+				case "--workflow":
+					ref.WorkflowID = ""
+				case "--revision":
+					ref.Revision = 0
+				case "--digest":
+					ref.Digest = ""
+				case "unknown":
+					ref.Digest = strings.Repeat("0", 64)
+				}
+				request := projectapp.WorkflowRequest{Operation: op, Project: "sample", Ref: ref}
+				var out projectapp.WorkflowAuthoringResult
+				if missing == "all" || strings.HasPrefix(missing, "--") {
+					// Missing input must be refused before observation or lookup.
+					out = projectapp.ApplyWorkflow(context.Background(), nil, request)
+					flag := missing
+					if missing == "all" {
+						flag = "--workflow"
+					}
+					if out.Category != "missing_required_input" || len(out.Report.Diagnostics) != 1 || out.Report.Diagnostics[0].Field != flag {
+						t.Fatalf("missing reference: %+v", out)
+					}
+					return
+				}
+				out = projectapp.ApplyWorkflow(context.Background(), p, request)
+				want := "previewed"
+				if op == "show" {
+					want = "inspected"
+				}
+				if missing == "unknown" {
+					want = "workflow_not_found"
+				}
+				if out.Category != want || p.writes != 0 {
+					t.Fatalf("got %+v; want %s", out, want)
+				}
+			})
+		}
+	}
+}
