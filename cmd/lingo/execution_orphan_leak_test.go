@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -117,7 +118,19 @@ func TestKilledTestBinaryLeavesNoOwnedProcess(t *testing.T) {
 			// The victim's group is owned by this test: its leader is an
 			// unreaped child, so the group ID cannot be reused while it runs.
 			victim.SysProcAttr = &syscall.SysProcAttr{Setpgid: true, Pdeathsig: syscall.SIGKILL}
-			if err := victim.Start(); err != nil {
+			// #389: an inherited SIG_IGN (nohup, background job) survives exec
+			// and Go keeps it for SIGHUP/SIGINT, so the victim would never die
+			// of the signal under test. A handled signal resets to SIG_DFL
+			// across exec; Reset then restores this process's own disposition.
+			resetSignal := c.signal == syscall.SIGHUP || c.signal == syscall.SIGINT
+			if resetSignal {
+				signal.Notify(make(chan os.Signal, 1), c.signal)
+			}
+			err := victim.Start()
+			if resetSignal {
+				signal.Reset(c.signal)
+			}
+			if err != nil {
 				t.Fatal(err)
 			}
 			exited := make(chan error, 1)
@@ -146,12 +159,18 @@ func TestKilledTestBinaryLeavesNoOwnedProcess(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
+			// Leave time for the independent no-survivor check before the test deadline.
+			exitDeadline := time.Now().Add(2 * time.Minute)
+			if deadline, ok := t.Deadline(); ok && deadline.Add(-leakSettleBound).Before(exitDeadline) {
+				exitDeadline = deadline.Add(-leakSettleBound)
+			}
 			var exitErr error
 			select {
 			case exitErr = <-exited:
-			case <-time.After(45 * time.Second):
+			case <-time.After(time.Until(exitDeadline)):
+				identity, observeErr := executiongraph.ObserveProcessCorrelation(int64(victim.Process.Pid))
 				stopVictim()
-				t.Fatalf("victim did not exit\n%s", output)
+				t.Fatalf("victim wait exceeded test budget (alive=%t, observation error=%v); owned processes: %s", identity != nil, observeErr, strings.Join(leftoverOwned(family, rep.Stub), ", "))
 			}
 			if got := victimExit(exitErr); got != c.wantExit {
 				t.Fatalf("victim exit %d (%v), want %d\n%s", got, exitErr, c.wantExit, output)
