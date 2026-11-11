@@ -2,6 +2,11 @@
 
 ## 015 — Minimum viable operational workflow
 
+[AXM-43 same-repository contract proposal](015-minimum-viable-operational-workflow/amendment-axm-43-same-repository.md):
+**DECISION_PENDING (Rafael)**; pre-spawn workspace binding and integration eligibility,
+with [analysis/check Evidence](015-minimum-viable-operational-workflow/evidence-axm-43-contract.md).
+No runtime implementation or P-AC3 acceptance claimed.
+
 [Issue #369 pre-spawn amendment](015-minimum-viable-operational-workflow/amendment-369-pre-spawn-launch.md):
 Specify revision 1; [HD-369-D approved](https://github.com/rgomids/axiom/issues/369#issuecomment-6621938832).
 [Plan #369](015-minimum-viable-operational-workflow/plan-369-pre-spawn-launch.md) and
