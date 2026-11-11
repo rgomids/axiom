@@ -2269,3 +2269,13 @@ requiring `--disposition preserve`. Unknown effects still need explicit resoluti
 Historical Executions retain their original record-count budget and bytes.
 Older binaries reject the new metadata before effects. Downgrade must retain a
 capable reader or stop affected runs; stripping fields/refunding history is unsafe.
+
+## Local ancestor trust refusal
+
+`untrusted_ancestor_owner` reports a refused ancestor owner independently of
+state integrity. Project show/validate/list, Runtime Profile list/validate and
+Work Item/Workflow list expose bounded path class, numeric UID and UID-map
+observation in their diagnostic and terminal message. Preserve state and follow
+[Untrusted ancestor owner](operational/troubleshooting.md#untrusted-ancestor-owner);
+this refusal does not call for repair or reconfiguration. Restricted Linux
+sandbox compatibility remains `DECISION_PENDING (Rafael)` in #387.

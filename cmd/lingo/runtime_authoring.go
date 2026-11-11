@@ -37,6 +37,9 @@ func (s lifecycleService) RuntimeAuthoring(ctx context.Context, req runtimeappli
 	}
 	app := runtimeapplication.Authoring{Impacts: s.runtimeImpacts, Passive: passiveRuntimeInventory, Store: runtimeAuthoringStore{store}, Installed: func(id string) bool { p, e := exec.LookPath(id); return e == nil && filepath.IsAbs(p) }}
 	report, e := app.Run(ctx, req)
+	if refusal, ok := ancestorOwnerFailure(local.AncestorOwnerCategory(e), s.provenance); ok {
+		return refusal
+	}
 	facts := completion.Facts{Completed: e == nil}
 	if e != nil {
 		facts = completion.Facts{ValidationFailed: true}

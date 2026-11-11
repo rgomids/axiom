@@ -39,6 +39,9 @@ func (s lifecycleService) projectTransition(ctx context.Context, input cli.Proje
 }
 
 func (s lifecycleService) operationalSelectionFailure(category string) cli.Result {
+	if result, ok := ancestorOwnerFailure(category, s.provenance); ok {
+		return result
+	}
 	var result cli.Result
 	switch category {
 	case "project_not_found":
@@ -84,6 +87,9 @@ func (s lifecycleService) listProjects(ctx context.Context, options projectapp.P
 	case projectapp.ProjectListCancelled:
 		return canonicalCompletion(completion.Facts{WasInterrupted: true}, "Project listing was interrupted", nil, "Retry Project listing", s.provenance)
 	default:
+		if refusal, ok := ancestorOwnerFailure(result.Category, s.provenance); ok {
+			return refusal
+		}
 		if result.Category == "invalid_existing_local_state" || result.Category == "invalid_project_state" {
 			return canonicalCompletion(completion.Facts{ValidationFailed: true}, "Configured Project state is invalid", nil, "Repair protected Project state before retrying listing", s.provenance)
 		}
@@ -172,6 +178,9 @@ func (s lifecycleService) ProjectValidateInstalled(ctx context.Context, input cl
 		code := ""
 		if len(report.Blockers) != 0 {
 			code = report.Blockers[0].Code
+		}
+		if refusal, ok := ancestorOwnerFailure(code, s.provenance); ok {
+			return refusal
 		}
 		switch code {
 		case projectapp.BlockerProjectNotInstalled:

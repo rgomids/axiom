@@ -80,6 +80,10 @@ func privateRootAnchored(path string) (*os.Root, anchor, error) {
 // the identity of every component it opened, in order, so a later
 // anchor.verify can prove the same objects are still the ones visible there.
 func anchoredRoot(canonical string, create bool) (*os.Root, []os.FileInfo, error) {
+	return anchoredRootChecked(canonical, create, checkAncestor)
+}
+
+func anchoredRootChecked(canonical string, create bool, check func(*os.Root, os.FileInfo) error) (*os.Root, []os.FileInfo, error) {
 	root, err := os.OpenRoot(volumeRoot(canonical))
 	if err != nil {
 		return nil, nil, err
@@ -91,7 +95,7 @@ func anchoredRoot(canonical string, create bool) (*os.Root, []os.FileInfo, error
 	}
 	var identity []os.FileInfo
 	for _, part := range pathComponents(canonical) {
-		if err := checkAncestor(root, container); err != nil {
+		if err := check(root, container); err != nil {
 			root.Close()
 			return nil, nil, err
 		}

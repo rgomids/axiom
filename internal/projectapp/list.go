@@ -158,6 +158,10 @@ func projectListError(ctx context.Context, err error) ProjectListResult {
 	if ctx.Err() != nil || errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 		return cancelledProjectList()
 	}
+	var refusal interface{ StorageCategory() string }
+	if errors.As(err, &refusal) {
+		return failedProjectList(refusal.StorageCategory())
+	}
 	if errors.Is(err, ErrRecoveryRequired) {
 		return failedProjectList("recovery_required")
 	}

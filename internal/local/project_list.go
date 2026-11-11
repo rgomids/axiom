@@ -18,12 +18,12 @@ func (s InstallationStore) ListInstalled(ctx context.Context) ([]projectapp.Inst
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	root, err := existingPrivateRoot(s.root)
+	root, err := s.existingRoot()
 	if errors.Is(err, ErrNotFound) {
 		return []projectapp.InstalledProject{}, nil
 	}
 	if err != nil {
-		return nil, ErrUnsafe
+		return nil, err
 	}
 	defer root.Close()
 	projects, err := existingPrivateChild(root, "projects")
@@ -31,7 +31,7 @@ func (s InstallationStore) ListInstalled(ctx context.Context) ([]projectapp.Inst
 		return []projectapp.InstalledProject{}, nil
 	}
 	if err != nil {
-		return nil, ErrUnsafe
+		return nil, err
 	}
 	defer projects.Close()
 	names, err := childNames(projects)

@@ -345,6 +345,9 @@ func (s lifecycleService) Init(ctx context.Context, input cli.InitInput) cli.Res
 }
 func (s lifecycleService) Validate(ctx context.Context, input cli.ProjectInput) cli.Result {
 	result := s.lifecycle.Validate(ctx, projectapp.ProjectRequest{Slug: input.Slug})
+	if refusal, ok := ancestorOwnerFailure(result.Category, s.provenance); ok {
+		return refusal
+	}
 	if result.Status == projectapp.LifecycleApplied || result.Status == projectapp.LifecycleUnchanged {
 		// Structural validity is not readiness: report what each supported
 		// operation can do on this machine (Issue #231). Read-only.
@@ -420,6 +423,9 @@ func (s lifecycleService) Resolve(ctx context.Context, input cli.ResolveInput) c
 	if result.Status == local.ResolutionFound {
 		status = cli.Succeeded
 	}
+	if refusal, ok := ancestorOwnerFailure(result.Category, s.provenance); ok {
+		return refusal
+	}
 	response := cli.Result{Status: status, Category: result.Category}
 	if result.Status == local.ResolutionFound {
 		response.Project = projectView(result.Project)
@@ -443,6 +449,9 @@ func (s lifecycleService) List(ctx context.Context) cli.Result {
 }
 
 func projectShowFailure(category string, source provenance.Value) cli.Result {
+	if result, ok := ancestorOwnerFailure(category, source); ok {
+		return result
+	}
 	switch category {
 	case "invalid_project_selector":
 		return canonicalCompletion(completion.Facts{ValidationFailed: true}, "Project selector is invalid", nil, "Provide a valid Project UUID or slug", source)

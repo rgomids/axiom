@@ -541,3 +541,12 @@ retry automatically or inherit authority. Unknown outcomes need explicit existin
 reconciliation/disposition. Historical absent-policy budgets are unchanged and
 cannot be refunded. Older binaries refuse new metadata: retain a capable reader
 or stop affected Executions; never strip fields or rewrite history to downgrade.
+
+### Local ancestor trust refusal
+
+On `untrusted_ancestor_owner`, preserve state and relay the bounded path class,
+owner UID and UID-map observation. Unmapped owners in a Linux user namespace
+do not establish host root identity. Do not delete, repair or reconfigure state,
+or remove agent isolation. Read the installed `troubleshooting.md` section
+“Untrusted ancestor owner”; restricted Linux sandbox compatibility is pending
+a reviewed decision in #387.

@@ -25,6 +25,9 @@ type ReadinessProjects struct {
 func (r ReadinessProjects) LoadReadiness(ctx context.Context, selector string) (projectapp.ReadinessSubject, string) {
 	selected := r.Installation.Select(ctx, selector)
 	if selected.Status != ResolutionFound {
+		if _, ok := ParseAncestorOwnerCategory(selected.Category); ok {
+			return projectapp.ReadinessSubject{}, selected.Category
+		}
 		switch selected.Category {
 		case "project_not_found", "invalid_project_selector":
 			return projectapp.ReadinessSubject{}, projectapp.BlockerProjectNotInstalled

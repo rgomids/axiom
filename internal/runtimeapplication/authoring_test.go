@@ -349,3 +349,20 @@ func TestAuthoringBindingWithoutProfileCatalogue(t *testing.T) {
 		t.Fatalf("generated catalogue: %+v", s.snapshot.V4)
 	}
 }
+
+type refusedAuthoringStore struct {
+	memoryAuthoringStore
+	cause error
+}
+
+func (s *refusedAuthoringStore) Inspect(context.Context) (LocalSnapshot, error) {
+	return LocalSnapshot{}, s.cause
+}
+func TestAncestorOwnerInspectionCausePreserved(t *testing.T) {
+	cause := errors.New("bounded ancestor ownership refusal")
+	store := &refusedAuthoringStore{cause: cause}
+	report, err := (Authoring{Store: store}).Run(context.Background(), AuthoringRequest{Kind: "profile", Operation: "list"})
+	if !errors.Is(err, cause) || !errors.Is(err, ErrAuthoring) || report.Category != "configuration_unavailable" || store.writes != 0 {
+		t.Fatalf("%+v %v writes=%d", report, err, store.writes)
+	}
+}

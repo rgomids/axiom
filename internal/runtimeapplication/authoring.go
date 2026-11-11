@@ -154,7 +154,8 @@ func (s Authoring) Run(ctx context.Context, req AuthoringRequest) (AuthoringRepo
 		if errors.Is(err, runtimeprofile.ErrUnsupportedConfigurationFormat) {
 			report.Next = newerFormatNext
 		}
-		return deny("configuration_unavailable")
+		report.Category = "configuration_unavailable"
+		return report, errors.Join(ErrAuthoring, err)
 	}
 	report.State, report.Revision = snapshot.State, snapshot.Revision
 	if snapshot.State == "unsafe" || snapshot.State == "pending" {

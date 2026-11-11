@@ -16,6 +16,7 @@ import (
 
 type InstallationStore struct {
 	root              string
+	openExistingRoot  func(string) (*os.Root, error)
 	beforePublication func()
 	afterPublication  func()
 	syncDirectory     func(*os.Root) error
@@ -61,12 +62,12 @@ func (s InstallationStore) Inspect(ctx context.Context, projectID string) (Insta
 	if err := ctx.Err(); err != nil {
 		return InstallationObservation{}, "cancelled"
 	}
-	root, err := existingPrivateRoot(s.root)
+	root, err := s.existingRoot()
 	if errors.Is(err, ErrNotFound) {
 		return InstallationObservation{Revision: "absent"}, ""
 	}
 	if err != nil {
-		return InstallationObservation{}, "invalid_existing_local_state"
+		return InstallationObservation{}, storageCategory(err, "invalid_existing_local_state")
 	}
 	defer root.Close()
 	projects, err := existingPrivateChild(root, "projects")
@@ -74,7 +75,7 @@ func (s InstallationStore) Inspect(ctx context.Context, projectID string) (Insta
 		return InstallationObservation{Revision: "absent"}, ""
 	}
 	if err != nil {
-		return InstallationObservation{}, "invalid_existing_local_state"
+		return InstallationObservation{}, storageCategory(err, "invalid_existing_local_state")
 	}
 	defer projects.Close()
 	target, err := existingPrivateChild(projects, projectID)
@@ -437,4 +438,11 @@ func installationDirectoryIssue(root *os.Root) string {
 		}
 	}
 	return ""
+}
+
+func (s InstallationStore) existingRoot() (*os.Root, error) {
+	if s.openExistingRoot != nil {
+		return s.openExistingRoot(s.root)
+	}
+	return existingPrivateRoot(s.root)
 }

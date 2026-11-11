@@ -117,6 +117,9 @@ func (s lifecycleService) executionRead(ctx context.Context, in cli.WorkflowStag
 // --- result mapping -------------------------------------------------------
 
 func (s lifecycleService) stageFailure(status completion.Status, category, message, next string, payload any) cli.WorkflowStageResponse {
+	if refusal, ok := ancestorOwnerFailure(category, s.provenance); ok {
+		return cli.WorkflowStageResponse{Result: refusal}
+	}
 	if category == "" {
 		category = string(status)
 	}

@@ -77,12 +77,12 @@ func (s InstallationStore) Select(ctx context.Context, selector string) Resoluti
 	if err := ctx.Err(); err != nil {
 		return failedResolution("cancelled")
 	}
-	root, err := existingPrivateRoot(s.root)
+	root, err := s.existingRoot()
 	if errors.Is(err, ErrNotFound) {
 		return failedResolution("project_not_found")
 	}
 	if err != nil {
-		return failedResolution("invalid_existing_local_state")
+		return ResolutionResult{Status: ResolutionFailed, Category: storageCategory(err, "invalid_existing_local_state")}
 	}
 	defer root.Close()
 	projects, err := existingPrivateChild(root, "projects")
@@ -90,7 +90,7 @@ func (s InstallationStore) Select(ctx context.Context, selector string) Resoluti
 		return failedResolution("project_not_found")
 	}
 	if err != nil {
-		return failedResolution("invalid_existing_local_state")
+		return failedResolution(storageCategory(err, "invalid_existing_local_state"))
 	}
 	defer projects.Close()
 	names, err := childNames(projects)
