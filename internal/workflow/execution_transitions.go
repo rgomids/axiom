@@ -194,7 +194,7 @@ func (e Execution) derivedStatus() RunStatus {
 	for i, s := range e.Stages {
 		for _, t := range s.Tasks {
 			for _, a := range t.Attempts {
-				if unresolvedUnknown(a) || a.WorkspaceUncertain {
+				if unresolvedUnknown(a) || a.WorkspaceUncertain || uncertainCapture(a.Capture) {
 					return RunRecoveryRequired
 				}
 			}
@@ -670,7 +670,10 @@ func (e Execution) StageResultDigest(stageID string) (string, error) {
 		if a == nil || a.Status != AttemptSucceeded {
 			return "", ErrTransition
 		}
-		results = append(results, result{task.AgentID, *a})
+		// Principal capture facts are not the writer result approved by the human.
+		observed := *a
+		observed.Capture = nil
+		results = append(results, result{task.AgentID, observed})
 	}
 	wire, err := json.Marshal(struct {
 		Execution, Definition, Stage string

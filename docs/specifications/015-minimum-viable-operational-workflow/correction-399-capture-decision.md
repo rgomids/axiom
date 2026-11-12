@@ -84,3 +84,12 @@ No correction acceptance test can be reported PASS until that protocol exists.
 Baseline test results and delivery SHA are reported in the stage receipt; they
 do not close CR-399-F1. Real-vendor E2E evidence remains historical. No external
 inference, merge, release, deployment or Product acceptance is authorized here.
+
+## Subsequent bounded approval — 2026-11-12
+
+The [human decision](https://linear.app/rgomids/issue/AXM-12#comment-9209212a)
+authorized the bounded exception after this checkpoint. The earlier analysis
+and pending-decision status above describe CORRECT-399-01, not a new denial of
+that later authority. See the [dated normative amendment](amendment-axm-43-same-repository.md#2026-11-12--bounded-source-capture-exception-to-revision-2-rule-4)
+and [CORRECT-399-02 evidence](evidence-correct-399-02.md) for implementation,
+validation and retained limitations. No merge or Product acceptance is implied.

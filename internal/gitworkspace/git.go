@@ -34,7 +34,7 @@ var effectiveUID = os.Geteuid
 // filterSensitiveCommands are the Git commands this adapter runs that can
 // convert working-tree content (checkout, staging, patch application or
 // working-tree comparison) and therefore consult filter or diff drivers.
-var filterSensitiveCommands = map[string]bool{"worktree": true, "add": true, "apply": true, "diff": true}
+var filterSensitiveCommands = map[string]bool{"worktree": true, "add": true, "apply": true, "diff": true, "status": true}
 
 // Manager holds the shared hardened Git boundary used by integration and delivery.
 type Manager struct {

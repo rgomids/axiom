@@ -139,16 +139,10 @@ func (g *Integrator) worktrees(ctx context.Context) []listedWorktree {
 	return out
 }
 
-// CommitPending records an enrolled writer's uncommitted work as one principal
-// commit on exactly its assigned branch. Sandboxed Runtimes (Codex
-// workspace-write) keep `.git` read-only, so the writer cannot commit itself;
-// the principal does it outside the sandbox, after the attempt exited. It
-// stages with hooks and executable drivers refused, writes the commit with the
-// fixed principal identity and moves only that branch by compare-and-swap.
-// Only a writer that made no commit (HEAD still at base) is captured; a clean
-// worktree or one the writer committed itself is left unchanged, so rerunning
-// after an interruption is idempotent.
-func (g *Integrator) CommitPending(ctx context.Context, name, branch, base, message string) error {
+// CapturePending invokes durable callbacks before the first mutation and before
+// source CAS. Any error after intent requires observation, never a second capture.
+// A writer-owned commit is only observed; dirty leftovers still fail observation.
+func (g *Integrator) CapturePending(ctx context.Context, name, branch, base, message string, intent func(string) error, candidate func(string) error, beforeMutation func() error) error {
 	if !workflow.ValidBranchRef(branch) || !workflow.ValidObjectID(base) || strings.ContainsAny(message, "\x00") {
 		return ErrCandidateInvalid
 	}
@@ -164,30 +158,132 @@ func (g *Integrator) CommitPending(ctx context.Context, name, branch, base, mess
 		return ErrWorkspaceInvalid
 	}
 	if head != base {
-		// The writer committed itself: anything left uncommitted is not
-		// adopted and ObserveCandidate refuses it as a foreign mutation.
 		return nil
 	}
 	changed, err := g.m.changedPaths(ctx, path)
 	if err != nil || len(changed) == 0 {
 		return err
 	}
+	if err := intent(path); err != nil {
+		return err
+	}
+	check := func() error {
+		if err := beforeMutation(); err != nil {
+			return err
+		}
+		current, err := g.worktreePath(name, true)
+		if err != nil || current != path {
+			return ErrWorkspaceInvalid
+		}
+		listed, head, err := g.worktreeAt(ctx, path)
+		if err != nil {
+			return err
+		}
+		if listed != branch || head != base {
+			return ErrWorkspaceInvalid
+		}
+		return nil
+	}
+	if err := check(); err != nil {
+		return err
+	}
 	if _, err := g.m.gitOutput(ctx, path, nil, nil, "add", "--all", "--", "."); err != nil {
-		return fmt.Errorf("%w: %w", ErrForeignMutation, err)
+		return err
+	}
+	if err := check(); err != nil {
+		return err
 	}
 	tree, err := g.m.gitObject(ctx, path, "write-tree")
 	if err != nil {
 		return err
 	}
+	if err := check(); err != nil {
+		return err
+	}
 	identity := []string{"GIT_AUTHOR_NAME=" + principalName, "GIT_AUTHOR_EMAIL=" + principalEmail, "GIT_COMMITTER_NAME=" + principalName, "GIT_COMMITTER_EMAIL=" + principalEmail}
-	commit, err := g.m.gitObjectWithEnv(ctx, path, identity, "commit-tree", tree, "-p", head, "-m", message)
+	commit, err := g.m.gitObjectWithEnv(ctx, path, identity, "commit-tree", tree, "-p", base, "-m", message)
 	if err != nil {
 		return err
 	}
-	if _, err := g.m.runGit(ctx, path, nil, nil, "update-ref", branch, commit, head); err != nil {
-		return fmt.Errorf("%w: %v", ErrCandidateInvalid, err)
+	if err := candidate(commit); err != nil {
+		return err
+	}
+	if err := check(); err != nil {
+		return err
+	}
+	// Recheck exact worktree/config before the ref mutation as well as CAS.
+	listedBranch, head, err = g.worktreeAt(ctx, path)
+	if err != nil {
+		return err
+	}
+	if listedBranch != branch || head != base {
+		return ErrCandidateInvalid
+	}
+	// Captured files must still match the candidate; no concurrent edits adopted.
+	if err := g.matchesCapture(ctx, path, commit); err != nil {
+		return err
+	}
+	_, err = g.m.runGit(ctx, path, nil, nil, "update-ref", branch, commit, base)
+	return err
+}
+
+func (g *Integrator) matchesCapture(ctx context.Context, path, candidate string) error {
+	if _, err := g.m.gitOutput(ctx, path, nil, nil, "diff", "--no-ext-diff", "--no-textconv", "--quiet", candidate, "--"); err != nil {
+		return ErrForeignMutation
+	}
+	if _, err := g.m.gitOutput(ctx, path, nil, nil, "diff", "--no-ext-diff", "--no-textconv", "--cached", "--quiet", candidate, "--"); err != nil {
+		return ErrForeignMutation
+	}
+	untracked, err := g.m.gitOutput(ctx, path, nil, nil, "ls-files", "--others", "--exclude-standard", "-z", "--")
+	if err != nil || len(untracked) != 0 {
+		return ErrForeignMutation
 	}
 	return nil
+}
+
+// ObserveCapture is read-only (including the index). Digests retain bounded
+// forensic observations, not authority. A success also verifies the immutable
+// candidate's single parent and exact clean worktree/index against that object.
+func (g *Integrator) ObserveCapture(ctx context.Context, name, branch, base, path, candidate string) (workflow.CaptureObservation, error) {
+	o := workflow.CaptureObservation{Outcome: "unknown"}
+	actual, err := g.worktreePath(name, true)
+	if err != nil || actual != path {
+		return o, ErrWorkspaceInvalid
+	}
+	listedBranch, head, err := g.worktreeAt(ctx, path)
+	if err != nil {
+		return o, err
+	}
+	o.HeadSHA = head
+	if listedBranch != branch {
+		return o, ErrWorkspaceInvalid
+	}
+	index, err := g.m.gitOutput(ctx, path, nil, nil, "ls-files", "--stage", "-z")
+	if err != nil {
+		return o, err
+	}
+	o.IndexDigest = workflow.DigestText(index)
+	status, err := g.m.gitOutput(ctx, path, nil, nil, "status", "--porcelain=v1", "-z", "--untracked-files=all")
+	if err != nil {
+		return o, err
+	}
+	o.WorktreeDigest = workflow.DigestText(status)
+	if candidate != "" {
+		parents, err := g.m.gitOutput(ctx, path, nil, nil, "rev-list", "--parents", "-n", "1", candidate)
+		if err != nil || strings.TrimSpace(string(parents)) != candidate+" "+base {
+			return o, ErrCandidateInvalid
+		}
+	}
+	switch {
+	case head == base:
+		o.Outcome = "refused"
+	case candidate != "" && head == candidate:
+		if err := g.matchesCapture(ctx, path, candidate); err != nil {
+			return o, err
+		}
+		o.Outcome = "captured"
+	}
+	return o, nil
 }
 
 // ObserveCandidate returns the committed candidate of an agent worktree: on

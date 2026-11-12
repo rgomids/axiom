@@ -92,10 +92,12 @@ same Repository automatically uses isolated branches/worktrees, counting depende
 writers too. It requires configured post-merge commands and `--authorize-commands`
 before launching those writers. The principal freezes each attempt's workspace
 binding before creating it; writers commit their changes on the assigned
-branch and leave the worktree clean. A sandboxed writer that cannot commit
-(Codex keeps `.git` read-only) leaves them uncommitted: after it exits, the
-principal records them as one commit on that branch; leftovers after a writer's
-own commit are never adopted. The principal integrates validated results
+branch and leave the worktree clean. Under the
+[2026-11-12 source-capture exception](https://github.com/rgomids/axiom/blob/fix/axm-12-e2e-same-repo-codex-checks/docs/specifications/015-minimum-viable-operational-workflow/amendment-axm-43-same-repository.md#2026-11-12--bounded-source-capture-exception-to-revision-2-rule-4),
+an enrolled, succeeded writer with an immutable workspace and existing authority
+may leave pending changes at its frozen base for the principal to capture on
+its assigned branch. Writers' own committed results remain valid; dirty leftovers
+after such a commit are refused. The principal integrates validated results
 serially into a new owned target, reruns the configured checks with the same
 allowlisted environment as the attempt's own checks (`HOME`, `PATH`, `TMPDIR`,
 locale; no Runtime configuration root), and records the
@@ -114,11 +116,18 @@ post-merge checks stay `not_integrated`; uncertain effects stay `unknown` and
 are never replayed automatically. All branches, commits and worktrees remain
 for inspection; there is no automatic cleanup or public integration-resolution
 command. Executions without enrollment retain their previous behavior.
-Known limitation of pending-change capture (CR-399-F1): `integration_refused`
-does not prove that the writer branch or index is unchanged. Capture currently
-precedes the durable integration intent. After an interruption or preparation
-failure, preserve the worktree and inspect the source branch before attempting
-continuation; the capture recovery correction is not yet implemented.
+Source capture requires durable nested intent on the Attempt in the same
+Execution/store before `git add`: exact workspace path, Repository, source branch,
+base, Attempt and runner generation. The exact generated candidate must be
+persisted before source-ref CAS. Each mutation rechecks the runner fence,
+admission, existing authority and cancellation. Prepared integration still needs
+a real committed candidate distinct from the base.
+After interruption, preserve the source branch, HEAD, index and worktree for
+observation against that intent and candidate. Recovery never retries capture
+or advances refs. A known captured source does not establish integration success;
+interrupted integration needs the existing human recovery/rework path. A refusal
+alone does not prove the branch or index is unchanged. There is no new public
+status, verb, schema family, store, sidecar, cleanup or reset for capture.
 Cancellation, failed required validation and unknown
 effects stop successors. See the [command reference](cli.md) for installed flags.
 

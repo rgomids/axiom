@@ -183,6 +183,11 @@ func (e Engine) Claim(ctx context.Context, projectID, executionID string) (workf
 		lease.Close()
 		return nil, workflow.Execution{}, err
 	}
+	current, err = e.recoverSourceCaptures(ctx, lease, current)
+	if err != nil {
+		lease.Close()
+		return nil, current, err
+	}
 	return lease, current, nil
 }
 

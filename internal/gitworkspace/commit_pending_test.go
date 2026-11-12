@@ -28,7 +28,7 @@ func TestIntegratorCommitPendingRecordsUncommittedWriterChanges(t *testing.T) {
 		t.Fatalf("clean worktree before work: %v", err)
 	}
 	before := sharedCheckoutState(t, repository.repository)
-	if err := boundary.CommitPending(ctx, "agent", "refs/heads/agent", repository.revision, "record"); err != nil {
+	if err := boundary.CapturePending(ctx, "agent", "refs/heads/agent", repository.revision, "record", func(string) error { return nil }, func(string) error { return nil }, func() error { return nil }); err != nil {
 		t.Fatalf("clean worktree is a no-op: %v", err)
 	}
 	if head := git(t, repository.repository, "rev-parse", "refs/heads/agent"); head != repository.revision {
@@ -38,7 +38,7 @@ func TestIntegratorCommitPendingRecordsUncommittedWriterChanges(t *testing.T) {
 	if _, err := boundary.ObserveCandidate(ctx, "agent", "refs/heads/agent", repository.revision); !errors.Is(err, gitworkspace.ErrForeignMutation) {
 		t.Fatalf("dirty worktree must not observe: %v", err)
 	}
-	if err := boundary.CommitPending(ctx, "agent", "refs/heads/agent", repository.revision, "record"); err != nil {
+	if err := boundary.CapturePending(ctx, "agent", "refs/heads/agent", repository.revision, "record", func(string) error { return nil }, func(string) error { return nil }, func() error { return nil }); err != nil {
 		t.Fatal(err)
 	}
 	candidate, err := boundary.ObserveCandidate(ctx, "agent", "refs/heads/agent", repository.revision)
@@ -51,7 +51,7 @@ func TestIntegratorCommitPendingRecordsUncommittedWriterChanges(t *testing.T) {
 	if files := git(t, repository.repository, "show", "--name-only", "--format=%an", candidate); !strings.Contains(files, "axiom-principal") || !strings.Contains(files, "new.txt") {
 		t.Fatalf("commit %q", files)
 	}
-	if err := boundary.CommitPending(ctx, "agent", "refs/heads/agent", repository.revision, "record"); err != nil {
+	if err := boundary.CapturePending(ctx, "agent", "refs/heads/agent", repository.revision, "record", func(string) error { return nil }, func(string) error { return nil }, func() error { return nil }); err != nil {
 		t.Fatal(err)
 	}
 	if again := git(t, repository.repository, "rev-parse", "refs/heads/agent"); again != candidate {
@@ -75,14 +75,14 @@ func TestIntegratorCommitPendingRefusesExecutableFilterAndForeignBranch(t *testi
 		t.Fatal(err)
 	}
 	writeFile(t, filepath.Join(observation.Path, "a.txt"), "a\n")
-	if err := boundary.CommitPending(ctx, "agent", "refs/heads/other", repository.revision, "record"); !errors.Is(err, gitworkspace.ErrWorkspaceInvalid) {
+	if err := boundary.CapturePending(ctx, "agent", "refs/heads/other", repository.revision, "record", func(string) error { return nil }, func(string) error { return nil }, func() error { return nil }); !errors.Is(err, gitworkspace.ErrWorkspaceInvalid) {
 		t.Fatalf("foreign branch: %v", err)
 	}
 	sentinel := filepath.Join(root, "sentinel")
 	common := git(t, repository.repository, "rev-parse", "--path-format=absolute", "--git-common-dir")
 	writeFile(t, filepath.Join(common, "info", "attributes"), "*.txt filter=sentinel\n")
 	git(t, observation.Path, "config", "filter.sentinel.clean", filterCommand(sentinel))
-	if err := boundary.CommitPending(ctx, "agent", "refs/heads/agent", repository.revision, "record"); !errors.Is(err, gitworkspace.ErrExecutableGitConfiguration) {
+	if err := boundary.CapturePending(ctx, "agent", "refs/heads/agent", repository.revision, "record", func(string) error { return nil }, func(string) error { return nil }, func() error { return nil }); !errors.Is(err, gitworkspace.ErrExecutableGitConfiguration) {
 		t.Fatalf("filter: %v", err)
 	}
 	assertNoSentinel(t, sentinel)
@@ -109,7 +109,7 @@ func TestIntegratorCommitPendingLeavesSelfCommittedWriterUntouched(t *testing.T)
 	commitAll(t, observation.Path, "candidate")
 	committed := git(t, repository.repository, "rev-parse", "refs/heads/agent")
 	writeFile(t, filepath.Join(observation.Path, "late.txt"), "late\n")
-	if err := boundary.CommitPending(ctx, "agent", "refs/heads/agent", repository.revision, "record"); err != nil {
+	if err := boundary.CapturePending(ctx, "agent", "refs/heads/agent", repository.revision, "record", func(string) error { return nil }, func(string) error { return nil }, func() error { return nil }); err != nil {
 		t.Fatal(err)
 	}
 	if head := git(t, repository.repository, "rev-parse", "refs/heads/agent"); head != committed {

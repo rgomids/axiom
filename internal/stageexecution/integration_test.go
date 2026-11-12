@@ -1059,19 +1059,13 @@ func TestIntegrateRechecksAdmissionBeforeChecksAndAdvance(t *testing.T) {
 	}
 }
 
-func writeFileOnly(name, content string) edit {
-	return func(t *testing.T, dir string) { write(t, filepath.Join(dir, name), content) }
-}
-
 // A sandboxed writer (Codex keeps .git read-only) leaves its work uncommitted;
 // the principal records it as the candidate, and post-merge checks get the
 // allowlisted environment (HOME) toolchains need.
 func TestIntegrateUncommittedSandboxedWriterWithHomeAwareCheck(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	f := newIntegrationFixture(t, map[string]edit{"a": writeFileOnly("a-new.txt", "from a\n"), "b": commitFile("b-new.txt", "from b\n")})
-	f.checks = checkCommand(`test -n "$HOME" && test -d "$HOME" && test -f a-new.txt`, 10)
-	x := f.start(engineExecutionID, "a", "b")
-	x, err := f.integrate(engineExecutionID, f.git, f.request(x, "a", "int-a", f.base))
+	f, lease, x, req := captureFixture(t, checkCommand(`test -n "$HOME" && test -d "$HOME" && test -f staged.txt`, 10)...)
+	x, err := f.engine.integrateHeld(context.Background(), lease, x, f.git, req)
 	if err != nil {
 		t.Fatal(err)
 	}

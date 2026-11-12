@@ -346,6 +346,16 @@ func preservesExecutionHistory(prior, next workflow.Execution) bool {
 			}
 			for k, attempt := range task.Attempts {
 				changed := updated.Attempts[k]
+				if !workflow.PreservesCaptureHistory(attempt.Capture, changed.Capture) {
+					return false
+				}
+				if changed.Capture != nil && (attempt.Capture == nil || attempt.Capture.CandidateSHA != changed.Capture.CandidateSHA) && changed.Capture.RunnerGeneration != next.RunnerGeneration {
+					return false
+				}
+				if changed.Capture != nil && changed.Capture.Recovery != nil && (attempt.Capture == nil || attempt.Capture.Recovery == nil) && changed.Capture.RunnerGeneration >= next.RunnerGeneration {
+					return false
+				}
+				changed.Capture = attempt.Capture
 				if attempt.AttemptID != changed.AttemptID || attempt.Number != changed.Number || attempt.RunnerGeneration != changed.RunnerGeneration || !attempt.PreparedAt.Equal(changed.PreparedAt) || attempt.WorkspaceDisposition != changed.WorkspaceDisposition || !reflect.DeepEqual(attempt.Workspace, changed.Workspace) || !reflect.DeepEqual(attempt.Invocation, changed.Invocation) || !reflect.DeepEqual(attempt.Authority, changed.Authority) {
 					return false
 				}
@@ -448,6 +458,18 @@ func cloneExecutionStages(stages []workflow.StageRun) []workflow.StageRun {
 			out[i].Tasks[j] = t
 			out[i].Tasks[j].Attempts = append([]workflow.Attempt(nil), t.Attempts...)
 			for k, a := range t.Attempts {
+				if a.Capture != nil {
+					c := *a.Capture
+					if c.Recovery != nil {
+						o := *c.Recovery
+						c.Recovery = &o
+					}
+					if c.Observation != nil {
+						o := *c.Observation
+						c.Observation = &o
+					}
+					out[i].Tasks[j].Attempts[k].Capture = &c
+				}
 				if a.Workspace != nil {
 					w := *a.Workspace
 					out[i].Tasks[j].Attempts[k].Workspace = &w
@@ -464,6 +486,7 @@ func cloneExecutionStages(stages []workflow.StageRun) []workflow.StageRun {
 
 func sameWorkspaceState(a, b workflow.Execution) bool {
 	type state struct {
+		Capture             *workflow.SourceCapture
 		Binding             *workflow.AttemptWorkspace
 		Uncertain, GateWait bool
 	}
@@ -473,7 +496,7 @@ func sameWorkspaceState(a, b workflow.Execution) bool {
 			for _, task := range stage.Tasks {
 				for _, attempt := range task.Attempts {
 					if attempt.Workspace != nil || attempt.WorkspaceUncertain || attempt.WorkspaceGateWait {
-						out[attempt.AttemptID] = state{attempt.Workspace, attempt.WorkspaceUncertain, attempt.WorkspaceGateWait}
+						out[attempt.AttemptID] = state{attempt.Capture, attempt.Workspace, attempt.WorkspaceUncertain, attempt.WorkspaceGateWait}
 					}
 				}
 			}

@@ -15,10 +15,11 @@ import (
 )
 
 // IntegrationGit is the principal's bounded local Git boundary
-// (gitworkspace.Integrator). CommitPending moves the assigned source branch;
+// (gitworkspace.Integrator). CapturePending moves the assigned source branch;
 // Advance moves the integration target. Both use compare-and-swap.
 type IntegrationGit interface {
-	CommitPending(ctx context.Context, worktree, branch, base, message string) error
+	CapturePending(ctx context.Context, worktree, branch, base, message string, intent func(string) error, candidate func(string) error, beforeMutation func() error) error
+	ObserveCapture(ctx context.Context, worktree, branch, base, path, candidate string) (workflow.CaptureObservation, error)
 	ObserveCandidate(ctx context.Context, worktree, branch, base string) (string, error)
 	ObserveTarget(ctx context.Context, ref string) (string, error)
 	Merge(ctx context.Context, head, candidate, message string) (string, error)
@@ -65,7 +66,8 @@ var (
 // never reach it. Concurrent integrations of other Executions into the same
 // target are serialized by the target compare-and-swap.
 //
-// Order: capture pending source changes, observe candidate and target, persist
+// Order: observe target, persist capture intent/candidate before source effects,
+// observe capture and candidate, persist
 // the integration intent, compute the merge without touching refs, run every source-stage
 // check on the merged tree in a new principal worktree, verify the checks
 // left it unchanged and no cancel arrived, then compare-and-swap the target
@@ -92,15 +94,7 @@ func (e Engine) integrateHeld(ctx context.Context, lease workflow.RunnerFence, c
 	if err := e.integrationAdmission(ctx, current, req.SourceAttemptID); err != nil {
 		return current, errors.Join(ErrIntegrationRefused, err)
 	}
-	// A sandboxed writer may be unable to commit; its own pending changes become
-	// its candidate, still subject to every observation below.
-	if err := git.CommitPending(ctx, req.Worktree, req.SourceBranch, req.BaseSHA, "axiom: record attempt "+req.SourceAttemptID+" changes"); err != nil {
-		return current, errors.Join(ErrIntegrationRefused, err)
-	}
-	candidate, err := git.ObserveCandidate(ctx, req.Worktree, req.SourceBranch, req.BaseSHA)
-	if err != nil {
-		return current, errors.Join(ErrIntegrationRefused, err)
-	}
+	// Refuse an unavailable/moved target before adopting any pending source work.
 	head, err := git.ObserveTarget(ctx, req.TargetRef)
 	if err != nil {
 		return current, errors.Join(ErrIntegrationRefused, err)
@@ -109,6 +103,71 @@ func (e Engine) integrateHeld(ctx context.Context, lease workflow.RunnerFence, c
 		return current, errors.Join(ErrIntegrationRefused, workflow.ErrIntegrationStale)
 	}
 	update := e.commit(ctx, projectID, executionID, lease)
+	in := workflow.IntegrationInput{IntegrationID: req.IntegrationID, Generation: gen, SourceAttemptID: req.SourceAttemptID, RepositoryKey: req.RepositoryKey, RepositoryIdentity: req.RepositoryIdentity, SourceBranch: req.SourceBranch, Worktree: req.Worktree, BaseSHA: req.BaseSHA, TargetRef: req.TargetRef, ExpectedTargetHead: head, Now: e.now()}
+	// Any recorded capture forbids entry into the mutating path again, even in
+	// this generation. Recovery observes only; it never reclassifies a capture as
+	// a writer-owned commit.
+	a, _, ok := current.FindAttempt(req.SourceAttemptID)
+	if !ok {
+		return current, workflow.ErrTransition
+	}
+	if a.Capture != nil {
+		return current, ErrIntegrationUnknown
+	}
+	intent := func(path string) error {
+		var err error
+		current, err = update(func(x *workflow.Execution) error { return x.PrepareCapture(in, path) })
+		return err
+	}
+	candidateRecorded := func(candidate string) error {
+		var err error
+		current, err = update(func(x *workflow.Execution) error {
+			return x.RecordCaptureCandidate(req.SourceAttemptID, gen, candidate, e.now())
+		})
+		return err
+	}
+	beforeMutation := func() error {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		latest, err := e.Store.Load(ctx, projectID, executionID)
+		if err != nil {
+			return err
+		}
+		if err := e.integrationAdmission(ctx, latest, req.SourceAttemptID); err != nil {
+			return err
+		}
+		_, err = update(func(x *workflow.Execution) error { return x.CheckCaptureFence(req.SourceAttemptID, gen, e.now()) })
+		return err
+	}
+	captureErr := git.CapturePending(ctx, req.Worktree, req.SourceBranch, req.BaseSHA, "axiom: record attempt "+req.SourceAttemptID+" changes", intent, candidateRecorded, beforeMutation)
+	// Reload even on persistence error: an ambiguous store publication must not
+	// turn into an unrecorded effect or allow a retry from stale in-memory state.
+	latest, loadErr := e.Store.Load(context.WithoutCancel(ctx), projectID, executionID)
+	if loadErr != nil {
+		return current, errors.Join(ErrIntegrationUnknown, captureErr, loadErr)
+	}
+	current = latest
+	a, _, _ = current.FindAttempt(req.SourceAttemptID)
+	if a.Capture != nil {
+		current, err = e.observeSourceCapture(ctx, lease, current, git, req.SourceAttemptID)
+		if err != nil {
+			return current, errors.Join(ErrIntegrationUnknown, captureErr, err)
+		}
+		a, _, _ = current.FindAttempt(req.SourceAttemptID)
+		if captureErr != nil || a.Capture.Observation.Outcome != "captured" {
+			return current, errors.Join(ErrIntegrationUnknown, captureErr)
+		}
+	} else if captureErr != nil {
+		return current, errors.Join(ErrIntegrationRefused, captureErr)
+	}
+	candidate, err := git.ObserveCandidate(ctx, req.Worktree, req.SourceBranch, req.BaseSHA)
+	if err != nil {
+		return current, errors.Join(ErrIntegrationRefused, err)
+	}
+	if a.Capture != nil && candidate != a.Capture.CandidateSHA {
+		return current, ErrIntegrationUnknown
+	}
 	prepared, err := update(func(x *workflow.Execution) error {
 		return x.PrepareIntegration(workflow.IntegrationInput{
 			IntegrationID: req.IntegrationID, Generation: gen, SourceAttemptID: req.SourceAttemptID,
@@ -220,7 +279,7 @@ func (e Engine) integrateHeld(ctx context.Context, lease workflow.RunnerFence, c
 	if e.cancelPersisted(ctx, projectID, executionID) {
 		return finish(workflow.IntegrationNotIntegrated, "cancelled_before_effect")
 	}
-	latest, err := e.Store.Load(ctx, projectID, executionID)
+	latest, err = e.Store.Load(ctx, projectID, executionID)
 	if err != nil {
 		return finish(workflow.IntegrationNotIntegrated, "admission_unavailable_before_effect")
 	}
