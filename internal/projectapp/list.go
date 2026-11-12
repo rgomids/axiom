@@ -130,6 +130,11 @@ func (c ProjectCatalog) ListProjects(ctx context.Context, options ProjectListOpt
 			continue
 		}
 		if err != nil {
+			// A trust refusal on the portable source is environmental, not corruption.
+			var refusal interface{ StorageCategory() string }
+			if errors.As(err, &refusal) {
+				return failedProjectList(refusal.StorageCategory())
+			}
 			if errors.Is(err, ErrUnsafe) {
 				return failedProjectList("invalid_project_state")
 			}
@@ -157,6 +162,10 @@ func (c ProjectCatalog) ListProjects(ctx context.Context, options ProjectListOpt
 func projectListError(ctx context.Context, err error) ProjectListResult {
 	if ctx.Err() != nil || errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 		return cancelledProjectList()
+	}
+	var refusal interface{ StorageCategory() string }
+	if errors.As(err, &refusal) {
+		return failedProjectList(refusal.StorageCategory())
 	}
 	if errors.Is(err, ErrRecoveryRequired) {
 		return failedProjectList("recovery_required")

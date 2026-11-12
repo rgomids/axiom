@@ -21,6 +21,9 @@ func (s lifecycleService) admission() projectapp.AdmissionGuard {
 
 func (s lifecycleService) gate(ctx context.Context, selector string, operation projectapp.AdmissionOperation) *cli.Result {
 	decision := s.admission().Admit(ctx, selector, operation)
+	if refusal, ok := ancestorOwnerFailure(decision.Deferred, s.provenance); ok {
+		return &refusal
+	}
 	if !decision.Allowed {
 		result := s.admissionDenied(decision)
 		return &result
@@ -32,6 +35,9 @@ func (s lifecycleService) gate(ctx context.Context, selector string, operation p
 }
 
 func (s lifecycleService) admissionDenied(decision projectapp.AdmissionDecision) cli.Result {
+	if refusal, ok := ancestorOwnerFailure(decision.Code, s.provenance); ok {
+		return refusal
+	}
 	message, next := "Operation is not admitted for this Project", "Inspect the Project with project show and project validate, then retry"
 	switch decision.Code {
 	case projectapp.AdmissionProjectArchived:

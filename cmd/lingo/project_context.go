@@ -38,6 +38,9 @@ func (s lifecycleService) EffectiveProject(ctx context.Context, selector string)
 }
 
 func (s lifecycleService) contextResult(view projectapp.EffectiveContext, category string) cli.Result {
+	if refusal, ok := ancestorOwnerFailure(category, s.provenance); ok {
+		return refusal
+	}
 	message, next := "Project context resolved", ""
 	facts := completion.Facts{Completed: true}
 	if category != "" {
