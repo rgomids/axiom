@@ -278,6 +278,10 @@ func result(err error) LifecycleResult {
 }
 
 func storageResult(err error) LifecycleResult {
+	var refusal interface{ StorageCategory() string }
+	if errors.As(err, &refusal) {
+		return failed(refusal.StorageCategory())
+	}
 	switch {
 	case errors.Is(err, ErrNotFound):
 		return failed("project_not_found")

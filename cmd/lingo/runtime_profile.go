@@ -24,6 +24,9 @@ func (s lifecycleService) RuntimeProfileValidate(ctx context.Context) cli.Result
 		return failure(setup)
 	}
 	snapshot, err := store.Inspect(ctx)
+	if refusal, ok := ancestorOwnerFailure(local.AncestorOwnerCategory(err), s.provenance); ok {
+		return refusal
+	}
 	switch code := runtimeProfileValidity(snapshot, err); code {
 	case "":
 	case "unsupported_configuration_format":

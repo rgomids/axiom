@@ -451,6 +451,27 @@ var sharedSkillHistory = []skillSetRevision{
 		"axiom-work-item": "8207c7cb504a57d33cf0d1642cb83e0616b45c09866a238fbc8eb92ba63d7869",
 		"axiom-workflow":  "51e5cca22801ea595af05cac7d68afa7414efb1d2cf2eb0e4974eb1c79f6e05e",
 	}},
+	// Prior #387 branch revision, retained for owned upgrades.
+	{skillSetVersion: "3", binaryCompatibility: "3", skills: map[string]string{
+		"axiom-project":   "ea2b9d261e5acc8edd7efd91c81a89170942fc9e537ba52d8676bc912705e170",
+		"axiom-runtime":   "08cb664d212641f21d49aa09a63158a5526ab010d8caad64a867670a80914133",
+		"axiom-work-item": "06d17ddbbe3eae6de0061a77ee6b85e97277cb3333c882af5b5c74f55c88876e",
+		"axiom-workflow":  "38f313ed636ad9c6d291be411170a636653ba5099508aed0776560f265044397",
+	}},
+	// Prior main revision, retained for owned upgrades.
+	{skillSetVersion: "3", binaryCompatibility: "3", skills: map[string]string{
+		"axiom-project":   "d55dbaa480404e437696e5bd534a32ebf40458a2b9d905ec43fd26d6276b6fac",
+		"axiom-runtime":   "d0be5bd58771921dca829db190d57606828d3be7274d6e197d3413fbd05d61da",
+		"axiom-work-item": "9affec20105218cacc1ec9b0b4dea578facece50cc011bf8ba287b6195eb1bab",
+		"axiom-workflow":  "0daa04b460174c5c065f41a9fe8b92a029318c0b3f1dba910d96ae4347714a10",
+	}},
+	// Prior #387 branch revision, retained for owned upgrades.
+	{skillSetVersion: "3", binaryCompatibility: "3", skills: map[string]string{
+		"axiom-project":   "ea2b9d261e5acc8edd7efd91c81a89170942fc9e537ba52d8676bc912705e170",
+		"axiom-runtime":   "08cb664d212641f21d49aa09a63158a5526ab010d8caad64a867670a80914133",
+		"axiom-work-item": "06d17ddbbe3eae6de0061a77ee6b85e97277cb3333c882af5b5c74f55c88876e",
+		"axiom-workflow":  "4ffeb8ca318fe22af65bd3a20c2e669fd40eea367a1b45a077573788aa67c96f",
+	}},
 }
 
 // currentRevision is the skill set embedded in this binary.

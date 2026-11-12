@@ -18,12 +18,12 @@ func (s InstallationStore) ListInstalled(ctx context.Context) ([]projectapp.Inst
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	root, err := existingPrivateRoot(s.root)
+	root, err := s.existingRoot()
 	if errors.Is(err, ErrNotFound) {
 		return []projectapp.InstalledProject{}, nil
 	}
 	if err != nil {
-		return nil, ErrUnsafe
+		return nil, err
 	}
 	defer root.Close()
 	projects, err := existingPrivateChild(root, "projects")
@@ -31,7 +31,7 @@ func (s InstallationStore) ListInstalled(ctx context.Context) ([]projectapp.Inst
 		return []projectapp.InstalledProject{}, nil
 	}
 	if err != nil {
-		return nil, ErrUnsafe
+		return nil, err
 	}
 	defer projects.Close()
 	names, err := childNames(projects)
@@ -69,8 +69,12 @@ func (s InstallationStore) ReadInstalledProject(ctx context.Context, installed p
 	if _, err := os.Lstat(installed.Source); err != nil {
 		return project.Project{}, projectapp.ErrProjectDefinitionUnavailable
 	}
-	root, err := existingPrivateRoot(installed.Source)
+	root, err := s.sourceRoot(installed.Source)
 	if err != nil {
+		var refusal *AncestorOwnerError
+		if errors.As(err, &refusal) {
+			return project.Project{}, refusal
+		}
 		if errors.Is(err, ErrUnsafe) {
 			return project.Project{}, ErrUnsafe
 		}

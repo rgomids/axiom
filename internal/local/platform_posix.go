@@ -19,7 +19,15 @@ func volumeRoot(string) string { return string(filepath.Separator) }
 func forbiddenPermissions(info os.FileInfo, mask os.FileMode) bool {
 	return info.Mode().Perm()&mask != 0
 }
-func checkAncestor(_ *os.Root, info os.FileInfo) error {
+func checkAncestor(root *os.Root, info os.FileInfo) error {
+	stat, ok := info.Sys().(*syscall.Stat_t)
+	if ok && stat.Uid != 0 && int(stat.Uid) != os.Geteuid() {
+		class := "ancestor"
+		if root.Name() == volumeRoot(root.Name()) {
+			class = "filesystem_root"
+		}
+		return &AncestorOwnerError{PathClass: class, UID: stat.Uid, UIDMapping: ancestorUIDMapping(stat.Uid)}
+	}
 	if !ancestorSafe(info) {
 		return ErrUnsafe
 	}

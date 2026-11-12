@@ -705,3 +705,12 @@ this owner, not certification. Say execution is not ready and not performed only
 with confirmed no-dispatch facts; a prior attempt or unknown effects requires
 inspection/reconciliation before any separately authorized retry. No automatic
 repair, credential access or Runtime dispatch follows a successful validation.
+
+### Local ancestor trust refusal
+
+On `untrusted_ancestor_owner`, preserve state and relay the bounded path class,
+owner UID and UID-map observation. Unmapped owners in a Linux user namespace
+do not establish host root identity. Do not delete, repair or reconfigure state,
+or remove agent isolation. Read the installed `troubleshooting.md` section
+“Untrusted ancestor owner”; restricted Linux sandbox compatibility is pending
+a reviewed decision in #387.
