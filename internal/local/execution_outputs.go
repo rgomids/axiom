@@ -19,7 +19,10 @@ import (
 // New attempts additionally bind repository and attempt, preventing replay of
 // a successful artifact from a different attempt or repository.
 func (v WorkflowReferenceValidator) ValidateExecutionOutput(ctx context.Context, subject workflow.OutputSubject, wire []byte) (workflow.ArtifactRef, error) {
-	v.artifacts.waitForLocks = subject.Isolated
+	// Parallel attempts of any Execution read, validate and retain outputs
+	// concurrently; a nonblocking lock turned that contention into launch or
+	// output refusals (AXM-12), so every Execution path waits, bounded.
+	v.artifacts.waitForLocks = true
 	fail := func() (workflow.ArtifactRef, error) { return workflow.ArtifactRef{}, ErrUnsafe }
 	var ref struct {
 		Kind   string `json:"kind"`
@@ -134,7 +137,7 @@ func (v WorkflowReferenceValidator) ObserveExecutionArtifact(ctx context.Context
 // validates it as a typed reference. Stage children cannot mint this
 // correlation themselves; only the engine that collected the bytes does.
 func (v WorkflowReferenceValidator) RetainExecutionOutput(ctx context.Context, subject workflow.OutputSubject, content []byte, source provenance.Value) (workflow.ArtifactRef, error) {
-	v.artifacts.waitForLocks = subject.Isolated
+	v.artifacts.waitForLocks = true
 	retention := detailartifact.Active
 	if subject.Check.Evidence {
 		retention = detailartifact.Evidence
@@ -164,7 +167,7 @@ func (v WorkflowReferenceValidator) RetainExecutionOutput(ctx context.Context, s
 // so a successor stage receives its predecessor's content and not only a
 // reference it cannot open. Digest and Execution binding are re-checked.
 func (v WorkflowReferenceValidator) ReadExecutionArtifact(ctx context.Context, x workflow.Execution, attemptID string, artifact workflow.ArtifactRef) ([]byte, error) {
-	v.artifacts.waitForLocks = len(x.Enrollments) != 0
+	v.artifacts.waitForLocks = true
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}

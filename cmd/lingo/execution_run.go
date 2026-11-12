@@ -561,7 +561,7 @@ func (c executionComposition) resolve(ctx context.Context, x workflow.Execution,
 	}
 	effects := append([]string{}, agent.Effects...)
 	if slices.Contains(effects, "validation_command") && !c.authorizeCommands {
-		return workflow.Invocation{}, workflow.AttemptAuthority{}, workflow.ErrUnauthorizedEffect
+		return workflow.Invocation{}, workflow.AttemptAuthority{}, errCommandsUnauthorized
 	}
 	repository := x.WorkItem.RepositoryKey
 	if agent.Repository != "" {
@@ -1124,6 +1124,7 @@ func (c executionComposition) failure(err error, x *workflow.Execution) cli.Work
 		{workflow.ErrStaleRunner, completion.DeniedAuthority, "execution_stale_runner", "A newer runner generation owns this Execution; inspect stage status"},
 		{workflow.ErrUnknownOutstanding, completion.Failure, "recovery_required", "Effects are unknown and never replayed; reconcile and record a human disposition first"},
 		{workflow.ErrCancelled, completion.Interrupted, "execution_cancelled", "The Execution is cancelled; start a new Execution"},
+		{errCommandsUnauthorized, completion.DeniedAuthority, "commands_unauthorized", "The Workflow configures validation commands (also the post-merge checks of same-Repository writers); repeat with --authorize-commands. Nothing was spawned or written to Git"},
 		{workflow.ErrUnauthorizedEffect, completion.DeniedAuthority, "authority_denied", "Keep the attempt within the Workflow agent effect and Runtime restrictions"},
 		{workflow.ErrWorkspaceDispositionRequired, completion.DeniedAuthority, "workspace_disposition_required", "Inspect and preserve the prior workspace explicitly with --disposition preserve; no automatic reset is supported"},
 		{errResultDigest, completion.ValidationFailure, "result_digest_mismatch", "The stage has no completed result with this digest; copy --stage and --result-digest exactly from stage status"},
@@ -1319,12 +1320,16 @@ func (c executionComposition) review(ctx context.Context, x workflow.Execution, 
 // /usr are commonly links), checked with the launcher's own containment rule
 // before any Execution exists, so a command that could never start is refused
 // here instead of becoming an unknown effect after the agent ran.
+// errCommandsUnauthorized is a missing --authorize-commands; it remains an
+// unauthorized effect for every caller matching workflow.ErrUnauthorizedEffect.
+var errCommandsUnauthorized = fmt.Errorf("%w: validation commands not authorized", workflow.ErrUnauthorizedEffect)
+
 func freezeCommands(stages []workflow.StageSpec, authorized bool) error {
 	for i := range stages {
 		for j := range stages[i].Commands {
 			command := &stages[i].Commands[j]
 			if !authorized {
-				return workflow.ErrUnauthorizedEffect
+				return errCommandsUnauthorized
 			}
 			if len(command.Argv) == 0 {
 				return errWorkflowUnmappable

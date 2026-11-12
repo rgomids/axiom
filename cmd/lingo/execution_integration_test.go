@@ -250,6 +250,9 @@ func TestPublicWorkflowRunSameRepositoryRefusesMissingChecksAuthorityAndDirtyBas
 				args = args[:len(args)-1]
 			}
 			got := f.run(t, cli.ExitFailure, args...)
+			if mode == "authority" && (got.Category != "commands_unauthorized" || !strings.Contains(got.Next, "--authorize-commands")) {
+				t.Fatalf("missing command authority must name --authorize-commands: %s", got.Raw)
+			}
 			if got.Stage.ExecutionID != "" {
 				x := loadPublicIntegration(t, f, got.Stage.ExecutionID)
 				for _, task := range x.Stages[0].Tasks {

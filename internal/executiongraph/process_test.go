@@ -115,11 +115,19 @@ func TestOSProcessRunnerHoldsPacketUntilAttemptPublication(t *testing.T) {
 func TestOSProcessRunnerRetainsFastRejectionBeforeCorrelation(t *testing.T) {
 	root := t.TempDir()
 	executable := filepath.Join(root, "reject-option")
-	if err := os.WriteFile(executable, []byte("#!/bin/sh\nprintf \"error: unknown option '--synthetic'\\n\" >&2\nexit 7\n"), 0700); err != nil {
+	marker := filepath.Join(root, "rejected")
+	if err := os.WriteFile(executable, []byte("#!/bin/sh\nprintf \"error: unknown option '--synthetic'\\n\" >&2\n: > '"+marker+"'\nexit 7\n"), 0700); err != nil {
 		t.Fatal(err)
 	}
 	inv := WithExactEnvironment(Invocation{Argv: []string{executable}, CWD: root, Stdin: []byte("packet"), OutputMax: 1024}, nil)
 	result := (OSProcessRunner{}).RunObserved(context.Background(), inv, func(*ProcessCorrelation) error {
+		// The rejection must precede the failed publication; a fixed sleep
+		// raced shell startup under load.
+		for deadline := time.Now().Add(10 * time.Second); time.Now().Before(deadline); time.Sleep(10 * time.Millisecond) {
+			if _, err := os.Stat(marker); err == nil {
+				break
+			}
+		}
 		time.Sleep(100 * time.Millisecond)
 		return errors.New("synthetic publication failure")
 	})
