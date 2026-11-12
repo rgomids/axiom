@@ -472,6 +472,20 @@ A refused Work Item application result sets `details` to its category, such as
 `provider_invalid_response`. Successful results keep `details` empty. The
 handle explains a refusal; it never relaxes validation or grants authority.
 
+Project Workflow `show`, `select`, and `remove` require an exact reference.
+For example:
+
+```sh
+axiom --json project workflow show --project <uuid-or-slug> --workflow <key> --revision <n> --digest <sha256>
+```
+
+Missing reference fields fail with `missing_required_input` and a `details`
+handle naming the first missing flag (`--workflow`, `--revision`, `--digest`,
+in that order). Use `project workflow list --project <uuid-or-slug>` or
+`project show --selector <uuid-or-slug>` to obtain the exact reference. A complete
+unknown reference returns `workflow_not_found`; no current-selection fallback is
+performed. Built-in references also require `--source builtin`.
+
 Both discovery and parsing use the same flag registrations and presence rules.
 Unknown/duplicate/conflicting invocation inputs retain their validation errors;
 inspection neither validates live domain state nor authorizes any effect.
