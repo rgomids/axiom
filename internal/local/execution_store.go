@@ -236,7 +236,7 @@ func (s ExecutionStore) Save(ctx context.Context, next workflow.Execution, expec
 	if !preservesExecutionHistory(current, next) {
 		return ErrConflict
 	}
-	if lease == nil && !reflect.DeepEqual(current.Deliveries, next.Deliveries) {
+	if lease == nil && (!reflect.DeepEqual(current.Deliveries, next.Deliveries) || !sameWorkspaceState(current, next)) {
 		return workflow.ErrStaleRunner
 	}
 	var fence func() error
@@ -280,7 +280,7 @@ func preservesExecutionHistory(prior, next workflow.Execution) bool {
 			return false
 		}
 	}
-	if prior.AttemptPolicy != next.AttemptPolicy {
+	if prior.AttemptPolicy != next.AttemptPolicy || !reflect.DeepEqual(prior.Enrollments, next.Enrollments) {
 		return false
 	}
 	if prior.ExecutionID != next.ExecutionID || prior.ProjectID != next.ProjectID || prior.WorkItem != next.WorkItem || !prior.CreatedAt.Equal(next.CreatedAt) || !reflect.DeepEqual(prior.Repositories, next.Repositories) || !reflect.DeepEqual(prior.Workflow, next.Workflow) || !reflect.DeepEqual(prior.Selections, next.Selections) || len(prior.Stages) != len(next.Stages) {
@@ -339,9 +339,14 @@ func preservesExecutionHistory(prior, next workflow.Execution) bool {
 			if task.AgentID != updated.AgentID || len(updated.Attempts) < len(task.Attempts) {
 				return false
 			}
+			for _, appended := range updated.Attempts[len(task.Attempts):] {
+				if appended.Workspace != nil && appended.Status != workflow.AttemptPrepared {
+					return false
+				}
+			}
 			for k, attempt := range task.Attempts {
 				changed := updated.Attempts[k]
-				if attempt.AttemptID != changed.AttemptID || attempt.Number != changed.Number || attempt.RunnerGeneration != changed.RunnerGeneration || !attempt.PreparedAt.Equal(changed.PreparedAt) || attempt.WorkspaceDisposition != changed.WorkspaceDisposition || !reflect.DeepEqual(attempt.Invocation, changed.Invocation) || !reflect.DeepEqual(attempt.Authority, changed.Authority) {
+				if attempt.AttemptID != changed.AttemptID || attempt.Number != changed.Number || attempt.RunnerGeneration != changed.RunnerGeneration || !attempt.PreparedAt.Equal(changed.PreparedAt) || attempt.WorkspaceDisposition != changed.WorkspaceDisposition || !reflect.DeepEqual(attempt.Workspace, changed.Workspace) || !reflect.DeepEqual(attempt.Invocation, changed.Invocation) || !reflect.DeepEqual(attempt.Authority, changed.Authority) {
 					return false
 				}
 				if attempt.ParentAttemptID != changed.ParentAttemptID || attempt.Accounting != workflow.AccountingPending && attempt.Accounting != changed.Accounting || attempt.NoSpawn && !changed.NoSpawn || attempt.Materialization != "" && attempt.Materialization != changed.Materialization {
@@ -364,6 +369,18 @@ func preservesExecutionHistory(prior, next workflow.Execution) bool {
 						return false
 					}
 					continue
+				}
+				if !attempt.WorkspaceGateWait && changed.WorkspaceGateWait {
+					if next.RunnerGeneration != attempt.RunnerGeneration || prior.Stages[i].Gate != nil {
+						return false
+					}
+					changed.WorkspaceGateWait = false
+				}
+				if !attempt.WorkspaceUncertain && changed.WorkspaceUncertain {
+					if next.RunnerGeneration <= attempt.RunnerGeneration {
+						return false
+					}
+					changed.WorkspaceUncertain = false
 				}
 				if attempt.Status == workflow.AttemptUnknown && attempt.Resolution == nil {
 					changed.Resolution = nil
@@ -388,6 +405,7 @@ func (s ExecutionStore) Update(ctx context.Context, projectID, executionID strin
 		}
 		next := current
 		next.Stages = cloneExecutionStages(current.Stages)
+		next.Enrollments = append([]workflow.IntegrationEnrollment(nil), current.Enrollments...)
 		next.Deliveries = append([]workflow.ExecutionDelivery(nil), current.Deliveries...)
 		for i := range next.Deliveries {
 			next.Deliveries[i].Observations = append([]workflow.DeliveryObservation(nil), current.Deliveries[i].Observations...)
@@ -430,6 +448,10 @@ func cloneExecutionStages(stages []workflow.StageRun) []workflow.StageRun {
 			out[i].Tasks[j] = t
 			out[i].Tasks[j].Attempts = append([]workflow.Attempt(nil), t.Attempts...)
 			for k, a := range t.Attempts {
+				if a.Workspace != nil {
+					w := *a.Workspace
+					out[i].Tasks[j].Attempts[k].Workspace = &w
+				}
 				if a.LaunchFailure != nil {
 					f := *a.LaunchFailure
 					out[i].Tasks[j].Attempts[k].LaunchFailure = &f
@@ -438,4 +460,25 @@ func cloneExecutionStages(stages []workflow.StageRun) []workflow.StageRun {
 		}
 	}
 	return out
+}
+
+func sameWorkspaceState(a, b workflow.Execution) bool {
+	type state struct {
+		Binding             *workflow.AttemptWorkspace
+		Uncertain, GateWait bool
+	}
+	bindings := func(e workflow.Execution) map[string]state {
+		out := map[string]state{}
+		for _, stage := range e.Stages {
+			for _, task := range stage.Tasks {
+				for _, attempt := range task.Attempts {
+					if attempt.Workspace != nil || attempt.WorkspaceUncertain || attempt.WorkspaceGateWait {
+						out[attempt.AttemptID] = state{attempt.Workspace, attempt.WorkspaceUncertain, attempt.WorkspaceGateWait}
+					}
+				}
+			}
+		}
+		return out
+	}
+	return reflect.DeepEqual(bindings(a), bindings(b))
 }

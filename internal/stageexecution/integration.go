@@ -3,7 +3,9 @@ package stageexecution
 import (
 	"context"
 	"errors"
+	"fmt"
 	"path/filepath"
+	"slices"
 	"time"
 
 	"github.com/rgomids/axiom/internal/executiongraph"
@@ -40,6 +42,9 @@ var (
 	// ErrIntegrationRefused: observation before any intent refused; nothing was
 	// recorded and no Git effect happened.
 	ErrIntegrationRefused = errors.New("integration_refused")
+	// ErrAfterGateIntegrationDependency: an after-gated Stage has a same-Stage
+	// dependent of an enrolled writer; refused before any attempt or Git effect.
+	ErrAfterGateIntegrationDependency = fmt.Errorf("%w: after_stage_gate_with_integration_dependency", ErrIntegrationRefused)
 	// ErrNotIntegrated: the intent and its outcome are recorded; the target was
 	// not advanced by this integration.
 	ErrNotIntegrated = errors.New("not_integrated")
@@ -66,11 +71,21 @@ func (e Engine) Integrate(ctx context.Context, projectID, executionID string, gi
 		return current, err
 	}
 	defer lease.Close()
+	return e.integrateHeld(ctx, lease, current, git, req)
+}
+
+// integrateHeld composes with the principal run loop without reacquiring its lease.
+func (e Engine) integrateHeld(ctx context.Context, lease workflow.RunnerFence, current workflow.Execution, git IntegrationGit, req IntegrationRequest) (workflow.Execution, error) {
+	projectID, executionID := current.ProjectID, current.ExecutionID
+	var err error
 	gen := lease.Generation()
 	if req.IntegrationID == "" {
 		if req.IntegrationID, err = e.NewID(); err != nil {
 			return current, err
 		}
+	}
+	if err := e.integrationAdmission(ctx, current, req.SourceAttemptID); err != nil {
+		return current, errors.Join(ErrIntegrationRefused, err)
 	}
 	candidate, err := git.ObserveCandidate(ctx, req.Worktree, req.SourceBranch, req.BaseSHA)
 	if err != nil {
@@ -140,22 +155,49 @@ func (e Engine) Integrate(ctx context.Context, projectID, executionID string, gi
 	checkCtx, stopChecks := context.WithCancel(ctx)
 	joinCancel := e.watchCancel(checkCtx, stopChecks, projectID, executionID)
 	defer joinCancel()
+	var checkRefusal error
+	admissionUnavailable := errors.New("integration_admission_unavailable")
 	beforeStart := func() error {
-		if checkCtx.Err() != nil || e.cancelPersisted(ctx, projectID, executionID) {
-			return workflow.ErrCancelled
+		if checkCtx.Err() != nil || e.cancelPersisted(checkCtx, projectID, executionID) {
+			checkRefusal = workflow.ErrCancelled
+			return checkRefusal
+		}
+		latest, err := e.Store.Load(checkCtx, projectID, executionID)
+		if err != nil {
+			checkRefusal = errors.Join(admissionUnavailable, err)
+			return checkRefusal
+		}
+		if err := e.integrationAdmission(checkCtx, latest, req.SourceAttemptID); err != nil {
+			checkRefusal = err
+			return err
 		}
 		return nil
 	}
+	refusalDiagnostic := func() string {
+		if errors.Is(checkRefusal, workflow.ErrCancelled) || checkCtx.Err() != nil {
+			return "cancelled_before_check"
+		}
+		if errors.Is(checkRefusal, admissionUnavailable) {
+			return "admission_unavailable_before_check"
+		}
+		return "admission_revoked_before_check"
+	}
 	for _, check := range stage.Commands {
 		if beforeStart() != nil {
-			return finish(workflow.IntegrationNotIntegrated, "cancelled_before_check")
+			return finish(workflow.IntegrationNotIntegrated, refusalDiagnostic())
 		}
 		result := e.runIntegrationCheck(checkCtx, path, check, beforeStart)
 		record.Checks = append(record.Checks, result)
 		if result.Status == workflow.CheckUnknown {
+			if checkRefusal != nil {
+				return finish(workflow.IntegrationUnknown, refusalDiagnostic()+"_outcome_unknown")
+			}
 			return finish(workflow.IntegrationUnknown, "post_merge_check_unknown")
 		}
 		if result.Status != workflow.CheckPassed {
+			if checkRefusal != nil {
+				return finish(workflow.IntegrationNotIntegrated, refusalDiagnostic())
+			}
 			return finish(workflow.IntegrationNotIntegrated, "post_merge_check_"+result.Status)
 		}
 	}
@@ -167,6 +209,13 @@ func (e Engine) Integrate(ctx context.Context, projectID, executionID string, gi
 	}
 	if e.cancelPersisted(ctx, projectID, executionID) {
 		return finish(workflow.IntegrationNotIntegrated, "cancelled_before_effect")
+	}
+	latest, err := e.Store.Load(ctx, projectID, executionID)
+	if err != nil {
+		return finish(workflow.IntegrationNotIntegrated, "admission_unavailable_before_effect")
+	}
+	if err := e.integrationAdmission(ctx, latest, req.SourceAttemptID); err != nil {
+		return finish(workflow.IntegrationNotIntegrated, "admission_revoked_before_effect")
 	}
 	observed, err := git.Advance(ctx, req.TargetRef, head, merge)
 	record.ObservedTargetHead = observed
@@ -217,4 +266,46 @@ func (e Engine) runIntegrationCheck(ctx context.Context, cwd string, check workf
 		return workflow.IntegrationCheck{ID: check.ID, Status: workflow.CheckFailed, ExitCode: result.ExitCode}
 	}
 	return workflow.IntegrationCheck{ID: check.ID, Status: workflow.CheckPassed}
+}
+
+// integrationAdmission re-observes current Project/repository restrictions and
+// configured effect bounds. A successful agent never grants check authority.
+func (e Engine) integrationAdmission(ctx context.Context, x workflow.Execution, attemptID string) error {
+	if e.Admit != nil {
+		if err := e.Admit(ctx, x); err != nil {
+			return err
+		}
+	}
+	a, ref, ok := x.FindAttempt(attemptID)
+	if !ok {
+		return workflow.ErrTransition
+	}
+	if e.Resolve != nil {
+		_, authority, err := e.Resolve(ctx, x, ref)
+		if err != nil {
+			return err
+		}
+		if authority.RepositoryKey != a.Authority.RepositoryKey {
+			return workflow.ErrUnauthorizedEffect
+		}
+		for _, effect := range a.Authority.Effects {
+			if !slices.Contains(authority.Effects, effect) {
+				return workflow.ErrUnauthorizedEffect
+			}
+		}
+	}
+	if a.Workspace != nil && e.Workspaces != nil {
+		git, err := e.Workspaces(ctx, x, a.Authority.RepositoryKey)
+		if err != nil {
+			return err
+		}
+		initial, err := git.ObserveBase(ctx)
+		if err != nil {
+			return err
+		}
+		if initial != a.Workspace.InitialTargetHead {
+			return workflow.ErrIntegrationStale
+		}
+	}
+	return nil
 }

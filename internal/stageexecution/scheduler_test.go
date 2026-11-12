@@ -226,3 +226,29 @@ func TestEngineParallelDependencyDefinitionsRefuseBeforeSpawn(t *testing.T) {
 		})
 	}
 }
+
+func TestEngineUnenrolledWritersKeepOriginalRunPath(t *testing.T) {
+	stages := []workflow.StageSpec{{ID: "work", Agents: []workflow.AgentSpec{
+		{ID: "a", Effects: []string{"workspace_write"}},
+		{ID: "b", Effects: []string{"workspace_write"}},
+		{ID: "dependent", DependsOn: []string{"a", "b"}},
+	}, TimeoutSeconds: 5}}
+	f := newEngineFixture(t, stages, succeed(""))
+	f.engine.Workspaces = func(context.Context, workflow.Execution, string) (WorkspaceGit, error) {
+		t.Error("historical execution reached workspace preparation")
+		return nil, ErrIntegrationRefused
+	}
+	x, err := f.run(t)
+	if err != nil || x.Status != workflow.RunCompleted || f.runner.spawns.Load() != 3 || len(x.Enrollments) != 0 || len(x.Integrations) != 0 {
+		t.Fatalf("old run changed: %s %v spawns=%d", x.Status, err, f.runner.spawns.Load())
+	}
+	for _, stage := range x.Stages {
+		for _, task := range stage.Tasks {
+			for _, a := range task.Attempts {
+				if a.Workspace != nil || a.WorkspaceUncertain || a.WorkspaceGateWait {
+					t.Fatalf("old attempt enrolled: %+v", a)
+				}
+			}
+		}
+	}
+}

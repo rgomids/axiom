@@ -984,3 +984,77 @@ func TestIntegratePersistedCancelChecks(t *testing.T) {
 		})
 	}
 }
+
+type admissionSpyGit struct {
+	IntegrationGit
+	advances int
+}
+
+func (g *admissionSpyGit) Advance(ctx context.Context, ref, expected, merge string) (string, error) {
+	g.advances++
+	return g.IntegrationGit.Advance(ctx, ref, expected, merge)
+}
+
+func TestIntegrateRechecksAdmissionBeforeChecksAndAdvance(t *testing.T) {
+	for _, scenario := range []struct {
+		name     string
+		refuseAt int
+		recorded bool
+	}{
+		{"integration", 1, false}, {"check", 2, true}, {"check-start", 4, true}, {"advance", 5, true},
+	} {
+		t.Run(scenario.name, func(t *testing.T) {
+			f := newIntegrationFixture(t, map[string]edit{"a": commitFile("a.txt", "changed\n")})
+			x := f.start(engineExecutionID, "a")
+			denied := errors.New("repository admission revoked")
+			calls := 0
+			f.engine.Admit = func(context.Context, workflow.Execution) error {
+				calls++
+				if calls >= scenario.refuseAt {
+					return denied
+				}
+				return nil
+			}
+			if scenario.name == "check-start" {
+				f.engine.Runner = &fakeRunner{run: func(_ context.Context, _ executiongraph.Invocation, started func(*executiongraph.ProcessCorrelation) error) executiongraph.ProcessResult {
+					if err := started(&executiongraph.ProcessCorrelation{PID: 779, StartIdentity: "boot:1", GroupIdentity: "779"}); err == nil {
+						t.Error("start admission was not revoked")
+					}
+					return executiongraph.ProcessResult{OutcomeUnknown: true, ExitCode: 125}
+				}}
+			}
+			spy := &admissionSpyGit{IntegrationGit: f.git}
+			x, err := f.integrate(engineExecutionID, spy, f.request(x, "a", "admission", f.base))
+			if err == nil || spy.advances != 0 || f.target() != f.base {
+				t.Fatalf("unauthorized effect: err=%v advances=%d calls=%d", err, spy.advances, calls)
+			}
+			if scenario.recorded {
+				wantStatus := workflow.IntegrationNotIntegrated
+				if scenario.name == "check-start" {
+					wantStatus = workflow.IntegrationUnknown
+				}
+				if len(x.Integrations) != 1 || x.Integrations[0].Status != wantStatus {
+					t.Fatalf("missing refusal outcome: %+v", x.Integrations)
+				}
+				wantDiagnostic := "admission_revoked_before_check"
+				if scenario.name == "advance" {
+					wantDiagnostic = "admission_revoked_before_effect"
+				}
+				if scenario.name == "check-start" {
+					wantDiagnostic += "_outcome_unknown"
+				}
+				if x.Integrations[0].Diagnostic != wantDiagnostic {
+					t.Fatalf("mislabelled refusal: %s want %s", x.Integrations[0].Diagnostic, wantDiagnostic)
+				}
+				if scenario.name == "check" && len(x.Integrations[0].Checks) != 0 {
+					t.Fatal("revoked command ran")
+				}
+				if scenario.name == "advance" && (len(x.Integrations[0].Checks) != 1 || x.Integrations[0].Checks[0].Status != workflow.CheckPassed) {
+					t.Fatalf("advance check missing: %+v", x.Integrations)
+				}
+			} else if len(x.Integrations) != 0 {
+				t.Fatal("pre-intent refusal recorded an integration")
+			}
+		})
+	}
+}

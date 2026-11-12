@@ -142,6 +142,7 @@ func (e *Execution) derivedStageStatus(i int) StageStatus {
 		switch effectiveStatus(*last) {
 		case AttemptSucceeded:
 			succeeded++
+			failed = failed || e.RequiresIntegration(last.AttemptID) && e.integrationFailed(last.AttemptID)
 		case AttemptPrepared, AttemptRunning, AttemptUnknown:
 			active = true
 		case AttemptFailed:
@@ -153,13 +154,19 @@ func (e *Execution) derivedStageStatus(i int) StageStatus {
 	switch {
 	case active:
 		return StageRunning
+	case failed:
+		return StageFailed
 	case succeeded == len(run.Tasks):
 		if e.Workflow.Stages[i].HumanGate && run.Gate == nil || e.Workflow.Stages[i].ReviewRequired && run.Review == nil {
 			return StageAwaitingGate
 		}
+		for _, task := range run.Tasks {
+			last := lastAttempt(task)
+			if e.RequiresIntegration(last.AttemptID) && !e.AttemptIntegrated(last.AttemptID) {
+				return StageRunning
+			}
+		}
 		return StageCompleted
-	case failed:
-		return StageFailed
 	case cancelled:
 		return StageCancelled
 	case started:
@@ -187,7 +194,7 @@ func (e Execution) derivedStatus() RunStatus {
 	for i, s := range e.Stages {
 		for _, t := range s.Tasks {
 			for _, a := range t.Attempts {
-				if unresolvedUnknown(a) {
+				if unresolvedUnknown(a) || a.WorkspaceUncertain {
 					return RunRecoveryRequired
 				}
 			}
@@ -254,6 +261,11 @@ func (e Execution) Ready() []TaskRef {
 			}
 		}
 	}
+	for _, i := range e.Integrations {
+		if e.RequiresIntegration(i.SourceAttemptID) && i.Status == IntegrationNotIntegrated {
+			return nil
+		}
+	}
 	var refs []TaskRef
 	for i, spec := range e.Workflow.Stages {
 		ready := true
@@ -276,7 +288,7 @@ func (e Execution) Ready() []TaskRef {
 						for _, dependency := range e.Stages[i].Tasks {
 							if dependency.AgentID == dep {
 								last := lastAttempt(dependency)
-								if last == nil || last.Status != AttemptSucceeded {
+								if last == nil || last.Status != AttemptSucceeded || e.RequiresIntegration(last.AttemptID) && !e.AttemptIntegrated(last.AttemptID) {
 									agentReady = false
 								}
 							}
@@ -293,6 +305,7 @@ func (e Execution) Ready() []TaskRef {
 }
 
 type PrepareInput struct {
+	Workspace  *AttemptWorkspace
 	Ref        TaskRef
 	AttemptID  string
 	Generation uint64
@@ -396,6 +409,7 @@ func (e *Execution) PrepareAttempt(in PrepareInput) error {
 	task.Attempts = append(task.Attempts, Attempt{
 		Accounting: accounting, ParentAttemptID: parent,
 		AttemptID: in.AttemptID, Number: len(task.Attempts) + 1, RunnerGeneration: in.Generation,
+		Workspace:  cloneAttemptWorkspace(in.Workspace),
 		Invocation: in.Invocation, Authority: in.Authority, WorkspaceDisposition: in.WorkspaceDisposition, Status: AttemptPrepared, PreparedAt: in.Now.UTC(),
 	})
 	e.touch(in.Now)

@@ -22,9 +22,11 @@ import (
 // leaves the attempt to the next runner, which records it unknown and never
 // respawns it.
 type Engine struct {
-	Store    ExecutionStore
-	Runner   ObservedRunner
-	Launcher Launcher
+	// Workspaces resolves a read-only, machine-local Git boundary for an enrolled Repository.
+	Workspaces func(context.Context, workflow.Execution, string) (WorkspaceGit, error)
+	Store      ExecutionStore
+	Runner     ObservedRunner
+	Launcher   Launcher
 	// Resolve returns the frozen invocation and exact authority for a task.
 	// Its refusal (missing/conflicting selection, denied Runtime) prevents
 	// preparation; nothing is recorded or spawned.
@@ -142,6 +144,23 @@ func (e Engine) Claim(ctx context.Context, projectID, executionID string) (workf
 				return err
 			}
 		}
+		for _, stage := range x.Stages {
+			for _, task := range stage.Tasks {
+				for _, a := range task.Attempts {
+					if a.RunnerGeneration < gen && !a.WorkspaceGateWait && a.Status == workflow.AttemptSucceeded && x.RequiresIntegration(a.AttemptID) && !x.AttemptIntegrated(a.AttemptID) {
+						recorded := false
+						for _, i := range x.Integrations {
+							recorded = recorded || i.SourceAttemptID == a.AttemptID
+						}
+						if !recorded {
+							if err := x.MarkWorkspaceUnknown(a.AttemptID, gen, now); err != nil {
+								return err
+							}
+						}
+					}
+				}
+			}
+		}
 		for k, d := range x.Deliveries {
 			if d.Status == "prepared" && d.RunnerGeneration < gen {
 				if err := x.FinishDelivery(k, gen, "unknown", nil, now); err != nil {
@@ -230,12 +249,24 @@ func (e Engine) prepareAttempt(ctx context.Context, lease workflow.RunnerFence, 
 	if err != nil {
 		return LaunchRequest{}, err
 	}
+	workspace, firstWorkspace, err := e.planWorkspace(ctx, current, ref, attemptID, authority)
+	if err != nil {
+		return LaunchRequest{}, err
+	}
 	update := e.commit(ctx, projectID, executionID, lease)
 	prepared, err := update(func(x *workflow.Execution) error {
-		return x.PrepareAttempt(workflow.PrepareInput{Ref: ref, AttemptID: attemptID, Generation: gen, Invocation: invocation, Authority: authority, Now: e.now(), Retry: isRetry, NewSelection: newSelection, WorkspaceDisposition: disposition})
+		return x.PrepareAttempt(workflow.PrepareInput{Ref: ref, AttemptID: attemptID, Generation: gen, Invocation: invocation, Authority: authority, Now: e.now(), Retry: isRetry, NewSelection: newSelection, WorkspaceDisposition: disposition, Workspace: workspace})
 	})
 	if err != nil {
 		return LaunchRequest{}, err
+	}
+	if err := e.materializeWorkspace(ctx, prepared, workspace, firstWorkspace); err != nil {
+		// Ref/worktree materialization can have partially happened. Keep the
+		// persisted binding and prohibit automatic replay.
+		x, commitErr := update(func(x *workflow.Execution) error {
+			return x.MarkUnknown(attemptID, gen, "workspace_materialization_unconfirmed", e.now())
+		})
+		return LaunchRequest{Execution: x}, errors.Join(err, commitErr)
 	}
 	return e.request(prepared, ref, attemptID), nil
 }
