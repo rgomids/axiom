@@ -128,3 +128,47 @@ retained-worktree accumulation, Git version requirement, Git subprocess
 containment and absence of public integration resolution. Nothing is cleaned,
 deleted, force-pushed, merged, released or accepted. PR/CI evidence is reported
 on the PR, not inferred from local tests.
+
+## Real vendor journey and fixes (AXM-12, 2026-11-12)
+
+Host macOS 27.2.1 arm64; codex-cli 0.166.0 (gpt-6-luna, low) and Claude Code
+2.1.322 (claude-haiku-5-5, low); Project `axiom-mvp-e2e-20261106`, Repository
+`library` at `c05e1b9`. The released 0.24.0 failed the same-Repository journey
+with real vendors (Execution `710b3b2c`, `not_integrated`):
+
+- **Codex writer could not commit.** Under `--sandbox workspace-write` Codex
+  keeps `.git` read-only even inside writable roots (`touch .git/probe` and
+  `git add` in a linked worktree: `Operation not permitted`), so the
+  "writers commit" contract was unreachable for Codex. The principal now
+  records a writer's uncommitted changes as one `axiom-principal` commit on
+  exactly its branch after it exits (`Integrator.CommitPending`: hooks and
+  executable drivers refused, branch moved by compare-and-swap, idempotent).
+  Only a writer that made no commit is captured; leftovers after a writer's own
+  commit are still refused as foreign mutation.
+- **Post-merge checks could never pass for real toolchains.** They ran with
+  `PATH=/usr/bin:/bin LC_ALL=C` only, so `go test` failed
+  (`GOCACHE is not defined and $HOME is not defined`). They now use the same
+  allowlisted command environment as the attempt's own checks
+  (`runtimeadapter.CommandEnvironment`).
+- Parallel attempts of an unenrolled Execution read predecessor outputs with a
+  nonblocking artifact lock; contention refused one launch as
+  `builder_failed` (Execution `f65d90b1`). Execution artifact reads,
+  validation and retention now always use the bounded lock wait.
+- A missing `--authorize-commands` now reports `commands_unauthorized` and
+  names the flag; the agent contract tells writers to leave changes
+  uncommitted when a commit is refused and recipients to answer pending
+  questions before exiting.
+
+Real-vendor results with the fixed build (development `f5709fc`):
+
+| Journey | Execution | Result |
+| --- | --- | --- |
+| Codex + Claude writers, same Repository, `go test -count=1 ./...` post-merge check | `e0c6ba9c` | both `integrated`, checks passed; serial merges `c05e1b9 → c80decd → a8a3be6`; Codex candidate `544f5f6` recorded by the principal; dependent reader ran on `a8a3be6`; operator HEAD unchanged |
+| Real merge conflict (both writers rewrite README.md) | `8215f862` | first `integrated`, second `not_integrated` / `merge_conflict`; dependent never ran; continuation replayed nothing |
+| After-gate + enrolled dependent | `fa7efdb6` (0.24.0) | `integration_refused`, no attempt/ref/worktree/spawn |
+| Codex + Claude multi-Repository with typed Q→A | `5e4570d9` | `cli-q1` question and `lib-a1` answer (`replyTo`) persisted with sender attempts; answer quoted in `cli-result` |
+| Reject + rework | `9493e3b0` → `bec32a4d` | human rejection retained as Evidence; rework with fresh selection/authority and `reworkOf` lineage; without them refused |
+| Runner SIGINT / SIGKILL | `4b19540a` / `8d1c1b2c` | `group_stop_confirmed` cancel; lost runner → `unknown`, never respawned, human abandonment pending |
+
+Not covered here: Linux `untrusted_ancestor_owner` (no Linux host in this run),
+human gate approval and Product acceptance.
