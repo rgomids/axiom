@@ -15,7 +15,8 @@ import (
 )
 
 // IntegrationGit is the principal's bounded local Git boundary
-// (gitworkspace.Integrator). Only Advance moves a ref, by compare-and-swap.
+// (gitworkspace.Integrator). CommitPending moves the assigned source branch;
+// Advance moves the integration target. Both use compare-and-swap.
 type IntegrationGit interface {
 	CommitPending(ctx context.Context, worktree, branch, base, message string) error
 	ObserveCandidate(ctx context.Context, worktree, branch, base string) (string, error)
@@ -42,8 +43,9 @@ type IntegrationRequest struct {
 }
 
 var (
-	// ErrIntegrationRefused: observation before any intent refused; nothing was
-	// recorded and no Git effect happened.
+	// ErrIntegrationRefused: admission or preparation refused before an integration
+	// intent was recorded. Pending source changes may already have been captured;
+	// this error does not establish absence of Git effects.
 	ErrIntegrationRefused = errors.New("integration_refused")
 	// ErrAfterGateIntegrationDependency: an after-gated Stage has a same-Stage
 	// dependent of an enrolled writer; refused before any attempt or Git effect.
@@ -63,8 +65,8 @@ var (
 // never reach it. Concurrent integrations of other Executions into the same
 // target are serialized by the target compare-and-swap.
 //
-// Order: observe candidate and target (refusal records nothing), persist the
-// intent, compute the merge without touching refs, run every source-stage
+// Order: capture pending source changes, observe candidate and target, persist
+// the integration intent, compute the merge without touching refs, run every source-stage
 // check on the merged tree in a new principal worktree, verify the checks
 // left it unchanged and no cancel arrived, then compare-and-swap the target
 // and record what was observed. Nothing is reset, removed or retried.

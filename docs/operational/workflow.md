@@ -114,6 +114,11 @@ post-merge checks stay `not_integrated`; uncertain effects stay `unknown` and
 are never replayed automatically. All branches, commits and worktrees remain
 for inspection; there is no automatic cleanup or public integration-resolution
 command. Executions without enrollment retain their previous behavior.
+Known limitation of pending-change capture (CR-399-F1): `integration_refused`
+does not prove that the writer branch or index is unchanged. Capture currently
+precedes the durable integration intent. After an interruption or preparation
+failure, preserve the worktree and inspect the source branch before attempting
+continuation; the capture recovery correction is not yet implemented.
 Cancellation, failed required validation and unknown
 effects stop successors. See the [command reference](cli.md) for installed flags.
 

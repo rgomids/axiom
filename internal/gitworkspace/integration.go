@@ -17,8 +17,8 @@ import (
 // the shared hardened Git boundary (executable configuration veto, rooted
 // no-symlink worktree paths, no cleanup), bound to one repository and one
 // principal-authorized worktree root. It never pushes, fetches, deletes a ref/branch/worktree or resets a
-// working tree; the only ref it moves is the principal's integration target,
-// and only by compare-and-swap.
+// working tree. Source capture and target integration move only their assigned
+// refs, by compare-and-swap; workspace preparation creates new refs only.
 var (
 	ErrTargetCheckedOut = workflow.ErrIntegrationTargetCheckedOut
 	ErrTargetMoved      = errors.New("Git integration target moved")
