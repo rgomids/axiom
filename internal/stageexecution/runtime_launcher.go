@@ -54,8 +54,9 @@ type RuntimeLauncher struct {
 	// ReadInput returns a predecessor output's exact bytes for the packet.
 	ReadInput                       func(context.Context, workflow.Execution, string, workflow.ArtifactRef) ([]byte, error)
 	Workspace, InboxRoot, AxiomPath string
-	// Workspaces maps every Execution Repository key to its root; when set, an
-	// attempt works only in the root of its own authorized Repository.
+	// WorktreeRoots binds enrolled attempts to their immutable confined name.
+	WorktreeRoots map[string]string
+	// Workspaces maps every unenrolled Repository key to its original root.
 	Workspaces  map[string]string
 	Environment []string
 	// Tests replace only the machine-local root lookup, keeping the real
@@ -105,6 +106,13 @@ func (l RuntimeLauncher) Build(ctx context.Context, r LaunchRequest) (executiong
 func (l RuntimeLauncher) forAttempt(r LaunchRequest) RuntimeLauncher {
 	if l.Workspaces != nil {
 		l.Workspace = l.Workspaces[r.Attempt.Authority.RepositoryKey]
+	}
+	if w := r.Attempt.Workspace; w != nil {
+		root := l.WorktreeRoots[w.RepositoryKey]
+		l.Workspace = ""
+		if filepath.IsAbs(root) && workflow.ValidWorktreeName(w.Worktree) {
+			l.Workspace = filepath.Join(root, w.Worktree)
+		}
 	}
 	return l
 }
@@ -314,6 +322,10 @@ func (l RuntimeLauncher) Inspect(ctx context.Context, r LaunchRequest) (result e
 		}
 	}
 	repositoryWritable := slices.Contains(r.Attempt.Authority.Effects, "workspace_write")
+	contract := stageContract
+	if r.Attempt.Workspace != nil && repositoryWritable {
+		contract += " Commit all repository changes on your assigned branch before writing the declared outputs. Leave the repository clean; uncommitted or dirty output cannot integrate."
+	}
 	// Message areas are the same for both Runtimes. Their contents are data:
 	// a message never completes a task, satisfies a gate or grants authority.
 	// Contract is the engine's delivery protocol, read first by the child. Without
@@ -331,7 +343,7 @@ func (l RuntimeLauncher) Inspect(ctx context.Context, r LaunchRequest) (result e
 		DefinitionDigest                              string
 		OutputChecks                                  []workflow.OutputCheck
 		Inputs                                        map[string]inputValue
-	}{stageContract, r.Execution.ExecutionID, r.Attempt.AttemptID, r.Ref.StageID, r.Ref.AgentID, frozen.Instructions, inbox, r.Attempt.Authority.RepositoryKey, l.Workspace, repositoryWritable, filepath.Join(inbox, sendArea), filepath.Join(inbox, receiveArea), r.Attempt.RunnerGeneration, attemptOutputs(r), r.Stage.DefinitionDigest, r.Stage.OutputChecks, inputs}
+	}{contract, r.Execution.ExecutionID, r.Attempt.AttemptID, r.Ref.StageID, r.Ref.AgentID, frozen.Instructions, inbox, r.Attempt.Authority.RepositoryKey, l.Workspace, repositoryWritable, filepath.Join(inbox, sendArea), filepath.Join(inbox, receiveArea), r.Attempt.RunnerGeneration, attemptOutputs(r), r.Stage.DefinitionDigest, r.Stage.OutputChecks, inputs}
 	inv.Stdin, err = json.Marshal(packet)
 	if err != nil || len(inv.Stdin) > executiongraph.MaxStdinBytes {
 		return fail()
@@ -392,7 +404,7 @@ func (l RuntimeLauncher) Collect(ctx context.Context, r LaunchRequest, p executi
 			if l.ValidateOutput == nil {
 				return Outcome{}, ErrRuntimeOutput
 			}
-			subject := workflow.OutputSubject{ExecutionID: r.Execution.ExecutionID, AttemptID: r.Attempt.AttemptID, StageID: r.Ref.StageID, DefinitionDigest: r.Stage.DefinitionDigest, RepositoryKey: r.Attempt.Authority.RepositoryKey, Check: check}
+			subject := workflow.OutputSubject{Isolated: r.Attempt.Workspace != nil, ExecutionID: r.Execution.ExecutionID, AttemptID: r.Attempt.AttemptID, StageID: r.Ref.StageID, DefinitionDigest: r.Stage.DefinitionDigest, RepositoryKey: r.Attempt.Authority.RepositoryKey, Check: check}
 			artifact, err = l.ValidateOutput(ctx, subject, data)
 			// A reference-shaped file must validate as a reference: retaining it as
 			// content would launder a forged or stale reference.

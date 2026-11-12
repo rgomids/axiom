@@ -19,6 +19,7 @@ import (
 // New attempts additionally bind repository and attempt, preventing replay of
 // a successful artifact from a different attempt or repository.
 func (v WorkflowReferenceValidator) ValidateExecutionOutput(ctx context.Context, subject workflow.OutputSubject, wire []byte) (workflow.ArtifactRef, error) {
+	v.artifacts.waitForLocks = subject.Isolated
 	fail := func() (workflow.ArtifactRef, error) { return workflow.ArtifactRef{}, ErrUnsafe }
 	var ref struct {
 		Kind   string `json:"kind"`
@@ -83,7 +84,7 @@ func (v WorkflowReferenceValidator) ObserveExecutionArtifact(ctx context.Context
 			for _, check := range stage.OutputChecks {
 				if check.Name == artifact.Name {
 					wire, _ := json.Marshal(map[string]string{"kind": "artifact", "id": artifact.RetainedID, "digest": strings.TrimPrefix(artifact.Digest, "sha256:")})
-					observed, err := v.ValidateExecutionOutput(ctx, workflow.OutputSubject{ExecutionID: x.ExecutionID, AttemptID: a.AttemptID, StageID: ref.StageID, RepositoryKey: artifact.RepositoryKey, DefinitionDigest: stage.DefinitionDigest, Check: check}, wire)
+					observed, err := v.ValidateExecutionOutput(ctx, workflow.OutputSubject{Isolated: a.Workspace != nil, ExecutionID: x.ExecutionID, AttemptID: a.AttemptID, StageID: ref.StageID, RepositoryKey: artifact.RepositoryKey, DefinitionDigest: stage.DefinitionDigest, Check: check}, wire)
 					if err != nil || observed != artifact {
 						return ErrUnsafe
 					}
@@ -133,6 +134,7 @@ func (v WorkflowReferenceValidator) ObserveExecutionArtifact(ctx context.Context
 // validates it as a typed reference. Stage children cannot mint this
 // correlation themselves; only the engine that collected the bytes does.
 func (v WorkflowReferenceValidator) RetainExecutionOutput(ctx context.Context, subject workflow.OutputSubject, content []byte, source provenance.Value) (workflow.ArtifactRef, error) {
+	v.artifacts.waitForLocks = subject.Isolated
 	retention := detailartifact.Active
 	if subject.Check.Evidence {
 		retention = detailartifact.Evidence
@@ -162,6 +164,7 @@ func (v WorkflowReferenceValidator) RetainExecutionOutput(ctx context.Context, s
 // so a successor stage receives its predecessor's content and not only a
 // reference it cannot open. Digest and Execution binding are re-checked.
 func (v WorkflowReferenceValidator) ReadExecutionArtifact(ctx context.Context, x workflow.Execution, attemptID string, artifact workflow.ArtifactRef) ([]byte, error) {
+	v.artifacts.waitForLocks = len(x.Enrollments) != 0
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}

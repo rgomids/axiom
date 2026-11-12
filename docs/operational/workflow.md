@@ -86,8 +86,30 @@ is supplied. The frozen attempt retains selections and authority; ordinary
 retries preserve the invocation and require current effect authorization.
 Independent ready tasks run concurrently; the principal serializes their
 Execution state commits. Dependencies and configured human gates still control
-eligibility. Cross-Runtime messages use the private canonical ingress. Principal worktree
-integration is implemented as a library; public composition remains deferred. Cancellation, failed required validation and unknown
+eligibility. Cross-Runtime messages use the private canonical ingress.
+For new Executions, a Stage with at least two configured writers targeting the
+same Repository automatically uses isolated branches/worktrees, counting dependent
+writers too. It requires configured post-merge commands and `--authorize-commands`
+before launching those writers. The principal freezes each attempt's workspace
+binding before creating it; writers must commit their changes on the assigned
+branch and leave the worktree clean. The principal integrates validated results
+serially into a new owned target, reruns the configured checks, and records the
+accepted target HEAD before unblocking dependents or completing the Stage.
+An after-gated Stage with a same-Stage dependent consuming an enrolled writer
+refuses before Git materialization or spawn; Axiom does not move an after gate
+to partial results. To review the integrated result, put the human gate on a
+separate later Stage that runs after the integrating Stage (decision recorded in
+the AXM-43 implementation Evidence of Specification 015).
+Other after gates wait for every agent to succeed and record a known gate wait;
+actual human approval then permits integration.
+Dependent Repository readers/writers receive the integrated tree. The operator's
+checked-out branch is never advanced. Dirty/changed bases and branch/worktree
+collisions refuse; existing paths/refs are never adopted. Conflicts and failed
+post-merge checks stay `not_integrated`; uncertain effects stay `unknown` and
+are never replayed automatically. All branches, commits and worktrees remain
+for inspection; there is no automatic cleanup or public integration-resolution
+command. Executions without enrollment retain their previous behavior.
+Cancellation, failed required validation and unknown
 effects stop successors. See the [command reference](cli.md) for installed flags.
 
 Inspect `workflow stage status --execution <id>` after an attempt. Cancel records
@@ -190,10 +212,11 @@ Same-UID filesystem access is not OS isolation (ADR-0028).
 
 Only explicit human authority records configured before/after gates or exact
 result review. Unknown effects/cancel/failure stop successors regardless of
-message content. S2.3 integration remains a principal library operation with
-expected-head CAS, retained checks and truthful unknown/recovery; messages
-cannot integrate, dispose an unknown outcome, push or open a PR. Its public
-integration command remains unavailable. Repository delivery uses the canonical
+message content. Enrolled same-Repository writers integrate through `workflow run`
+under the principal's fence, with expected-head CAS, retained checks and truthful
+unknown/recovery. Messages cannot integrate, dispose an unknown outcome, push
+or open a PR. There is no separate public integration or integration-resolution
+command. Repository delivery uses the canonical
 Execution operation described above.
 
 The retired format-1 stream has no writer, store, acceptance verifier or runtime

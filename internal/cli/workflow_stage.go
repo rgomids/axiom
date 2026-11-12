@@ -114,11 +114,11 @@ func executionOperation(operation action) bool {
 func workflowStageCommands() []commandDefinition {
 	return []commandDefinition{
 		leaf("diagnose", "Inspect one effective invocation read-only; no authentication or inference", workflowStageDiagnoseAction),
-		leaf("status", "Inspect the Execution, attempts, effects and next safe action", workflowStageStatusAction),
+		leaf("status", "Inspect the Execution, attempts, integrations, effects and next safe action", workflowStageStatusAction),
 		leaf("cancel", "Record cancel intent; the runner stops only its own process group", workflowStageCancelAction),
 		leaf("reject", "Record an immutable human rejection of exact stage results", workflowStageRejectAction),
 		leaf("retry", "Start one new attempt (frozen invocation unless --new-selection)", workflowStageRetryAction),
-		leaf("reconcile", "Observe a lost runner's attempts; never signals or replays", workflowStageReconcileAction),
+		leaf("reconcile", "Observe a lost runner's attempts and prepared integrations; never signals or replays", workflowStageReconcileAction),
 	}
 }
 
@@ -358,7 +358,7 @@ func workflowStageSkillSpecs() []skillOperationSpec {
 		return skillOperationSpec{name: name, actions: []action{act}, modes: []skillModeSpec{{name: "default", effect: effectReadOnly, authority: "none; persisted state only, never a stop or success claim", actions: []action{act}, authorityInputs: []string{}, rejectedInputs: []string{}, example: example}}}
 	}
 	return []skillOperationSpec{
-		{name: "execution.run", actions: []action{workflowRunAction}, modes: []skillModeSpec{{name: "default", effect: effectExternalMutation, authority: "one run action; spawning the selected Runtimes needs --authorize-external; a human gate records only with --approve-gate and --authorize-human", actions: []action{workflowRunAction}, authorityInputs: []string{"--authorize-external", "--authorize-human"}, rejectedInputs: []string{}, example: "axiom workflow run --project <uuid-or-slug> --repository <key> --work-item github:<owner>/<repository>#<number> --select agent.runtime=<codex|claude> --select agent.model=<model> --select agent.effort=<runtime-default|token> --authorize-external"}}},
+		{name: "execution.run", actions: []action{workflowRunAction}, modes: []skillModeSpec{{name: "default", effect: effectExternalMutation, authority: "one run action; spawning the selected Runtimes needs --authorize-external; new same-Repository multi-writer enrollment requires configured post-merge checks and --authorize-commands, with dependents gated on recorded integration; a human gate records only with --approve-gate and --authorize-human", actions: []action{workflowRunAction}, authorityInputs: []string{"--authorize-external", "--authorize-human", "--authorize-commands"}, rejectedInputs: []string{}, example: "axiom workflow run --project <uuid-or-slug> --repository <key> --work-item github:<owner>/<repository>#<number> --select agent.runtime=<codex|claude> --select agent.model=<model> --select agent.effort=<runtime-default|token> --authorize-external"}}},
 		{name: "delivery.advance", actions: []action{workflowDeliveryAdvanceAction}, modes: []skillModeSpec{{name: "default", effect: effectExternalMutation, authority: "preview without grant; exact --grant with --authorize-human --authorize-local and --authorize-push OR --authorize-pr; --inspect only reads the granted remote target and records observations", actions: []action{workflowDeliveryAdvanceAction}, authorityInputs: []string{"--grant", "--authorize-human", "--authorize-local", "--authorize-push", "--authorize-pr"}, rejectedInputs: []string{}, example: "axiom workflow delivery advance " + execution + " --request '<json>'"}}},
 		{name: "stage.reject", actions: []action{workflowStageRejectAction}, modes: []skillModeSpec{{name: "default", effect: effectLocalMutation, authority: "exact --stage --result-digest and --evidence or --note with --authorize-human --authorize-local; Runtime children refused", actions: []action{workflowStageRejectAction}, authorityInputs: []string{"--authorize-human", "--authorize-local"}, rejectedInputs: []string{}, example: "axiom workflow stage reject " + execution + " --stage <stage-id> --result-digest <digest> --note <text> --authorize-human --authorize-local"}}},
 		read("delivery.packet", workflowDeliveryPacketAction, "axiom workflow delivery packet "+selectors),

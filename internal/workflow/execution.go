@@ -284,28 +284,33 @@ type CommandResult struct {
 	ExitCode   int              `json:"exitCode"`
 }
 type Attempt struct {
-	Accounting           string           `json:"accounting,omitempty"`
-	ParentAttemptID      string           `json:"parentAttemptId,omitempty"`
-	NoSpawn              bool             `json:"noSpawn,omitempty"`
-	Materialization      string           `json:"materialization,omitempty"`
-	LaunchFailure        *LaunchFailure   `json:"launchFailure,omitempty"`
-	Commands             []CommandResult  `json:"commands,omitempty"`
-	WorkspaceDisposition string           `json:"workspaceDisposition,omitempty"`
-	AttemptID            string           `json:"attemptId"`
-	Number               int              `json:"number"`
-	RunnerGeneration     uint64           `json:"runnerGeneration"`
-	Invocation           Invocation       `json:"invocation"`
-	Authority            AttemptAuthority `json:"authority"`
-	Status               AttemptStatus    `json:"status"`
-	PreparedAt           time.Time        `json:"preparedAt"`
-	StartedAt            *time.Time       `json:"startedAt,omitempty"`
-	EndedAt              *time.Time       `json:"endedAt,omitempty"`
-	Process              *ProcessIdentity `json:"process,omitempty"`
-	ExitCode             *int             `json:"exitCode,omitempty"`
-	Diagnostic           string           `json:"diagnostic,omitempty"`
-	Effects              []EffectFact     `json:"effects,omitempty"`
-	Artifacts            []ArtifactRef    `json:"artifacts,omitempty"`
-	Resolution           *Disposition     `json:"resolution,omitempty"`
+	// WorkspaceGateWait records a known safe gate stop; WorkspaceUncertain
+	// preserves a validated result whose integration outcome was lost.
+	WorkspaceGateWait    bool              `json:"workspaceGateWait,omitempty"`
+	WorkspaceUncertain   bool              `json:"workspaceUncertain,omitempty"`
+	Workspace            *AttemptWorkspace `json:"workspace,omitempty"`
+	Accounting           string            `json:"accounting,omitempty"`
+	ParentAttemptID      string            `json:"parentAttemptId,omitempty"`
+	NoSpawn              bool              `json:"noSpawn,omitempty"`
+	Materialization      string            `json:"materialization,omitempty"`
+	LaunchFailure        *LaunchFailure    `json:"launchFailure,omitempty"`
+	Commands             []CommandResult   `json:"commands,omitempty"`
+	WorkspaceDisposition string            `json:"workspaceDisposition,omitempty"`
+	AttemptID            string            `json:"attemptId"`
+	Number               int               `json:"number"`
+	RunnerGeneration     uint64            `json:"runnerGeneration"`
+	Invocation           Invocation        `json:"invocation"`
+	Authority            AttemptAuthority  `json:"authority"`
+	Status               AttemptStatus     `json:"status"`
+	PreparedAt           time.Time         `json:"preparedAt"`
+	StartedAt            *time.Time        `json:"startedAt,omitempty"`
+	EndedAt              *time.Time        `json:"endedAt,omitempty"`
+	Process              *ProcessIdentity  `json:"process,omitempty"`
+	ExitCode             *int              `json:"exitCode,omitempty"`
+	Diagnostic           string            `json:"diagnostic,omitempty"`
+	Effects              []EffectFact      `json:"effects,omitempty"`
+	Artifacts            []ArtifactRef     `json:"artifacts,omitempty"`
+	Resolution           *Disposition      `json:"resolution,omitempty"`
 }
 
 type TaskRun struct {
@@ -335,22 +340,23 @@ type CancelIntent struct {
 }
 
 type Execution struct {
-	AttemptPolicy    string              `json:"attemptPolicy,omitempty"`
-	Rejection        *ResultRejection    `json:"rejection,omitempty"`
-	ReworkOf         *RejectedSource     `json:"reworkOf,omitempty"`
-	Kind             string              `json:"kind"`
-	FormatVersion    int                 `json:"formatVersion"`
-	ExecutionID      string              `json:"executionId"`
-	ProjectID        string              `json:"projectId"`
-	WorkItem         WorkItemLink        `json:"workItem"`
-	Repositories     []RepositoryBinding `json:"repositories"`
-	Workflow         WorkflowSnapshot    `json:"workflow"`
-	Revision         uint64              `json:"revision"`
-	RunnerGeneration uint64              `json:"runnerGeneration"`
-	Status           RunStatus           `json:"status"`
-	Cancel           *CancelIntent       `json:"cancel,omitempty"`
-	Stages           []StageRun          `json:"stages"`
-	Messages         []Message           `json:"messages,omitempty"`
+	Enrollments      []IntegrationEnrollment `json:"enrollments,omitempty"`
+	AttemptPolicy    string                  `json:"attemptPolicy,omitempty"`
+	Rejection        *ResultRejection        `json:"rejection,omitempty"`
+	ReworkOf         *RejectedSource         `json:"reworkOf,omitempty"`
+	Kind             string                  `json:"kind"`
+	FormatVersion    int                     `json:"formatVersion"`
+	ExecutionID      string                  `json:"executionId"`
+	ProjectID        string                  `json:"projectId"`
+	WorkItem         WorkItemLink            `json:"workItem"`
+	Repositories     []RepositoryBinding     `json:"repositories"`
+	Workflow         WorkflowSnapshot        `json:"workflow"`
+	Revision         uint64                  `json:"revision"`
+	RunnerGeneration uint64                  `json:"runnerGeneration"`
+	Status           RunStatus               `json:"status"`
+	Cancel           *CancelIntent           `json:"cancel,omitempty"`
+	Stages           []StageRun              `json:"stages"`
+	Messages         []Message               `json:"messages,omitempty"`
 	// Integrations are principal-controlled Git integrations of attempt
 	// branches (S2.3); append-only intent and immutable terminal observations.
 	// Absent for runs that integrate nothing.
@@ -371,15 +377,16 @@ type TaskRef struct {
 }
 
 type NewExecutionInput struct {
-	ExecutionID  string
-	ProjectID    string
-	WorkItem     WorkItemLink
-	Repositories []RepositoryBinding
-	WorkflowID   string
-	Revision     string
-	Stages       []StageSpec
-	Selections   []Selection
-	Now          time.Time
+	EnrollIntegration bool
+	ExecutionID       string
+	ProjectID         string
+	WorkItem          WorkItemLink
+	Repositories      []RepositoryBinding
+	WorkflowID        string
+	Revision          string
+	Stages            []StageSpec
+	Selections        []Selection
+	Now               time.Time
 }
 
 // Selection is one explicit run override of an invocation field for an
@@ -454,6 +461,9 @@ func NewExecution(in NewExecutionInput) (Execution, error) {
 		Repositories: append([]RepositoryBinding(nil), in.Repositories...),
 		Workflow:     snapshot, Revision: 1, Status: RunReady, CreatedAt: now, UpdatedAt: now,
 		Selections: append([]Selection(nil), in.Selections...),
+	}
+	if in.EnrollIntegration {
+		e.Enrollments = e.integrationEnrollments()
 	}
 	for _, stage := range snapshot.Stages {
 		run := StageRun{StageID: stage.ID, Status: StagePending}
@@ -695,6 +705,9 @@ func (e Execution) Validate() error {
 		return err
 	}
 	if err := validateDeliveries(e); err != nil {
+		return err
+	}
+	if err := validateWorkspaces(e); err != nil {
 		return err
 	}
 	if err := validateIntegrations(e); err != nil {

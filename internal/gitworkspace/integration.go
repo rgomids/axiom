@@ -49,7 +49,7 @@ func NewIntegrator(ctx context.Context, repository, root string) (*Integrator, e
 	if err != nil {
 		return nil, err
 	}
-	root, err = cleanAuthorizedRoot(root)
+	root, err = plannedIntegrationRoot(root)
 	if err != nil || samePath(root, m.repository) || isWithin(m.repository, root) || isWithin(root, m.repository) {
 		return nil, ErrInvalidConfiguration
 	}
@@ -73,6 +73,9 @@ func (g *Integrator) refExists(ctx context.Context, ref string) bool {
 // Repository: a new worktree on a new branch at base. It refuses an existing
 // path or branch rather than reusing or overwriting user state.
 func (g *Integrator) PrepareAgentWorktree(ctx context.Context, name, branch, base string) (WorktreeObservation, error) {
+	if _, err := cleanAuthorizedRoot(g.m.root); err != nil {
+		return WorktreeObservation{}, err
+	}
 	if !workflow.ValidBranchRef(branch) || !workflow.ValidObjectID(base) {
 		return WorktreeObservation{}, ErrWorkspaceInvalid
 	}
@@ -215,6 +218,9 @@ func (g *Integrator) Merge(ctx context.Context, head, candidate, message string)
 // PrepareCheckWorktree checks the merge result out, detached, in a new
 // principal worktree where post-merge checks run. It is retained afterwards.
 func (g *Integrator) PrepareCheckWorktree(ctx context.Context, name, merge string) (string, error) {
+	if _, err := cleanAuthorizedRoot(g.m.root); err != nil {
+		return "", err
+	}
 	if !workflow.ValidObjectID(merge) {
 		return "", ErrCandidateInvalid
 	}
@@ -341,4 +347,60 @@ func ObserveIntegration(ctx context.Context, repository string, i workflow.Integ
 		}
 	}
 	return nil
+}
+
+// plannedIntegrationRoot validates a private sibling root without creating it.
+// All materialization remains behind the principal's persisted intent.
+func plannedIntegrationRoot(root string) (string, error) {
+	if !filepath.IsAbs(root) || filepath.Clean(root) != root {
+		return "", ErrInvalidConfiguration
+	}
+	for current := root; ; current = filepath.Dir(current) {
+		info, err := os.Lstat(current)
+		if err == nil {
+			if !info.IsDir() || info.Mode()&os.ModeSymlink != 0 || !ownedByUser(info) {
+				return "", ErrInvalidConfiguration
+			}
+			resolved, err := filepath.EvalSymlinks(current)
+			if err != nil || !samePath(resolved, current) {
+				return "", ErrInvalidConfiguration
+			}
+			if current == root && !privateDirectory(root) {
+				return "", ErrInvalidConfiguration
+			}
+			return root, nil
+		}
+		if !errors.Is(err, os.ErrNotExist) || current == filepath.Dir(current) {
+			return "", ErrInvalidConfiguration
+		}
+	}
+}
+
+// ObserveBase refuses a dirty operator workspace and returns its current HEAD.
+func (g *Integrator) ObserveBase(ctx context.Context) (string, error) {
+	if err := g.m.rejectExecutableConfiguration(ctx, g.m.repository); err != nil {
+		return "", err
+	}
+	changed, err := g.m.changedPaths(ctx, g.m.repository)
+	if err != nil || len(changed) != 0 {
+		return "", ErrForeignMutation
+	}
+	return g.m.revision(ctx, g.m.repository, "HEAD")
+}
+
+// PrepareTarget creates a new principal ref with Git's absent-value CAS. An
+// existing ref is a collision even when it happens to point at the same base.
+func (g *Integrator) PrepareTarget(ctx context.Context, ref, base string) error {
+	if !workflow.ValidBranchRef(ref) || !workflow.ValidObjectID(base) {
+		return ErrWorkspaceInvalid
+	}
+	if _, err := g.m.runGit(ctx, g.m.repository, nil, nil, "update-ref", ref, base, strings.Repeat("0", len(base))); err != nil {
+		return fmt.Errorf("%w: %v", ErrWorkspaceCollision, err)
+	}
+	return nil
+}
+
+func (g *Integrator) MaterializeWorkspace(ctx context.Context, name, branch, base string) (string, error) {
+	observation, err := g.PrepareAgentWorktree(ctx, name, branch, base)
+	return observation.Path, err
 }

@@ -160,3 +160,47 @@ func TestObserveIntegrationTwoRepositoriesAndStaleOrForeignFacts(t *testing.T) {
 		t.Fatalf("historical target must not require current tip: %v", err)
 	}
 }
+
+func TestIntegrationWorkspacePlanningAndTargetCollision(t *testing.T) {
+	ctx := context.Background()
+	root := canonicalTempDir(t)
+	f := initRepository(t, filepath.Join(root, "repository"))
+	worktrees := filepath.Join(root, "worktrees")
+	g, err := gitworkspace.NewIntegrator(ctx, f.repository, worktrees)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Lstat(worktrees); !errors.Is(err, os.ErrNotExist) {
+		t.Fatal("planning created workspace root")
+	}
+	base, err := g.ObserveBase(ctx)
+	if err != nil || base != f.revision {
+		t.Fatalf("base=%s err=%v", base, err)
+	}
+	writeFile(t, filepath.Join(f.repository, "uncommitted"), "retain me")
+	if _, err := g.ObserveBase(ctx); !errors.Is(err, gitworkspace.ErrForeignMutation) {
+		t.Fatalf("dirty base accepted: %v", err)
+	}
+	commitAll(t, f.repository, "next base")
+	next, err := g.ObserveBase(ctx)
+	if err != nil || next == base {
+		t.Fatalf("changed base not observed: %s %v", next, err)
+	}
+	target := "refs/heads/axiom/private-target"
+	if err := g.PrepareTarget(ctx, target, base); err != nil {
+		t.Fatal(err)
+	}
+	if err := g.PrepareTarget(ctx, target, next); !errors.Is(err, gitworkspace.ErrWorkspaceCollision) {
+		t.Fatalf("target adopted: %v", err)
+	}
+	if got := git(t, f.repository, "rev-parse", target); got != base {
+		t.Fatalf("collision moved target: %s", got)
+	}
+	path, err := g.MaterializeWorkspace(ctx, "attempt-a", "refs/heads/axiom/attempt-a", base)
+	if err != nil || path != filepath.Join(worktrees, "attempt-a") {
+		t.Fatalf("materialize %s %v", path, err)
+	}
+	if _, err := g.MaterializeWorkspace(ctx, "attempt-a", "refs/heads/axiom/attempt-a", base); !errors.Is(err, gitworkspace.ErrWorkspaceCollision) {
+		t.Fatalf("workspace adopted: %v", err)
+	}
+}
