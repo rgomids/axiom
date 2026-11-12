@@ -1058,3 +1058,31 @@ func TestIntegrateRechecksAdmissionBeforeChecksAndAdvance(t *testing.T) {
 		})
 	}
 }
+
+func writeFileOnly(name, content string) edit {
+	return func(t *testing.T, dir string) { write(t, filepath.Join(dir, name), content) }
+}
+
+// A sandboxed writer (Codex keeps .git read-only) leaves its work uncommitted;
+// the principal records it as the candidate, and post-merge checks get the
+// allowlisted environment (HOME) toolchains need.
+func TestIntegrateUncommittedSandboxedWriterWithHomeAwareCheck(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	f := newIntegrationFixture(t, map[string]edit{"a": writeFileOnly("a-new.txt", "from a\n"), "b": commitFile("b-new.txt", "from b\n")})
+	f.checks = checkCommand(`test -n "$HOME" && test -d "$HOME" && test -f a-new.txt`, 10)
+	x := f.start(engineExecutionID, "a", "b")
+	x, err := f.integrate(engineExecutionID, f.git, f.request(x, "a", "int-a", f.base))
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := integrationOf(t, x, "int-a")
+	if a.Status != workflow.IntegrationIntegrated || len(a.Checks) != 1 || a.Checks[0].Status != workflow.CheckPassed {
+		t.Fatalf("uncommitted writer integration: %+v", a)
+	}
+	if parents(t, f.repo, a.CandidateSHA)[0] != f.base || gitT(t, f.repo, "log", "-1", "--format=%an", a.CandidateSHA) != "axiom-principal" {
+		t.Fatal("candidate is not one principal commit on base")
+	}
+	if status := gitT(t, filepath.Join(f.root, "agent-a"), "status", "--porcelain"); status != "" {
+		t.Fatalf("writer worktree left dirty: %q", status)
+	}
+}

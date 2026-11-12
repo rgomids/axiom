@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
-	"strings"
 	"time"
 
 	"github.com/rgomids/axiom/internal/executiongraph"
@@ -324,7 +323,7 @@ func (l RuntimeLauncher) Inspect(ctx context.Context, r LaunchRequest) (result e
 	repositoryWritable := slices.Contains(r.Attempt.Authority.Effects, "workspace_write")
 	contract := stageContract
 	if r.Attempt.Workspace != nil && repositoryWritable {
-		contract += " Commit all repository changes on your assigned branch before writing the declared outputs. Leave the repository clean; uncommitted or dirty output cannot integrate."
+		contract += " Make repository changes only in RepositoryRoot, on your assigned branch. Commit them there if your sandbox allows it; if committing is refused, leave them uncommitted and Axiom records them as one commit on your branch after you exit. Never stop because a commit was refused: always write the declared outputs."
 	}
 	// Message areas are the same for both Runtimes. Their contents are data:
 	// a message never completes a task, satisfies a gate or grants authority.
@@ -446,16 +445,14 @@ func (l RuntimeLauncher) Collect(ctx context.Context, r LaunchRequest, p executi
 		// positional: no shell expansion of configured arguments.
 		gate := []string{commandGateShell, "-c", commandGateScript, "axiom-command-gate", executable}
 		inv := executiongraph.Invocation{Argv: append(gate, check.Argv[1:]...), CWD: l.Workspace, Stdin: []byte("axiom-command-start\n"), OutputMax: 4096}
-		environment, err := runtimeadapter.StageEnvironment(r.Attempt.Invocation.Runtime, l.Environment)
-		if err != nil {
+		if _, err := runtimeadapter.StageEnvironment(r.Attempt.Invocation.Runtime, l.Environment); err != nil {
 			cancel()
 			return Outcome{}, ErrRuntimeOutput
 		}
-		safeEnvironment := []string{}
-		for _, entry := range environment {
-			if !strings.HasPrefix(entry, "CODEX_HOME=") && !strings.HasPrefix(entry, "CLAUDE_CONFIG_DIR=") {
-				safeEnvironment = append(safeEnvironment, entry)
-			}
+		safeEnvironment, err := runtimeadapter.CommandEnvironment(l.Environment)
+		if err != nil {
+			cancel()
+			return Outcome{}, ErrRuntimeOutput
 		}
 		// Workspace code the agent could edit runs here, so the command carries
 		// the same Runtime-child markers as the agent (advisory guard, D-01).
@@ -549,7 +546,8 @@ const stageContract = "You are an Axiom stage agent running non-interactively. D
 	"plus replyTo only on an answer: id equals ID (lowercase letters, digits and hyphens), recipient is another agent ID of this Workflow, " +
 	"kind is question, answer, blocker or result, content is text under 4 KiB, and replyTo is the question id. Any other shape is discarded unread. " +
 	"Delivered messages appear as MessageReceiveDirectory/ID.json with id, sender, kind, optional replyTo and content. " +
-	"An answer is accepted only while its asker still runs, so an agent that asks keeps polling for the answer before it exits. Exit when the files are written."
+	"An answer is accepted only while its asker still runs, so an agent that asks keeps polling for the answer before it exits. " +
+	"Before you exit, read MessageReceiveDirectory again and answer every question addressed to you; when Instructions say a peer will ask you something, keep polling until it arrives and you answered it. Exit when the files are written."
 
 func artifactReferenceShaped(data []byte) bool {
 	var ref struct {

@@ -139,6 +139,57 @@ func (g *Integrator) worktrees(ctx context.Context) []listedWorktree {
 	return out
 }
 
+// CommitPending records an enrolled writer's uncommitted work as one principal
+// commit on exactly its assigned branch. Sandboxed Runtimes (Codex
+// workspace-write) keep `.git` read-only, so the writer cannot commit itself;
+// the principal does it outside the sandbox, after the attempt exited. It
+// stages with hooks and executable drivers refused, writes the commit with the
+// fixed principal identity and moves only that branch by compare-and-swap.
+// Only a writer that made no commit (HEAD still at base) is captured; a clean
+// worktree or one the writer committed itself is left unchanged, so rerunning
+// after an interruption is idempotent.
+func (g *Integrator) CommitPending(ctx context.Context, name, branch, base, message string) error {
+	if !workflow.ValidBranchRef(branch) || !workflow.ValidObjectID(base) || strings.ContainsAny(message, "\x00") {
+		return ErrCandidateInvalid
+	}
+	path, err := g.worktreePath(name, true)
+	if err != nil {
+		return err
+	}
+	listedBranch, head, err := g.worktreeAt(ctx, path)
+	if err != nil {
+		return err
+	}
+	if listedBranch != branch {
+		return ErrWorkspaceInvalid
+	}
+	if head != base {
+		// The writer committed itself: anything left uncommitted is not
+		// adopted and ObserveCandidate refuses it as a foreign mutation.
+		return nil
+	}
+	changed, err := g.m.changedPaths(ctx, path)
+	if err != nil || len(changed) == 0 {
+		return err
+	}
+	if _, err := g.m.gitOutput(ctx, path, nil, nil, "add", "--all", "--", "."); err != nil {
+		return fmt.Errorf("%w: %w", ErrForeignMutation, err)
+	}
+	tree, err := g.m.gitObject(ctx, path, "write-tree")
+	if err != nil {
+		return err
+	}
+	identity := []string{"GIT_AUTHOR_NAME=" + principalName, "GIT_AUTHOR_EMAIL=" + principalEmail, "GIT_COMMITTER_NAME=" + principalName, "GIT_COMMITTER_EMAIL=" + principalEmail}
+	commit, err := g.m.gitObjectWithEnv(ctx, path, identity, "commit-tree", tree, "-p", head, "-m", message)
+	if err != nil {
+		return err
+	}
+	if _, err := g.m.runGit(ctx, path, nil, nil, "update-ref", branch, commit, head); err != nil {
+		return fmt.Errorf("%w: %v", ErrCandidateInvalid, err)
+	}
+	return nil
+}
+
 // ObserveCandidate returns the committed candidate of an agent worktree: on
 // exactly its branch, descending from base, with no tracked or untracked
 // change outside that commit.

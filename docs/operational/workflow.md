@@ -91,9 +91,14 @@ For new Executions, a Stage with at least two configured writers targeting the
 same Repository automatically uses isolated branches/worktrees, counting dependent
 writers too. It requires configured post-merge commands and `--authorize-commands`
 before launching those writers. The principal freezes each attempt's workspace
-binding before creating it; writers must commit their changes on the assigned
-branch and leave the worktree clean. The principal integrates validated results
-serially into a new owned target, reruns the configured checks, and records the
+binding before creating it; writers commit their changes on the assigned
+branch and leave the worktree clean. A sandboxed writer that cannot commit
+(Codex keeps `.git` read-only) leaves them uncommitted: after it exits, the
+principal records them as one commit on that branch; leftovers after a writer's
+own commit are never adopted. The principal integrates validated results
+serially into a new owned target, reruns the configured checks with the same
+allowlisted environment as the attempt's own checks (`HOME`, `PATH`, `TMPDIR`,
+locale; no Runtime configuration root), and records the
 accepted target HEAD before unblocking dependents or completing the Stage.
 An after-gated Stage with a same-Stage dependent consuming an enrolled writer
 refuses before Git materialization or spawn; Axiom does not move an after gate

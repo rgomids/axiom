@@ -4,17 +4,20 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"slices"
 	"time"
 
 	"github.com/rgomids/axiom/internal/executiongraph"
+	"github.com/rgomids/axiom/internal/runtimeadapter"
 	"github.com/rgomids/axiom/internal/workflow"
 )
 
 // IntegrationGit is the principal's bounded local Git boundary
 // (gitworkspace.Integrator). Only Advance moves a ref, by compare-and-swap.
 type IntegrationGit interface {
+	CommitPending(ctx context.Context, worktree, branch, base, message string) error
 	ObserveCandidate(ctx context.Context, worktree, branch, base string) (string, error)
 	ObserveTarget(ctx context.Context, ref string) (string, error)
 	Merge(ctx context.Context, head, candidate, message string) (string, error)
@@ -85,6 +88,11 @@ func (e Engine) integrateHeld(ctx context.Context, lease workflow.RunnerFence, c
 		}
 	}
 	if err := e.integrationAdmission(ctx, current, req.SourceAttemptID); err != nil {
+		return current, errors.Join(ErrIntegrationRefused, err)
+	}
+	// A sandboxed writer may be unable to commit; its own pending changes become
+	// its candidate, still subject to every observation below.
+	if err := git.CommitPending(ctx, req.Worktree, req.SourceBranch, req.BaseSHA, "axiom: record attempt "+req.SourceAttemptID+" changes"); err != nil {
 		return current, errors.Join(ErrIntegrationRefused, err)
 	}
 	candidate, err := git.ObserveCandidate(ctx, req.Worktree, req.SourceBranch, req.BaseSHA)
@@ -248,7 +256,13 @@ func (e Engine) runIntegrationCheck(ctx context.Context, cwd string, check workf
 	defer cancel()
 	gate := []string{commandGateShell, "-c", commandGateScript, "axiom-command-gate", check.Argv[0]}
 	inv := executiongraph.Invocation{Argv: append(gate, check.Argv[1:]...), CWD: cwd, Stdin: []byte("axiom-command-start\n"), OutputMax: 4096}
-	inv = executiongraph.WithExactEnvironment(inv, []string{"PATH=/usr/bin:/bin", "LC_ALL=C"})
+	// The same allowlisted environment as the attempt's own command checks
+	// (HOME, PATH, TMPDIR, locale), so toolchains that need a home/cache run.
+	environment, err := runtimeadapter.CommandEnvironment(os.Environ())
+	if err != nil {
+		return terminated
+	}
+	inv = executiongraph.WithExactEnvironment(inv, environment)
 	if beforeStart() != nil {
 		return terminated
 	}

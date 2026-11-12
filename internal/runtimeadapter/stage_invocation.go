@@ -118,6 +118,16 @@ func StageEnvironment(runtimeID string, parent []string) ([]string, error) {
 	if runtimeID != "codex" && runtimeID != "claude" {
 		return nil, ErrInvalidAdapterConfiguration
 	}
+	return allowedEnvironment(runtimeID, parent)
+}
+
+// CommandEnvironment is the environment of a configured validation command:
+// the stage allowlist without any Runtime configuration root.
+func CommandEnvironment(parent []string) ([]string, error) {
+	return allowedEnvironment("", parent)
+}
+
+func allowedEnvironment(runtimeID string, parent []string) ([]string, error) {
 	values := map[string]string{}
 	for _, entry := range parent {
 		key, _, ok := strings.Cut(entry, "=")

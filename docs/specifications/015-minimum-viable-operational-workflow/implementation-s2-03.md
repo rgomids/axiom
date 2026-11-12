@@ -84,7 +84,9 @@ holds no lease) and then:
    `merge_conflict`;
 4. checks the intermediate merge out, detached, in a new principal worktree
    `integration-<id>` and re-runs every source-stage command there with an
-   exact minimal environment and the command's own timeout. Failure, timeout
+   allowlisted command environment (`HOME`, `USER`, `LOGNAME`, `PATH`, `SHELL`,
+   `TMPDIR`, `LANG`, `LC_*`; the same as the attempt's own command checks, no
+   Runtime configuration root; AXM-12 2026-11-12) and the command's own timeout. Failure, timeout
    or spawn failure → `not_integrated` `post_merge_check_<failed|terminated>`.
    An unobservable outcome → `unknown` / `post_merge_check_unknown`, with
    `recovery_required` until human disposition (MergeSHA retained, FinalSHA empty).
