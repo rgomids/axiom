@@ -11,6 +11,17 @@ axiom --json project workflow create --project <slug-or-id> \
   --from-default --workflow team-sdd
 ```
 
+Read a definition using the exact reference returned above:
+
+```sh
+axiom --json project workflow show --project <uuid-or-slug> --workflow <key> --revision <n> --digest <sha256>
+```
+
+Use `--source builtin` for a built-in reference. `show`, `select`, and `remove`
+require all three reference fields; missing fields return `missing_required_input`
+with `details` naming the first missing flag. Complete unknown references return
+`workflow_not_found`. These operations never fall back to the current selection.
+
 Use `axiom project workflow ... --help` for the installed command's exact
 inputs. Validate a complete definition before proposing create/edit. Review the
 preview, effects, revision and digest. Apply by repeating the same operation

@@ -68,7 +68,17 @@ func workflowAuthoringCompletion(outcome projectapp.WorkflowAuthoringResult, sou
 	if outcome.Category == "recovery_required" || outcome.Category == "partial" {
 		next = "Run recovery inspect/apply for preserved file protocols; then project workflow recover with the exact orphan definition, review its preview and authorize it"
 	}
-	result := canonicalCompletion(facts, "Project workflow "+outcome.Category, references, next, source)
+	message, details := "Project workflow "+outcome.Category, ""
+	if outcome.Category == "missing_required_input" && len(outcome.Report.Diagnostics) > 0 {
+		flag := outcome.Report.Diagnostics[0].Field
+		message = "Exact Workflow reference requires " + flag
+		details = "missing_required_input:" + flag
+		next = "Run project workflow list --project <uuid-or-slug> or project show --selector <uuid-or-slug> to obtain the exact --workflow, --revision and --digest reference"
+	}
+	result, ok := newCompletionWithDetails(facts, message, references, next, details, source)
+	if !ok {
+		return cli.Result{Status: cli.Failed, Category: "application_unavailable"}
+	}
 	result.Category = outcome.Category
 	result.WorkflowAuthoring = &outcome.Report
 	if !facts.Completed {

@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -110,7 +111,7 @@ func TestKilledTestBinaryLeavesNoOwnedProcess(t *testing.T) {
 			if timeout == "" {
 				timeout = "90s"
 			}
-			victim := exec.Command(os.Args[0], "-test.run=^TestLeakVictimHelper$", "-test.count=1", "-test.timeout="+timeout)
+			victim := leakVictimCommand(os.Args[0], "-test.run=^TestLeakVictimHelper$", "-test.count=1", "-test.timeout="+timeout)
 			victim.Env = append(os.Environ(), leakVictimMode+"="+c.mode, leakVictimReport+"="+report, leakVictimBinary+"="+binary, "TMPDIR="+dir)
 			output := &limitedOutput{max: 16 << 10}
 			victim.Stdout, victim.Stderr = output, output
@@ -146,12 +147,18 @@ func TestKilledTestBinaryLeavesNoOwnedProcess(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
+			// Leave time for the independent no-survivor check before the test deadline.
+			exitDeadline := time.Now().Add(2 * time.Minute)
+			if deadline, ok := t.Deadline(); ok && deadline.Add(-leakSettleBound).Before(exitDeadline) {
+				exitDeadline = deadline.Add(-leakSettleBound)
+			}
 			var exitErr error
 			select {
 			case exitErr = <-exited:
-			case <-time.After(45 * time.Second):
+			case <-time.After(time.Until(exitDeadline)):
+				identity, observeErr := executiongraph.ObserveProcessCorrelation(int64(victim.Process.Pid))
 				stopVictim()
-				t.Fatalf("victim did not exit\n%s", output)
+				t.Fatalf("victim wait exceeded test budget (alive=%t, observation error=%v); owned processes: %s", identity != nil, observeErr, strings.Join(leftoverOwned(family, rep.Stub), ", "))
 			}
 			if got := victimExit(exitErr); got != c.wantExit {
 				t.Fatalf("victim exit %d (%v), want %d\n%s", got, exitErr, c.wantExit, output)
@@ -168,6 +175,89 @@ func TestKilledTestBinaryLeavesNoOwnedProcess(t *testing.T) {
 			t.Logf("victim exit %d; no owned process left after %s", victimExit(exitErr), time.Since(start).Round(time.Millisecond))
 		})
 	}
+}
+
+// leakVictimCommand starts name with SIGHUP and SIGINT at their default
+// disposition. #389: an inherited SIG_IGN (nohup, detached runner) survives
+// exec and Go keeps it for those two signals, so the victim would never die of
+// the signal under test. env resets them in the child and then execs, keeping
+// the PID, so the observer never changes its own signal handling.
+func leakVictimCommand(name string, args ...string) *exec.Cmd {
+	return exec.Command("env", append([]string{"--default-signal=HUP,INT", name}, args...)...)
+}
+
+// TestLeakVictimLaunchKeepsObserverSignals proves the launch resets an
+// inherited ignore in the child only: the observer's handlers and kernel
+// dispositions are unchanged after a successful and a failed Start.
+func TestLeakVictimLaunchKeepsObserverSignals(t *testing.T) {
+	handled := make(chan os.Signal, 1)
+	signal.Notify(handled, syscall.SIGHUP, syscall.SIGINT)
+	defer signal.Stop(handled)
+	before := signalDispositions(t)
+
+	failed := leakVictimCommand("true")
+	failed.Dir = filepath.Join(t.TempDir(), "missing")
+	if err := failed.Start(); err == nil {
+		_ = failed.Wait()
+		t.Fatal("Start in a missing directory succeeded")
+	}
+	if err := leakVictimCommand("true").Run(); err != nil {
+		t.Fatal(err)
+	}
+	// sh installs the ignore the child inherits, as nohup does for SIGHUP.
+	ignoreThen := func(cmd ...string) string {
+		out, err := exec.Command("sh", append([]string{"-c", `trap "" HUP INT; exec "$@"`, "sh"}, cmd...)...).Output()
+		if err != nil {
+			t.Fatalf("%v: %v", cmd, err)
+		}
+		return strings.TrimSpace(string(out))
+	}
+	const hupInt = 1<<(syscall.SIGHUP-1) | 1<<(syscall.SIGINT-1)
+	for _, c := range []struct {
+		cmd  []string
+		want uint64
+	}{
+		{cmd: []string{"grep", "^SigIgn:", "/proc/self/status"}, want: hupInt},
+		{cmd: leakVictimCommand("grep", "^SigIgn:", "/proc/self/status").Args, want: 0},
+	} {
+		ignored, err := strconv.ParseUint(strings.TrimSpace(strings.TrimPrefix(ignoreThen(c.cmd...), "SigIgn:")), 16, 64)
+		if err != nil || ignored&hupInt != c.want {
+			t.Fatalf("%v: SigIgn %x (%v), want HUP/INT bits %x", c.cmd, ignored, err, c.want)
+		}
+	}
+
+	if after := signalDispositions(t); after != before {
+		t.Fatalf("observer dispositions changed: %s -> %s", before, after)
+	}
+	for _, sig := range []syscall.Signal{syscall.SIGHUP, syscall.SIGINT} {
+		if err := syscall.Kill(os.Getpid(), sig); err != nil {
+			t.Fatal(err)
+		}
+		select {
+		case got := <-handled:
+			if got != sig {
+				t.Fatalf("handler got %v, want %v", got, sig)
+			}
+		case <-time.After(10 * time.Second):
+			t.Fatalf("observer handler no longer receives %v", sig)
+		}
+	}
+}
+
+// signalDispositions returns the kernel's ignored and caught signal masks.
+func signalDispositions(t *testing.T) string {
+	t.Helper()
+	wire, err := os.ReadFile("/proc/self/status")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var masks []string
+	for _, line := range strings.Split(string(wire), "\n") {
+		if strings.HasPrefix(line, "SigIgn:") || strings.HasPrefix(line, "SigCgt:") {
+			masks = append(masks, strings.Join(strings.Fields(line), " "))
+		}
+	}
+	return strings.Join(masks, "; ")
 }
 
 func awaitLeakReport(path string, exited chan error) (leakReport, error) {

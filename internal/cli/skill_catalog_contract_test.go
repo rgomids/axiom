@@ -93,6 +93,13 @@ func TestCanonicalRoutingContract(t *testing.T) {
 				if mode.effect != effectReadOnly && !strings.HasPrefix(row[5], "only for unambiguous") {
 					t.Fatalf("%s mutation semantic drift", name)
 				}
+				if spec.name == "definition.show" {
+					for _, flag := range []string{"--workflow <key>", "--revision <n>", "--digest <sha256>"} {
+						if !strings.Contains(row[2], flag) {
+							t.Fatalf("incomplete definition.show skill example: missing %s", flag)
+						}
+					}
+				}
 				commands := []string{}
 				for _, action := range mode.actions {
 					command := strings.Replace(skillCommandName(action), "axiom ", "axiom --json ", 1)

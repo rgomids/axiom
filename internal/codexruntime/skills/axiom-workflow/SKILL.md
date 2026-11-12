@@ -82,7 +82,7 @@ verify their effective installed metadata before any separate execution request.
 | Operation | Mode | Lingo command | Effect | Authority | Semantic resolution |
 |---|---|---|---|---|---|
 | `definition.list` | - | `axiom --json project workflow list --project <uuid-or-slug>` | read-only | none | allowed |
-| `definition.show` | - | `axiom --json project workflow show --project <uuid-or-slug>` | read-only | none | allowed |
+| `definition.show` | - | `axiom --json project workflow show --project <uuid-or-slug> --workflow <key> --revision <n> --digest <sha256>` | read-only | none | allowed |
 | `definition.create` | - | `axiom --json project workflow create --project <uuid-or-slug>` | local mutation | preview first; exact `--expected-revision`, `--preview-digest` plus `--authorize-local` | only for unambiguous workflow intent |
 | `definition.edit` | - | `axiom --json project workflow edit --project <uuid-or-slug>` | local mutation | preview first; exact `--expected-revision`, `--preview-digest` plus `--authorize-local` | only for unambiguous workflow intent |
 | `definition.validate` | - | `axiom --json project workflow validate --project <uuid-or-slug>` | read-only | none | allowed |
