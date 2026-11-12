@@ -34,6 +34,20 @@
   Projects created by `project configure` carry no policy and block until an
   authored policy is installed.
 
+## [0.24.0](https://github.com/rgomids/axiom/compare/v0.23.6...v0.24.0) (2026-11-12)
+
+
+### Features
+
+* **workflow:** integrate same-repository writers from workflow run ([#396](https://github.com/rgomids/axiom/issues/396)) ([456cbae](https://github.com/rgomids/axiom/commit/456cbaec86e0c9918e7d593afc1e5ea88a184849))
+
+
+### Bug Fixes
+
+* **delivery:** restore squash metadata of PR [#390](https://github.com/rgomids/axiom/issues/390) ([#397](https://github.com/rgomids/axiom/issues/397)) ([18eb12e](https://github.com/rgomids/axiom/commit/18eb12eef76b3e91aa09f9427c4efd9b80791568))
+* **local:** report untrusted ancestor ownership ([#392](https://github.com/rgomids/axiom/issues/392)) ([eb02102](https://github.com/rgomids/axiom/commit/eb02102979888d2e632daeb7522ee36e59f0a8da))
+* **workflow:** report missing exact Workflow reference ([#391](https://github.com/rgomids/axiom/issues/391)) ([7103a25](https://github.com/rgomids/axiom/commit/7103a25a3bb477e0a03198233ffdcfbc845f297f))
+
 ## [0.23.6](https://github.com/rgomids/axiom/compare/v0.23.5...v0.23.6) (2026-11-08)
 
 
