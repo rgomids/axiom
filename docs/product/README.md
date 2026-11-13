@@ -62,4 +62,6 @@ Contexto resumido para agentes: [../../.agents/context/axiom-product.md](../../.
 - [Landing page](https://rgomids.github.io/axiom/) — página pública versionada em
   `site/`, publicada no GitHub Pages. Instruções de desenvolvimento local no
   [guia de desenvolvimento](../development/getting-started.md#website-development); registro reproduzível em
-  [Evidence da landing page](evidence-landing-page.md).
+  [Evidence histórica da landing page](evidence-landing-page.md). A substituição
+  proposta a partir do bundle canônico do Design System está registrada no
+  [contrato de integração imersiva](immersive-landing-page.md).
