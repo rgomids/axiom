@@ -167,3 +167,44 @@ Acceptance for this docs-only PR: cited contract analysis, recorded decision,
 considered alternatives, authorized Plan/Tasks, executed check evidence and one
 open review PR. [Evidence](evidence-axm-43-contract.md) reports existing tests
 separately from the still-unimplemented public composition.
+
+## 2026-11-12 — Bounded source-capture exception to Revision 2 rule 4
+
+AXM-12 CORRECT-399-02 records the explicit exception authorized by the
+[human approval](https://linear.app/rgomids/issue/AXM-12#comment-9209212a), with
+the interruption gap identified in the
+[re-review](https://github.com/rgomids/axiom/pull/399#pullrequestreview-5881518999).
+Revision 2 and its approval history above remain historical. Only its rule 4
+requirement that the writer itself commit is relaxed within the bounds below;
+checks, authorization, clean committed integration candidates and all other
+rules remain required. This amendment records the authorized protocol, not
+implementation completion, validation results or human acceptance.
+
+1. Only an enrolled, succeeded writer with an immutable assigned workspace and
+   existing effect/check authorization is eligible. A writer's own committed
+   result remains valid; dirty leftovers after that commit are refused, never
+   adopted. An eligible writer still at its frozen base may have its pending
+   changes captured by the principal on its assigned source branch.
+2. Before `git add` or any capture mutation, persist nested source-capture intent
+   on that Attempt in the same canonical Execution/store. Freeze exact workspace
+   path, Repository identity, source branch, base SHA, Attempt identity and runner
+   generation. Neither current refs nor runtime output can supply missing
+   authority or reconstruct an absent intent.
+3. Persist the exact generated candidate before source-ref compare-and-swap
+   (CAS). Recheck the current runner fence/generation, Project/Repository
+   admission, existing authorization and cancellation at each mutation boundary,
+   including index mutation, candidate generation and source-ref advance. Capture
+   does not substitute for integration intent or its validation: the original
+   prepared-integration contract still requires a real committed candidate
+   distinct from the base.
+4. After interruption, recovery only observes the exact source ref, workspace
+   HEAD, index and worktree against the frozen intent and candidate. It never
+   retries capture, generates another candidate or advances any ref. Ambiguous
+   or contradictory observations remain uncertain and stop dependent work.
+   A known captured source does not imply successful integration; interrupted
+   integration still requires the existing human recovery/rework path.
+
+This exception adds no public status, verb, schema family, store or sidecar.
+Retain branches, commits, indexes and worktrees for inspection; do not clean,
+reset or adopt unrelated state. The operational summary is in
+[Workflow operations](../../operational/workflow.md).

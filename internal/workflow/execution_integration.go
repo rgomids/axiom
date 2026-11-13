@@ -209,6 +209,9 @@ func (e *Execution) PrepareIntegration(in IntegrationInput) error {
 	if !ok || attempt.Status != AttemptSucceeded {
 		return fmt.Errorf("%w: source attempt has no validated result", ErrTransition)
 	}
+	if c := attempt.Capture; c != nil && (c.Observation == nil || c.Observation.Outcome != "captured" || c.CandidateSHA != in.CandidateSHA) {
+		return ErrUnknownOutstanding
+	}
 	if w := attempt.Workspace; w != nil && (w.RepositoryKey != in.RepositoryKey || w.RepositoryIdentity != in.RepositoryIdentity || w.SourceBranch != in.SourceBranch || w.Worktree != in.Worktree || w.BaseSHA != in.BaseSHA || w.TargetRef != in.TargetRef) {
 		return fmt.Errorf("%w: integration differs from frozen workspace", ErrTransition)
 	}
@@ -330,6 +333,9 @@ func validateIntegrations(e Execution) error {
 		attempt, ref, ok := e.FindAttempt(i.SourceAttemptID)
 		if !ok || ref.StageID != i.StageID || ref.AgentID != i.AgentID || attempt.Authority.RepositoryKey != i.RepositoryKey {
 			return invalid("integration %q source", i.IntegrationID)
+		}
+		if c := attempt.Capture; c != nil && (c.Observation == nil || c.Observation.Outcome != "captured" || c.CandidateSHA != i.CandidateSHA) {
+			return invalid("integration capture correlation")
 		}
 		if w := attempt.Workspace; w != nil && (w.RepositoryKey != i.RepositoryKey || w.SourceBranch != i.SourceBranch || w.Worktree != i.Worktree || w.BaseSHA != i.BaseSHA || w.TargetRef != i.TargetRef) {
 			return invalid("integration workspace correlation")

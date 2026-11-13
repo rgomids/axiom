@@ -132,6 +132,9 @@ func validateWorkspaces(e Execution) error {
 	for _, stage := range e.Stages {
 		for _, task := range stage.Tasks {
 			for _, attempt := range task.Attempts {
+				if err := validateCapture(e, attempt); err != nil {
+					return err
+				}
 				ref := TaskRef{stage.StageID, task.AgentID}
 				enrolled := e.IntegrationEnrolled(ref)
 				if attempt.WorkspaceGateWait && (attempt.Status != AttemptSucceeded || !e.RequiresIntegration(attempt.AttemptID) || !e.Workflow.Stages[e.stageIndex(stage.StageID)].HumanGate) {

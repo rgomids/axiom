@@ -288,6 +288,7 @@ type Attempt struct {
 	// preserves a validated result whose integration outcome was lost.
 	WorkspaceGateWait    bool              `json:"workspaceGateWait,omitempty"`
 	WorkspaceUncertain   bool              `json:"workspaceUncertain,omitempty"`
+	Capture              *SourceCapture    `json:"capture,omitempty"`
 	Workspace            *AttemptWorkspace `json:"workspace,omitempty"`
 	Accounting           string            `json:"accounting,omitempty"`
 	ParentAttemptID      string            `json:"parentAttemptId,omitempty"`

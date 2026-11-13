@@ -69,7 +69,10 @@ holds no lease) and then:
    on exactly the named branch, no tracked or untracked change, tip descends
    from the recorded base and differs from it; observes the target: exists, not
    checked out in any worktree, equals the expected head. Any refusal here
-   records nothing and has no Git effect (`ErrIntegrationRefused`);
+   records no integration intent (`ErrIntegrationRefused`). Since #399 added
+   pending-change capture before these observations, refusal no longer proves
+   absence of source-branch/index effects; see the
+   [CR-399-F1 pending decision](correction-399-capture-decision.md);
 2. commits the intent under the fence. The domain refuses: stale fence, cancel,
    outstanding unknown (attempt or integration), unbound or changed repository
    identity, a source attempt that is not `succeeded`, lacks
@@ -84,7 +87,9 @@ holds no lease) and then:
    `merge_conflict`;
 4. checks the intermediate merge out, detached, in a new principal worktree
    `integration-<id>` and re-runs every source-stage command there with an
-   exact minimal environment and the command's own timeout. Failure, timeout
+   allowlisted command environment (`HOME`, `USER`, `LOGNAME`, `PATH`, `SHELL`,
+   `TMPDIR`, `LANG`, `LC_*`; the same as the attempt's own command checks, no
+   Runtime configuration root; AXM-12 2026-11-12) and the command's own timeout. Failure, timeout
    or spawn failure → `not_integrated` `post_merge_check_<failed|terminated>`.
    An unobservable outcome → `unknown` / `post_merge_check_unknown`, with
    `recovery_required` until human disposition (MergeSHA retained, FinalSHA empty).
