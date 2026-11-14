@@ -1169,8 +1169,8 @@ func TestMapWorkflowDefinitionCarriesAgentRepository(t *testing.T) {
 	}
 }
 
-// AXM-12: a Runtime sandbox (e.g. Codex workspace-write) that cannot write the
-// Axiom state root must be named, not reported as a generic operation failure.
+// AXM-12: a denied local write (e.g. Codex workspace-write excluding the Axiom
+// state root) must be named, not reported as a generic operation failure.
 func TestPublicWorkflowRunUnwritableStateNamesPermission(t *testing.T) {
 	if os.Geteuid() == 0 {
 		t.Skip("root ignores directory permissions")
@@ -1181,7 +1181,7 @@ func TestPublicWorkflowRunUnwritableStateNamesPermission(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = os.Chmod(f.env.state, 0o700) })
 	got := f.run(t, cli.ExitFailure, minimalRun("--authorize-external")...)
-	if got.Category != "state_permission_denied" || !strings.Contains(got.Next, "sandbox") {
+	if got.Category != "local_permission_denied" || !strings.Contains(got.Next, "sandbox") {
 		t.Fatal(got.Raw)
 	}
 }
