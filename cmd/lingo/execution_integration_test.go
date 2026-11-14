@@ -197,6 +197,10 @@ func TestPublicWorkflowRunSameRepositoryDependentWriterAndHumanGate(t *testing.T
 				if got.Category != "integration_refused" || !strings.Contains(got.Next, "separate later Stage that runs after integration") || len(x.Integrations) != 0 || x.Stages[0].Gate != nil || strings.Contains(integrationGit(t, repo, "for-each-ref", "--format=%(refname)"), "axiom/") {
 					t.Fatal(got.Raw)
 				}
+				// AXM-12 F-2: the persisted refusal never advertises a resume that can only refuse again.
+				if next := executionNext(x); strings.Contains(next, "workflow run --execution") || !strings.Contains(next, "can never start") {
+					t.Fatalf("refused Execution next: %s", next)
+				}
 				return
 			}
 			if x.Status != workflow.RunCompleted || len(x.Enrollments) != 1 || len(x.Integrations) != 2 || len(x.Stages[0].Tasks[2].Attempts) != 1 {

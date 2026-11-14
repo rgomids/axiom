@@ -1066,6 +1066,14 @@ func executionNext(x workflow.Execution) string {
 	case workflow.RunRunning:
 		return "A runner is active: inspect axiom workflow stage status" + selector + " or request axiom workflow stage cancel" + selector
 	}
+	if stageexecution.AfterGateIntegrationDependency(x) {
+		return "This Execution can never start: its after human gate would wait on a same-Stage dependent of an integrated writer. Move the review/acceptance gate to a separate later Stage and start a new Execution; nothing was spawned or written to Git"
+	}
+	for _, stage := range x.Workflow.Stages {
+		if len(stage.Commands) > 0 {
+			return "axiom workflow run" + selector + " --authorize-external --authorize-commands"
+		}
+	}
 	return "axiom workflow run" + selector + " --authorize-external"
 }
 
