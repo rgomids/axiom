@@ -34,6 +34,13 @@
   Projects created by `project configure` carry no policy and block until an
   authored policy is installed.
 
+## [0.24.1](https://github.com/rgomids/axiom/compare/v0.24.0...v0.24.1) (2026-11-14)
+
+
+### Bug Fixes
+
+* **workflow:** make sandboxed writer capture recoverable (AXM-12) ([#399](https://github.com/rgomids/axiom/issues/399)) ([8e50e76](https://github.com/rgomids/axiom/commit/8e50e7690ae456537361f84daef54a1a406c3bea))
+
 ## [0.24.0](https://github.com/rgomids/axiom/compare/v0.23.6...v0.24.0) (2026-11-12)
 
 
