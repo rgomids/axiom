@@ -58,3 +58,30 @@ rejection decision, not delegated), cancellation, retry refusal after unknown.
 | F-14 | OPTIONAL_IMPROVEMENT | `workflow run --execution` with `--repository/--work-item` reports `selections_frozen` | Not changed |
 | F-15 | OPTIONAL_IMPROVEMENT | After a successful observe-only reconcile, `next` repeats the reconcile step before the abandon step | Not changed |
 | F-16 | EVIDENCE_GAP (pre-existing) | Retained artifact contents are not readable through the public CLI; the operator read them read-only from the local artifact store | Recorded |
+
+## Cycle 2 — development build `f21748d`
+
+Build: `scripts/install-axiom.sh` with `AXIOM_BIN_DIR`/`AXIOM_INSTALL_STATE_ROOT`
+in an isolated scratch directory; `axiom version` → `development`, revision
+`f21748db407c`, sourceState clean; SHA-256
+`4de07de30ddc0bf974b0fdfa282099a4a04d0407ca5d1b9861fac225395e7f56`. The release
+v0.24.1 extraction and the pre-existing `~/.local/bin/axiom` were left
+untouched. Invocations: 10/12 (cumulative 22/40); 0 retries.
+
+| Scenario | Execution | Result | Evidence |
+|---|---|---|---|
+| F-2 retest | new `46d662ae-8856-4d99-89d8-ca846ab84ba8`; historical `735d9b2b…` and `fa7efdb6…` | PASS | Refusal unchanged (`integration_refused`, no spawn); status `next` now says the Execution can never start and to start a new one with the gate on a later Stage |
+| E2E-C regression (preflight touched) | `be72675f-a7c9-4baa-a426-5946586b49ab` | PASS | Codex capture `0cdadf7` by the principal; merges `c05e1b9 → 08c23df → fd2bfe6`, both `go test` checks passed; reader on `fd2bfe6`; operator re-ran `go vet`/`go test` on the archived tree: ok |
+| Retry after unknown (no blind replay) | `8d1c1b2c…` | PASS | `stage retry --authorize-external` refused `recovery_required`; still one `unknown` attempt; nothing spawned |
+| Cancellation | `866d6476-a3c3-4c0e-a06a-347a8f3f470c` | PASS | `stage cancel --authorize-local` → `cancel_requested`; attempt `cancelled`, `group_stop_confirmed`; process gone; Repository unchanged |
+| T08 initiation from Claude Code (installed `axiom-work-item` skill, dev build first on PATH) | `ac2177ea-958e-4a35-97cb-501e87841983` | PASS (bounded) | Natural-language prompt; skill composed `workflow run --workflow minimal` with explicit Profile and `--authorize-external`; `completed`; Repository unchanged. The operator AI could not read the result body (F-16) |
+| T08 initiation from Codex | none | BLOCKED (F-17) | See findings. The first attempt resolved `axiom` to the stale `~/.local/bin/axiom` (`f5709fc`) through Codex's login shell, which also cannot read records written by newer builds (ENVIRONMENT_FAILURE, not counted as product Evidence). Deterministic reproduction without inference: under `codex sandbox -P :workspace`, the dev build reads state but every state write (`stage reconcile --authorize-local`) fails |
+| T04 built-in `default-sdd` r2 | `0256a738-a045-4814-84e6-a905e77426e1` | PASS (bounded) | intake → specification → clarification succeeded (Claude haiku via Profile); stopped at the `plan` `planning_authority` gate; later stages need human authority |
+
+### Findings added in cycle 2
+
+| ID | Class | Summary | Disposition |
+|---|---|---|---|
+| F-17 | MATERIAL_DECISION_REQUIRED | Codex-native initiation cannot write Axiom state from Codex `workspace-write` (state root outside writable roots). Options: (a) operator adds the state root as a Codex writable root (sandbox widening, owner decision); (b) relocate or broker state writes (architecture change); (c) document Codex initiation as unsupported until the #387-class sandbox decision. Recommendation: (c) now, decide (a)/(b) with #387 | Not implemented; no sandbox widened |
+| F-18 | BUG_CONFIRMED (observability) | A denied state write surfaced as generic `execution_operation_failed`, so the operator AI reported "effects unknown" with no cause | Fixed after the cycle-2 build: `os.ErrPermission` maps to `state_permission_denied` with a sandbox-aware next step; regression test `TestPublicWorkflowRunUnwritableStateNamesPermission`; troubleshooting guide updated. Validated in cycle 3 |
+| F-19 | ENVIRONMENT_FAILURE | Stale `~/.local/bin/axiom` (`f5709fc`, older than v0.24.1) is first on login-shell PATH and fails `workflow list` with `recovery_required` on newer records | Preserved; operator decision to replace it |

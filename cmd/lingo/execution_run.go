@@ -1142,6 +1142,7 @@ func (c executionComposition) failure(err error, x *workflow.Execution) cli.Work
 		{local.ErrConflict, completion.RetryableFailure, "execution_revision_conflict", "A concurrent writer changed the Execution; inspect status before repeating"},
 		{local.ErrNotFound, completion.ValidationFailure, "execution_not_found", "Use the exact Execution identity returned by workflow run"},
 		{os.ErrNotExist, completion.ValidationFailure, "execution_not_found", "Use the exact Execution identity returned by workflow run"},
+		{os.ErrPermission, completion.Failure, "state_permission_denied", "Axiom's local state could not be written (permission denied), e.g. from inside a Runtime sandbox whose writable roots exclude it; run the command from an unsandboxed shell, inspect stage status there and never repeat an authorized mutation blindly"},
 		{workflow.ErrExecutionInvalid, completion.Failure, "recovery_required", "The Execution record failed validation; nothing was changed"},
 		{context.Canceled, completion.Interrupted, "workflow_cancelled", "Inspect stage status before repeating any mutation"},
 	}

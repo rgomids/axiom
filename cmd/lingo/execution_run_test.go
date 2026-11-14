@@ -1168,3 +1168,20 @@ func TestMapWorkflowDefinitionCarriesAgentRepository(t *testing.T) {
 		t.Fatal("agent bound to an unbound Repository started")
 	}
 }
+
+// AXM-12: a Runtime sandbox (e.g. Codex workspace-write) that cannot write the
+// Axiom state root must be named, not reported as a generic operation failure.
+func TestPublicWorkflowRunUnwritableStateNamesPermission(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root ignores directory permissions")
+	}
+	f := newExecutionRunFixture(t)
+	if err := os.Chmod(f.env.state, 0o500); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(f.env.state, 0o700) })
+	got := f.run(t, cli.ExitFailure, minimalRun("--authorize-external")...)
+	if got.Category != "state_permission_denied" || !strings.Contains(got.Next, "sandbox") {
+		t.Fatal(got.Raw)
+	}
+}
