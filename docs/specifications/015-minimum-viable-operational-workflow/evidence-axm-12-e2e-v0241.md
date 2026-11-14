@@ -140,3 +140,22 @@ T11/T12 run with human authority and F-17 is decided; the core automated
 journey (same-Repository Codex+Claude integration with real checks, typed
 Q→A, multi-Repository, recovery and cancellation) is technically sound on
 `4fe5bbb`.
+
+## Cycle 4 — development build `43c648e` (review correction)
+
+Review of PR #401 noted that `os.ErrPermission` also comes from creating a
+Repository worktree location, so `state_permission_denied` could misattribute
+the cause. The category is now `local_permission_denied` and names both
+possible locations without inferring which one was denied (troubleshooting
+guide updated). Build: revision `43c648ebcf76`, clean, SHA-256
+`3533b419506a7a8b298fb31a5404b7371178a93aaa043459ed05bf4bd83afacb`.
+Invocations: 0 (cumulative 29/40).
+
+| Scenario | Result | Evidence |
+|---|---|---|
+| F-18 retest under `codex sandbox -P :workspace` | PASS | `workflow run` → `local_permission_denied`; Execution count unchanged (31); nothing spawned |
+| F-2 regression | PASS | `735d9b2b…` status `next` unchanged |
+
+The cycle-3 rows above record the earlier category name as it was observed.
+Cycle-3 inference Evidence (E2E-B/C/D) remains valid for this candidate: the
+only code delta is this error-category string and its guidance.
