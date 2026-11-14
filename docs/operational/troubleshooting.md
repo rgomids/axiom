@@ -59,3 +59,17 @@ trust check. Restricted Linux sandbox compatibility remains decision pending
 shortened trust chain or external broker is implemented. Keep agent isolation;
 `danger-full-access` is not an acceptable mitigation. A reviewed solution must
 preserve the filesystem trust boundary before retrying the refused operation.
+
+## Local permission denied
+
+`local_permission_denied` means a Workflow command could not write locally:
+either Axiom's state root or a Repository worktree location (the
+`.axiom-worktrees-*` directory beside the Repository). Typical causes are a
+Runtime sandbox whose writable roots exclude the state root (for example Codex
+`workspace-write`) or a non-writable Repository parent. The diagnostic does not
+infer which location was denied. It is not a finding of corrupt state and not
+an authentication failure. Run the command from an unsandboxed shell with write
+access to both, inspect stage status there first, and never repeat an
+authorized mutation blindly. Do not widen the sandbox or use
+`danger-full-access` to work around it; sandboxed Runtime initiation remains a
+pending decision.

@@ -1066,6 +1066,14 @@ func executionNext(x workflow.Execution) string {
 	case workflow.RunRunning:
 		return "A runner is active: inspect axiom workflow stage status" + selector + " or request axiom workflow stage cancel" + selector
 	}
+	if stageexecution.AfterGateIntegrationDependency(x) {
+		return "This Execution can never start: its after human gate would wait on a same-Stage dependent of an integrated writer. Move the review/acceptance gate to a separate later Stage and start a new Execution; nothing was spawned or written to Git"
+	}
+	for _, stage := range x.Workflow.Stages {
+		if len(stage.Commands) > 0 {
+			return "axiom workflow run" + selector + " --authorize-external --authorize-commands"
+		}
+	}
 	return "axiom workflow run" + selector + " --authorize-external"
 }
 
@@ -1134,6 +1142,7 @@ func (c executionComposition) failure(err error, x *workflow.Execution) cli.Work
 		{local.ErrConflict, completion.RetryableFailure, "execution_revision_conflict", "A concurrent writer changed the Execution; inspect status before repeating"},
 		{local.ErrNotFound, completion.ValidationFailure, "execution_not_found", "Use the exact Execution identity returned by workflow run"},
 		{os.ErrNotExist, completion.ValidationFailure, "execution_not_found", "Use the exact Execution identity returned by workflow run"},
+		{os.ErrPermission, completion.Failure, "local_permission_denied", "A local write was denied (permission denied): Axiom state or a Repository worktree location is not writable by this process, e.g. inside a Runtime sandbox whose writable roots exclude it or under a non-writable Repository parent. Run from an unsandboxed shell with write access to both, inspect stage status there first and never repeat an authorized mutation blindly"},
 		{workflow.ErrExecutionInvalid, completion.Failure, "recovery_required", "The Execution record failed validation; nothing was changed"},
 		{context.Canceled, completion.Interrupted, "workflow_cancelled", "Inspect stage status before repeating any mutation"},
 	}
