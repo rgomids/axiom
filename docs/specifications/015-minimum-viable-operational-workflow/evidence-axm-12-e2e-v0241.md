@@ -85,3 +85,58 @@ untouched. Invocations: 10/12 (cumulative 22/40); 0 retries.
 | F-17 | MATERIAL_DECISION_REQUIRED | Codex-native initiation cannot write Axiom state from Codex `workspace-write` (state root outside writable roots). Options: (a) operator adds the state root as a Codex writable root (sandbox widening, owner decision); (b) relocate or broker state writes (architecture change); (c) document Codex initiation as unsupported until the #387-class sandbox decision. Recommendation: (c) now, decide (a)/(b) with #387 | Not implemented; no sandbox widened |
 | F-18 | BUG_CONFIRMED (observability) | A denied state write surfaced as generic `execution_operation_failed`, so the operator AI reported "effects unknown" with no cause | Fixed after the cycle-2 build: `os.ErrPermission` maps to `state_permission_denied` with a sandbox-aware next step; regression test `TestPublicWorkflowRunUnwritableStateNamesPermission`; troubleshooting guide updated. Validated in cycle 3 |
 | F-19 | ENVIRONMENT_FAILURE | Stale `~/.local/bin/axiom` (`f5709fc`, older than v0.24.1) is first on login-shell PATH and fails `workflow list` with `recovery_required` on newer records | Preserved; operator decision to replace it |
+
+## Cycle 3 — development build `4fe5bbb` (final candidate)
+
+Build: `scripts/install-axiom.sh` into an isolated scratch directory;
+`development`, revision `4fe5bbb73463`, sourceState clean; SHA-256
+`2623a21b91cac80450450120e206db2d21c709365299320c15efe67395ad9026`.
+Invocations: 7/12 (cumulative 29/40); 0 retries. Repository gate on this SHA:
+`check-go-quality.sh all`, `go mod verify`, `go vet ./...`, `go build ./...`,
+`go test -count=1 ./...` pass; GitHub CI pass.
+
+| Scenario | Execution | Result | Evidence |
+|---|---|---|---|
+| F-18 retest under `codex sandbox -P :workspace` | none created | PASS | `stage reconcile --authorize-local` and `workflow run` → `state_permission_denied` with the sandbox next step; Execution count unchanged (29); nothing spawned |
+| F-2 regression | `735d9b2b…` | PASS | Terminal `next` unchanged from cycle 2 |
+| E2E-B/D parallel Codex ∥ Claude, Q→A, two Repositories | `099242ee-f999-4c12-bef3-66688b8dda35` | PASS | `cli-q-format-label` (cli-claude attempt `dc2f4124`) → `lib-answer-format-label` (lib-codex attempt `7212edfd`, `replyTo` set); separate `library`/`cli` outcomes; both checkouts clean |
+| E2E-C same Repository Codex + Claude with `go test` checks | `773574c7-53af-470f-9274-0bb1a9f6404f` | PASS | Principal capture of the Codex writer; serial merges `c05e1b9 → 05f1d83 → 48618f8`, both checks passed; reader on `48618f8`; operator re-test on the archived tree ok |
+
+No new defect was found in cycle 3. Cycles 4–5 were not run: every remaining
+gap needs human authority or a material decision, not a technical fix.
+
+## Final matrices (candidate `4fe5bbb`)
+
+Evidence older than the candidate is marked with its cycle; cycle 1 used the
+v0.24.1 release, cycle 2 `f21748d`. The only code delta from `f21748d` to
+`4fe5bbb` is the error-category mapping, re-exercised in cycle 3.
+
+| Criterion | Result | Basis |
+|---|---|---|
+| T01 configuration/readiness | PASS (c1) | `project validate` ready; Profiles valid |
+| T02 real inference, both Runtimes | PASS (c3) | Codex `gpt-6.1-sol`, Claude `claude-haiku-5-5` attempts in `099242ee`, `773574c7` |
+| T03 creation/links | NOT_RUN | Existing Project/Work Items reused; historical PASS not re-proven |
+| T04 default flow | PASS bounded (c2) | `default-sdd` r2 up to the `plan` gate (`0256a738`) |
+| T05 parallel + typed Q→A | PASS (c3) | `099242ee` |
+| T06 one Execution, two Repositories | PASS bounded (c3) | `099242ee`; no file change was needed |
+| T07 immutable revision binding | PASS (c1–c3) | Exact revision/digest selection preview→apply; Executions keep their own `workflowDigest` |
+| T08 native initiation | PARTIAL | Claude PASS bounded (c2, `ac2177ea`); Codex BLOCKED (F-17) |
+| T09 `go test`/`go vet` | PASS (c3) | Engine post-merge `go test` checks; operator `go vet`/`go test` re-runs |
+| T10 negatives | PASS (c1–c3) | `commands_unauthorized`, `authority_required`, `integration_refused`, `recovery_required` retry refusal, `state_permission_denied` |
+| T11 reject/rework | BLOCKED (human) | Needs a human rejection decision (`--authorize-human`); not delegated. Prior dev-build Evidence only (`9493e3b0` → `bec32a4d`) |
+| T12 delivery | BLOCKED (human) | Needs an approved review gate and delivery authority |
+| T13 / P-AC5, T14 / P-AC7 simplification | PARTIAL | No command, flag, store or service added; two categories' guidance changed. No reduction audit performed |
+| T15 decision | Pending human | Technical recommendation below |
+| P-AC1 basic run | PASS (c2) | `ac2177ea`, `0256a738` |
+| P-AC2 recovery | PASS bounded (c1–c2) | Observe-only reconcile, retry refused after `unknown`, cancellation confirmed; human abandon not run |
+| P-AC3 parallel + Q→A | PASS (c3) | `099242ee` |
+| P-AC3 same Repository | PASS (c3) | `773574c7`; conflict path PASS (c1, `08bea680`) |
+| P-AC4 multi-Repository | PASS bounded (c3) | `099242ee` |
+| P-AC6 rejection/rework | BLOCKED (human) | As T11 |
+| Distribution | PASS (c1) | Isolated release install, `docs inspect` verified, skills identical |
+
+Technical recommendation (non-binding): **NO-GO for full MVP acceptance** until
+T11/T12 run with human authority and F-17 is decided; the core automated
+journey (same-Repository Codex+Claude integration with real checks, typed
+Q→A, multi-Repository, recovery and cancellation) is technically sound on
+`4fe5bbb`.
