@@ -86,6 +86,10 @@ func (e Engine) Start(ctx context.Context, store creator, r StartRequest) (workf
 			}
 		}
 	}
+	// A frozen dependency blocked by its own gate can never become ready to run.
+	if AfterGateIntegrationDependency(x) {
+		return workflow.Execution{}, ErrAfterGateIntegrationDependency
+	}
 	if err := store.Create(ctx, x); err != nil {
 		return workflow.Execution{}, err
 	}

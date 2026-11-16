@@ -186,18 +186,30 @@ func TestPublicWorkflowRunSameRepositoryDependentWriterAndHumanGate(t *testing.T
 			if mode == "gate" {
 				want = cli.ExitFailure
 			}
+			refs := integrationGit(t, repo, "for-each-ref", "--format=%(refname) %(objectname)")
+			worktrees := integrationGit(t, repo, "worktree", "list", "--porcelain")
 			got := f.run(t, want, publicIntegrationArgs()...)
-			x := loadPublicIntegration(t, f, got.Stage.ExecutionID)
 			if mode == "gate" {
-				for _, task := range x.Stages[0].Tasks {
-					if len(task.Attempts) != 0 {
-						t.Fatal("after gate changed timing or spawned partial work")
+				for attempt := range 2 {
+					if attempt > 0 {
+						got = f.run(t, cli.ExitFailure, publicIntegrationArgs()...)
+					}
+					if got.Status != "failure" || got.Category != "integration_refused" || got.Stage.ExecutionID != "" || got.Stage.Status != "" || len(f.executions(t)) != 0 || strings.Contains(got.Raw, `"stage":`) {
+						t.Fatalf("impossible plan advertised or persisted an Execution: %s", got.Raw)
+					}
+					if !strings.Contains(got.Next, "separate later Stage that runs after integration") || strings.Contains(got.Next, "workflow run --execution") {
+						t.Fatal(got.Raw)
+					}
+					if integrationGit(t, repo, "for-each-ref", "--format=%(refname) %(objectname)") != refs || integrationGit(t, repo, "worktree", "list", "--porcelain") != worktrees {
+						t.Fatal("refusal changed Git refs or worktrees")
 					}
 				}
-				if got.Category != "integration_refused" || !strings.Contains(got.Next, "separate later Stage that runs after integration") || len(x.Integrations) != 0 || x.Stages[0].Gate != nil || strings.Contains(integrationGit(t, repo, "for-each-ref", "--format=%(refname)"), "axiom/") {
-					t.Fatal(got.Raw)
-				}
 				return
+			}
+			x := loadPublicIntegration(t, f, got.Stage.ExecutionID)
+			status := f.run(t, cli.ExitSuccess, "workflow", "stage", "status", "--project", "external", "--execution", x.ExecutionID)
+			if status.Category != "execution_completed" || status.Stage.Status != workflow.RunCompleted || strings.Contains(status.Next, "can never start") {
+				t.Fatalf("valid Execution status: %s", status.Raw)
 			}
 			if x.Status != workflow.RunCompleted || len(x.Enrollments) != 1 || len(x.Integrations) != 2 || len(x.Stages[0].Tasks[2].Attempts) != 1 {
 				t.Fatalf("dependent writer enrollment/completion: %s", got.Raw)

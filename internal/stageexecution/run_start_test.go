@@ -88,3 +88,26 @@ func TestStartProgressesTwoSelectedStagesAutomatically(t *testing.T) {
 		t.Fatalf("second start reused the Execution identity: %v", err)
 	}
 }
+
+func TestStartRefusesAfterGateIntegrationDependencyBeforePersistence(t *testing.T) {
+	f, store := startFixture(t, "OUTPUT result\n")
+	r := linkedRequest()
+	r.EnrollIntegration = true
+	r.WorkflowID, r.WorkflowRevision = "gated", "r1"
+	r.Stages = []workflow.StageSpec{{ID: "work", HumanGate: true, Outputs: []string{"result"}, TimeoutSeconds: 5, Agents: []workflow.AgentSpec{
+		{ID: "writer", Effects: []string{"workspace_write"}},
+		{ID: "reader", DependsOn: []string{"writer"}, Effects: []string{"workspace_write"}},
+	}}}
+	for range 2 {
+		x, err := f.engine.Start(context.Background(), store, r)
+		if !errors.Is(err, ErrAfterGateIntegrationDependency) || x.ExecutionID != "" || x.Status != "" {
+			t.Fatalf("refused start: %+v %v", x, err)
+		}
+		if _, err := store.Load(context.Background(), r.ProjectID, r.ExecutionID); !errors.Is(err, os.ErrNotExist) && !errors.Is(err, local.ErrNotFound) {
+			t.Fatalf("refused Execution read-back: %v", err)
+		}
+	}
+	if entries, _ := os.ReadDir(f.root); len(entries) != 0 || f.runner.spawns.Load() != 0 {
+		t.Fatal("impossible plan persisted state or spawned")
+	}
+}

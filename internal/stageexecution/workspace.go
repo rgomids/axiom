@@ -34,21 +34,34 @@ func (e Engine) workspaceGit(ctx context.Context, x workflow.Execution, key stri
 	return e.Workspaces(ctx, x, key)
 }
 
-// preflightWorkspaces checks configured writers, including dependent writers,
-// before any enrolled writer is launched or any Git intent is materialized.
-func (e Engine) preflightWorkspaces(ctx context.Context, x workflow.Execution) error {
+// AfterGateIntegrationDependency reports the frozen-plan refusal: an
+// after-gated Stage has a same-Stage dependent of an enrolled writer. It is a
+// pure function of the persisted Execution, so it can never become runnable.
+func AfterGateIntegrationDependency(x workflow.Execution) bool {
 	for _, stage := range x.Workflow.Stages {
-		if stage.HumanGate {
-			for _, agent := range stage.Agents {
-				for _, dependency := range agent.DependsOn {
-					for _, source := range stage.Agents {
-						if source.ID == dependency && slices.Contains(source.Effects, "workspace_write") && x.IntegrationEnrolled(workflow.TaskRef{StageID: stage.ID, AgentID: source.ID}) {
-							return ErrAfterGateIntegrationDependency
-						}
+		if !stage.HumanGate {
+			continue
+		}
+		for _, agent := range stage.Agents {
+			for _, dependency := range agent.DependsOn {
+				for _, source := range stage.Agents {
+					if source.ID == dependency && slices.Contains(source.Effects, "workspace_write") && x.IntegrationEnrolled(workflow.TaskRef{StageID: stage.ID, AgentID: source.ID}) {
+						return true
 					}
 				}
 			}
 		}
+	}
+	return false
+}
+
+// preflightWorkspaces checks configured writers, including dependent writers,
+// before any enrolled writer is launched or any Git intent is materialized.
+func (e Engine) preflightWorkspaces(ctx context.Context, x workflow.Execution) error {
+	if AfterGateIntegrationDependency(x) {
+		return ErrAfterGateIntegrationDependency
+	}
+	for _, stage := range x.Workflow.Stages {
 		for _, agent := range stage.Agents {
 			ref := workflow.TaskRef{StageID: stage.ID, AgentID: agent.ID}
 			if !x.IntegrationEnrolled(ref) {
