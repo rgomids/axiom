@@ -34,6 +34,13 @@
   Projects created by `project configure` carry no policy and block until an
   authored policy is installed.
 
+## [0.24.2](https://github.com/rgomids/axiom/compare/v0.24.1...v0.24.2) (2026-11-17)
+
+
+### Bug Fixes
+
+* **workflow:** correct recovery guidance and sandbox denial diagnostics (AXM-12) ([#401](https://github.com/rgomids/axiom/issues/401)) ([51d576c](https://github.com/rgomids/axiom/commit/51d576c98666e5fe1b6237fcc8579fef131460ba))
+
 ## [0.24.1](https://github.com/rgomids/axiom/compare/v0.24.0...v0.24.1) (2026-11-14)
 
 
