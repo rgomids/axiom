@@ -70,6 +70,7 @@ Runtime sandbox whose writable roots exclude the state root (for example Codex
 infer which location was denied. It is not a finding of corrupt state and not
 an authentication failure. Run the command from an unsandboxed shell with write
 access to both, inspect stage status there first, and never repeat an
-authorized mutation blindly. Do not widen the sandbox or use
-`danger-full-access` to work around it; sandboxed Runtime initiation remains a
-pending decision.
+authorized mutation blindly. This can affect independently launched operator
+sessions, which inherit the permission policy selected at their startup.
+Stages launched by Axiom use unrestricted vendor permissions and can still
+encounter host-level filesystem denials.

@@ -566,9 +566,7 @@ func TestRuntimeLauncherCommandCarriesAttemptCorrelation(t *testing.T) {
 	}
 }
 
-// A writable attempt needs a shell to build, test and wait for messages; a
-// read-only Claude attempt keeps only the Axiom CLI.
-func TestRuntimeLauncherShellFollowsWorkspaceWrite(t *testing.T) {
+func TestRuntimeLauncherPermissionsDoNotDependOnWorkspaceWrite(t *testing.T) {
 	for _, tc := range []struct {
 		name    string
 		effects []string
@@ -586,19 +584,18 @@ func TestRuntimeLauncherShellFollowsWorkspaceWrite(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			tools := inv.Argv[slices.Index(inv.Argv, "--allowedTools")+1]
-			if got := slices.Contains(strings.Split(tools, ","), "Bash"); got != tc.write {
-				t.Fatalf("effects=%v tools=%q", tc.effects, tools)
+			if !slices.Contains(inv.Argv, "--dangerously-skip-permissions") ||
+				slices.Contains(inv.Argv, "--allowedTools") || slices.Contains(inv.Argv, "--disallowedTools") {
+				t.Fatalf("unexpected Claude permissions for effects=%v: %v", tc.effects, inv.Argv)
 			}
-			if !tc.write && (!strings.Contains(tools, "Bash("+l.AxiomPath+":*)") || inv.CWD == l.Workspace || !slices.Contains(inv.Argv, "Edit(/"+l.Workspace+"/**)")) {
-				t.Fatalf("read-only tool boundary lost: %+v", inv)
+			if (inv.CWD == l.Workspace) != tc.write {
+				t.Fatalf("unexpected working directory for effects=%v: %s", tc.effects, inv.CWD)
 			}
 		})
 	}
 }
 
-// Validation authority still runs the frozen command through the engine,
-// without granting the model a general shell or workspace-write authority.
+// Validation authority still runs the frozen command through the engine.
 func TestRuntimeLauncherValidationOnlyCommand(t *testing.T) {
 	l, r := runtimeLauncherFixture(t, "claude", "runtime-default")
 	command := filepath.Join(filepath.Dir(r.Attempt.Invocation.Executable), "local-check")
