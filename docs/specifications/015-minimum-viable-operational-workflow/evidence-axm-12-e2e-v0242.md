@@ -117,3 +117,86 @@ da v0.24.2 com checks, cobertura das lacunas T13/T14 e exercício de T11/T12
 com autoridade humana. Evidence nativa de fornecedor e operacional local
 está registrada acima. Aceite do produto, entrega e encerramento de AXM-12
 permanecem pendentes.
+
+## Ciclo 2 — permissões dos Runtimes e build local
+
+O mantenedor autorizou o padrão de permissões irrestritas para Codex e Claude
+em todas as Stages de todos os Projects, registrado no
+[ADR-0039](../../decisions/0039-unrestricted-runtime-stage-processes.md).
+O adaptador de Stage aplica as flags dos fornecedores. Uma sessão nativa
+iniciada separadamente usa as permissões selecionadas na sua abertura.
+
+- **T08, reteste nativo na release:** `claude -p --dangerously-skip-permissions`
+  e `codex -a never exec --sandbox danger-full-access` iniciaram o binário
+  oficial com os dois roots isolados explícitos. As primeiras tentativas
+  (`64cedf36-258f-4d30-b8bf-fcab70032108` e
+  `7ae7cd76-fa5c-4867-a176-d29504fac7b7`) despacharam sem prompt, mas falharam
+  com `missing_output: result` porque a instrução da fixture mandava apenas
+  responder sem escrever. Com instrução alinhada ao resultado obrigatório,
+  ambas completaram `minimal` r2. Claude
+  `9cca05a7-36dd-413e-b165-0566d6a84078`, tentativa
+  `0248a920-db93-4284-87b0-85b06424517a`, zero recusas de permissão. Codex
+  `e89bbf61-37ce-4ab9-ba29-aa822225d148`.
+- **Build local:** instalador de desenvolvimento com `AXIOM_BIN_DIR` e
+  `AXIOM_INSTALL_STATE_ROOT` isolados. Binário
+  `/private/tmp/axiom-v0242.zKXjfLMg/dev/bin/axiom`, `development`,
+  `204740d0b69ca7a3733c2b97d3cf39bdd59001e0`, `clean`, SHA-256
+  `962658a78bc903dd628f19376d86ad35c721b3af89fc033bbc02f7cd551c6abb`.
+- **T09, PASS:** Execution `2b269dfb-7c86-407a-9947-9070e4656246`,
+  `e2e-same-repo` r1,
+  `sha256:1fcd9b9914c64cb6239dfa7b75fd9fd2da312c0b494dc760b2b0ac9ac4b1aa1b`.
+  Codex e Claude fizeram commits `baf45bb` e `fa58e89` em worktrees
+  isolados. O engine integrou `c05e1b9 → d21f0e2 → c8d07c8` e os dois
+  `post-merge` passaram. `go vet ./...` e `go test -count=1 ./...`
+  passaram no archive de `c8d07c8`. O leitor dependente concluiu. A execução
+  está em `awaiting_gate` em `review`, resultado de `build`
+  `sha256:4988340f5f43f9c3426132492cfbc053f2255b04326cffd689846ba84ec5757e`.
+- **T10, cancelamento e autoridade de comandos:** a mesma composição sem
+  `--authorize-commands` recusou `commands_unauthorized`. Execution
+  `936d9d47-16a4-4404-a38a-3ed3ec743e56`, `minimal` r2, teve seu
+  processo Claude ativo cancelado por `workflow stage cancel --authorize-local`.
+  A tentativa `1f487201-51f2-45bd-9958-51c9bc2b82f1` retornou
+  `group_stop_confirmed`; o PID deixou de existir.
+- **T07, autoria:** `project workflow edit` publicou `e2e-same-repo` r4
+  com preview e digests exatos. Após seleção de r4, a Execution do T09
+  continuava em r1 com o mesmo digest.
+- **T14, redução de arquivos abaixo da meta:** a contagem histórica S3.4
+  registrou −25 arquivos Go de produção. Frente à mesma baseline
+  `0a65d9a90e90`, tanto a release quanto o candidato têm −8, contra a
+  meta de −15. O candidato tem −7.823 linhas físicas e −129 tipos
+  exportados (metas de −4.000 e −40). A comparação do conjunto alterado e do
+  repositório inteiro produziu os mesmos deltas. O script histórico foi
+  reproduzido em scratch com a revisão do candidato e a escrita do
+  relatório histórico desativada.
+- **Contagem:** 12 invocações de CLI com inferência neste ciclo. Quatro
+  sessões nativas e seus quatro processos de Stage na release, três
+  Stages no reteste de integração e uma no cancelamento no candidato.
+
+## Ciclo 3 — conflito e regressões no mesmo build
+
+- **T07/T10, PASS:** `e3765d73-0a8b-4b79-bb59-b177867108fd` iniciou na
+  nova `e2e-same-repo` r4, digest de Execution
+  `sha256:b22e39c4c208119f02fd189a3f1b8dbeb6535a6e70869fc1302bf7aec3bdf54c`.
+  Dois writers reais modificaram o mesmo arquivo. O primeiro integrou até
+  `26873ec`, com verificação pós-merge aprovada. O segundo retornou
+  `not_integrated` / `merge_conflict`. A ref de integração ficou em
+  `26873ec`, o leitor não despachou e nenhuma tentativa foi repetida.
+- **F-2/F-18, PASS:** status do registro histórico continua orientando
+  nova Execution com gate em Stage posterior. A negação de escrita do
+  sistema em estado isolado ainda retorna `local_permission_denied`,
+  com lista de Executions idêntica antes e depois.
+- **T08, PASS no build local:** as sessões nativas completaram
+  `minimal` r2, Claude `2ab5b180-1e84-486f-9717-7d81561d3a48` e
+  Codex `eb502bc8-be0c-4bac-9391-e861a30ccab2`. Os digests dos resultados
+  retidos coincidiram com o marcador esperado `AXM12-CANDIDATE-OK`
+  (Claude escreveu uma quebra de linha final). Claude registrou zero
+  recusas de permissão.
+- Validação do código em `204740d`: `go vet ./...`,
+  `go test -count=1 ./...`, testes direcionados do launcher e
+  `./scripts/validate-repository.sh .` passaram. Os processos de
+  inferência real acima complementam os testes sintéticos.
+- Seis invocações neste ciclo, 30 acumuladas. A execução de entrega
+  `2b269dfb-7c86-407a-9947-9070e4656246` segue em `review`, e o caso
+  de retrabalho `16f0eef1-22dc-4d7f-b09a-53907525c535` aguarda a
+  decisão humana sobre o resultado de `build`
+  `sha256:f255f88f7ed461f032197b8567846a276dddb21228e31763b636e0fb0326f48d`.
