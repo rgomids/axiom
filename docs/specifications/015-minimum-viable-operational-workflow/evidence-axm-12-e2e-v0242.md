@@ -120,6 +120,10 @@ permanecem pendentes.
 
 ## Ciclo 2 — permissões dos Runtimes e build local
 
+> Correção CORRECT-403-01: a afirmação histórica de autorização no parágrafo
+> abaixo não tem fonte primária localizada. Não comprova aceite da ADR-0039;
+> ver a investigação ao final. Resultados observados não suprem autoridade.
+
 O mantenedor autorizou o padrão de permissões irrestritas para Codex e Claude
 em todas as Stages de todos os Projects, registrado no
 [ADR-0039](../../decisions/0039-unrestricted-runtime-stage-processes.md).
@@ -221,3 +225,93 @@ iniciada separadamente usa as permissões selecionadas na sua abertura.
   Repositories, sem blockers. Push/PR do Axiom foram autorizados para
   revisão do código. Efeitos nos Repositories de teste seguem pendentes de
   autorização exata. Uma invocação adicional, 31 acumuladas.
+
+
+## CORRECT-403-01 — authority reconciliation
+
+Checkpoint: 2026-11-18 UTC; outcome **PARTIAL / HUMAN_DECISION_REQUIRED**.
+Initial local/remote HEAD `6e1dd7682f23ba9d60b101246c9f48a832502682`, branch
+`agent/axm-12-runtime-permissions`, base/main
+`2088df13a38243140ff94917eeeb45e2c2364dbd`. Fetch confirmed exact matches,
+clean tree, no additional remote commits; PR #403 open/draft, not merged.
+The existing prompt/dispatch is this attempt, not a second correction run.
+
+### Bounded investigation and findings
+
+Inspected all 74 available AXM-12 comments (pagination complete), its description,
+all 3 Issue #278 comments, PR #403 discussion/review and metadata, PR #382
+reviews, and versioned ADR-0039 history (`204740d`, sole introducing commit).
+Graphify was queried with backend `none` for the contract map, then the actual
+Spec 015, ADR-0037, ADR-0009, ADR-0039 and Evidence were read directly. The
+bounded search located no primary human act establishing actor/date and all of:
+Codex + Claude, writing + read-only Stages, every Project, and host access outside
+worktrees (filesystem, network and available credentials). Absence in these
+sources does not prove no decision exists elsewhere. No private conversation
+export or inaccessible source was assumed available or copied into the repo.
+
+- **CR-403-F2: OPEN / EVIDENCE_GAP.** ADR, commit authorship, PR text, passing
+  tests and the execution dispatch are not the missing human approval.
+- **CR-403-F1: OPEN / BLOCKED_BY_AUTHORITY.** Spec 015 non-goals and safety
+  requirements preserve target/write/message boundaries; ADR-0037 context and
+  decisions 5–6 retain real permission/target/effect checks and non-authorizing
+  messages. ADR-0039's process-level exception is not an accepted amendment.
+  Spec 015 and ADR-0037 were therefore not amended; Runtime code is unchanged.
+
+Public evidence: [binding review](https://github.com/rgomids/axiom/pull/403#pullrequestreview-5949116179),
+[Issue #278 checkpoints](https://github.com/rgomids/axiom/issues/278#issuecomment-6696032408),
+and [PR #382 re-review](https://github.com/rgomids/axiom/pull/382#pullrequestreview-5808695738).
+The latter preserves the no-write guard. Its separate D1 approval concerns only
+exact-grant delivery inspection without replay; it grants no global permissions.
+
+### Exact material decision required and proposed amendment
+
+The maintainer must either provide the permanent primary original approval
+(with actor, timestamp and exact scope), or make a new prospective decision on
+this concrete proposal; neither is implied by permission to run CORRECT:
+
+> Permit Codex and Claude Stage processes, including read-only Stages, in every
+> Project to run with vendor approvals/sandbox disabled and with their OS user's
+> filesystem, network and credential access outside the assigned worktree.
+> Axiom target/effect/gate checks govern only actions mediated by Axiom; direct
+> Runtime/subprocess effects are not confined by those checks. Where confinement
+> is required, use a dedicated OS identity or external isolation. Environment
+> filtering and a read-only Stage designation are not OS security boundaries.
+
+If approved, record the dated permanent decision on ADR-0039 and explicitly
+amend Spec 015's safety/target/write/message clauses and ADR-0037's preserved
+permission/target/effect clauses to distinguish Axiom-mediated operations from
+unconfined direct process effects. Annotate the affected ADR-0009 fragments and
+reconcile the ADR index. Keep frozen invocation/target identity, single-writer
+integration, cancellation, unknown-effect/no-replay rules, and all exact grants
+for Axiom-mediated operations. This paragraph is a proposal, not supersession.
+A narrower choice retains the accepted boundary and requires its own scoped
+implementation assessment; no unilateral launcher reversal was made here.
+
+### Verification and remaining work
+
+Documentation-only correction; no new runtime mechanisms, dependencies or flags.
+Local commands/results are recorded below and the completion receipt binds the
+published commit/remote SHA and CI observation. No real Runtime/E2E/vendor call,
+external product effect, merge, release or acceptance is authorized by this run.
+T11/T12/T14/T15 remain pending; historical test observations above are unchanged.
+Next gate: material decision/source, dependent normative reconciliation, re-review.
+
+Validation at initial HEAD `6e1dd7682f23ba9d60b101246c9f48a832502682`
+with this documentation diff applied (dirty development source):
+
+| Command/check | Result | Limits |
+| --- | --- | --- |
+| `python3 scripts/check-adr-governance.py .` | PASS | Structure only; F1/F2 remain open |
+| `./scripts/validate-repository.sh .` | PASS | Repository bootstrap, governance and sensitive-file checks |
+| `./scripts/test-docs-offline.sh` | FAIL then PASS after link correction | Initial relative ADR link was absent from installed corpus; replaced with public review link |
+| Offline qualification | PARTIAL | Linux arm64; native Runtimes and network/source denial NOT_RUN; pinned v1 installer UNVERIFIED |
+| `git diff --check` | PASS | Documentation whitespace |
+| Go suite / vet / real E2E | NOT_RUN | No Go changes; no real Runtime or product effects authorized |
+| Gitleaks | NOT_RUN | Executable unavailable; no dependency installed |
+
+The staged sensitive-file check and final remote identity are reported in the
+completion receipt. Prior CI PASS applies only to the initial HEAD; it is not
+claimed for this correction commit. Self-review against Axiom/Ponytail review
+discipline found no additional blocker in this documentation delta; unresolved
+F1/F2 still prevent technical acceptance of the overall PR. PR metadata was
+reconciled to remove the unverified global approval/checklist claim.

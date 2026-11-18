@@ -2,8 +2,17 @@
 
 ## Status
 
-Accepted 2026-11-17. The maintainer explicitly selected this default for every Stage in
-every Project during the AXM-12 follow-up.
+Proposed — acceptance unverified (CORRECT-403-01, 2026-11-18 UTC).
+Primary human authority for the global permission change was not located;
+CR-403-F2 remains EVIDENCE_GAP and CR-403-F1 remains blocked. See the
+[bounded investigation and decision gate](../specifications/015-minimum-viable-operational-workflow/evidence-axm-12-e2e-v0242.md#correct-403-01--authority-reconciliation).
+
+Historical status recorded in commit `204740d` (not proof of approval):
+> Accepted 2026-11-17. The maintainer explicitly selected this default for every Stage in
+> every Project during the AXM-12 follow-up.
+
+The text below describes the PR implementation and proposed decision. It does
+not amend accepted contracts or authorize operation pending the material gate.
 
 ## Context
 
@@ -42,8 +51,12 @@ Runtime processes must be prevented from reaching unrelated resources.
 Tool permission settings in an independently started operator session are
 configured when launching that session.
 
-## Supersedes
+## Proposed supersession (not effective)
 
 - [ADR-0009 — Parent/child Execution Graph](0009-parent-child-execution-graph.md#child-scope-authority-and-resolution)
   only the effect and credential ceiling as confinement of Codex and Claude
   Stage processes. Axiom's own target, authority, and validation checks remain.
+
+Spec 015 target/write/message boundaries and ADR-0037 decisions 5–6 also
+require explicit reconciliation if this proposal is accepted. No supersession
+is effective without a dated primary human decision and reciprocal annotations.

@@ -92,10 +92,11 @@ artifacts or retained Evidence, so an ADR is required before implementation.
    They are not copied into graph, coordination, prompt, artifact or Evidence
    content. A child gets only the minimum credential capability for its effects.
 
-> Superseded by [ADR-0039 — Unrestricted Runtime Stage processes](0039-unrestricted-runtime-stage-processes.md#decision), accepted 2026-11-17.
-> For Codex and Claude Stage processes, the effect and credential ceiling
-> governs Axiom-mediated actions only. The Runtime process runs with its
-> operating-system user's access.
+> Authority correction — CORRECT-403-01, 2026-11-18 UTC: the supersession
+> annotation added by `204740d` claimed ADR-0039 acceptance on 2026-11-17.
+> Its primary approval was not located. [ADR-0039](0039-unrestricted-runtime-stage-processes.md#status)
+> is Proposed; this effect/credential ceiling remains normative pending a
+> verified material decision. The PR implementation discrepancy remains open.
 
 ### Dependency, isolation and integration
 

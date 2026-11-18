@@ -202,6 +202,13 @@ The stage contract given to every child states this file shape (`replyTo` only
 on answers) and that an asker keeps polling until answered. A file of any other
 shape is skipped without a record.
 
+The PR implementation described below has an unresolved material-authority
+and contract gate; ADR-0039 is Proposed; see the [binding review](https://github.com/rgomids/axiom/pull/403#pullrequestreview-5949116179).
+This describes observed behavior, not an approved global operating policy.
+Read-only Stage effects do not provide OS isolation. Use a dedicated OS user
+or external filesystem/network isolation when confinement is required;
+filtering inherited environment variables does not provide that isolation.
+
 Axiom launches Codex and Claude Stage processes with vendor permission prompts
 and sandboxing disabled. This applies to writing and read-only Stages in every
 Project. The processes can access resources available to the operating-system
