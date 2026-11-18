@@ -91,6 +91,45 @@ These are required outcomes, **not** mandates for historical leases, epochs, rec
 - Unknown external mutations block blind automatic replay. Recovery reports what is known and the smallest safe action; it never promises exactly-once execution.
 - Push/PR/merge/release, destructive actions and material cost require applicable explicit authority. Existing bounded authority need not be requested again ceremonially; changes to the authorized target/effect require new authority.
 
+## Runtime process boundary — proposed amendment CORRECT-403-02
+
+**PROPOSTA PENDENTE DE ACEITE; NOT EFFECTIVE while
+[ADR-0039](../../decisions/0039-unrestricted-runtime-stage-processes.md#status)
+is Proposed.** The historical correction-04 status above is preserved; its
+accepted contract is recorded by ADR-0037. The
+[2026-11-17 prospective authority](https://linear.app/rgomids/issue/AXM-12#comment-4ce47d42)
+authorizes drafting this amendment, not accepting unrestricted permissions.
+
+Affected clauses: Non-goals target-boundary bullet; Architecture target's
+paragraph requiring effect-bound enforcement; Normal operation 4/6 and its
+permission/validation-command paragraphs; Parallel work and integration;
+Safety proof obligations bullets 2/6; Acceptance's negative-test denial clause.
+Proposed interpretation/replacement only for their process-confinement meaning:
+
+- Axiom-mediated writes, messages, grants, effects, validation commands,
+  external delivery and recovery MUST retain exact repository/attempt targets
+  and applicable action authority. Agent output, messages, stale state and
+  Runtime launch permission never expand that authority. Unknown effects still
+  block blind replay. These checks remain required and testable.
+- Direct Runtime/OS subprocess effects are outside that enforcement boundary.
+  The PR launcher requests `--dangerously-bypass-approvals-and-sandbox` for
+  Codex and `--dangerously-skip-permissions` for Claude, including read-only
+  Stages in all Projects. They allow access available to the host OS user,
+  including other directories, network resources and credentials. This is an
+  observed PR behavior awaiting material acceptance, not an accepted default
+  or authorization for those direct effects.
+- `RepositoryWrite=false`, read-only, Effect envelopes, worktrees and filtered
+  environment variables are not OS isolation. `danger-full-access` is not a
+  permanent mitigation. If confinement is required, an appropriately restricted
+  dedicated host/user or real external sandbox must enforce it; dedicated users
+  alone do not exclude shared readable resources or network access. Residual
+  host access must be assessed before operation.
+
+All remaining requirements, including secret protection, immutable invocation,
+Execution ownership, cancellation limits, fencing, integration and truthful
+unknown-effect Evidence, remain in force. This proposal does not close F1's
+material gate, approve the global policy or establish implementation acceptance.
+
 ## Acceptance
 
 ### Specify completion (this correction)

@@ -97,6 +97,10 @@ artifacts or retained Evidence, so an ADR is required before implementation.
 > Its primary approval was not located. [ADR-0039](0039-unrestricted-runtime-stage-processes.md#status)
 > is Proposed; this effect/credential ceiling remains normative pending a
 > verified material decision. The PR implementation discrepancy remains open.
+> CORRECT-403-02: [the proposed amendment](0039-unrestricted-runtime-stage-processes.md#proposed-supersession-not-effective)
+> covers decisions 6–7 and 9 only for direct process effect/credential
+> confinement; exact Axiom-mediated authority and credential non-copying remain.
+> Reconciliation drafting is authorized prospectively, not material acceptance.
 
 ### Dependency, isolation and integration
 

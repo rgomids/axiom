@@ -315,3 +315,79 @@ claimed for this correction commit. Self-review against Axiom/Ponytail review
 discipline found no additional blocker in this documentation delta; unresolved
 F1/F2 still prevent technical acceptance of the overall PR. PR metadata was
 reconciled to remove the unverified global approval/checklist claim.
+
+## CORRECT-403-02 — proposed normative reconciliation
+
+This session executes [dispatch 110019cf](https://linear.app/rgomids/issue/AXM-12#comment-110019cf)
+and [prompt c445908d](https://linear.app/rgomids/issue/AXM-12#comment-c445908d).
+The earlier [ownership checkpoint](https://linear.app/rgomids/issue/AXM-12#comment-ed6052e8)
+made no changes; the operator explicitly confirmed this session owns that dispatch.
+Preflight fetched origin: clean canonical worktree, branch
+`agent/axm-12-runtime-permissions`, local/remote/PR HEAD
+`45c597b1f0736757f550c0a558b386884065e741`, base/main
+`2088df13a38243140ff94917eeeb45e2c2364dbd`, PR open/Draft, not merged.
+Linear read-back verified prior receipt, prompt, dispatch and the
+[prospective authority of 2026-11-17 23:35 BRT](https://linear.app/rgomids/issue/AXM-12#comment-4ce47d42).
+No other execution completion was present in the retrieved comments.
+
+- **F1: DOCUMENTED_PROPOSED / AWAITING_MATERIAL_ACCEPTANCE.** ADR-0039's
+  proposed-supersession map now names Spec 015's affected target/effect clauses,
+  ADR-0037 Context/Decision 5 with Decision 6 retained, and ADR-0009 decisions
+  6–7/9 solely for direct process confinement. Spec 015 has an explicit pending
+  amendment; reciprocal ADR annotations preserve historical text and Accepted
+  statuses. The index retains Proposed. No effective supersession is claimed.
+- **F2: OPEN / EVIDENCE_GAP; ORIGINAL_APPROVAL_NOT_FOUND** remains the factual
+  result of CORRECT-403-01's bounded investigation, not a newly exhaustive
+  search. **PROSPECTIVE_RECONCILIATION_AUTHORITY_VERIFIED** authorizes drafting
+  these proposals only. No global historical or prospective material approval,
+  decision.approved event or promotion of ADR-0039 was inferred.
+
+Security review inspected `internal/runtimeadapter/stage_invocation.go` at the
+initial HEAD: both vendor flags are unconditional for Codex/Claude; the
+`RepositoryWrite=false` branches change CWD/arguments, not OS privileges.
+`StageEnvironment` drops unlisted environment entries but retains host context;
+it cannot prevent reading credential files, other directories or network access
+available to that user. Documentation now states those limits and that
+`danger-full-access` is not a permanent mitigation. A required boundary needs
+an appropriately restricted host/user or real external sandbox; identity alone
+is insufficient for shared readable resources/network. No isolation was tested
+or newly supplied by this documentation change.
+
+TECHNICAL_LOCAL decision: use pending amendments and reciprocal navigation,
+rather than changing the launcher or accepted historical clauses. Rationale:
+this is the smallest complete documentary proposal within the authorization;
+Runtime hardening/reversal requires a separate material scope assessment.
+Validation: ADR governance, repository and documentation checks plus diff review.
+No new optional finding or mechanism was introduced; deferred_findings is empty.
+UX/design: NOT_APPLICABLE. Project/Repository, Runtime/Model, Execution/Agent,
+Provider/Transport and Evidence/conversation boundaries remain unchanged.
+
+Documentary reconciliation is completed as a proposal; the existing launcher
+remains on this unmerged PR, with material policy acceptance and implementation
+integration into main still pending. The semantic conflict is documented, not
+waived or resolved by structural checks. Exact mediated grants/messages/effects,
+external delivery, recovery, cancellation, fencing and no replay remain required.
+No additional blocker was identified in the documentary delta during scoped
+Axiom/Ponytail self-review. This does not clear overall PR technical acceptance.
+
+Validation runs on Linux aarch64, Python 3.12.3, at the initial HEAD plus this
+uncommitted documentation delta. Final commit/remote SHA, CI and receipt read-back
+are bound by the completion receipt on the same AXM-12; no self-referential SHA
+is fabricated here.
+
+| Command/check | Result | Limits |
+| --- | --- | --- |
+| `python3 scripts/check-adr-governance.py .` | PASS | 40 ADRs; structural only, no material acceptance |
+| `./scripts/test-docs-offline.sh` | PASS | Linux arm64; local archive/install, 26 corpus files, link/hash/refusal checks |
+| Offline qualification | PARTIAL | Network/source denial and native Runtime observation NOT_RUN; pinned v1 installer UNVERIFIED |
+| `git diff --check` | PASS | Documentation whitespace |
+| Go suite / vet / real E2E / T11/T12/T14/T15 | NOT_RUN | No Go changes; vendor/product tests outside this round |
+| Gitleaks | NOT_RUN | Executable unavailable; not installed |
+
+`./scripts/validate-repository.sh .`: PASS (bootstrap, ADR/automation governance,
+maintainer harness and sensitive-file checks); Runtime behavioral scenarios
+explicitly skipped/UNVERIFIED. `./scripts/check-sensitive-files.sh --staged .`:
+PASS before commit after inspecting all six staged documentation paths/content.
+Next gate: re-review AFTER completion receipt, then a separate explicit material
+human policy gate. No cr-run, Runtime inference, merge, release, external product
+delivery or AXM-12/#278/R-2/R-3/MVP acceptance was performed.
