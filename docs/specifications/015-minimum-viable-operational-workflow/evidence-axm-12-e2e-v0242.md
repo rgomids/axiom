@@ -200,3 +200,24 @@ iniciada separadamente usa as permissões selecionadas na sua abertura.
   de retrabalho `16f0eef1-22dc-4d7f-b09a-53907525c535` aguarda a
   decisão humana sobre o resultado de `build`
   `sha256:f255f88f7ed461f032197b8567846a276dddb21228e31763b636e0fb0326f48d`.
+
+## Decisões do mantenedor após o ciclo 3
+
+- **T11:** o mantenedor pediu conservar o resultado útil no Draft PR.
+  A resposta correlacionada confere com a implementação de `FormatLabel`
+  no commit `c05e1b9`: entrada vazia retorna `[]` e `  go ` retorna
+  `[GO]`. O resultado fica como Evidence de colaboração. Permanece
+  pendente o exercício de rejeição e retrabalho.
+- **T14:** o mantenedor manteve a meta de arquivos pendente e autorizou
+  enviar um Draft PR para revisão com essa limitação registrada.
+- **T12:** o mantenedor autorizou abrir `review` de
+  `2b269dfb-7c86-407a-9947-9070e4656246`. A aprovação foi registrada.
+  A primeira chamada recusou o dispatch com `commands_unauthorized`;
+  o read-back confirmou a Execution em `ready`, com zero tentativas de
+  review. A retomada com a autoridade dos checks já autorizados completou
+  o review com Codex, tentativa `18eb7aee-b875-49df-9bc7-9dc3ed941965`,
+  e levou a Execution a `completed` (rev. 34). A consulta
+  `workflow delivery packet` retornou `ready: true` para ambos os
+  Repositories, sem blockers. Push/PR do Axiom foram autorizados para
+  revisão do código. Efeitos nos Repositories de teste seguem pendentes de
+  autorização exata. Uma invocação adicional, 31 acumuladas.
