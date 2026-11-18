@@ -391,3 +391,93 @@ PASS before commit after inspecting all six staged documentation paths/content.
 Next gate: re-review AFTER completion receipt, then a separate explicit material
 human policy gate. No cr-run, Runtime inference, merge, release, external product
 delivery or AXM-12/#278/R-2/R-3/MVP acceptance was performed.
+
+## CORRECT-403-03 — effective normative reconciliation
+
+This execution owns [dispatch 3b5e0215](https://linear.app/rgomids/issue/AXM-12#comment-3b5e0215)
+and [prompt f01d4723](https://linear.app/rgomids/issue/AXM-12#comment-f01d4723),
+receipt `AXM-12:f01d4723-03e9-4f5e-b5fc-f60aeef4e9a0`. The operator explicitly
+confirmed ownership; [3e93a340](https://linear.app/rgomids/issue/AXM-12#comment-3e93a340)
+was a false ownership-block receipt with no implementation, not a completion.
+API journal read-back returned hasNextPage=false, with no other completion of
+this attempt. Fetch confirmed origin `https://github.com/rgomids/axiom.git`,
+clean worktree `/home/grokbot/axiom-wt/axm-12-403` owned by executor grokbot,
+branch `agent/axm-12-runtime-permissions`, local/remote/PR HEAD
+`77e79134bab49dbbdc43cefe2710c33dbd026133`, base/main
+`2088df13a38243140ff94917eeeb45e2c2364dbd`, PR open/Draft and not merged.
+
+Two distinct human acts were verified through the Linear API:
+
+- [2026-11-18 12:04 BRT material policy approval](https://linear.app/rgomids/issue/AXM-12#comment-343815d4):
+  all Stages, including read-only, Codex and Claude, all Projects, with awareness
+  of filesystem, network and credential access outside the worktree.
+- [2026-11-18 12:11 BRT formal ADR acceptance](https://linear.app/rgomids/issue/AXM-12#comment-49d0899e):
+  ADR-0039 may become Accepted and the bounded normative reconciliation effective.
+
+The authorization gap is now supplied prospectively. **ORIGINAL_APPROVAL_NOT_FOUND**
+remains the historical investigation result; no original 2026-11-17 approval or
+retroactive decision is fabricated. CORRECT-403-01/02 above describe their own
+historical rounds, not the current normative status. No PR approval, merge,
+release, external product delivery or AXM-12/#278/MVP acceptance follows.
+
+ADR-0039 is now **Accepted**, dated exactly 2026-11-18 12:11 BRT. Its `Supersedes`
+section and reciprocal ADR-0018 annotations make the partial supersession
+explicit and effective. ADR-0037 and ADR-0009 remain Accepted otherwise.
+
+| Artifact / clauses | Effective reconciliation |
+| --- | --- |
+| Spec 015 Non-goals; Architecture effect paragraph; Normal operation 4/6 and permission/validation paragraphs; Parallel work; Safety bullets 2/6; Acceptance negative denial tests | Target/effect/permission enforcement guarantees apply to Axiom-mediated actions, not direct Runtime subprocess confinement |
+| ADR-0037 Context and Decision 5 | In-place partial-supersession notes; historical text retained; Decision 6's authenticated bounded messages still grant no authority |
+| ADR-0009 decisions 6–7/9 | Only direct process effect/credential confinement implication superseded; child authority, mediated scope, validation and credential non-copying retained |
+| ADR index and operational Workflow guide | Accepted status, effective relationships and host-access limits reconciled |
+
+Exact mediated grants, messages, validation commands, integration, external
+delivery, Execution ownership/state, cancellation, fencing, unknown effects
+and no blind replay remain required. No Runtime code changed: inspection of
+`internal/runtimeadapter/stage_invocation.go` confirmed both vendor flags are
+unconditional, including `RepositoryWrite=false`; only working directory and
+related arguments differ. Environment filtering does not prevent host-file
+credential access. cwd/inbox, worktrees, read-only labels and Effect envelopes
+are not OS isolation. `danger-full-access` is not a permanent mitigation.
+Confinement requires appropriately limited host/user access or a real external
+sandbox; a dedicated user alone does not block network or shared readable files.
+
+**CR-403-F1 / CR-403-F2: CANDIDATE_RESOLVED / PENDING_REVIEW.** The normative
+contradiction and prospective authority gap have been addressed in this delta;
+only subsequent re-review can close the findings. Scoped self-inspection used
+Axiom documentation and Ponytail review discipline, preserving accepted ADR
+history and all non-superseded obligations. Structural PASS is not normative,
+implementation or product acceptance. Design/UX: NOT_APPLICABLE.
+
+TECHNICAL_LOCAL: use the existing ADR-0039 and bounded in-place annotations,
+rather than new mechanisms or launcher changes. This is the smallest change
+matching the two verified human acts. No additional product/architecture scope
+is adopted. Project != Repository, Runtime != Model, Execution != Agent,
+Provider != Transport, Integration != MCP, Evidence != conversation remain.
+
+Validation on Linux aarch64, `/usr/bin/python3` 3.12.3, Git 2.43.0; initial HEAD
+plus documentary delta. Final commit, verified remote SHA, push, new-SHA CI,
+PR metadata and callback read-back are bound in the same AXM-12 completion
+receipt to avoid a self-referential commit SHA here.
+
+| Command/check | Result | Scope / limitations |
+| --- | --- | --- |
+| `python3 scripts/check-adr-governance.py .` | PASS | 40 ADRs; status/date, headings, reciprocal annotations/backlinks and index |
+| `./scripts/validate-repository.sh .` | PASS | Bootstrap, harness, ADR/automation governance and sensitive-file checks; Runtime behavioral scenarios explicitly SKIP/UNVERIFIED |
+| `./scripts/test-docs-offline.sh` | FAIL | Archive/install and 26-file corpus/link/hash verification succeeded; extra-output refused; swapped-content expected `documentary inventory mismatch`, observed `release metadata schema mismatch`; later scenarios did not run |
+| Native/offline qualification | NOT_RUN / UNVERIFIED | No network/source denial or native Runtime observation; pinned v1 installer unavailable (UNVERIFIED) |
+| Go tests / vet / staticcheck | NOT_RUN | No Go change or demonstrated need; docs check internally builds its verifier/archive |
+| Gitleaks | NOT_RUN | Executable unavailable; no dependency installed |
+| Real inference / E2E / T11/T12/T14/T15 / R-2/R-3 | NOT_RUN | Outside this correction; historical Evidence preserved; acceptance still pending |
+
+Deferred finding DOCS-OFFLINE-REFUSAL: the swapped-content fixture receives a
+different refusal category than expected. Installer/script changes are outside
+this normative correction; cause is not established, and no PASS or baseline
+regression claim is made. Surface this limitation at pre-merge. No synthetic
+result substitutes for required native acceptance. Next gate: re-review only
+after the completion receipt; no cr-run/re-review or continuation was executed.
+
+`git diff --check` and `git diff --cached --check`: PASS. All seven staged
+Markdown paths/content were inspected; `./scripts/check-sensitive-files.sh --staged .`:
+PASS before commit. Cross-references and affected headings/index were inspected;
+no Go, configuration, fixture or Runtime file changed.

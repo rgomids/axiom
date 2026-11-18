@@ -2,24 +2,26 @@
 
 ## Status
 
-Proposed — acceptance unverified (CORRECT-403-01, 2026-11-18 UTC).
-Primary human authority for the global permission change was not located;
-CR-403-F2 remains EVIDENCE_GAP; CR-403-F1 is DOCUMENTED_PROPOSED /
-AWAITING_MATERIAL_ACCEPTANCE after CORRECT-403-02. See the
-[bounded investigation and decision gate](../specifications/015-minimum-viable-operational-workflow/evidence-axm-12-e2e-v0242.md#correct-403-01--authority-reconciliation).
+Accepted on 2026-11-18 at 12:11 BRT by Rafael's
+[formal ADR acceptance](https://linear.app/rgomids/issue/AXM-12#comment-49d0899e).
+The separate [material policy approval](https://linear.app/rgomids/issue/AXM-12#comment-343815d4)
+at 12:04 BRT covers Codex and Claude, writing and read-only Stages, all Projects,
+with awareness of host-user filesystem, network and credential access outside
+worktrees. This is prospective authority, not PR approval, merge, release,
+external delivery or AXM-12/#278/MVP acceptance.
 
-The [prospective reconciliation authority](https://linear.app/rgomids/issue/AXM-12#comment-4ce47d42)
-records permission to prepare these amendments on 2026-11-17 at 23:35 BRT.
-It does not verify the original global approval or accept this material policy.
-Original approval: ORIGINAL_APPROVAL_NOT_FOUND; prospective authority:
-PROSPECTIVE_RECONCILIATION_AUTHORITY_VERIFIED. No retroactive decision.approved.
+CORRECT-403-01 found no original approval: ORIGINAL_APPROVAL_NOT_FOUND remains
+historical fact. The [2026-11-17 drafting authority](https://linear.app/rgomids/issue/AXM-12#comment-4ce47d42)
+only authorized proposals. CORRECT-403-02 prepared the bounded amendment below;
+CORRECT-403-03 makes it effective under the two decisions above. No retroactive
+decision.approved is claimed. See the
+[authority investigation](../specifications/015-minimum-viable-operational-workflow/evidence-axm-12-e2e-v0242.md#correct-403-01--authority-reconciliation).
 
 Historical status recorded in commit `204740d` (**UNVERIFIED**, not proof of approval):
 > Accepted 2026-11-17. The maintainer explicitly selected this default for every Stage in
 > every Project during the AXM-12 follow-up.
 
-The text below describes the PR implementation and proposed decision. It does
-not amend accepted contracts or authorize operation pending the material gate.
+The decision below is effective prospectively within the stated scope.
 
 ## Context
 
@@ -63,17 +65,15 @@ filtering, write other directories and use the host user's network access.
 Where a boundary is required, use a dedicated host/OS user with access limited
 to the authorized resources, or a real external sandbox enforcing that boundary.
 A dedicated identity alone does not isolate network or shared readable files;
-residual access must be assessed operationally. This proposal accepts no global
-default today; the existing PR launcher discrepancy remains pending the gate.
+residual access must be assessed operationally.
 Tool permission settings in an independently started operator session are
 configured when launching that session.
 
-## Proposed supersession (not effective)
+## Supersedes
 
-PROPOSTA PENDENTE DE ACEITE — no accepted requirement is superseded while this
-ADR is Proposed. The reciprocal notes identify only these affected fragments:
+Effective on acceptance, only these fragments are partially superseded:
 
-- [Spec 015](../specifications/015-minimum-viable-operational-workflow/spec.md#runtime-process-boundary--proposed-amendment-correct-403-02):
+- [Spec 015](../specifications/015-minimum-viable-operational-workflow/spec.md#runtime-process-boundary--accepted-amendment-correct-403-03):
   Non-goals target-boundary bullet; Architecture target effect-bound enforcement
   paragraph; Normal operation items 4 and 6 and permission/validation-command
   paragraphs; Parallel work and integration; Safety proof obligations bullets 2
@@ -87,13 +87,10 @@ ADR is Proposed. The reciprocal notes identify only these affected fragments:
 - [ADR-0009](0009-parent-child-execution-graph.md#child-scope-authority-and-resolution):
   decisions 6–7 and 9 only insofar as effect/credential ceilings imply direct
   Codex/Claude process confinement. Credential non-copying, exact mediated
-  authority and validation remain mandatory. Its existing authority-correction
-  annotation keeps this discrepancy open; no new effective supersession.
+  authority and validation remain mandatory.
 
 Frozen invocation/target identity, Execution ownership, cancellation limits,
 single-writer fencing, integration, unknown-effect recovery/no blind replay,
 exact grants, messages and external delivery checks remain unchanged.
-A dated explicit human material acceptance of the global scope and host-access
-risk is required before effective supersession, ADR-0018 annotations/index
-reconciliation and implementation acceptance. Documentary reconciliation is
-complete as a proposal; material acceptance and integration into main are not.
+The two human decisions above supply prospective material and formal authority.
+Structural validation does not establish implementation or product acceptance.

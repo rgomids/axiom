@@ -22,6 +22,12 @@ requires deleting these rather than hiding them, while preserving the proven
 safety outcomes: exact target/effect authority, single-writer fencing,
 process-identity safeguards, truthful unknown effects and no blind replay.
 
+> Superseded by [ADR-0039 — Unrestricted Runtime Stage processes](0039-unrestricted-runtime-stage-processes.md#decision), accepted 2026-11-18.
+> Only the direct Codex/Claude process-confinement implication is superseded;
+> exact Axiom-mediated permission, target and effect checks remain mandatory.
+> Historical text is preserved; Execution ownership, state, cancellation, fencing,
+> unknown effects/no blind replay and external delivery authority remain in force.
+
 ## Decision
 
 For **new** workflow runs:
@@ -55,6 +61,13 @@ For **new** workflow runs:
    authentication/compatibility preflight and no capability/complexity
    selection; vendor, spawn and auth errors are observed attempt failures.
    Real permission, target and effect checks remain.
+
+> Superseded by [ADR-0039 — Unrestricted Runtime Stage processes](0039-unrestricted-runtime-stage-processes.md#decision), accepted 2026-11-18.
+> Only the direct Codex/Claude process-confinement implication is superseded;
+> exact Axiom-mediated permission, target and effect checks remain mandatory.
+> Historical text is preserved; Execution ownership, state, cancellation, fencing,
+> unknown effects/no blind replay and external delivery authority remain in force.
+
 6. **Messages.** One private attempt-owned ingress carries bounded
    question/answer/blocker/result facts bound to launcher-issued attempt
    context and runner generation. Messages never grant authority.
@@ -62,20 +75,6 @@ For **new** workflow runs:
    cutover. No migration, conversion, old-attempt resume or active legacy
    engine. Raw old state is preserved as inert backup where feasible;
    active/unknown legacy attempts are stopped safely or the cutover is BLOCKED.
-
-> Prospective amendment — CORRECT-403-02 (not effective):
-> [ADR-0039](0039-unrestricted-runtime-stage-processes.md#proposed-supersession-not-effective)
-> proposes limiting Context's exact target/effect authority and Decision 5's
-> real permission/target/effect enforcement guarantee to Axiom-mediated actions,
-> as detailed in the [Spec 015 proposal](../specifications/015-minimum-viable-operational-workflow/spec.md#runtime-process-boundary--proposed-amendment-correct-403-02).
-> Decision 6 still authenticates bounded messages; messages never grant authority.
-> Direct Codex/Claude subprocess effects under the PR's unrestricted flags have
-> host-user access, not confinement by Axiom checks. The 2026-11-17
-> [authority to reconcile](https://linear.app/rgomids/issue/AXM-12#comment-4ce47d42)
-> does not accept that material policy. ADR-0039 remains Proposed; this ADR
-> remains Accepted and effective, with no new supersession. Execution ownership,
-> cancellation, fencing, unknown effects/no replay and exact Axiom-mediated
-> authority (including external delivery) are preserved in full.
 
 ## Supersedes
 
