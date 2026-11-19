@@ -14,10 +14,10 @@ import (
 
 type effortStagePaths struct{ workspace, inbox, axiom string }
 
-func (f *effortInspectorFixture) stagePaths(t *testing.T, paths effortStagePaths, write, process bool) {
+func (f *effortInspectorFixture) stagePaths(t *testing.T, paths effortStagePaths, write bool) {
 	t.Helper()
 	request := f.stage
-	request.Workspace, request.Inbox, request.AxiomPath, request.RepositoryWrite, request.Process = paths.workspace, paths.inbox, paths.axiom, write, process
+	request.Workspace, request.Inbox, request.AxiomPath, request.RepositoryWrite = paths.workspace, paths.inbox, paths.axiom, write
 	inv, err := BuildStageInvocation(request)
 	if err != nil {
 		t.Fatalf("stage invocation %+v: %v", paths, err)
@@ -49,22 +49,20 @@ func TestEffortSourcesPathSpellingIsNotOverride(t *testing.T) {
 	for _, id := range []string{"codex", "claude"} {
 		for effortName, explicit := range map[string]bool{"explicit": true, "runtime-default": false} {
 			for _, write := range []bool{false, true} {
-				for _, process := range []bool{false, true} {
-					f := newExplicitEffortInspectorFixture(t, id, explicit)
-					f.stagePaths(t, neutral, write, process)
-					want, err := f.digest()
-					if err != nil {
-						t.Fatalf("%s/%s write=%v process=%v neutral baseline refused: %v", id, effortName, write, process, err)
-					}
-					// The real temporary root carries this test's name ("Effort").
-					cases["temp-root"] = effortStagePaths{filepath.Join(f.base, "work"), filepath.Join(f.base, "inbox"), filepath.Join(f.base, "bin", "axiom")}
-					for name, paths := range cases {
-						f.stagePaths(t, paths, write, process)
-						got, err := f.digest()
-						// Stage paths are not digest facts: the digest is unchanged.
-						if err != nil || got != want {
-							t.Fatalf("%s/%s write=%v process=%v %s: digest %q err %v, want %q", id, effortName, write, process, name, got, err, want)
-						}
+				f := newExplicitEffortInspectorFixture(t, id, explicit)
+				f.stagePaths(t, neutral, write)
+				want, err := f.digest()
+				if err != nil {
+					t.Fatalf("%s/%s write=%v neutral baseline refused: %v", id, effortName, write, err)
+				}
+				// The real temporary root carries this test's name ("Effort").
+				cases["temp-root"] = effortStagePaths{filepath.Join(f.base, "work"), filepath.Join(f.base, "inbox"), filepath.Join(f.base, "bin", "axiom")}
+				for name, paths := range cases {
+					f.stagePaths(t, paths, write)
+					got, err := f.digest()
+					// Stage paths are not digest facts: the digest is unchanged.
+					if err != nil || got != want {
+						t.Fatalf("%s/%s write=%v %s: digest %q err %v, want %q", id, effortName, write, name, got, err, want)
 					}
 				}
 			}
@@ -127,7 +125,7 @@ func TestEffortSourcesOverridesStillRefusedUnderEffortPaths(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.id+"/"+c.name, func(t *testing.T) {
 			f := newExplicitEffortInspectorFixture(t, c.id, true)
-			f.stagePaths(t, paths, true, false)
+			f.stagePaths(t, paths, true)
 			if _, err := f.digest(); err != nil {
 				t.Fatalf("effort-named stage baseline refused: %v", err)
 			}

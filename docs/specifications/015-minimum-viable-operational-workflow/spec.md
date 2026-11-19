@@ -3,7 +3,8 @@
 > **Implementation reconciliation (S3.4).** The dated planning/status language
 > below is preserved. Subsequent scoped authority and implementation are recorded
 > in the [S3.4 report](implementation-s3-04.md) and [final union inventory](deletion-s3-04.json).
-> The approved contract and non-goals remain unchanged; S3.5/final review and
+> The approved contract is amended only by the accepted Runtime process boundary
+> below; S3.5/final review and
 > later manual acceptance are not performed or authorized by this note.
 
 Status: **Proposed — correction-04**. Specification + Research only; no implementation authority or architecture acceptance.
@@ -27,7 +28,7 @@ A mechanism may survive only with evidence of its distinct Axiom-owned invariant
 - No implementation, new ADR, accepted-record rewrite, new Work Item/PR, merge, release or live inference in this correction.
 - No model capability certification, predicted vendor compatibility or code-quality guarantee; no universal preflight/test battery for the MVP.
 - No plugin framework, new infrastructure or distributed orchestration guarantees.
-- No loss of authorized target boundaries, secret protection, real process cancellation, uncertain-effect visibility or material-effect authorization.
+- No loss of Axiom-mediated authorized target boundaries, secret protection, real process cancellation, uncertain-effect visibility or material-effect authorization.
 - No historical Execution migration/conversion, old-attempt resume, active legacy engine, conversion service or required historical-reader UI.
 
 ## Architecture target (Proposed)
@@ -43,7 +44,7 @@ Use these responsibilities with the fewest representations; the names below do n
 | Agent attempt | Nested Execution identity/status/process correlation and confirmed/unknown effects, rather than another independently versioned lifecycle/store |
 | Messages and artifacts | Attempt-owned message log and artifact references associated with Execution; content is not authority and does not require duplicate graph/coordination objects |
 
-Each Workflow stage MUST explicitly support one or more agents, each with configurable Runtime, model, reasoning effort and instructions. Parallel subagents are REQUIRED functionality. Profiles are optional reusable inputs; Axiom never selects a best model automatically by capability or complexity. Workflow stages and agent definitions drive dispatch directly. A transient in-memory schedule may resolve dependencies; no independently persisted Stage Plan, graph proposal lifecycle, Validator Policy or replacement Project-default policy object is required. Keep only authorized effect bounds at their owner and enforce them at dispatch/effect boundaries without duplicating policy objects.
+Each Workflow stage MUST explicitly support one or more agents, each with configurable Runtime, model, reasoning effort and instructions. Parallel subagents are REQUIRED functionality. Profiles are optional reusable inputs; Axiom never selects a best model automatically by capability or complexity. Workflow stages and agent definitions drive dispatch directly. A transient in-memory schedule may resolve dependencies; no independently persisted Stage Plan, graph proposal lifecycle, Validator Policy or replacement Project-default policy object is required. Keep only authorized effect bounds at their owner and enforce them at Axiom-mediated dispatch/effect boundaries without duplicating policy objects.
 
 New single-agent and multi-agent starts MUST use the same Execution state model and scheduler path. Do not fabricate graph children for a single agent. Delete the redundant ledger/store/codec paths at the safe breaking cutover; merely making them private fails this specification. Exact encoding and transaction primitives are reversible Plan choices if they meet these contracts.
 
@@ -52,13 +53,13 @@ New single-agent and multi-agent starts MUST use the same Execution state model 
 1. Configure Project repositories, Workflow and local Runtime target once; resolve unambiguous defaults or ask for a missing user selection. Do not mandate a Profile generation, complexity taxonomy or model/effort capability catalogue.
 2. From a Work Item, **one run action** resolves current Axiom-owned inputs/authority and starts an attempt. Internal atomic publication/concurrency protection replaces repeated public preview/apply/digest/expected-revision checkpoints. Optional inspection must not become another run prerequisite.
 3. Observe real process/output/error facts; make eligible successors runnable automatically. The ready default needs only a work stage and completion outcome; additional stages/gates must serve configured work or actual authority. Full SDD remains selectable.
-4. Exchange attempt-owned messages between Codex and Claude through one channel. Authenticate sender/recipient scope at process boundaries; no repeated grant/receipt ceremony for each message or intermediate handoff object. Messages never grant permissions or satisfy human gates.
+4. Exchange attempt-owned messages between Codex and Claude through one channel. Authenticate sender/recipient scope at the Axiom message-ingress boundary; no repeated grant/receipt ceremony for each message or intermediate handoff object. Messages never grant permissions or satisfy human gates.
 5. Show state, logs, artifact references, confirmed effects, unknown effects and next safe action. Exit zero or an agent assertion alone does not prove stage completion or human acceptance.
-6. Expose one delivery/rework path over Execution results and review findings. Remove independent Packet/Publication/Decision/Rework lifecycle prerequisites. Record actual authorization and observed push/PR results in Execution; rejection preserves prior evidence and links subsequent work without another public object ceremony. No silent merge, release or Work Item closure.
+6. Expose one delivery/rework path over Execution results and review findings. Remove independent Packet/Publication/Decision/Rework lifecycle prerequisites. Require exact authority for Axiom-mediated delivery and record actual authorization and observed push/PR results in Execution; rejection preserves prior evidence and links subsequent work without another public object ceremony. No silent merge, release or Work Item closure.
 
-Axiom validates its own input identity, repository targets and real permissions. User-selected Runtime restrictions are intent, never vendor capability certification. Vendor authentication, model/effort rejection, unavailable executable or other spawn/vendor errors must produce actionable observed diagnostics during the authorized attempt; no mandatory compatibility/auth probe before normal dispatch. Do not claim external sandbox, network or vendor behavior is guaranteed.
+Axiom validates its own input identity, repository targets and real permissions for Axiom-mediated actions; these checks do not confine direct Runtime subprocesses. User-selected Runtime restrictions are intent, never vendor capability certification. Vendor authentication, model/effort rejection, unavailable executable or other spawn/vendor errors must produce actionable observed diagnostics during the authorized attempt; no mandatory compatibility/auth probe before normal dispatch. Do not claim external sandbox, network or vendor behavior is guaranteed.
 
-Optional stage-defined validation commands may run only with authority for their actual effects. They provide concrete output checks without an independent Policy publisher/store/digest. A stage without such commands must not require a placeholder Policy.
+Axiom-mediated optional stage-defined validation commands may run only with authority for their actual effects. They provide concrete output checks without an independent Policy publisher/store/digest. A stage without such commands must not require a placeholder Policy.
 
 Work Item linking remains the normal traceability path. A provider-free local identity is not required: justify a concrete blocked use case and reconcile existing identity contracts before adopting it. Resolve the research gap in S1; do not build speculative provider orchestration.
 
@@ -78,18 +79,59 @@ Alternatives: sole Profile ownership preserves ADR-0024 but requires extra Profi
 
 ## Parallel work and integration
 
-For two or more agents editing the same Repository, recommend an isolated Git Worktree and independent branch per agent. The principal Orchestrator owns the integration branch, serializes cherry-picks/merges, resolves conflicts explicitly, runs post-merge checks and records final integration status before marking work integrated. Worktrees do not guarantee conflict-free merges or protect shared external state. Preserve aggregate CAS, runner fencing, attempt correlation and effect authorization across parallel work. This adds no Git management subsystem or delivery slice.
+For two or more agents editing the same Repository, recommend an isolated Git Worktree and independent branch per agent. The principal Orchestrator owns the integration branch, serializes cherry-picks/merges, resolves conflicts explicitly, runs post-merge checks and records final integration status before marking work integrated. Worktrees do not guarantee conflict-free merges or protect shared external state. Preserve aggregate CAS, runner fencing, attempt correlation and Axiom-mediated effect authorization across parallel work. This adds no Git management subsystem or delivery slice.
 
 ## Safety proof obligations
 
 These are required outcomes, **not** mandates for historical leases, epochs, receipts or separate reconcile entities:
 
 - Portable configuration, logs, messages and artifact references expose no secrets.
-- Writes and messages cannot escape the authorized repository/attempt targets; authorization cannot be expanded by agent output or stale state.
+- Axiom-mediated writes and messages cannot escape the authorized repository/attempt targets; authorization cannot be expanded by agent output or stale state.
 - Stop/cancel controls the owned process scope and reports observable uncertainty honestly, including process identity reuse/escape limitations.
 - Concurrent/stale writers cannot authorize conflicting work. Interrupted dispatch retains sufficient attempt/process identity to distinguish confirmed, failed and unknown effects.
 - Unknown external mutations block blind automatic replay. Recovery reports what is known and the smallest safe action; it never promises exactly-once execution.
-- Push/PR/merge/release, destructive actions and material cost require applicable explicit authority. Existing bounded authority need not be requested again ceremonially; changes to the authorized target/effect require new authority.
+- Axiom-mediated push/PR/merge/release, destructive actions and material cost require applicable explicit authority. Direct process permissions grant no authority for such actions. Existing bounded authority need not be requested again ceremonially; changes to the authorized target/effect require new authority.
+
+## Runtime process boundary — accepted amendment CORRECT-403-03
+
+Effective 2026-11-18 at 12:11 BRT under
+[ADR-0039](../../decisions/0039-unrestricted-runtime-stage-processes.md#status):
+[material policy approval at 12:04 BRT](https://linear.app/rgomids/issue/AXM-12#comment-343815d4)
+and [formal ADR acceptance at 12:11 BRT](https://linear.app/rgomids/issue/AXM-12#comment-49d0899e)
+are distinct acts. CORRECT-403-02 was the proposal; the 2026-11-17 authority
+only permitted drafting. The correction-04 planning language is historical;
+ADR-0037 records its accepted contract, now partially amended here.
+ORIGINAL_APPROVAL_NOT_FOUND remains historical fact, not a retroactive approval.
+
+Affected clauses: Non-goals target-boundary bullet; Architecture target's
+paragraph requiring effect-bound enforcement; Normal operation 4/6 and its
+permission/validation-command paragraphs; Parallel work and integration;
+Safety proof obligations bullets 2/6; Acceptance's negative-test denial clause.
+Effective replacement only for their process-confinement meaning:
+
+- Axiom-mediated writes, messages, grants, effects, validation commands,
+  external delivery and recovery MUST retain exact repository/attempt targets
+  and applicable action authority. Agent output, messages, stale state and
+  Runtime launch permission never expand that authority. Unknown effects still
+  block blind replay. These checks remain required and testable.
+- Direct Runtime/OS subprocess effects are outside that enforcement boundary.
+  The accepted Stage launcher policy requests `--dangerously-bypass-approvals-and-sandbox` for
+  Codex and `--dangerously-skip-permissions` for Claude, including read-only
+  Stages in all Projects. They allow access available to the host OS user,
+  including other directories, network resources and credentials. This accepted
+  default grants no authorization for direct effects outside
+  the approved action envelope.
+- `RepositoryWrite=false`, read-only, Effect envelopes, worktrees and filtered
+  environment variables are not OS isolation. `danger-full-access` is not a
+  permanent mitigation. If confinement is required, an appropriately restricted
+  dedicated host/user or real external sandbox must enforce it; dedicated users
+  alone do not exclude shared readable resources or network access. Residual
+  host access must be assessed before operation.
+
+All remaining requirements, including secret protection, immutable invocation,
+Execution ownership, cancellation limits, fencing, integration and truthful
+unknown-effect Evidence, remain in force. Normative acceptance does not approve
+the PR or establish implementation, E2E or product acceptance.
 
 ## Acceptance
 
@@ -115,7 +157,7 @@ The P-ACs below remain later manually verifiable product requirements; P-AC5/7 a
 | P-AC6 | Review/rework and optional PR use one path, preserving evidence and explicit effect authority without delivery-object ceremony |
 | P-AC7 | Plan baseline versus final inventory demonstrates actual reductions of redundant commands/flags, mandatory fields/steps, independent objects, stores/formats and associated code/tests; exceptions meet the three-part survival proof |
 
-**Negative tests:** trivial dispatch creates no Policy/Plan store or format; new starts create no duplicate Execution ledger; no repeated manual graph preview/apply; no mandatory vendor-compatibility/auth preflight; optional delivery requires no independent Packet/Publication/Decision lifecycle. Denial of unauthorized writes/messages/effects and refusal of blind replay must still work after removal.
+**Negative tests:** trivial dispatch creates no Policy/Plan store or format; new starts create no duplicate Execution ledger; no repeated manual graph preview/apply; no mandatory vendor-compatibility/auth preflight; optional delivery requires no independent Packet/Publication/Decision lifecycle. Denial of unauthorized Axiom-mediated writes/messages/effects and refusal of blind replay must still work after removal.
 
 Real two-repository Codex+Claude journey and R2/R3 qualification: **NOT_RUN**; reserved for later maintainer manual Product acceptance after S1–S3. No real E2E is required at individual slice completion.
 

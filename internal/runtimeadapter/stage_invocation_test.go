@@ -10,8 +10,8 @@ import (
 	"github.com/rgomids/axiom/internal/executiongraph"
 )
 
-func identityRequest(runtime string, write, process bool) StageInvocationRequest {
-	return StageInvocationRequest{Profile: CommandProfile{RuntimeID: runtime, Executable: nativeFixturePath("/bin/" + runtime), Model: "model"}, Workspace: nativeFixturePath("/work"), Inbox: nativeFixturePath("/inbox"), AxiomPath: nativeFixturePath("/bin/axiom"), RepositoryWrite: write, Process: process}
+func identityRequest(runtime string, write bool) StageInvocationRequest {
+	return StageInvocationRequest{Profile: CommandProfile{RuntimeID: runtime, Executable: nativeFixturePath("/bin/" + runtime), Model: "model"}, Workspace: nativeFixturePath("/work"), Inbox: nativeFixturePath("/inbox"), AxiomPath: nativeFixturePath("/bin/axiom"), RepositoryWrite: write}
 }
 
 func TestStageArgvGolden(t *testing.T) {
@@ -21,10 +21,10 @@ func TestStageArgvGolden(t *testing.T) {
 		want    []string
 		cwd     string
 	}{
-		{"codex", false, []string{"/bin/codex", "exec", "--model", "model", "--ignore-user-config", "--ephemeral", "-", "--sandbox", "workspace-write", "-C", "/inbox", "--skip-git-repo-check"}, "/inbox"},
-		{"codex", true, []string{"/bin/codex", "exec", "--model", "model", "--ignore-user-config", "--ephemeral", "-", "--sandbox", "workspace-write", "-C", "/work", "--add-dir", "/inbox"}, "/work"},
-		{"claude", false, []string{"/bin/claude", "--print", "--model", "model", "--input-format", "text", "--permission-prompts", "none", "--permission-mode", "dontAsk", "--allowedTools", "Read,Glob,Grep,Write,Bash(/bin/axiom:*)", "--add-dir", "/inbox", "--add-dir", "/work", "--disallowedTools", "Edit(//work/**)"}, "/inbox"},
-		{"claude", true, []string{"/bin/claude", "--print", "--model", "model", "--input-format", "text", "--permission-prompts", "none", "--permission-mode", "dontAsk", "--allowedTools", "Read,Glob,Grep,Write,Edit,Bash(/bin/axiom:*)", "--add-dir", "/inbox"}, "/work"},
+		{"codex", false, []string{"/bin/codex", "exec", "--model", "model", "--ignore-user-config", "--ephemeral", "-", "--dangerously-bypass-approvals-and-sandbox", "-C", "/inbox", "--skip-git-repo-check"}, "/inbox"},
+		{"codex", true, []string{"/bin/codex", "exec", "--model", "model", "--ignore-user-config", "--ephemeral", "-", "--dangerously-bypass-approvals-and-sandbox", "-C", "/work", "--add-dir", "/inbox"}, "/work"},
+		{"claude", false, []string{"/bin/claude", "--print", "--model", "model", "--input-format", "text", "--permission-prompts", "none", "--dangerously-skip-permissions", "--add-dir", "/inbox", "--add-dir", "/work"}, "/inbox"},
+		{"claude", true, []string{"/bin/claude", "--print", "--model", "model", "--input-format", "text", "--permission-prompts", "none", "--dangerously-skip-permissions", "--add-dir", "/inbox"}, "/work"},
 	} {
 		t.Run(tc.runtime+tc.cwd, func(t *testing.T) {
 			inv, err := BuildStageInvocation(StageInvocationRequest{Profile: CommandProfile{RuntimeID: tc.runtime, Executable: "/bin/" + tc.runtime, Model: "model"}, Workspace: "/work", Inbox: "/inbox", AxiomPath: "/bin/axiom", RepositoryWrite: tc.write})
@@ -51,7 +51,7 @@ func TestStageRejectsConfiguredArguments(t *testing.T) {
 
 func TestStageInvocationHasNoVersionGate(t *testing.T) {
 	for _, runtimeID := range []string{"codex", "claude"} {
-		if _, err := BuildStageInvocation(identityRequest(runtimeID, false, false)); err != nil {
+		if _, err := BuildStageInvocation(identityRequest(runtimeID, false)); err != nil {
 			t.Fatal(runtimeID, err)
 		}
 	}
@@ -60,13 +60,13 @@ func TestStageInvocationHasNoVersionGate(t *testing.T) {
 func TestStageInvocationRefusesInheritedConfigurationAndEffort(t *testing.T) {
 	for _, runtimeID := range []string{"codex", "claude"} {
 		for _, variable := range []string{"CODEX_HOME", "CLAUDE_CONFIG_DIR", "codex_home", "claude_config_dir"} {
-			request := identityRequest(runtimeID, true, false)
+			request := identityRequest(runtimeID, true)
 			request.ParentEnvironment = []string{"HOME=/home/example", variable + "=/vendor"}
 			if _, err := BuildStageInvocation(request); !errors.Is(err, ErrEffortConfigurationUnsafe) {
 				t.Fatal(runtimeID, variable, err)
 			}
 		}
-		request := identityRequest(runtimeID, true, false)
+		request := identityRequest(runtimeID, true)
 		// An inherited effort is personal configuration: filtered, never refused.
 		request.ParentEnvironment = []string{"CLAUDE_CODE_EFFORT_LEVEL=high"}
 		inv, err := BuildStageInvocation(request)
@@ -152,29 +152,13 @@ func TestStageAuthMissingLoginRoot(t *testing.T) {
 	}
 }
 
-func TestStagePathAndProcessBoundary(t *testing.T) {
+func TestStageRejectsUnsafePathsAndEnvironmentKeys(t *testing.T) {
 	request := StageInvocationRequest{Profile: CommandProfile{RuntimeID: "claude", Executable: "/bin/claude", Model: "model"}, Workspace: "/work", Inbox: "/inbox", AxiomPath: "/bin/axiom"}
 	for _, inbox := range []string{"/work/inbox", "/", "/inbox/../inbox", "/inbox\n", "/inbox\x00"} {
 		invalid := request
 		invalid.Inbox = inbox
 		if _, err := BuildStageInvocation(invalid); err == nil {
 			t.Fatal(inbox)
-		}
-	}
-	for _, write := range []bool{false, true} {
-		for _, process := range []bool{false, true} {
-			request.RepositoryWrite, request.Process = write, process
-			inv, err := BuildStageInvocation(request)
-			if err != nil {
-				t.Fatal(err)
-			}
-			tools := inv.Argv[slices.Index(inv.Argv, "--allowedTools")+1]
-			if got := slices.Contains(strings.Split(tools, ","), "Bash"); got != (write && process) {
-				t.Fatalf("write=%v process=%v tools=%q", write, process, tools)
-			}
-			if !write && (!strings.Contains(tools, "Bash("+request.AxiomPath+":*)") || inv.CWD != request.Inbox || !slices.Contains(inv.Argv, "Edit(/"+request.Workspace+"/**)")) {
-				t.Fatalf("read-only tool boundary lost: %+v", inv)
-			}
 		}
 	}
 	if _, err := StageEnvironment("codex", []string{"LC_BAD-NAME=C"}); err == nil {
@@ -184,7 +168,7 @@ func TestStagePathAndProcessBoundary(t *testing.T) {
 
 func TestStageInvocationCorrelationIsAttemptOwned(t *testing.T) {
 	correlation := AttemptCorrelation{ProjectID: "project-1", ParentID: "parent-1", ChildID: "child-1", AttemptID: "attempt-1"}
-	request := identityRequest("codex", false, false)
+	request := identityRequest("codex", false)
 	request.ParentEnvironment = []string{"PATH=/bin", "AXIOM_ATTEMPT_ID=stale"}
 	request.Correlation = correlation
 	inv, err := BuildStageInvocation(request)

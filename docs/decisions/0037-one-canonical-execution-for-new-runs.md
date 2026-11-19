@@ -22,6 +22,12 @@ requires deleting these rather than hiding them, while preserving the proven
 safety outcomes: exact target/effect authority, single-writer fencing,
 process-identity safeguards, truthful unknown effects and no blind replay.
 
+> Superseded by [ADR-0039 — Unrestricted Runtime Stage processes](0039-unrestricted-runtime-stage-processes.md#decision), accepted 2026-11-18.
+> Only the direct Codex/Claude process-confinement implication is superseded;
+> exact Axiom-mediated permission, target and effect checks remain mandatory.
+> Historical text is preserved; Execution ownership, state, cancellation, fencing,
+> unknown effects/no blind replay and external delivery authority remain in force.
+
 ## Decision
 
 For **new** workflow runs:
@@ -55,6 +61,13 @@ For **new** workflow runs:
    authentication/compatibility preflight and no capability/complexity
    selection; vendor, spawn and auth errors are observed attempt failures.
    Real permission, target and effect checks remain.
+
+> Superseded by [ADR-0039 — Unrestricted Runtime Stage processes](0039-unrestricted-runtime-stage-processes.md#decision), accepted 2026-11-18.
+> Only the direct Codex/Claude process-confinement implication is superseded;
+> exact Axiom-mediated permission, target and effect checks remain mandatory.
+> Historical text is preserved; Execution ownership, state, cancellation, fencing,
+> unknown effects/no blind replay and external delivery authority remain in force.
+
 6. **Messages.** One private attempt-owned ingress carries bounded
    question/answer/blocker/result facts bound to launcher-issued attempt
    context and runner generation. Messages never grant authority.

@@ -92,6 +92,14 @@ artifacts or retained Evidence, so an ADR is required before implementation.
    They are not copied into graph, coordination, prompt, artifact or Evidence
    content. A child gets only the minimum credential capability for its effects.
 
+> Superseded by [ADR-0039 — Unrestricted Runtime Stage processes](0039-unrestricted-runtime-stage-processes.md#decision), accepted 2026-11-18.
+> Only decisions 6–7 and 9's implication of direct Codex/Claude process effect
+> or credential confinement is superseded. Credential non-copying, bounded
+> child authority, exact Axiom-mediated scope and validation remain mandatory.
+> Historical text is preserved. CORRECT-403-01 found no primary original approval
+> for the prior 2026-11-17 acceptance claim; CORRECT-403-02 was a proposal.
+> Acceptance now rests prospectively on the two 2026-11-18 decisions in ADR-0039.
+
 ### Dependency, isolation and integration
 
 10. A child becomes dispatchable only when its declared prerequisites satisfy the
