@@ -83,14 +83,33 @@ Lista consolidada de comandos: [../commands.md](../commands.md).
 
 ## Website development
 
-A landing page pública está em `site/`. Para inspecioná-la localmente:
+The public landing in `site/` is generated in Axiom DS and imported as a reviewed,
+versioned static snapshot. Do not edit snapshot files by hand. See the
+[integration contract](../product/immersive-landing-page.md).
+
+Preview the checked-in snapshot without building or contacting another service:
 
 ```bash
 python3 -m http.server 8000 --directory site
 ```
 
-Para validar a troca de idioma e a regressão de DOM XSS em Chromium, use
-dependências somente de teste em um ambiente virtual fora do repositório:
+To upgrade it, check out the intended full revision of `rgomids/axiom-ds` in a
+separate directory, follow its README (`npm ci` and `npm run build`), then run
+from this repository, substituting that checkout path and its reviewed SHA:
+
+```bash
+python3 scripts/sync-landing-page.py --bundle ../axiom-ds/packages/landing/dist --revision FULL_40_CHARACTER_DS_COMMIT_SHA
+./scripts/validate-landing-page.sh .
+python3 scripts/test-sync-landing-page.py
+```
+
+The source revision and every file digest are recorded in
+`site/.axiom-landing-source.json`. The importer refuses dirty canonical source,
+unsafe paths and unowned file overwrites. Review both the provenance and diff;
+there is no automatic upstream tracking.
+
+For offline Chromium acceptance, install test-only dependencies outside the
+repository (use the corresponding virtual-environment executable on your OS):
 
 ```bash
 python3 -m venv /tmp/axiom-site-tests
@@ -99,13 +118,6 @@ python3 -m venv /tmp/axiom-site-tests
 /tmp/axiom-site-tests/bin/python scripts/test-site-language.py .
 ```
 
-Os
-testes atendem as requisições do navegador com arquivos locais ou as bloqueiam;
-não acessam o site público. Traduções usam `data-pt` e `textContent`; links e
-formatação ficam no HTML estático, sem interpretar atributos como HTML.
-
-Abra <http://localhost:8000/>. O workflow
-[deploy-landpage.yml](../../.github/workflows/deploy-landpage.yml) publica esse
-diretório no GitHub Pages. Assets de identidade vêm de `docs/assets/` por URLs
-raw absolutas, sem cópias em `site/`. Consulte
-[Evidence da landing page](../product/evidence-landing-page.md) para validação.
+These tests serve only local snapshot files and abort external requests. Pages
+CI runs structural, import-safety and browser tests before publication; pull
+requests validate only, and deployment remains restricted to `main`.

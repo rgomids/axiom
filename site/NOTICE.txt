@@ -1,0 +1,5 @@
+Axiom landing page — Apache-2.0.
+Manrope — SIL Open Font License 1.1 (assets/Manrope-OFL.txt).
+Original Axiom mascot preserved, SHA256: c58970cd0bfda80a8c46e22bfdb0218eba9d75ff4c41b80f4d476b2492cf812f
+OpenAI mark: official white Blossom, https://openai.com/brand/ (trademark, usage terms apply).
+Claude mark: Simple Icons, CC0, https://github.com/simple-icons/simple-icons/blob/develop/icons/claude.svg (Anthropic trademark). Marks identify the Claude and Codex integrations; no endorsement is implied.
