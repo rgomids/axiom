@@ -236,3 +236,153 @@ Final Evidence-only publication adds no Go change after the tested source.
 `git diff --check`, relative Markdown targets, staged sensitive-file checks and
 staged diff inspection cover this document; exact commit/push/remote/PR read-back
 and CI observation are recorded in the single Issue #404 completion receipt.
+
+## IMPLEMENT-404-02 — corrective continuation
+
+History above (PARTIAL, failures, SKIPs, SHAs) is preserved unchanged. Authority:
+the existing [RESUME_IMPLEMENT gate](https://github.com/rgomids/axiom/issues/404#issuecomment-7141666800);
+no decision or acceptance is republished. Pre-edit state verified: origin
+`https://github.com/rgomids/axiom.git`, branch `issue/404-specify-dag-concurrency`,
+local = remote `34619529ac5db76d089ff391d192b32d6d5c0636`, base/main
+`5cd783bd2ac8189a1b9c85a790472b5335139c78`, clean worktree, PR #405 OPEN Draft,
+only this axm-run session active. No production Go file changed in this attempt.
+
+### Fixture correction (commit `0686332`)
+
+Focal reproduction at `3461952`:
+`go test ./cmd/lingo -run '^TestPublicWorkflowRunSameRepositoryIntegration$' -count=1`
+exit 1 — attempt `a` exit 8, `b` and `observer` unattempted. Cause is the fixture,
+not the product: `integrationRuntimeStub` holds both roots until `a-ready` and
+`b-ready` exist, so every mode without the `a→b` edge requires two concurrent
+roots; `mode:dependent` writes `b-ready` itself and is serialized by its edge.
+`integrationDefinition` now declares `Concurrency = 2` (≤ 3 agents) for every
+mode. Stub, edges, observer join, gates, validators and assertions are unchanged;
+builtin revision 2, frozen corpora and Spec are untouched; the scheduler still
+serializes a declared 1 (`TestI404Restart…/explicit1` and `/absent` peak 1).
+
+Consumers of `newPublicIntegrationFixture` (all rerun, `-count=1`, exit 0):
+`TestPublicWorkflowRunSameRepositoryIntegration` (independent, checks),
+`…DependentWriterAndHumanGate` (`mode:dependent`, `mode:gate`),
+`…StopsOnConflictOrFailedCheck` (`mode:conflict`, `mode:check-failure`),
+`…RefusesMissingChecksAuthorityAndDirtyBase` (checks/authority/dirty),
+`TestPublicCompositionSameRepositoryFaultsNeverReplay` (six lost-* faults, uses
+`mode:held` via `publicIntegrationHeldAtGate`) and
+`…ChangedBaseCollisionAndCancel` (changed-base, both collisions, cancel,
+admission), plus all `TestI404*` Lingo tests: 26.145s. Full
+`go test ./cmd/lingo -count=1` then passed (155.584s; previously FAIL 513s), so
+the bounded audit found no other consumer depending on implicit parallelism.
+
+### T6 historical resolution and explicit retry (commit `204f782`)
+
+`TestI404RestartHistoricalResolvedWithQualifiedLivenessPermitsExplicitRetry`
+derives an in-memory copy of the frozen `multi-active.json` (corpus bytes
+re-read and compared at the end; manifest hashes re-verified unchanged) and
+replaces only the two process identities with real identities of `/bin/cat`
+process groups the test itself started (`Setpgid`), observed through
+`executiongraph.ObserveProcessCorrelation`, and reaped. No liveness seam is
+replaced, no third-party process is touched, nothing is signalled. The
+original synthetic identities (`GroupIdentity "404"`, not `boot:pgid`) remain
+unobservable, which is why the IMPLEMENT-404-01 experiment's
+`stop_orphan_then_abandon` refusal was correct and remains so.
+
+Observed sequence in the same local store/engine: Run claims (generation >1),
+both attempts unknown, RecoveryRequired, 0 spawns; blind retry
+`ErrUnknownOutstanding`; canonical `Engine.Abandon(attempt-a, human:operator)`
+reports two facts, each `process_gone_effects_unknown` or
+`pid_reused_not_signalled`; second Abandon of the same attempt `ErrTransition`;
+retry with peer `attempt-b` still unresolved refused, 0 spawns; after
+abandoning `attempt-b`, explicit retry of `a` spawns exactly `a` once: new
+attempt ID ≠ `attempt-a`, Number 2 (budget 3), newer generation, invocation
+deep-equal to the frozen historical one although the fixture resolver offers a
+different model. With that worker's identity inflight, a domain retry probe for
+`b` returns `ErrStageCapacity` (absent ⇒ effective 1, not materialized). Retry
+of `b` then completes the run: spawned exactly `a, b, join`, peak 1, status
+completed. After every step the Workflow is deep-equal with unchanged digest,
+`Concurrency` nil, zero integrations/deliveries, and both historical attempts
+keep status unknown, generation 1, invocation and process identity; the
+reloaded record equals the returned one.
+
+### T6 saturated retry: tested versus proved by reachability
+
+Integrated saturated-retry lifecycle: **NOT_RUN — unreachable on the current
+public path**, not PASS. Independent inspection at `204f782` (product lines
+unchanged since `7fd3221`):
+
+1. Only `cmd/lingo/execution_run.go:291` supplies `RunOptions.Retry`;
+   `execution_run.go:206` and `internal/stageexecution/run_start.go:96` pass
+   empty options. All three reach `Engine.Run` (`engine.go:211-218`), which
+   always `Claim`s first; the exclusive `AcquireFence` excludes a concurrent
+   principal.
+2. `Claim` (`engine.go:128-146`) takes a newer generation and marks every older
+   prepared/running attempt unknown, so no durable occupancy of the current
+   generation exists at the first scheduling pass.
+3. `runReadyWithWorker` starts with empty `inflight` (`scheduler.go:108`), takes
+   the only retry from `opts` (`:109`), schedules only it while set (`:127-131`)
+   and clears it only after successful preparation (`:152-154`); no operation
+   adds a retry later.
+4. `PrepareAttempt` refuses `RecoveryRequired` (`execution_transitions.go:387-389`)
+   before the capacity check (`:451-457`).
+5. A retry-eligible failed task cannot coexist with saturating current-generation
+   peers: after a failure no new root is eligible (`PrepareAttempt` "task is not
+   eligible", observed while building the boundary case), and peers admitted
+   before it already counted against the same limit.
+
+Boundary test `TestI404RetryFacingSaturatingPeersIsRecoveryNotCapacity`
+exercises the only shape that can saturate (historical multi-active derived:
+`a` failed, `b` running, absent limit): the domain retry probe returns
+`ErrStageCapacity`, while public-path `Engine.Run(Retry a)` returns
+`ErrUnknownOutstanding` (not capacity), RecoveryRequired, `b` unknown, `a`
+unchanged with one attempt, 0 spawns, Concurrency nil. Domain saturation and
+non-consumption remain proved by the existing T3 tests. Non-vacuity: with the
+fallback temporarily mutated to 2 in `stageCapacity`, both new tests failed
+(`historical absence admitted beyond fallback 1`, `domain saturation not
+observed`); the mutation was reverted before commit and is absent from the diff.
+
+### Commands at stable source `204f7827c16ff3e68b7055fe1e9cfe44875da88a`
+
+Go source was stable during these commands; only this Evidence file was being
+edited (no Go test reads it). No result below is cached (`-count=1`).
+
+| Command | Exit / status | Observed result |
+| --- | --- | --- |
+| `go test -count=1 ./internal/stageexecution -run '^TestI404'` | 0 / PASS | 9 tests incl. both new ones, 3.306s |
+| `go test -count=1 ./internal/workflow ./internal/strictjson ./internal/local ./internal/stageexecution ./internal/workflowdefinition ./cmd/lingo ./internal/compatibility` | 0 / PASS | 7/7 ok: workflow 0.500s, strictjson 0.082s, local 89.389s, stageexecution 127.335s, workflowdefinition 3.480s, cmd/lingo 164.594s, compatibility 3.381s |
+| `go test -count=1 ./...` | 0 / PASS | 32 packages ok, 5 without test files, 0 FAIL; cmd/lingo 232.274s |
+| `go vet ./...` | 0 / PASS | No diagnostics |
+| `go build ./...` | 0 / PASS | Build completed |
+| `go mod verify` | 0 / PASS | All modules verified |
+| `go test -race ./internal/workflow` | 2 / SKIP | `-race requires cgo`; linux/arm64, CGO_ENABLED=0, no gcc. Nothing installed. |
+| `which gcc gitleaks` | 1 / SKIP | Neither available; gitleaks not run, no substitute PASS |
+| `./scripts/validate-repository.sh .` | NOT_RUN | Refused by this session's tool-permission policy (needs approval not available in non-interactive run). Last observed PASS was at `7fd3221` (above); not re-established here. |
+| `./scripts/check-sensitive-files.sh --staged .` | NOT_RUN | Same permission refusal. Substitute (not PASS): manual inspection of each staged diff — only Go test code and this Markdown; no credentials, hosts, tokens or Provider data. |
+| `git diff --check` | 0 / PASS | On this Evidence change before commit |
+
+Corpus: all 14 `internal/workflow/testdata/i404` entries re-hashed equal to
+`manifest.json` (manifest SHA-256 `bea909fa…5ac8`, unchanged); `ubuntu-t12` r1
+untouched.
+
+### Decisions, findings and result
+
+- TECHNICAL_LOCAL: fixture declares 2 rather than changing the stub or a global
+  default — it is the intent the stub encodes; scheduler stays strict.
+- TECHNICAL_LOCAL: liveness qualified with real ended, test-owned process groups
+  rather than replacing `observeRecordedProcess` — the seam would substitute an
+  assumed fact for an observed one.
+- TECHNICAL_LOCAL: saturated retry qualified by reachability proof plus boundary
+  test rather than a new seam/API, which the attempt forbids.
+- Deferred (optional hardening, not a requirement): if a retry ever met
+  `ErrStageCapacity` with empty `inflight`, `scheduler.go:141-142,170-174` would
+  return without error and drop the retry intent. Unreachable today (above);
+  an explicit refusal there would make the invariant self-checking.
+
+Independent review (engineering/security, not approval): the diff adds no
+production code, authority, seam, flag, dependency or format; the test spawns
+only `/bin/cat` in its own process group, reaps it and signals nothing; derived
+records live in temp stores. AC1–AC4 and DC-01–DC-05 behavioral oracles from the
+Tasks matrix are now exercised by passing tests, except the integrated saturated
+retry, which is NOT_RUN by proved unreachability (boundary-tested).
+
+**Result: PARTIAL.** All Go qualification passes at `204f782`. Remaining:
+`validate-repository.sh` and `check-sensitive-files.sh --staged` must run in a
+session permitted to execute repository scripts; race/gitleaks stay SKIP on this
+host. Next gate after those: review/reconciliation at the resulting SHA.
