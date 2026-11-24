@@ -17,8 +17,8 @@ import (
 )
 
 func TestI404RestartPendingPreservesCapacityAndSnapshot(t *testing.T) {
-	for _, explicit := range []bool{false, true} {
-		t.Run(map[bool]string{false: "absent", true: "explicit2"}[explicit], func(t *testing.T) {
+	for _, ceiling := range []int{0, 1, 2} {
+		t.Run(map[int]string{0: "absent", 1: "explicit1", 2: "explicit2"}[ceiling], func(t *testing.T) {
 			wire, err := os.ReadFile("../workflow/testdata/i404/dag.json")
 			if err != nil {
 				t.Fatal(err)
@@ -27,9 +27,8 @@ func TestI404RestartPendingPreservesCapacityAndSnapshot(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if explicit {
-				two := 2
-				x.Workflow.Stages[0].Concurrency = &two
+			if ceiling != 0 {
+				x.Workflow.Stages[0].Concurrency = &ceiling
 				x, err = workflow.NewExecution(workflow.NewExecutionInput{ExecutionID: x.ExecutionID, ProjectID: x.ProjectID, WorkItem: x.WorkItem, Repositories: x.Repositories, WorkflowID: x.Workflow.ID, Revision: x.Workflow.Revision, Stages: x.Workflow.Stages, Now: x.CreatedAt})
 				if err != nil {
 					t.Fatal(err)
@@ -82,7 +81,7 @@ func TestI404RestartPendingPreservesCapacityAndSnapshot(t *testing.T) {
 			if id := awaitTask(t, started); id != "a" && id != "b" {
 				t.Fatal("join started before validated roots", id)
 			}
-			if explicit {
+			if ceiling == 2 {
 				if id := awaitTask(t, started); id != "a" && id != "b" {
 					t.Fatal("join started while roots held", id)
 				}
@@ -90,7 +89,7 @@ func TestI404RestartPendingPreservesCapacityAndSnapshot(t *testing.T) {
 			close(release)
 			got := <-done
 			wantPeak := int32(1)
-			if explicit {
+			if ceiling == 2 {
 				wantPeak = 2
 			}
 			if got.err != nil || got.x.Status != workflow.RunCompleted || !reflect.DeepEqual(frozen, got.x.Workflow) || maximum.Load() != wantPeak || f.runner.spawns.Load() != 3 {

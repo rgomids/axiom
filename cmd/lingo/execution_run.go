@@ -727,15 +727,13 @@ func mapWorkflowDefinition(d workflowdefinition.Definition) (string, string, []w
 	var stages []workflow.StageSpec
 	previous := ""
 	for _, s := range d.Stages {
-		if s.Concurrency != 1 {
-			return "", "", nil, errWorkflowUnmappable
-		}
 		for _, validator := range s.Validators {
 			if validator.PolicyRef != "builtin-sdd-v1" || (validator.Kind != "artifact-schema" && validator.Kind != "evidence-check" && validator.Kind != "human-review" && validator.Kind != "command") {
 				return "", "", nil, errWorkflowUnmappable
 			}
 		}
-		spec := workflow.StageSpec{ID: s.ID, TimeoutSeconds: workflow.DefaultStageTimeout}
+		concurrency := s.Concurrency
+		spec := workflow.StageSpec{ID: s.ID, TimeoutSeconds: workflow.DefaultStageTimeout, Concurrency: &concurrency}
 		for _, validator := range s.Validators {
 			if validator.Kind == "human-review" {
 				spec.ReviewRequired = true
