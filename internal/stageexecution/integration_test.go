@@ -234,10 +234,11 @@ func (f *integrationFixture) start(executionID string, agents ...string) workflo
 		}
 		specs = append(specs, workflow.AgentSpec{ID: a, Effects: []string{"workspace_write", "validation_command"}})
 	}
+	concurrency := len(specs)
 	x, err := workflow.NewExecution(workflow.NewExecutionInput{
 		ExecutionID: executionID, ProjectID: "proj", WorkItem: workflow.WorkItemLink{Provider: "linear", ID: "AXM-42", RepositoryKey: "app"},
 		Repositories: []workflow.RepositoryBinding{{Key: "app", Identity: integrationIdentity}}, WorkflowID: "parallel", Revision: "r1", Now: time.Now(),
-		Stages: []workflow.StageSpec{{ID: "work", Agents: specs, Commands: f.checks, HumanGate: f.gate, TimeoutSeconds: 30}},
+		Stages: []workflow.StageSpec{{ID: "work", Concurrency: &concurrency, Agents: specs, Commands: f.checks, HumanGate: f.gate, TimeoutSeconds: 30}},
 	})
 	if err != nil {
 		t.Fatal(err)

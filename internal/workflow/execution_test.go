@@ -319,10 +319,11 @@ func TestReportedUnknownEffectBlocksSuccessors(t *testing.T) {
 
 func messagingExecution(t *testing.T) Execution {
 	t.Helper()
+	concurrency := 2
 	e, err := NewExecution(NewExecutionInput{
 		ExecutionID: testExecutionID, ProjectID: "proj", WorkItem: WorkItemLink{"linear", "AXM-42", "app"},
 		Repositories: []RepositoryBinding{{"app", "github.com/example/app"}}, WorkflowID: "pair", Revision: "r1", Now: t0,
-		Stages: []StageSpec{{ID: "work", Agents: []AgentSpec{{ID: "codex"}, {ID: "claude"}}, TimeoutSeconds: 60}},
+		Stages: []StageSpec{{ID: "work", Concurrency: &concurrency, Agents: []AgentSpec{{ID: "codex"}, {ID: "claude"}}, TimeoutSeconds: 60}},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -518,10 +519,11 @@ func TestExecutionInvalidAgentControlsRefuseBeforeAttempts(t *testing.T) {
 }
 
 func TestExecutionParallelFailureStopsReadyWhilePeerStillRunning(t *testing.T) {
+	concurrency := 3
 	e, err := NewExecution(NewExecutionInput{
 		ExecutionID: testExecutionID, ProjectID: "proj", WorkItem: WorkItemLink{"linear", "AXM-42", "app"},
 		Repositories: []RepositoryBinding{{"app", "example/app"}}, WorkflowID: "parallel", Revision: "r1", Now: t0,
-		Stages: []StageSpec{{ID: "work", TimeoutSeconds: 60, Agents: []AgentSpec{
+		Stages: []StageSpec{{ID: "work", Concurrency: &concurrency, TimeoutSeconds: 60, Agents: []AgentSpec{
 			{ID: "producer"}, {ID: "failed"}, {ID: "running"}, {ID: "consumer", DependsOn: []string{"producer"}},
 		}}},
 	})

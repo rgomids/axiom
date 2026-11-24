@@ -103,8 +103,9 @@ type spawnObservation struct {
 // results exist. The timeout is only a bound: under a loaded race-enabled run
 // each message commit can wait seconds for the store lock.
 func collaborationStages(gate bool) []workflow.StageSpec {
+	concurrency := 2
 	return []workflow.StageSpec{
-		{ID: "build", Agents: []workflow.AgentSpec{{ID: "codex", OutputScope: true, Outputs: []string{"codex-result"}}, {ID: "claude", OutputScope: true, Outputs: []string{"claude-result"}}}, Outputs: []string{"codex-result", "claude-result"}, HumanGate: gate, TimeoutSeconds: 60},
+		{ID: "build", Concurrency: &concurrency, Agents: []workflow.AgentSpec{{ID: "codex", OutputScope: true, Outputs: []string{"codex-result"}}, {ID: "claude", OutputScope: true, Outputs: []string{"claude-result"}}}, Outputs: []string{"codex-result", "claude-result"}, HumanGate: gate, TimeoutSeconds: 60},
 		{ID: "integrate", DependsOn: []string{"build"}, Agents: []workflow.AgentSpec{{ID: "reviewer"}}, TimeoutSeconds: 60},
 	}
 }

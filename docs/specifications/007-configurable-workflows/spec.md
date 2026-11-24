@@ -39,6 +39,14 @@ fixture checks establishes document consistency only.
 > protect inventory/provenance/retention only. No historical clause below grants
 > an alternate execution path or effect authority.
 
+> **Issue #404 canonical concurrency amendment — 2026-11-24.**
+> The [authorized amendment](amendment-404-canonical-stage-concurrency.md)
+> qualifies WF-005/006 and WF-007/008/010 Stage ceilings and overlap for the
+> ADR-0037 Execution path, including persisted snapshot compatibility.
+> [Scope authority](https://github.com/rgomids/axiom/issues/404#issuecomment-7133606313)
+> covers this bounded amendment; implementation and delivery remain unverified.
+> Historical clauses and prior reconciliations remain preserved.
+
 Audit baseline: `c7260797aad7865419f555eea94a2eef7ae78285`; authoring inspection:
 `73dce6df0ab590b37df0e5a19b1483737bf1ca1e` (main). Existing
 `internal/workflow/service.go` fixes `mvp-v1-sequential`; Project schema 3 has no

@@ -20,8 +20,10 @@ const (
 )
 
 func DefaultWorkflowStages() []StageSpec {
+	concurrency := 1
 	return []StageSpec{{
 		ID:             DefaultStageID,
+		Concurrency:    &concurrency,
 		WorkItemInputs: []string{DefaultWorkItemInput},
 		Agents:         []AgentSpec{{ID: DefaultAgentID, Instructions: defaultInstructions, Inputs: []string{DefaultWorkItemInput}, Effects: []string{"workspace_write"}}},
 		Outputs:        []string{DefaultOutput},

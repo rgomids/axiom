@@ -1,0 +1,1 @@
+{"id":"i404","revision":"r1","stages":[{"id":"work","agents":[{"maximumAttempts":3,"id":"a"},{"maximumAttempts":3,"id":"b"},{"dependsOn":["a","b"],"maximumAttempts":3,"id":"join"}],"timeoutSeconds":60}]}

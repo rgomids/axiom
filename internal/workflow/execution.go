@@ -206,6 +206,7 @@ type StageSpec struct {
 	BeforeGate        bool               `json:"beforeGate,omitempty"`
 	HumanGate         bool               `json:"humanGate,omitempty"`
 	TimeoutSeconds    int64              `json:"timeoutSeconds"`
+	Concurrency       *int               `json:"concurrency,omitempty"`
 }
 
 // WorkflowSnapshot is the immutable selected Workflow bound at start; its
@@ -743,6 +744,10 @@ func validateWorkflow(w WorkflowSnapshot, repos map[string]bool) error {
 		index[s.ID] = i
 		if len(s.Agents) == 0 || len(s.Agents) > MaxStageAgents || len(s.Outputs)+len(s.OptionalOutputs) > MaxStageOutputs {
 			return invalid("stage %q agents/outputs", s.ID)
+		}
+
+		if s.Concurrency != nil && (*s.Concurrency < 1 || *s.Concurrency > 32 || *s.Concurrency > len(s.Agents)) {
+			return invalid("stage %q concurrency", s.ID)
 		}
 
 		if s.TimeoutSeconds <= 0 || s.TimeoutSeconds > int64(MaxAttemptTimeout/time.Second) {

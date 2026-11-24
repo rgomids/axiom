@@ -2,6 +2,7 @@ package stageexecution
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"time"
 
@@ -44,8 +45,9 @@ func (s attemptStore) UpdateFenced(ctx context.Context, project, execution strin
 }
 
 type attemptFinished struct {
-	ref workflow.TaskRef
-	err error
+	ref       workflow.TaskRef
+	attemptID string
+	err       error
 }
 
 // executionSnapshot uses the canonical codec for independent read-only worker
@@ -59,6 +61,15 @@ func executionSnapshot(x workflow.Execution) (workflow.Execution, error) {
 }
 
 func (e Engine) runReady(ctx context.Context, lease workflow.RunnerFence, current workflow.Execution, opts RunOptions) (workflow.Execution, error) {
+	return e.runReadyWithWorker(ctx, lease, current, opts, func(worker Engine, request LaunchRequest) error {
+		_, err := worker.runAttempt(ctx, lease, request)
+		return err
+	})
+}
+
+// The worker boundary also lets deterministic checks hold a terminal worker
+// without blocking the principal commit queue.
+func (e Engine) runReadyWithWorker(ctx context.Context, lease workflow.RunnerFence, current workflow.Execution, opts RunOptions, run func(Engine, LaunchRequest) error) (workflow.Execution, error) {
 	project, execution := current.ProjectID, current.ExecutionID
 	commits := make(chan attemptCommit)
 	finished := make(chan attemptFinished)
@@ -94,7 +105,7 @@ func (e Engine) runReady(ctx context.Context, lease workflow.RunnerFence, curren
 		defer callbacks.Unlock()
 		return e.NewID()
 	}
-	inflight := map[workflow.TaskRef]bool{}
+	inflight := map[workflow.TaskRef]string{}
 	retry := opts.Retry
 	var firstErr error
 	if len(current.Enrollments) != 0 {
@@ -117,13 +128,19 @@ func (e Engine) runReady(ctx context.Context, lease workflow.RunnerFence, curren
 			isRetry := retry != nil
 			if isRetry {
 				ready = []workflow.TaskRef{*retry}
-				retry = nil
 			}
 			for _, ref := range ready {
-				if inflight[ref] {
+				if inflight[ref] != "" {
 					continue
 				}
-				request, err := principal.prepareAttempt(ctx, lease, current, ref, isRetry, isRetry && opts.NewSelection, opts.WorkspaceDisposition)
+				active := make([]workflow.InflightAttempt, 0, len(inflight))
+				for ref, id := range inflight {
+					active = append(active, workflow.InflightAttempt{Ref: ref, AttemptID: id})
+				}
+				request, err := principal.prepareAttempt(ctx, lease, current, ref, isRetry, isRetry && opts.NewSelection, opts.WorkspaceDisposition, active)
+				if errors.Is(err, workflow.ErrStageCapacity) {
+					continue
+				}
 				if err != nil {
 					if request.Execution.ExecutionID != "" {
 						current = request.Execution
@@ -132,6 +149,9 @@ func (e Engine) runReady(ctx context.Context, lease workflow.RunnerFence, curren
 					break
 				}
 				current = request.Execution
+				if isRetry {
+					retry = nil
+				}
 				// The worker owns an independent canonical snapshot. Neither a
 				// later principal update nor a peer can alter its input slices.
 				snapshot, err := executionSnapshot(request.Execution)
@@ -140,10 +160,10 @@ func (e Engine) runReady(ctx context.Context, lease workflow.RunnerFence, curren
 					break
 				}
 				request = e.request(snapshot, ref, request.Attempt.AttemptID)
-				inflight[ref] = true
+				inflight[ref] = request.Attempt.AttemptID
 				go func() {
-					_, err := workers.runAttempt(ctx, lease, request)
-					finished <- attemptFinished{ref, err}
+					err := run(workers, request)
+					finished <- attemptFinished{ref, request.Attempt.AttemptID, err}
 				}()
 			}
 		}
@@ -167,6 +187,12 @@ func (e Engine) runReady(ctx context.Context, lease workflow.RunnerFence, curren
 			}
 			c.reply <- attemptCommitResult{x, err}
 		case f := <-finished:
+			if inflight[f.ref] != f.attemptID {
+				if firstErr == nil {
+					firstErr = workflow.ErrTransition
+				}
+				continue
+			}
 			delete(inflight, f.ref)
 			if f.err != nil && firstErr == nil {
 				firstErr = f.err

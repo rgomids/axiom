@@ -69,7 +69,8 @@ func integrationDefinition(mode string, checks bool) workflowdefinition.Definiti
 	s := &d.Stages[0]
 	s.ID = "work"
 	s.Checkpoint, s.Phase = true, "implementation"
-	s.Mode = "dag"
+	// The stub holds independent roots a and b until both have started.
+	s.Mode, s.Concurrency = "dag", 2
 	s.Instructions = "Complete the fixture " + mode
 	s.HumanGates, s.Validators, s.CompletionCriteria = []workflowdefinition.Gate{}, []workflowdefinition.Validator{}, []workflowdefinition.Criterion{}
 	a := s.Agents[0]

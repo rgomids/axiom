@@ -2,6 +2,7 @@ package workflow
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"reflect"
 	"slices"
@@ -244,7 +245,9 @@ func hasActiveAttempt(e Execution) bool {
 // Ready lists never-attempted tasks whose dependencies completed (including
 // any human gate), in Workflow order. Cancellation, failure or any unresolved
 // unknown effect yields nothing: successors stop.
-func (e Execution) Ready() []TaskRef {
+func (e Execution) Ready() []TaskRef { return e.ready(true) }
+
+func (e Execution) ready(bounded bool) []TaskRef {
 	if e.Rejection != nil || e.Cancel != nil || e.Status == RunRecoveryRequired || e.Status == RunFailed || e.Status == RunCancelled {
 		return nil
 	}
@@ -268,6 +271,10 @@ func (e Execution) Ready() []TaskRef {
 	}
 	var refs []TaskRef
 	for i, spec := range e.Workflow.Stages {
+		remaining, err := e.stageCapacity(spec.ID, nil)
+		if err != nil {
+			return nil
+		}
 		ready := true
 		for _, dep := range spec.DependsOn {
 			if e.Stages[e.stageIndex(dep)].Status != StageCompleted {
@@ -296,15 +303,57 @@ func (e Execution) Ready() []TaskRef {
 					}
 				}
 			}
-			if len(t.Attempts) == 0 && agentReady {
+			if len(t.Attempts) == 0 && agentReady && (!bounded || remaining > 0) {
 				refs = append(refs, TaskRef{spec.ID, t.AgentID})
+				remaining--
 			}
 		}
 	}
 	return refs
 }
 
+// ErrStageCapacity is temporary saturation, not a failed attempt or retry.
+var ErrStageCapacity = errors.New("stage_capacity_unavailable")
+
+// InflightAttempt is a principal-owned worker correlation, never persisted.
+type InflightAttempt struct {
+	Ref       TaskRef
+	AttemptID string
+}
+
+// stageCapacity counts the union: a terminal commit does not finish a worker.
+// Historical absence narrows new admission only; it never rewrites the snapshot.
+func (e Execution) stageCapacity(stageID string, inflight []InflightAttempt) (int, error) {
+	i := e.stageIndex(stageID)
+	if i < 0 {
+		return 0, ErrTransition
+	}
+	limit := 1
+	if n := e.Workflow.Stages[i].Concurrency; n != nil {
+		limit = *n
+	}
+	occupied := map[string]bool{}
+	for _, task := range e.Stages[i].Tasks {
+		for _, attempt := range task.Attempts {
+			if attempt.Status == AttemptPrepared || attempt.Status == AttemptRunning {
+				occupied[attempt.AttemptID] = true
+			}
+		}
+	}
+	for _, worker := range inflight {
+		attempt, ref, ok := e.FindAttempt(worker.AttemptID)
+		if !ok || ref != worker.Ref || attempt.RunnerGeneration != e.RunnerGeneration {
+			return 0, fmt.Errorf("%w: invalid inflight correlation", ErrTransition)
+		}
+		if ref.StageID == stageID {
+			occupied[worker.AttemptID] = true
+		}
+	}
+	return limit - len(occupied), nil
+}
+
 type PrepareInput struct {
+	Inflight   []InflightAttempt
 	Workspace  *AttemptWorkspace
 	Ref        TaskRef
 	AttemptID  string
@@ -350,7 +399,7 @@ func (e *Execution) PrepareAttempt(in PrepareInput) error {
 		return fmt.Errorf("%w: nothing to retry", ErrTransition)
 	case last == nil:
 		eligible := false
-		for _, r := range e.Ready() {
+		for _, r := range e.ready(false) {
 			eligible = eligible || r == in.Ref
 		}
 		if !eligible {
@@ -398,6 +447,13 @@ func (e *Execution) PrepareAttempt(in PrepareInput) error {
 	}
 	if e.AttemptPolicy == SpawnBoundaryPolicy && in.Retry && in.WorkspaceDisposition != "preserve" {
 		return ErrWorkspaceDispositionRequired
+	}
+	remaining, err := e.stageCapacity(in.Ref.StageID, in.Inflight)
+	if err != nil {
+		return err
+	}
+	if remaining <= 0 {
+		return ErrStageCapacity
 	}
 	accounting, parent := "", ""
 	if e.AttemptPolicy == SpawnBoundaryPolicy {
