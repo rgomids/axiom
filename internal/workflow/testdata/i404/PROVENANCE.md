@@ -11,7 +11,7 @@ returned 0 before generation. Generation nevertheless ran in a **git archive of
 repositories and process identities are synthetic constants; no host/provider
 state was read. Cases are single, independent DAG (a/b roots, join dependency),
 terminal attempt, prepared, running, and multi-active historical a/b attempts.
-Each `*.json` Execution is a complete encoder output, without added newline.
+Each `*.json` Execution is a complete encoder output, including the encoder's final newline.
 Each historical `*.digest-input.json` is the exact ordered digest input emitted
 by the unchanged types. `manifest.json` records SHA-256 of every literal file;
 its hash is pinned in `TestI404FrozenFormat4` independently of the current writer.
@@ -52,3 +52,27 @@ They are future digest oracles, not old-reader compatible Executions.
 Released stable-v1 and i369 corpora are unchanged. This issue corpus is additive,
 not a regeneration or relaxation of existing historical expectations. Never
 regenerate expected values with the amended encoder.
+
+## Pinned old-reader probe (T2)
+
+`new_writer.go` produces explicit-1/2 full canonical Executions using the new
+writer. It is distinct from `freeze.go` and never writes this frozen corpus.
+Reuse the existing i369 old-reader spy probe, compiled **inside an archive of
+15d0f879**, to verify refusal through the real old decoder/store/engine/reconcile
+before resolver/launcher/collector/runner effects, without directory/lease/byte
+changes:
+
+```sh
+probe=$(mktemp -d)
+go run internal/workflow/testdata/i404/new_writer.go "$probe"
+old=$(mktemp -d)
+git archive 15d0f87911b758636a922cd9ab9777ed5d05046f | tar -x -C "$old"
+mkdir -p "$old/internal/i404reader"
+cp internal/workflow/testdata/i369/old_reader.go "$old/internal/i404reader/main.go"
+(cd "$old" && go run ./internal/i404reader "new:$probe/explicit-1.json" "new:$probe/explicit-2.json")
+```
+
+Observed T2 command exit 0: `explicit-1.json PASS actual new writer rejected
+before effects`; `explicit-2.json PASS actual new writer rejected before effects`.
+`go test ./internal/workflow ./internal/strictjson -count=1` also exited 0
+(workflow 1.584s, strictjson 0.283s) against the additive codec working diff.
