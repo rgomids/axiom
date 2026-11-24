@@ -11,13 +11,14 @@ func sha(c string) string { return strings.Repeat(c, 40) }
 
 func integrationExecution(t *testing.T, gate bool) Execution {
 	t.Helper()
+	concurrency := 2
 	effects := []string{"workspace_write", "validation_command"}
 	e, err := NewExecution(NewExecutionInput{
 		ExecutionID: testExecutionID, ProjectID: "proj", WorkItem: WorkItemLink{"linear", "AXM-42", "app"},
 		Repositories: []RepositoryBinding{{"app", "github.com/example/app"}, {"lib", "github.com/example/lib"}},
 		WorkflowID:   "parallel", Revision: "r1", Now: t0,
 		Stages: []StageSpec{{
-			ID: "work", HumanGate: gate, TimeoutSeconds: 60,
+			ID: "work", Concurrency: &concurrency, HumanGate: gate, TimeoutSeconds: 60,
 			Agents:   []AgentSpec{{ID: "a", Effects: effects}, {ID: "b", Effects: effects}, {ID: "c", Effects: []string{"workspace_write"}}},
 			Commands: []CommandCheck{{ID: "check", Argv: []string{"/bin/true"}, TimeoutSeconds: 10, Effects: []string{"validation_command"}}},
 		}},

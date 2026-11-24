@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"sync"
 	"testing"
 
 	"github.com/rgomids/axiom/internal/workflow"
@@ -169,5 +170,70 @@ func TestI404HistoricalMultiActiveLoadsAtCanonicalLocation(t *testing.T) {
 	after, err := os.ReadFile(path)
 	if err != nil || !bytes.Equal(wire, after) {
 		t.Fatal("read rewrote historical bytes", err)
+	}
+}
+
+func TestI404ConcurrentFencedAdmissionRechecksStageCapacity(t *testing.T) {
+	two := 2
+	base := i404StoreExecution(t, &two)
+	base.Workflow.Stages[0].Agents[2].DependsOn = nil
+	x, err := workflow.NewExecution(workflow.NewExecutionInput{
+		ExecutionID: base.ExecutionID, ProjectID: base.ProjectID, WorkItem: base.WorkItem,
+		Repositories: base.Repositories, WorkflowID: base.Workflow.ID, Revision: base.Workflow.Revision,
+		Stages: base.Workflow.Stages, Now: base.CreatedAt,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	s, _ := newTestExecutionStore(t)
+	ctx := context.Background()
+	if err := s.Create(ctx, x); err != nil {
+		t.Fatal(err)
+	}
+	lease, err := s.AcquireRunner(ctx, x.ProjectID, x.ExecutionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer lease.Close()
+	x, err = s.UpdateFenced(ctx, x.ProjectID, x.ExecutionID, lease, func(e *workflow.Execution) error { return e.ClaimRunner(lease.Generation(), e.CreatedAt) })
+	if err != nil {
+		t.Fatal(err)
+	}
+	// All callers share the same old observation. Only the fenced current state
+	// may grant slots; concurrent requests cannot turn eligibility into a grant.
+	start := make(chan struct{})
+	results := make(chan error, 3)
+	var waiting sync.WaitGroup
+	waiting.Add(3)
+	for _, task := range x.Stages[0].Tasks {
+		go func() {
+			waiting.Done()
+			<-start
+			_, err := s.UpdateFenced(ctx, x.ProjectID, x.ExecutionID, lease, func(e *workflow.Execution) error {
+				return e.PrepareAttempt(workflow.PrepareInput{Ref: workflow.TaskRef{StageID: "work", AgentID: task.AgentID}, AttemptID: "attempt-" + task.AgentID, Generation: lease.Generation(), Invocation: storeInvocation(), Authority: workflow.AttemptAuthority{RepositoryKey: "app", Effects: []string{}, Actor: "user:local"}, Now: e.CreatedAt})
+			})
+			results <- err
+		}()
+	}
+	waiting.Wait()
+	close(start)
+	admitted, saturated := 0, 0
+	for range 3 {
+		switch err := <-results; {
+		case err == nil:
+			admitted++
+		case errors.Is(err, workflow.ErrStageCapacity):
+			saturated++
+		default:
+			t.Fatal(err)
+		}
+	}
+	got, err := s.Load(ctx, x.ProjectID, x.ExecutionID)
+	attempts := 0
+	for _, task := range got.Stages[0].Tasks {
+		attempts += len(task.Attempts)
+	}
+	if err != nil || admitted != 2 || saturated != 1 || attempts != 2 || len(got.Ready()) != 0 {
+		t.Fatalf("fenced capacity: admitted=%d saturated=%d attempts=%d ready=%v err=%v", admitted, saturated, attempts, got.Ready(), err)
 	}
 }
