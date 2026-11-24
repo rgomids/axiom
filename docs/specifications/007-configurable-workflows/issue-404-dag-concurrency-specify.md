@@ -1,5 +1,14 @@
 # Issue #404 — DAG concurrency mapper Specification
 
+Current qualification: **SPECIFY-404-02**, 2026-11-24, in the
+[canonical concurrency amendment](amendment-404-canonical-stage-concurrency.md).
+The former scope impediment is addressed by the linked human scope decision;
+compatibility and implementation Evidence gates are explicit in the amendment.
+No behavioral PASS or authority for a dependent stage is claimed.
+
+## Preserved historical record — SPECIFY-404-01 (BLOCKED)
+
+The remainder of this record is dated history, not the current scope or gate.
 SPECIFY-404-01, 2026-11-24. Bounded bug specification and source Evidence;
 not an implementation, Plan, Tasks, contract amendment or product PASS.
 
