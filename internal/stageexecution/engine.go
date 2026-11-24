@@ -217,7 +217,7 @@ func (e Engine) Run(ctx context.Context, projectID, executionID string, opts Run
 	return e.runReady(ctx, lease, current, opts)
 }
 
-func (e Engine) prepareAttempt(ctx context.Context, lease workflow.RunnerFence, current workflow.Execution, ref workflow.TaskRef, isRetry, newSelection bool, disposition string) (LaunchRequest, error) {
+func (e Engine) prepareAttempt(ctx context.Context, lease workflow.RunnerFence, current workflow.Execution, ref workflow.TaskRef, isRetry, newSelection bool, disposition string, inflight []workflow.InflightAttempt) (LaunchRequest, error) {
 	if !isRetry {
 		disposition = ""
 	}
@@ -260,7 +260,7 @@ func (e Engine) prepareAttempt(ctx context.Context, lease workflow.RunnerFence, 
 	}
 	update := e.commit(ctx, projectID, executionID, lease)
 	prepared, err := update(func(x *workflow.Execution) error {
-		return x.PrepareAttempt(workflow.PrepareInput{Ref: ref, AttemptID: attemptID, Generation: gen, Invocation: invocation, Authority: authority, Now: e.now(), Retry: isRetry, NewSelection: newSelection, WorkspaceDisposition: disposition, Workspace: workspace})
+		return x.PrepareAttempt(workflow.PrepareInput{Ref: ref, AttemptID: attemptID, Generation: gen, Invocation: invocation, Authority: authority, Now: e.now(), Retry: isRetry, NewSelection: newSelection, WorkspaceDisposition: disposition, Workspace: workspace, Inflight: inflight})
 	})
 	if err != nil {
 		return LaunchRequest{}, err

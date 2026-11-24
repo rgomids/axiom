@@ -39,8 +39,9 @@ func (s *observedWriter) UpdateFenced(ctx context.Context, project, execution st
 }
 
 func parallelStages(gate bool) []workflow.StageSpec {
+	capacity := 2
 	return []workflow.StageSpec{
-		{ID: "work", Agents: []workflow.AgentSpec{{ID: "a"}, {ID: "b"}, {ID: "c", DependsOn: []string{"a"}}}, HumanGate: gate, TimeoutSeconds: 5},
+		{ID: "work", Concurrency: &capacity, Agents: []workflow.AgentSpec{{ID: "a"}, {ID: "b"}, {ID: "c", DependsOn: []string{"a"}}}, HumanGate: gate, TimeoutSeconds: 5},
 		{ID: "next", DependsOn: []string{"work"}, Agents: []workflow.AgentSpec{{ID: "next"}}, TimeoutSeconds: 5},
 	}
 }
